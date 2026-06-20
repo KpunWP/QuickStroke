@@ -963,6 +963,7 @@ let lastRepAsym = 0;
 let peakSmileL = 0, peakSmileR = 0, peakRiseL = 0, peakRiseR = 0;
 let assessAttempts = 0;
 let retryTimer = null;
+let poseInterruptedSmile = false;   // true เมื่อ pose/no-face ขัดจังหวะช่วงยิ้ม → ต้องเริ่ม smile window ใหม่
 
 let pitchNeutralRatio = null;
 
@@ -979,8 +980,14 @@ loadVoices();
 function primeSpeech(){
   if (speechPrimed || typeof speechSynthesis === 'undefined') return;
   try {
-    const u = new SpeechSynthesisUtterance(' ');
-    u.volume = 0;
+    // Browser บางตัว โดยเฉพาะ iOS/Safari จะไม่ unlock เสียงถ้า utterance เป็นค่าว่าง
+    // ใช้เสียงสั้นมากและเบามากใน user gesture เพื่อให้ prompt แรกหลังจากนั้นพูดได้จริง
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance('เริ่ม');
+    const code = sessionStorage.getItem('fast_lang') || 'th';
+    u.lang = SPEAK_LANG[code] || 'th-TH';
+    u.volume = 0.01;
+    u.rate = 1.2;
     speechSynthesis.speak(u);
     speechPrimed = true;
   } catch(e){}
@@ -1003,6 +1010,17 @@ function speakFace(txt){
 function showCenterCountdown(v){ centerCD.textContent = v; centerCD.style.display = 'block'; }
 function hideCenterCountdown(){ centerCD.style.display = 'none'; }
 function average(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
+function hideSmilePrompt(){
+  const sp = document.getElementById('smile-prompt');
+  if (sp) sp.style.display = 'none';
+}
+function showSmilePrompt(text){
+  const sp = document.getElementById('smile-prompt');
+  if (!sp) return;
+  const box = sp.querySelector('div');
+  if (box) box.textContent = text || FL.smilePrompt;
+  sp.style.display = 'block';
+}
 
 function applyFaceLang(){
   const setText=(id,t)=>{const el=document.getElementById(id);if(el)el.textContent=t;};
@@ -1185,8 +1203,17 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
   if(db){ db.style.background=glassColor; db.classList.toggle('pulse',pulse); }
   document.body.classList.toggle('result-visible', !!showScore);
 
-  if(poseWarn){ poseWarnMsg.textContent=poseWarn; poseWarnMsg.style.display='block'; statusMsg.style.display='none'; }
-  else { poseWarnMsg.style.display='none'; statusMsg.textContent=msg; statusMsg.style.display=msg?'block':'none'; }
+  if(poseWarn){
+    hideSmilePrompt();
+    poseWarnMsg.textContent=poseWarn;
+    poseWarnMsg.style.display='block';
+    statusMsg.style.display='none';
+  } else {
+    poseWarnMsg.style.display='none';
+    statusMsg.textContent=msg;
+    statusMsg.style.display=msg?'block':'none';
+  }
+  if (showScore) hideSmilePrompt();
 
   // ตอนแสดงผลจบ ให้ใช้ปุ่มหลักเป็น “ทดสอบใหม่” แบบ full-width
   // และซ่อนปุ่ม reset ลอยเดิม เพื่อไม่ให้ชนกับ panel คะแนน / ปุ่มไปต่อ
@@ -1215,7 +1242,7 @@ function startScreening(){
   restCornerAsymSamples=[]; restCornerL=[]; restCornerR=[]; restEyeW=[];
   baseL=null; baseR=null; baseEyeW=null;
   criticalFired=false; noFaceCount=0;
-  countdownVal=CALIBRATION_SECONDS; countdownPaused=false;
+  countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileEverDetected=false;
   actionWaitStartMs=null; lastSmileVoiceMs=0; lastRepAsym=0;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
@@ -1224,7 +1251,7 @@ function startScreening(){
   pitchNeutralRatio=null;
   scoreNum.textContent='—';
   noFaceBanner.style.display='none'; poseWarnMsg.style.display='none';
-  hideCenterCountdown();
+  hideCenterCountdown(); hideSmilePrompt();
   const oldNav=document.getElementById('fast-nav-btn'); if(oldNav) oldNav.remove();
 
   phase='RESTING_PHASE';
@@ -1254,12 +1281,37 @@ function calibrationTick(){
 
 function startActionPhase(){
   phase='ACTION_PHASE';
+  poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileEverDetected=false;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
   actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now();
   setUI({glassColor:'var(--col-green-glass)', msg:'', showReset:true, showHud:true});
-  const sp=document.getElementById('smile-prompt');
-  if(sp){ sp.querySelector('div').textContent=FL.smilePrompt; sp.style.display='block'; }
+  showSmilePrompt(FL.smilePrompt);
+  speakFace(FL.smileVoice);
+}
+
+function resetSmileAttemptAfterPose(){
+  // Pose/no-face warning has priority over the smile test.
+  // When the user comes back to a valid front-facing pose, we restart the smile
+  // assessment from zero instead of continuing a partly recorded smile window.
+  phase='ACTION_PHASE';
+  poseInterruptedSmile=false;
+  countdownPaused=false;
+  smileStartMs=null;
+  frameAsymScores=[];
+  validSmileFrames=0;
+  smileEverDetected=false;
+  peakSmileL=0;
+  peakSmileR=0;
+  peakRiseL=0;
+  peakRiseR=0;
+  actionWaitStartMs=Date.now();
+  lastSmileVoiceMs=Date.now();
+  hideCenterCountdown();
+  poseWarnMsg.style.display='none';
+  statusMsg.style.display='none';
+  setUI({glassColor:'var(--col-green-glass)', msg:'', showReset:true, showHud:true});
+  showSmilePrompt(FL.smilePrompt);
   speakFace(FL.smileVoice);
 }
 
@@ -1273,6 +1325,10 @@ function onResults(results){
     noFaceCount++;
     if (noFaceCount > 12 && ['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE'].includes(phase)){
       hideCenterCountdown(); countdownPaused = true;
+      if (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE') {
+        poseInterruptedSmile = true;
+        hideSmilePrompt();
+      }
       setUI({glassColor:'var(--col-orange-glass)', msg:'', poseWarn:FL.noFace, showReset:true, showHud:true});
     }
     noFaceBanner.style.display='block';
@@ -1319,7 +1375,12 @@ function onResults(results){
   // pose gate (pause, don't abort)
   const absYaw=Math.abs(yawDeg), absPitch=Math.abs(pitchDeg), absRoll=Math.abs(rollDeg);
   if (absYaw>MAX_ALLOWED_YAW || absPitch>MAX_ALLOWED_PITCH || absRoll>MAX_ALLOWED_ROLL){
-    countdownPaused=true; hideCenterCountdown();
+    countdownPaused=true;
+    hideCenterCountdown();
+    if (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE') {
+      poseInterruptedSmile = true;
+      hideSmilePrompt();
+    }
     let t='';
     if (absRoll>MAX_ALLOWED_ROLL) t = rollDeg>0?FL.tiltLeft:FL.tiltRight;
     else if (absYaw>MAX_ALLOWED_YAW) t = yawDeg>0?FL.turnRight:FL.turnLeft;
@@ -1329,7 +1390,12 @@ function onResults(results){
   }
   if (countdownPaused){
     countdownPaused=false;
-    poseWarnMsg.style.display='none'; statusMsg.style.display='block';
+    poseWarnMsg.style.display='none';
+    statusMsg.style.display='block';
+    if (poseInterruptedSmile && (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE')){
+      resetSmileAttemptAfterPose();
+      return;
+    }
     if (phase==='RESTING_PHASE') showCenterCountdown(countdownVal);
   }
 
@@ -1366,15 +1432,14 @@ function onResults(results){
       smileEverDetected = true;
       smileStartMs = now;
       phase = 'ACTION_WAIT_SMILE';
-      const sp=document.getElementById('smile-prompt'); if(sp) sp.style.display='none';
+      hideSmilePrompt();
       return;
     }
     // voice nudge + timeout → invalid (covered mouth / no smile)
     if (now - lastSmileVoiceMs > 5000){
       speakFace(FL.noSmileWarn);
       lastSmileVoiceMs = now;
-      const sp=document.getElementById('smile-prompt');
-      if(sp){ sp.querySelector('div').textContent=FL.noSmileWarn; sp.style.display='block'; }
+      showSmilePrompt(FL.noSmileWarn);
       statusMsg.style.display = 'none';
     }
     if (now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){ finishInvalid(); }
@@ -1406,7 +1471,7 @@ function onResults(results){
 
     if (elapsed >= ACTION_DURATION_MS){
       hideCenterCountdown();
-      const sp=document.getElementById('smile-prompt'); if(sp) sp.style.display='none';
+      hideSmilePrompt();
       if (validSmileFrames < MIN_VALID_SMILE_FRAMES){
         finishInvalid();   // never saw a real, moving smile → can't say "normal"
         return;
@@ -1475,7 +1540,7 @@ function finishCritical(){
 
 function finishInvalid(){
   hideCenterCountdown();
-  const sp=document.getElementById('smile-prompt'); if(sp) sp.style.display='none';
+  hideSmilePrompt();
   assessAttempts++;
 
   // Auto-retry the smile step (baseline is kept) so an elderly user isn't left
@@ -1571,7 +1636,17 @@ function initCamera(stream){
   videoEl.addEventListener('loadedmetadata', ()=>{ videoEl.play().catch(()=>{}); });
   isCameraRunning = true;
   detectLoop();
-  startScreening();
+
+  // ไม่เริ่มทดสอบอัตโนมัติหลังกล้องเปิด เพราะเสียง prompt แรกอาจถูก browser block
+  // ให้ผู้ใช้กดปุ่มเริ่มจริงก่อน เพื่อ unlock speechSynthesis จาก user gesture
+  phase = 'BEFORE_START';
+  setUI({
+    glassColor:'var(--col-blue-glass)',
+    msg:FL.pressStart,
+    showStart:true,
+    showReset:false,
+    showHud:false
+  });
 }
 
 async function startCamera(){
