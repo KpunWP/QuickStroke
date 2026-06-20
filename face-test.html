@@ -621,6 +621,24 @@
     padding:0!important;
   }
 
+
+  /* ─────────────────────────────────────────────
+     PATCH 9 — clear orange pose warning
+     Pose warnings are higher priority than smile prompts.
+     ───────────────────────────────────────────── */
+  body.pose-warning-visible #pose-warn-msg{
+    display:block!important;
+    background:rgba(232,155,60,.92)!important;
+    border:1px solid rgba(255,224,150,.86)!important;
+    color:#fff!important;
+    box-shadow:0 0 0 1px rgba(255,255,255,.12),0 14px 34px rgba(232,155,60,.30),0 14px 34px rgba(0,0,0,.34)!important;
+    text-shadow:0 2px 10px rgba(0,0,0,.26)!important;
+  }
+  body.pose-warning-visible #smile-prompt,
+  body.pose-warning-visible #status-msg{
+    display:none!important;
+  }
+
 </style>
 <script src="fast-permissions.js"></script>
 </head>
@@ -703,6 +721,8 @@
     <span class="dbg-row"><span class="dbg-lbl">validFrames</span><span class="dbg-val" id="dbg-vf">—</span></span>
     <span class="dbg-row"><span class="dbg-lbl">repAsym(p60)</span><span class="dbg-val" id="dbg-rep">—</span></span>
     <span class="dbg-row"><span class="dbg-lbl">phase</span><span class="dbg-val" id="dbg-phase">—</span></span>
+    <span class="dbg-row"><span class="dbg-lbl">mouthVisible</span><span class="dbg-val" id="dbg-mouthvis">—</span></span>
+    <span class="dbg-row"><span class="dbg-lbl">mouthScore</span><span class="dbg-val" id="dbg-mouthscore">—</span></span>
   </div>
 </div>
 
@@ -755,7 +775,7 @@ const FACE_I18N = {
     startBtn:'▶\u00A0 เริ่มทดสอบ',
     pressStart:'กดปุ่มเพื่อเริ่มทดสอบ',
     step1:'ขั้นที่ 1: ทำหน้าตรง นิ่งๆ ผ่อนคลาย',
-    step2:'😄 ยิ้มกว้างให้เห็นฟัน',
+    step2:'😄 ยิ้มกว้าง',
     noFaceBaseline:'⚠️ ไม่พบใบหน้าระหว่างบันทึกค่าเริ่มต้น กรุณาลองใหม่',
     mouthNotAssessable:'⚠️ ตรวจไม่ได้ — กรุณาเปิดให้เห็นปากชัดเจนและยิ้มกว้างใหม่',
     retrying:'😐 ยังไม่เห็นการยิ้มชัด — กำลังลองใหม่อัตโนมัติ',
@@ -775,8 +795,8 @@ const FACE_I18N = {
     navNext:'💪 แขน →',
     navHome:'🏠 หน้าหลัก',
     smilePrompt:'😄 ยิ้มกว้าง',
-    smileVoice:'ยิ้มกว้าง ให้เห็นฟัน',
-    noSmileWarn:'😐 กรุณายิ้มกว้างให้เห็นฟัน',
+    smileVoice:'ยิ้มกว้าง',
+    noSmileWarn:'😐 กรุณายิ้มกว้าง',
     restVoice:'ทำหน้าตรง นิ่งๆ',
     resultScore:'คะแนน',
     resultOk:'ปกติ',
@@ -806,9 +826,9 @@ const FACE_I18N = {
     startBtn:'▶\u00A0 Start Test',
     pressStart:'Press the button to start',
     step1:'Step 1: Keep your face straight & relaxed',
-    step2:'😄 Smile widely, show teeth',
+    step2:'😄 Smile widely',
     noFaceBaseline:'⚠️ No face detected during baseline. Please try again.',
-    mouthNotAssessable:'⚠️ Unable to assess — keep your mouth visible and smile widely',
+    mouthNotAssessable:'⚠️ Unable to assess — keep your mouth clearly visible and smile widely',
     retrying:'😐 No clear smile yet — retrying automatically',
     invalidHelp:'⚠️ Could not assess after several tries — ask staff for help, or tap ↺',
     faceUnableAssess:'⚠️ Unable to assess face',
@@ -826,8 +846,8 @@ const FACE_I18N = {
     navNext:'💪 Arms →',
     navHome:'🏠 Home',
     smilePrompt:'😄 Smile',
-    smileVoice:'Smile widely, show your teeth',
-    noSmileWarn:'😐 Please smile widely showing teeth',
+    smileVoice:'Smile widely',
+    noSmileWarn:'😐 Please smile widely',
     restVoice:'Keep your face straight and still',
     resultScore:'Score',
     resultOk:'Normal',
@@ -857,9 +877,9 @@ const FACE_I18N = {
     startBtn:'▶\u00A0 テスト開始',
     pressStart:'ボタンを押して開始',
     step1:'ステップ1: 顔をまっすぐ、リラックス',
-    step2:'😄 歯を見せて大きく笑って',
+    step2:'😄 大きく笑って',
     noFaceBaseline:'⚠️ 基準値の記録中に顔が検出されませんでした。もう一度お試しください。',
-    mouthNotAssessable:'⚠️ 判定できません — 口元が見えるように大きく笑ってください',
+    mouthNotAssessable:'⚠️ 判定できません — 口元がはっきり見えるように大きく笑ってください',
     retrying:'😐 笑顔が確認できません — 自動で再試行します',
     invalidHelp:'⚠️ 数回試しましたが判定できません — スタッフに依頼するか ↺ で再試行',
     faceUnableAssess:'⚠️ 顔を評価できません',
@@ -877,8 +897,8 @@ const FACE_I18N = {
     navNext:'💪 腕 →',
     navHome:'🏠 ホーム',
     smilePrompt:'😄 笑って',
-    smileVoice:'歯を見せて大きく笑ってください',
-    noSmileWarn:'😐 歯を見せて大きく笑ってください',
+    smileVoice:'大きく笑ってください',
+    noSmileWarn:'😐 大きく笑ってください',
     restVoice:'顔をまっすぐ静かに',
     resultScore:'スコア',
     resultOk:'正常',
@@ -909,6 +929,8 @@ const scoreBox = document.getElementById('score-box');
 const scoreNum = document.getElementById('score-num');
 const poseHud = document.getElementById('pose-hud');
 const debugPanel = document.getElementById('debug-panel');
+let mouthCanvas = null;
+let mouthCtx = null;
 
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const CALIBRATION_SECONDS = 3;       // short "get ready" before smiling
@@ -923,6 +945,9 @@ const SMILE_VALID_STRENGTH = 0.18;   // min strength for a frame to count as evi
 const REAL_MOVE_MIN = 0.04;          // corner must actually rise (norm by eye width) — guards occlusion
 const SMILE_REAL_MIN = 0.40;         // stronger side must reach a real smile, else "unable to assess"
 const MIN_VALID_SMILE_FRAMES = 12;   // fewer valid frames than this → "unable to assess"
+const MIN_VISIBLE_MOUTH_FRAMES = 10; // mouth must be visibly assessable, not covered by a hand
+const MIN_MOUTH_VISIBILITY_SCORE = 0.085; // texture/contrast evidence that the mouth region is visible
+const MIN_MOUTH_DARK_RATIO = 0.018;       // dark mouth-line/oral-cavity evidence helps avoid false pass when covered
 const MAX_WAIT_FOR_SMILE_MS = 14000; // no genuine smile within this → "unable to assess"
 
 const SMILE_ASYM_WARN = 0.26;        // representative asym → caution
@@ -936,6 +961,8 @@ const MAX_ALLOWED_ROLL = 20;
 const IDX_L_EYE = 133, IDX_R_EYE = 362;
 const IDX_NOSE = 4, IDX_FOREHEAD = 10, IDX_CHIN = 152;
 const IDX_ML = 61, IDX_MR = 291;
+const IDX_LIP_TOP = 13, IDX_LIP_BOTTOM = 14;
+const MOUTH_ROI_IDX = [61, 291, 13, 14, 78, 308, 0, 17, 37, 267, 39, 269, 40, 270];
 
 /* ───────────── State ───────────── */
 let faceLandmarker = null;
@@ -961,6 +988,11 @@ let lastSmileVoiceMs = 0;
 let lastRepAsym = 0;
 // per-side PEAK activation during the smile window (the core stroke signal)
 let peakSmileL = 0, peakSmileR = 0, peakRiseL = 0, peakRiseR = 0;
+let visibleMouthFrames = 0;
+let mouthVisibilityScores = [];
+let lastMouthVisibilityScore = 0;
+let lastMouthDarkRatio = 0;
+let lastMouthVisible = false;
 let assessAttempts = 0;
 let retryTimer = null;
 let poseInterruptedSmile = false;   // true เมื่อ pose/no-face ขัดจังหวะช่วงยิ้ม → ต้องเริ่ม smile window ใหม่
@@ -1185,6 +1217,91 @@ function bs(blend, name){
   return c ? c.score : 0;
 }
 
+
+function getMouthVisibility(lm){
+  // This is intentionally conservative. Face Landmarker can hallucinate mouth
+  // landmarks through a hand, so a smile blendshape alone must not become
+  // "normal". We require some visual evidence from the actual mouth ROI.
+  const vw = videoEl.videoWidth || 0;
+  const vh = videoEl.videoHeight || 0;
+  if (!vw || !vh || !lm || !lm[IDX_ML] || !lm[IDX_MR]) {
+    return { visible:false, score:0, darkRatio:0, contrast:0, edge:0, mouthOpen:0 };
+  }
+
+  const xs = [], ys = [];
+  for (const idx of MOUTH_ROI_IDX){
+    const p = lm[idx];
+    if (!p) continue;
+    xs.push(p.x * vw); ys.push(p.y * vh);
+  }
+  if (xs.length < 4) return { visible:false, score:0, darkRatio:0, contrast:0, edge:0, mouthOpen:0 };
+
+  const eyeW = Math.hypot(lm[IDX_L_EYE].x - lm[IDX_R_EYE].x, lm[IDX_L_EYE].y - lm[IDX_R_EYE].y) + 1e-6;
+  const mouthOpen = Math.abs(lm[IDX_LIP_BOTTOM].y - lm[IDX_LIP_TOP].y) / eyeW;
+
+  let minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+  const padX = Math.max(8, (maxX - minX) * 0.35);
+  const padY = Math.max(8, (maxY - minY) * 0.75);
+  minX = Math.max(0, Math.floor(minX - padX));
+  maxX = Math.min(vw - 1, Math.ceil(maxX + padX));
+  minY = Math.max(0, Math.floor(minY - padY));
+  maxY = Math.min(vh - 1, Math.ceil(maxY + padY));
+
+  const w = Math.max(12, maxX - minX);
+  const h = Math.max(12, maxY - minY);
+  if (!mouthCanvas) {
+    mouthCanvas = document.createElement('canvas');
+    mouthCtx = mouthCanvas.getContext('2d', { willReadFrequently:true });
+  }
+  mouthCanvas.width = w;
+  mouthCanvas.height = h;
+
+  try {
+    mouthCtx.drawImage(videoEl, minX, minY, w, h, 0, 0, w, h);
+    const data = mouthCtx.getImageData(0, 0, w, h).data;
+    let n=0, sum=0, sum2=0, dark=0, sat=0, edgeSum=0, edgeN=0;
+    const lums = new Float32Array(w*h);
+
+    for (let y=0; y<h; y+=2){
+      for (let x=0; x<w; x+=2){
+        const i = (y*w + x) * 4;
+        const r=data[i], g=data[i+1], b=data[i+2];
+        const lum = 0.299*r + 0.587*g + 0.114*b;
+        lums[y*w+x] = lum;
+        n++; sum += lum; sum2 += lum*lum;
+        if (lum < 82) dark++;
+        const maxc=Math.max(r,g,b), minc=Math.min(r,g,b);
+        if ((maxc-minc) > 34) sat++;
+      }
+    }
+    const mean = sum / Math.max(1,n);
+    const contrast = Math.sqrt(Math.max(0, sum2/Math.max(1,n) - mean*mean)) / 255;
+    for (let y=0; y<h-2; y+=2){
+      for (let x=0; x<w-2; x+=2){
+        const a=lums[y*w+x], r=lums[y*w+x+2], d=lums[(y+2)*w+x];
+        if (!a && !r && !d) continue;
+        edgeSum += Math.abs(a-r) + Math.abs(a-d);
+        edgeN += 2;
+      }
+    }
+    const edge = (edgeSum / Math.max(1,edgeN)) / 255;
+    const darkRatio = dark / Math.max(1,n);
+    const satRatio = sat / Math.max(1,n);
+
+    // Mouth evidence: dark mouth line/oral cavity, lip color/texture, or enough
+    // non-uniform detail. A covered mouth often has smile landmarks but weak score.
+    const score = (contrast * 0.95) + (edge * 0.70) + (darkRatio * 0.85) + (satRatio * 0.10) + (mouthOpen * 0.20);
+    const visible = (darkRatio >= MIN_MOUTH_DARK_RATIO && score >= 0.060)
+      || score >= MIN_MOUTH_VISIBILITY_SCORE
+      || (mouthOpen > 0.090 && contrast > 0.050);
+
+    return { visible, score, darkRatio, contrast, edge, mouthOpen };
+  } catch(e){
+    // If pixel read fails, fail closed for safety: do not call it normal.
+    return { visible:false, score:0, darkRatio:0, contrast:0, edge:0, mouthOpen };
+  }
+}
+
 function updatePoseBar(barId, valId, deg, maxDeg){
   const bar=document.getElementById(barId), val=document.getElementById(valId);
   if(!bar||!val) return;
@@ -1202,6 +1319,7 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
   const db=document.getElementById('dashboard');
   if(db){ db.style.background=glassColor; db.classList.toggle('pulse',pulse); }
   document.body.classList.toggle('result-visible', !!showScore);
+  document.body.classList.toggle('pose-warning-visible', !!poseWarn && !showScore);
 
   if(poseWarn){
     hideSmilePrompt();
@@ -1246,6 +1364,7 @@ function startScreening(){
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileEverDetected=false;
   actionWaitStartMs=null; lastSmileVoiceMs=0; lastRepAsym=0;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
+  visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   assessAttempts=0;
   if (retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
   pitchNeutralRatio=null;
@@ -1284,6 +1403,7 @@ function startActionPhase(){
   poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileEverDetected=false;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
+  visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now();
   setUI({glassColor:'var(--col-green-glass)', msg:'', showReset:true, showHud:true});
   showSmilePrompt(FL.smilePrompt);
@@ -1305,6 +1425,11 @@ function resetSmileAttemptAfterPose(){
   peakSmileR=0;
   peakRiseL=0;
   peakRiseR=0;
+  visibleMouthFrames=0;
+  mouthVisibilityScores=[];
+  lastMouthVisibilityScore=0;
+  lastMouthDarkRatio=0;
+  lastMouthVisible=false;
   actionWaitStartMs=Date.now();
   lastSmileVoiceMs=Date.now();
   hideCenterCountdown();
@@ -1356,6 +1481,10 @@ function onResults(results){
     if (riseSum > 0.05) geomAsym = Math.abs(riseLn - riseRn) / riseSum;
   }
   const frameAsym = Math.max(smileAsym, geomAsym);
+  const mouthVis = getMouthVisibility(lm);
+  lastMouthVisibilityScore = mouthVis.score;
+  lastMouthDarkRatio = mouthVis.darkRatio;
+  lastMouthVisible = mouthVis.visible;
 
   // debug
   const setDbg=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
@@ -1365,6 +1494,7 @@ function onResults(results){
   setDbg('dbg-pkl', peakSmileL.toFixed(2)); setDbg('dbg-pkr', peakSmileR.toFixed(2));
   setDbg('dbg-roll', rollDeg.toFixed(1)+'°'); setDbg('dbg-yaw', yawDeg.toFixed(1)+'°'); setDbg('dbg-pitch', pitchDeg.toFixed(1)+'°');
   setDbg('dbg-vf', validSmileFrames); setDbg('dbg-rep', lastRepAsym.toFixed(2)); setDbg('dbg-phase', phase);
+  setDbg('dbg-mouthvis', mouthVis.visible ? 'yes' : 'no'); setDbg('dbg-mouthscore', mouthVis.score.toFixed(3) + ' / dark ' + mouthVis.darkRatio.toFixed(3));
 
   if (['BEFORE_START','FACE_DONE','CRITICAL_ASYMMETRY','ABORTED','RETRYING'].includes(phase)) return;
 
@@ -1455,7 +1585,11 @@ function onResults(results){
     // actually rose from the neutral baseline. A still hand over the mouth produces a
     // hallucinated "smile" blendshape but NO real upward movement → not counted.
     const realMove = Math.max(riseLn, riseRn) > REAL_MOVE_MIN;
-    if (smileStrength >= SMILE_VALID_STRENGTH && realMove){
+    if (mouthVis.visible) {
+      visibleMouthFrames++;
+      mouthVisibilityScores.push(mouthVis.score);
+    }
+    if (smileStrength >= SMILE_VALID_STRENGTH && realMove && mouthVis.visible){
       validSmileFrames++;
       frameAsymScores.push(frameAsym);
       // track how far EACH side got at its best moment — this is the core signal
@@ -1472,6 +1606,11 @@ function onResults(results){
     if (elapsed >= ACTION_DURATION_MS){
       hideCenterCountdown();
       hideSmilePrompt();
+      const avgMouthVisibility = average(mouthVisibilityScores) || 0;
+      if (visibleMouthFrames < MIN_VISIBLE_MOUTH_FRAMES || avgMouthVisibility < MIN_MOUTH_VISIBILITY_SCORE){
+        finishInvalid();   // mouth was not clearly visible → can't say "normal"
+        return;
+      }
       if (validSmileFrames < MIN_VALID_SMILE_FRAMES){
         finishInvalid();   // never saw a real, moving smile → can't say "normal"
         return;
@@ -1493,6 +1632,11 @@ function finishFace(){
   // Gate 1: the stronger side must have produced a REAL smile, otherwise we never
   // truly saw the person smile (weak attempt / occlusion) → unable to assess.
   const strongSide = Math.max(peakSmileL, peakSmileR);
+  const avgMouthVisibility = average(mouthVisibilityScores) || 0;
+  if (visibleMouthFrames < MIN_VISIBLE_MOUTH_FRAMES || avgMouthVisibility < MIN_MOUTH_VISIBILITY_SCORE){
+    finishInvalid();
+    return;
+  }
   if (strongSide < SMILE_REAL_MIN){
     finishInvalid();
     return;
@@ -1530,7 +1674,8 @@ function finishFace(){
   saveAndShow(score, riskLevel, {
     representativeAsym: rep, blendAsym, riseAsym, weakRatio,
     peakSmileL, peakSmileR, peakRiseL, peakRiseR,
-    validSmileFrames, method: 'weak_side_ratio_smile_symmetry'
+    validSmileFrames, visibleMouthFrames, avgMouthVisibility,
+    method: 'weak_side_ratio_smile_symmetry_with_mouth_visibility_gate'
   });
 }
 
@@ -1563,7 +1708,7 @@ function finishInvalid(){
   phase='FACE_DONE';
   sessionStorage.setItem('fast_face', JSON.stringify({
     score:0, riskLevel:'invalid', passed:false,
-    breakdown:{ reason:FL.mouthNotAssessable, attempts:assessAttempts, validSmileFrames, smileEverDetected, method:'unable_to_assess' }
+    breakdown:{ reason:FL.mouthNotAssessable, attempts:assessAttempts, validSmileFrames, visibleMouthFrames, lastMouthVisibilityScore, lastMouthDarkRatio, smileEverDetected, method:'unable_to_assess' }
   }));
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
   setUI({glassColor:'var(--col-orange-glass)', msg:FL.invalidHelp, showReset:true, showScore:true});
