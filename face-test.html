@@ -967,6 +967,9 @@ const MIN_MOUTH_CENTRAL_DARK_RATIO = 0.004;
 const MIN_MOUTH_LINE_SCORE = 0.020;       // lip-line evidence; hand overlap is handled by HandLandmarker
 const HAND_MOUTH_OVERLAP_MIN = 0.08;      // if hand bbox overlaps mouth bbox this much, block assessment
 const MAX_WAIT_FOR_SMILE_MS = 14000; // no genuine assessable smile within this → "unable to assess"
+const SMILE_LOST_GRACE_MS = 550;       // if smile disappears this long, discard the smile window and ask again
+const SMILE_OCCLUSION_RESET_MS = 120;  // hand/mouth occlusion during smile capture invalidates the current window
+const MIN_VALID_SMILE_RATIO = 0.55;    // at least this fraction of the capture window must contain valid smile evidence
 
 const SMILE_ASYM_WARN = 0.26;        // representative asym → caution
 const SMILE_ASYM_BAD  = 0.40;        // representative asym → abnormal
@@ -1001,6 +1004,9 @@ let criticalFired = false;
 let smileStartMs = null;
 let frameAsymScores = [];
 let validSmileFrames = 0;
+let smileFrameCount = 0;
+let smileLostSinceMs = null;
+let mouthBlockedSinceMs = null;
 let smileEverDetected = false;
 let actionWaitStartMs = null;
 let lastSmileVoiceMs = 0;
@@ -1543,7 +1549,7 @@ function startScreening(){
   baseL=null; baseR=null; baseEyeW=null;
   criticalFired=false; noFaceCount=0;
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
-  smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileEverDetected=false;
+  smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   actionWaitStartMs=null; lastSmileVoiceMs=0; lastRepAsym=0;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
@@ -1584,7 +1590,7 @@ function calibrationTick(){
 function startActionPhase(){
   phase='ACTION_PHASE';
   poseInterruptedSmile=false;
-  smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileEverDetected=false;
+  smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now();
@@ -1603,6 +1609,9 @@ function resetSmileAttemptAfterPose(){
   smileStartMs=null;
   frameAsymScores=[];
   validSmileFrames=0;
+  smileFrameCount=0;
+  smileLostSinceMs=null;
+  mouthBlockedSinceMs=null;
   smileEverDetected=false;
   peakSmileL=0;
   peakSmileR=0;
@@ -1622,6 +1631,38 @@ function resetSmileAttemptAfterPose(){
   setUI({glassColor:'var(--col-green-glass)', msg:'', showReset:true, showHud:true});
   showSmilePrompt(FL.smilePrompt);
   speakFace(FL.smileVoice, {force:true});
+}
+
+function clearSmileCaptureWindow(){
+  smileStartMs = null;
+  frameAsymScores = [];
+  validSmileFrames = 0;
+  smileFrameCount = 0;
+  smileLostSinceMs = null;
+  mouthBlockedSinceMs = null;
+  peakSmileL = 0;
+  peakSmileR = 0;
+  peakRiseL = 0;
+  peakRiseR = 0;
+  visibleMouthFrames = 0;
+  mouthVisibilityScores = [];
+  lastRepAsym = 0;
+}
+
+function resetSmileWindowToAction(reasonText, voiceText, opts={}){
+  // Any interruption during the smile capture means the previous peak values are
+  // no longer trustworthy. Discard them and require a fresh, continuous smile.
+  const now = Date.now();
+  clearSmileCaptureWindow();
+  phase = 'ACTION_PHASE';
+  smileEverDetected = false;
+  hideCenterCountdown();
+  hideSmilePrompt();
+  setUI({glassColor:'var(--col-orange-glass)', msg: reasonText || FL.noSmileWarn, showReset:true, showHud:true});
+  if (voiceText) speakFace(voiceText, {minGap:6500, sameTextGap:12000});
+  lastSmileVoiceMs = now;
+  // Do NOT reset actionWaitStartMs here. Repeated quick smiles / covering the
+  // mouth should eventually become "unable to assess", not loop forever.
 }
 
 /* ───────────── results ───────────── */
@@ -1733,7 +1774,7 @@ function onResults(results, handResults=null){
         return;
       }
     }
-    statusMsg.textContent = FL.step1;
+    if (activeNoticeKind !== 'status' || activeNoticeText !== FL.step1) showStatusPanel(FL.step1);
     const db=document.getElementById('dashboard'); if(db) db.style.background='var(--col-orange-glass)';
     return;
   }
@@ -1770,8 +1811,11 @@ function onResults(results, handResults=null){
     // The geometry path is what lets closed-mouth smiles be measured without teeth.
     const closedSmileStart = Math.max(riseLn, riseRn) >= CLOSED_SMILE_RISE_MIN;
     if (smileStrength >= SMILE_DETECT_MIN || Math.max(smileL, smileR) >= SMILE_DETECT_SIDE || closedSmileStart){
+      clearSmileCaptureWindow();
       smileEverDetected = true;
       smileStartMs = now;
+      smileLostSinceMs = null;
+      mouthBlockedSinceMs = null;
       phase = 'ACTION_WAIT_SMILE';
       hideSmilePrompt();
       return;
@@ -1786,32 +1830,53 @@ function onResults(results, handResults=null){
     return;
   }
 
-  /* ── WAIT_SMILE: record per-side PEAK activation while smiling ── */
+  /* ── WAIT_SMILE: require one continuous, assessable smile window ── */
   if (phase==='ACTION_WAIT_SMILE'){
     const db=document.getElementById('dashboard'); if(db) db.style.background='var(--col-green-glass)';
+    const now = Date.now();
 
-    // A frame is valid evidence only if there's a genuine smile AND the mouth corner
-    // actually rose from the neutral baseline. A still hand over the mouth produces a
-    // hallucinated "smile" blendshape but NO real upward movement → not counted.
-    const realMove = Math.max(riseLn, riseRn) > REAL_MOVE_MIN;
     const mouthAssessable = isMouthAssessable(mouthVis);
-    if (mouthAssessable) {
+    const realMove = Math.max(riseLn, riseRn) > REAL_MOVE_MIN;
+    const geometrySmile = Math.max(riseLn, riseRn) >= CLOSED_SMILE_RISE_MIN;
+    const hasSmileSignal = smileStrength >= SMILE_VALID_STRENGTH || geometrySmile;
+    const validSmileNow = hasSmileSignal && realMove && mouthAssessable;
+
+    // If a hand covers the mouth or the mouth becomes unassessable after the
+    // smile window has started, discard everything recorded so far. Otherwise a
+    // short smile before occlusion can be kept as a false "normal" result.
+    if (!mouthAssessable){
+      if (mouthBlockedSinceMs === null) mouthBlockedSinceMs = now;
+      if (now - mouthBlockedSinceMs >= SMILE_OCCLUSION_RESET_MS){
+        resetSmileWindowToAction(FL.mouthNotAssessable, FL.mouthNotAssessable, {reason:'mouth_blocked'});
+        return;
+      }
+    } else {
+      mouthBlockedSinceMs = null;
       visibleMouthFrames++;
       mouthVisibilityScores.push(mouthVis.score);
     }
-    const geometrySmile = Math.max(riseLn, riseRn) >= CLOSED_SMILE_RISE_MIN;
-    const hasSmileSignal = smileStrength >= SMILE_VALID_STRENGTH || geometrySmile;
-    if (hasSmileSignal && realMove && mouthAssessable){
+
+    smileFrameCount++;
+
+    // If the user smiles and immediately closes the mouth / returns to a neutral
+    // face, do not continue counting the old peaks. Ask for a fresh smile.
+    if (validSmileNow){
+      smileLostSinceMs = null;
       validSmileFrames++;
       frameAsymScores.push(frameAsym);
-      // track how far EACH side got at its best moment — this is the core signal
       peakSmileL = Math.max(peakSmileL, smileL);
       peakSmileR = Math.max(peakSmileR, smileR);
       peakRiseL  = Math.max(peakRiseL, riseLn);
       peakRiseR  = Math.max(peakRiseR, riseRn);
+    } else if (mouthAssessable) {
+      if (smileLostSinceMs === null) smileLostSinceMs = now;
+      if (now - smileLostSinceMs >= SMILE_LOST_GRACE_MS){
+        resetSmileWindowToAction(FL.noSmileWarn, FL.noSmileWarn, {reason:'smile_lost'});
+        return;
+      }
     }
 
-    const elapsed = Date.now() - smileStartMs;
+    const elapsed = now - smileStartMs;
     const remain = Math.ceil((ACTION_DURATION_MS - elapsed)/1000);
     if (remain > 0) showCenterCountdown(remain);
 
@@ -1819,12 +1884,13 @@ function onResults(results, handResults=null){
       hideCenterCountdown();
       hideSmilePrompt();
       const avgMouthVisibility = average(mouthVisibilityScores) || 0;
+      const validSmileRatio = validSmileFrames / Math.max(1, smileFrameCount);
       if (visibleMouthFrames < MIN_VISIBLE_MOUTH_FRAMES || avgMouthVisibility < MIN_MOUTH_VISIBILITY_SCORE){
-        finishInvalid();   // mouth was not clearly visible → can't say "normal"
+        finishInvalid();
         return;
       }
-      if (validSmileFrames < MIN_VALID_SMILE_FRAMES){
-        finishInvalid();   // never saw a real, moving smile → can't say "normal"
+      if (validSmileFrames < MIN_VALID_SMILE_FRAMES || validSmileRatio < MIN_VALID_SMILE_RATIO){
+        finishInvalid();
         return;
       }
       finishFace();
@@ -1832,6 +1898,7 @@ function onResults(results, handResults=null){
     return;
   }
 }
+
 
 /* ───────────── finishers ───────────── */
 function asymToScore(asym){
@@ -1849,7 +1916,12 @@ function finishFace(){
   // with actual mouth-corner rise. This removes the accidental "must show teeth" behavior.
   const strongSide = Math.max(strongBlend, strongRise * 6.0);
   const avgMouthVisibility = average(mouthVisibilityScores) || 0;
+  const validSmileRatio = validSmileFrames / Math.max(1, smileFrameCount);
   if (visibleMouthFrames < MIN_VISIBLE_MOUTH_FRAMES || avgMouthVisibility < MIN_MOUTH_VISIBILITY_SCORE){
+    finishInvalid();
+    return;
+  }
+  if (validSmileFrames < MIN_VALID_SMILE_FRAMES || validSmileRatio < MIN_VALID_SMILE_RATIO){
     finishInvalid();
     return;
   }
@@ -1889,8 +1961,8 @@ function finishFace(){
   saveAndShow(score, riskLevel, {
     representativeAsym: rep, blendAsym, riseAsym, weakRatio,
     peakSmileL, peakSmileR, peakRiseL, peakRiseR,
-    validSmileFrames, visibleMouthFrames, avgMouthVisibility,
-    method: 'weak_side_ratio_smile_symmetry_with_mouth_visibility_gate'
+    validSmileFrames, smileFrameCount, validSmileRatio, visibleMouthFrames, avgMouthVisibility,
+    method: 'continuous_smile_hold_with_hand_occlusion_reset'
   });
 }
 
@@ -1923,7 +1995,7 @@ function finishInvalid(){
   phase='FACE_DONE';
   sessionStorage.setItem('fast_face', JSON.stringify({
     score:0, riskLevel:'invalid', passed:false,
-    breakdown:{ reason:FL.mouthNotAssessable, attempts:assessAttempts, validSmileFrames, visibleMouthFrames, lastMouthVisibilityScore, lastMouthDarkRatio, smileEverDetected, method:'unable_to_assess' }
+    breakdown:{ reason:FL.mouthNotAssessable, attempts:assessAttempts, validSmileFrames, smileFrameCount, validSmileRatio:(validSmileFrames/Math.max(1,smileFrameCount)), visibleMouthFrames, lastMouthVisibilityScore, lastMouthDarkRatio, smileEverDetected, method:'unable_to_assess' }
   }));
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
   setUI({glassColor:'var(--col-orange-glass)', msg:FL.invalidHelp, showReset:true, showScore:true});
