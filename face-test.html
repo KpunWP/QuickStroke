@@ -639,6 +639,20 @@
     display:none!important;
   }
 
+
+  /* ─────────────────────────────────────────────
+     PATCH 10 — one message box at a time
+     smile-prompt, status-msg, and pose-warn-msg must never overlap.
+     ───────────────────────────────────────────── */
+  body.smile-prompt-visible #status-msg,
+  body.smile-prompt-visible #pose-warn-msg{
+    display:none!important;
+  }
+  body.pose-warning-visible #smile-prompt,
+  body.result-visible #smile-prompt{
+    display:none!important;
+  }
+
 </style>
 <script src="fast-permissions.js"></script>
 </head>
@@ -1047,12 +1061,20 @@ function average(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length :
 function hideSmilePrompt(){
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
+  document.body.classList.remove('smile-prompt-visible');
 }
 function showSmilePrompt(text){
   const sp = document.getElementById('smile-prompt');
   if (!sp) return;
   const box = sp.querySelector('div');
   if (box) box.textContent = text || FL.smilePrompt;
+
+  // Only one bottom message panel should be visible at a time.
+  // The smile prompt is the active instruction, so hide the general status/warning boxes.
+  poseWarnMsg.style.display = 'none';
+  statusMsg.style.display = 'none';
+  document.body.classList.remove('pose-warning-visible');
+  document.body.classList.add('smile-prompt-visible');
   sp.style.display = 'block';
 }
 
@@ -1384,6 +1406,7 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
     statusMsg.style.display='none';
   } else {
     poseWarnMsg.style.display='none';
+    if (msg) hideSmilePrompt();
     statusMsg.textContent=msg;
     statusMsg.style.display=msg?'block':'none';
   }
