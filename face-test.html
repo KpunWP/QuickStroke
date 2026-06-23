@@ -945,10 +945,12 @@ const SMILE_VALID_STRENGTH = 0.18;   // min strength for a frame to count as evi
 const REAL_MOVE_MIN = 0.04;          // corner must actually rise (norm by eye width) — guards occlusion
 const SMILE_REAL_MIN = 0.40;         // stronger side must reach a real smile, else "unable to assess"
 const MIN_VALID_SMILE_FRAMES = 12;   // fewer valid frames than this → "unable to assess"
-const MIN_VISIBLE_MOUTH_FRAMES = 10; // mouth must be visibly assessable, not covered by a hand
-const MIN_MOUTH_VISIBILITY_SCORE = 0.085; // texture/contrast evidence that the mouth region is visible
-const MIN_MOUTH_DARK_RATIO = 0.018;       // dark mouth-line/oral-cavity evidence helps avoid false pass when covered
-const MAX_WAIT_FOR_SMILE_MS = 14000; // no genuine smile within this → "unable to assess"
+const MIN_VISIBLE_MOUTH_FRAMES = 12; // mouth must be visibly assessable, not covered by a hand
+const MIN_MOUTH_VISIBILITY_SCORE = 0.110; // stricter texture/contrast evidence from the actual mouth ROI
+const MIN_MOUTH_DARK_RATIO = 0.020;       // dark mouth-line/oral-cavity evidence helps avoid false pass when covered
+const MIN_MOUTH_CENTRAL_DARK_RATIO = 0.018; // evidence concentrated in the central mouth area, not just hand/finger edges
+const MIN_MOUTH_LINE_SCORE = 0.10;        // strongest dark horizontal row in mouth core, helps reject a covered mouth
+const MAX_WAIT_FOR_SMILE_MS = 14000; // no genuine assessable smile within this → "unable to assess"
 
 const SMILE_ASYM_WARN = 0.26;        // representative asym → caution
 const SMILE_ASYM_BAD  = 0.40;        // representative asym → abnormal
@@ -1219,13 +1221,25 @@ function bs(blend, name){
 
 
 function getMouthVisibility(lm){
-  // This is intentionally conservative. Face Landmarker can hallucinate mouth
-  // landmarks through a hand, so a smile blendshape alone must not become
-  // "normal". We require some visual evidence from the actual mouth ROI.
+  // Fail-closed mouth visibility gate.
+  // MediaPipe can hallucinate mouth landmarks/blendshapes through a hand.
+  // Therefore, we only allow smile scoring after the actual mouth ROI has
+  // enough visual evidence of a visible mouth line/oral cavity.
+  const empty = {
+    visible:false,
+    score:0,
+    darkRatio:0,
+    contrast:0,
+    edge:0,
+    mouthOpen:0,
+    centralDarkRatio:0,
+    mouthLineScore:0
+  };
+
   const vw = videoEl.videoWidth || 0;
   const vh = videoEl.videoHeight || 0;
-  if (!vw || !vh || !lm || !lm[IDX_ML] || !lm[IDX_MR]) {
-    return { visible:false, score:0, darkRatio:0, contrast:0, edge:0, mouthOpen:0 };
+  if (!vw || !vh || !lm || !lm[IDX_ML] || !lm[IDX_MR] || !lm[IDX_LIP_TOP] || !lm[IDX_LIP_BOTTOM]) {
+    return empty;
   }
 
   const xs = [], ys = [];
@@ -1234,7 +1248,7 @@ function getMouthVisibility(lm){
     if (!p) continue;
     xs.push(p.x * vw); ys.push(p.y * vh);
   }
-  if (xs.length < 4) return { visible:false, score:0, darkRatio:0, contrast:0, edge:0, mouthOpen:0 };
+  if (xs.length < 4) return empty;
 
   const eyeW = Math.hypot(lm[IDX_L_EYE].x - lm[IDX_R_EYE].x, lm[IDX_L_EYE].y - lm[IDX_R_EYE].y) + 1e-6;
   const mouthOpen = Math.abs(lm[IDX_LIP_BOTTOM].y - lm[IDX_LIP_TOP].y) / eyeW;
@@ -1260,6 +1274,9 @@ function getMouthVisibility(lm){
     mouthCtx.drawImage(videoEl, minX, minY, w, h, 0, 0, w, h);
     const data = mouthCtx.getImageData(0, 0, w, h).data;
     let n=0, sum=0, sum2=0, dark=0, sat=0, edgeSum=0, edgeN=0;
+    let centerDark=0, centerN=0;
+    const rowDark = new Uint16Array(h);
+    const rowTotal = new Uint16Array(h);
     const lums = new Float32Array(w*h);
 
     for (let y=0; y<h; y+=2){
@@ -1272,8 +1289,22 @@ function getMouthVisibility(lm){
         if (lum < 82) dark++;
         const maxc=Math.max(r,g,b), minc=Math.min(r,g,b);
         if ((maxc-minc) > 34) sat++;
+
+        // Check the central mouth core. A hand/finger can create edges in the
+        // ROI, but it usually does not create a concentrated dark horizontal
+        // mouth line in the central mouth area.
+        const inCore = x > w*0.18 && x < w*0.82 && y > h*0.22 && y < h*0.78;
+        if (inCore){
+          centerN++;
+          rowTotal[y]++;
+          if (lum < 86){
+            centerDark++;
+            rowDark[y]++;
+          }
+        }
       }
     }
+
     const mean = sum / Math.max(1,n);
     const contrast = Math.sqrt(Math.max(0, sum2/Math.max(1,n) - mean*mean)) / 255;
     for (let y=0; y<h-2; y+=2){
@@ -1287,19 +1318,44 @@ function getMouthVisibility(lm){
     const edge = (edgeSum / Math.max(1,edgeN)) / 255;
     const darkRatio = dark / Math.max(1,n);
     const satRatio = sat / Math.max(1,n);
+    const centralDarkRatio = centerDark / Math.max(1, centerN);
 
-    // Mouth evidence: dark mouth line/oral cavity, lip color/texture, or enough
-    // non-uniform detail. A covered mouth often has smile landmarks but weak score.
+    let mouthLineScore = 0;
+    for (let y=Math.floor(h*0.22); y<Math.floor(h*0.78); y+=2){
+      if (rowTotal[y] > 0) mouthLineScore = Math.max(mouthLineScore, rowDark[y] / rowTotal[y]);
+    }
+
     const score = (contrast * 0.95) + (edge * 0.70) + (darkRatio * 0.85) + (satRatio * 0.10) + (mouthOpen * 0.20);
-    const visible = (darkRatio >= MIN_MOUTH_DARK_RATIO && score >= 0.060)
-      || score >= MIN_MOUTH_VISIBILITY_SCORE
-      || (mouthOpen > 0.090 && contrast > 0.050);
 
-    return { visible, score, darkRatio, contrast, edge, mouthOpen };
+    // Conservative rule:
+    // - Do not accept generic texture/edge alone, because fingers/hands have edges.
+    // - Require central dark mouth evidence + a mouth-line score before smile scoring.
+    // - Allow a very open mouth case only if it still has central dark evidence.
+    const visible =
+      (
+        score >= MIN_MOUTH_VISIBILITY_SCORE &&
+        darkRatio >= MIN_MOUTH_DARK_RATIO &&
+        centralDarkRatio >= MIN_MOUTH_CENTRAL_DARK_RATIO &&
+        mouthLineScore >= MIN_MOUTH_LINE_SCORE &&
+        contrast >= 0.042 &&
+        edge >= 0.020
+      )
+      ||
+      (
+        mouthOpen > 0.105 &&
+        centralDarkRatio >= 0.012 &&
+        contrast >= 0.055
+      );
+
+    return { visible, score, darkRatio, contrast, edge, mouthOpen, centralDarkRatio, mouthLineScore };
   } catch(e){
     // If pixel read fails, fail closed for safety: do not call it normal.
-    return { visible:false, score:0, darkRatio:0, contrast:0, edge:0, mouthOpen };
+    return empty;
   }
+}
+
+function isMouthAssessable(mouthVis){
+  return !!mouthVis && mouthVis.visible === true;
 }
 
 function updatePoseBar(barId, valId, deg, maxDeg){
@@ -1494,7 +1550,7 @@ function onResults(results){
   setDbg('dbg-pkl', peakSmileL.toFixed(2)); setDbg('dbg-pkr', peakSmileR.toFixed(2));
   setDbg('dbg-roll', rollDeg.toFixed(1)+'°'); setDbg('dbg-yaw', yawDeg.toFixed(1)+'°'); setDbg('dbg-pitch', pitchDeg.toFixed(1)+'°');
   setDbg('dbg-vf', validSmileFrames); setDbg('dbg-rep', lastRepAsym.toFixed(2)); setDbg('dbg-phase', phase);
-  setDbg('dbg-mouthvis', mouthVis.visible ? 'yes' : 'no'); setDbg('dbg-mouthscore', mouthVis.score.toFixed(3) + ' / dark ' + mouthVis.darkRatio.toFixed(3));
+  setDbg('dbg-mouthvis', mouthVis.visible ? 'yes' : 'no'); setDbg('dbg-mouthscore', mouthVis.score.toFixed(3) + ' / dark ' + mouthVis.darkRatio.toFixed(3) + ' / cDark ' + (mouthVis.centralDarkRatio||0).toFixed(3) + ' / line ' + (mouthVis.mouthLineScore||0).toFixed(2));
 
   if (['BEFORE_START','FACE_DONE','CRITICAL_ASYMMETRY','ABORTED','RETRYING'].includes(phase)) return;
 
@@ -1551,11 +1607,32 @@ function onResults(results){
     return;
   }
 
-  /* ── ACTION: wait for a genuine smile ── */
+  /* ── ACTION: wait for a genuine, assessable smile ── */
   if (phase==='ACTION_PHASE'){
     statusMsg.textContent = FL.step2;
     const db=document.getElementById('dashboard'); if(db) db.style.background='var(--col-green-glass)';
     const now = Date.now();
+    const mouthAssessable = isMouthAssessable(mouthVis);
+
+    // Critical safety gate:
+    // MediaPipe blendshape/landmarks may hallucinate a smile through a hand.
+    // If the mouth is not visually assessable, do NOT let blendshape start the test.
+    if (!mouthAssessable){
+      hideSmilePrompt();
+      setUI({
+        glassColor:'var(--col-orange-glass)',
+        msg:FL.mouthNotAssessable,
+        showReset:true,
+        showHud:true
+      });
+      if (now - lastSmileVoiceMs > 5000){
+        speakFace(FL.mouthNotAssessable);
+        lastSmileVoiceMs = now;
+      }
+      if (now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){ finishInvalid(); }
+      return;
+    }
+
     // A smile has begun if BOTH sides average up, OR if EITHER side clearly activates
     // (one-sided smile must still start the test — that's exactly the stroke case).
     if (smileStrength >= SMILE_DETECT_MIN || Math.max(smileL, smileR) >= SMILE_DETECT_SIDE){
@@ -1585,11 +1662,12 @@ function onResults(results){
     // actually rose from the neutral baseline. A still hand over the mouth produces a
     // hallucinated "smile" blendshape but NO real upward movement → not counted.
     const realMove = Math.max(riseLn, riseRn) > REAL_MOVE_MIN;
-    if (mouthVis.visible) {
+    const mouthAssessable = isMouthAssessable(mouthVis);
+    if (mouthAssessable) {
       visibleMouthFrames++;
       mouthVisibilityScores.push(mouthVis.score);
     }
-    if (smileStrength >= SMILE_VALID_STRENGTH && realMove && mouthVis.visible){
+    if (smileStrength >= SMILE_VALID_STRENGTH && realMove && mouthAssessable){
       validSmileFrames++;
       frameAsymScores.push(frameAsym);
       // track how far EACH side got at its best moment — this is the core signal
