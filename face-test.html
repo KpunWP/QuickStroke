@@ -960,10 +960,10 @@ const REAL_MOVE_MIN = 0.04;          // corner must actually rise (norm by eye w
 const SMILE_REAL_MIN = 0.40;         // stronger side must reach a real smile, else "unable to assess"
 const MIN_VALID_SMILE_FRAMES = 12;   // fewer valid frames than this → "unable to assess"
 const MIN_VISIBLE_MOUTH_FRAMES = 12; // mouth must be visibly assessable, not covered by a hand
-const MIN_MOUTH_VISIBILITY_SCORE = 0.110; // stricter texture/contrast evidence from the actual mouth ROI
-const MIN_MOUTH_DARK_RATIO = 0.020;       // dark mouth-line/oral-cavity evidence helps avoid false pass when covered
-const MIN_MOUTH_CENTRAL_DARK_RATIO = 0.018; // evidence concentrated in the central mouth area, not just hand/finger edges
-const MIN_MOUTH_LINE_SCORE = 0.10;        // strongest dark horizontal row in mouth core, helps reject a covered mouth
+const MIN_MOUTH_VISIBILITY_SCORE = 0.095; // stricter texture/contrast evidence from the actual mouth ROI
+const MIN_MOUTH_DARK_RATIO = 0.012;       // dark mouth-line/oral-cavity evidence helps avoid false pass when covered
+const MIN_MOUTH_CENTRAL_DARK_RATIO = 0.008; // evidence concentrated in the central mouth area, not just hand/finger edges
+const MIN_MOUTH_LINE_SCORE = 0.055;        // strongest dark horizontal row in mouth core, helps reject a covered mouth
 const MAX_WAIT_FOR_SMILE_MS = 14000; // no genuine assessable smile within this → "unable to assess"
 
 const SMILE_ASYM_WARN = 0.26;        // representative asym → caution
@@ -1354,20 +1354,29 @@ function getMouthVisibility(lm){
     // - Require central dark mouth evidence + a mouth-line score before smile scoring.
     // - Allow a very open mouth case only if it still has central dark evidence.
     const visible =
-      (
-        score >= MIN_MOUTH_VISIBILITY_SCORE &&
-        darkRatio >= MIN_MOUTH_DARK_RATIO &&
-        centralDarkRatio >= MIN_MOUTH_CENTRAL_DARK_RATIO &&
-        mouthLineScore >= MIN_MOUTH_LINE_SCORE &&
-        contrast >= 0.042 &&
-        edge >= 0.020
-      )
-      ||
-      (
-        mouthOpen > 0.105 &&
-        centralDarkRatio >= 0.012 &&
-        contrast >= 0.055
-      );
+        (
+          // กรณีเห็นปากชัด / อ้าปาก / เห็นช่องปาก
+          score >= MIN_MOUTH_VISIBILITY_SCORE &&
+          darkRatio >= MIN_MOUTH_DARK_RATIO &&
+          centralDarkRatio >= MIN_MOUTH_CENTRAL_DARK_RATIO &&
+          mouthLineScore >= MIN_MOUTH_LINE_SCORE &&
+          contrast >= 0.038 &&
+          edge >= 0.016
+        )
+        ||
+        (
+          // กรณียิ้มปิดปาก: ไม่ต้องมีช่องปากมืดมาก แต่ต้องมี lip line / edge พอสมควร
+          score >= 0.085 &&
+          contrast >= 0.045 &&
+          edge >= 0.024 &&
+          mouthLineScore >= 0.040
+        )
+        ||
+        (
+          // กรณีอ้าปาก/เห็นฟันชัด
+          mouthOpen > 0.095 &&
+          contrast >= 0.050
+        );
 
     return { visible, score, darkRatio, contrast, edge, mouthOpen, centralDarkRatio, mouthLineScore };
   } catch(e){
