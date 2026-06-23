@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>FAST · Face Screening</title>
+<title>FAST · Face Screening · v5 softer smile</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap');
 
@@ -953,23 +953,23 @@ const MAX_ASSESS_ATTEMPTS = 3;       // auto-retry "unable to assess" up to this
 const RETRY_DELAY_MS = 2500;         // pause before each auto-retry
 const WEAK_SIDE_RATIO_BAD = 0.30;    // weak/strong rise below this → clearly one-sided → abnormal
 
-const SMILE_DETECT_MIN = 0.16;       // closed-mouth smiles often produce lower blendshape scores
-const SMILE_DETECT_SIDE = 0.22;      // OR either side this high → a smile has begun (one-sided)
-const SMILE_VALID_STRENGTH = 0.12;   // min blendshape strength; geometry can also validate a closed-mouth smile
-const REAL_MOVE_MIN = 0.024;         // mouth corner must rise from baseline (norm by eye width)
-const CLOSED_SMILE_RISE_MIN = 0.030; // accepts normal closed-mouth smiles without requiring teeth
-const SMILE_REAL_MIN = 0.22;         // stronger side must show real smile evidence, else "unable to assess"
-const MIN_VALID_SMILE_FRAMES = 8;    // fewer valid frames than this → "unable to assess"
-const MIN_VISIBLE_MOUTH_FRAMES = 8;  // mouth must be assessable, not covered by a hand
-const MIN_MOUTH_VISIBILITY_SCORE = 0.068; // relaxed so closed-mouth smiles can pass
-const MIN_MOUTH_DARK_RATIO = 0.006;       // dark oral-cavity is helpful but no longer required for closed-mouth smiles
-const MIN_MOUTH_CENTRAL_DARK_RATIO = 0.004;
-const MIN_MOUTH_LINE_SCORE = 0.020;       // lip-line evidence; hand overlap is handled by HandLandmarker
+const SMILE_DETECT_MIN = 0.12;       // softer: natural/closed-mouth smiles may produce lower blendshape scores
+const SMILE_DETECT_SIDE = 0.18;      // softer one-sided trigger; geometry still confirms movement
+const SMILE_VALID_STRENGTH = 0.085;  // softer valid signal; geometry can also validate a closed-mouth smile
+const REAL_MOVE_MIN = 0.012;         // softer mouth-corner rise from baseline (norm by eye width)
+const CLOSED_SMILE_RISE_MIN = 0.018; // accepts normal closed-mouth smiles without requiring teeth
+const SMILE_REAL_MIN = 0.12;         // stronger side must show real smile evidence, else "unable to assess"
+const MIN_VALID_SMILE_FRAMES = 4;    // fewer valid frames than this → "unable to assess"
+const MIN_VISIBLE_MOUTH_FRAMES = 5;  // mouth must be assessable, not covered by a hand
+const MIN_MOUTH_VISIBILITY_SCORE = 0.052; // relaxed so closed-mouth smiles can pass in normal lighting
+const MIN_MOUTH_DARK_RATIO = 0.003;       // dark oral-cavity is helpful but no longer required for closed-mouth smiles
+const MIN_MOUTH_CENTRAL_DARK_RATIO = 0.002;
+const MIN_MOUTH_LINE_SCORE = 0.010;       // lip-line evidence; hand overlap is handled by HandLandmarker
 const HAND_MOUTH_OVERLAP_MIN = 0.08;      // if hand bbox overlaps mouth bbox this much, block assessment
 const MAX_WAIT_FOR_SMILE_MS = 14000; // no genuine assessable smile within this → "unable to assess"
-const SMILE_LOST_GRACE_MS = 550;       // if smile disappears this long, discard the smile window and ask again
+const SMILE_LOST_GRACE_MS = 900;       // softer: allow brief tracking drops without discarding a real smile
 const SMILE_OCCLUSION_RESET_MS = 120;  // hand/mouth occlusion during smile capture invalidates the current window
-const MIN_VALID_SMILE_RATIO = 0.55;    // at least this fraction of the capture window must contain valid smile evidence
+const MIN_VALID_SMILE_RATIO = 0.28;    // softer: allow jitter while still requiring a continuous-enough smile window
 
 const SMILE_ASYM_WARN = 0.26;        // representative asym → caution
 const SMILE_ASYM_BAD  = 0.40;        // representative asym → abnormal
@@ -1427,15 +1427,15 @@ function getMouthVisibility(lm){
       edge >= 0.010;
 
     const closedMouthEvidence =
-      score >= 0.058 &&
-      mouthLineScore >= 0.014 &&
-      contrast >= 0.024 &&
-      edge >= 0.008;
+      score >= 0.045 &&
+      mouthLineScore >= 0.006 &&
+      contrast >= 0.016 &&
+      edge >= 0.004;
 
     const openShapeEvidence =
-      mouthOpen > 0.078 &&
-      contrast >= 0.032 &&
-      edge >= 0.008;
+      mouthOpen > 0.060 &&
+      contrast >= 0.024 &&
+      edge >= 0.004;
 
     const visible = openMouthEvidence || closedMouthEvidence || openShapeEvidence;
 
