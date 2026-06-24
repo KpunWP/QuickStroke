@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use QuickStroke in research, education, software development, or derivative work, please cite it as below."
+title: "QuickStroke: A Privacy-First Web-Based FAST Stroke Screening Framework"
+authors:
+
+* name: "WP-SKT / QuickStroke Team"
+  version: "0.1.0"
+  date-released: 2026-06-24
+  url: "https://github.com/KpunWP/QuickStroke"
+  type: software
+  license: "Apache-2.0"
