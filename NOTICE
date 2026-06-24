@@ -1,0 +1,17 @@
+QuickStroke – FAST Stroke Screening Framework
+
+Copyright 2026 KpunWP / QuickStroke Team
+
+QuickStroke was originally created as an open-source, privacy-first,
+browser-based FAST stroke screening framework for preliminary stroke risk
+screening using Face, Arm, and Speech modules.
+
+Original project:
+https://github.com/KpunWP/QuickStroke
+
+This project is not a medical diagnosis tool. Any clinical, commercial,
+or public-health deployment requires local validation, ethical approval
+where applicable, and appropriate medical supervision.
+
+Derivative works should preserve this notice and clearly indicate that
+they are based on the original QuickStroke project.
