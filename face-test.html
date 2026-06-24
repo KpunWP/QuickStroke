@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>FAST · Face Screening · v5 softer smile</title>
+<title>FAST · Face Screening · v6 faster start softer smile</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0F6FFF">
 <meta name="apple-mobile-web-app-title" content="QuickStroke">
@@ -237,9 +237,8 @@
   #debug-btn-top{width:34px!important;height:34px!important;border-radius:12px!important;font-size:14px!important;}
   #face-home-btn{top:14px!important; left:14px!important; width:42px!important; height:42px!important;}
 
-  /* ป้องกันภาพกล้อง crop/zoom ใหญ่ตอนเริ่มโหลดบนบาง browser */
-  #video{object-fit:contain!important; background:#000!important;}
-  #video-container.video-ready #video{object-fit:cover!important;}
+  /* PATCH v6 — avoid startup resize jump: keep video cover from first paint */
+  #video{object-fit:cover!important; background:#000!important;}
 
   /* dashboard-header ต้องไม่ display:none เพราะ reset-btn อยู่ข้างใน */
   #dashboard-header{
@@ -934,8 +933,8 @@ let phase = 'BEFORE_START';
 /* ───────────── DOM ───────────── */
 const videoEl = document.getElementById('video');
 videoEl.addEventListener('loadedmetadata', () => {
-  // รอให้ browser รู้ขนาดภาพจริงก่อนค่อยใช้ cover เพื่อลดอาการภาพหน้าซูมใหญ่ตอนโหลดครั้งแรก
-  setTimeout(() => document.getElementById('video-container')?.classList.add('video-ready'), 250);
+  // v6: no delayed contain→cover switch, so there is no small-screen-to-full-screen jump.
+  videoEl.play().catch(()=>{});
 });
 const startBtn = document.getElementById('start-btn');
 const resetBtn = document.getElementById('reset-btn');
@@ -957,12 +956,12 @@ const MAX_ASSESS_ATTEMPTS = 3;       // auto-retry "unable to assess" up to this
 const RETRY_DELAY_MS = 2500;         // pause before each auto-retry
 const WEAK_SIDE_RATIO_BAD = 0.30;    // weak/strong rise below this → clearly one-sided → abnormal
 
-const SMILE_DETECT_MIN = 0.065;       // softer: natural/closed-mouth smiles may produce lower blendshape scores
-const SMILE_DETECT_SIDE = 0.10;      // softer one-sided trigger; geometry still confirms movement
-const SMILE_VALID_STRENGTH = 0.045;  // softer valid signal; geometry can also validate a closed-mouth smile
-const REAL_MOVE_MIN = 0.005;         // softer mouth-corner rise from baseline (norm by eye width)
-const CLOSED_SMILE_RISE_MIN = 0.006; // accepts normal closed-mouth smiles without requiring teeth
-const SMILE_REAL_MIN = 0.065;         // stronger side must show real smile evidence, else "unable to assess"
+const SMILE_DETECT_MIN = 0.055;       // v6 softer: natural/closed-mouth smiles may produce lower blendshape scores
+const SMILE_DETECT_SIDE = 0.085;     // v6 softer one-sided trigger; geometry still confirms movement
+const SMILE_VALID_STRENGTH = 0.035;  // v6 softer valid signal; geometry can also validate a closed-mouth smile
+const REAL_MOVE_MIN = 0.0035;        // v6 softer mouth-corner rise from baseline (norm by eye width)
+const CLOSED_SMILE_RISE_MIN = 0.004; // v6 accepts normal closed-mouth smiles without requiring teeth
+const SMILE_REAL_MIN = 0.052;         // v6 stronger side must show real smile evidence, else "unable to assess"
 const MIN_VALID_SMILE_FRAMES = 2;    // fewer valid frames than this → "unable to assess"
 const MIN_VISIBLE_MOUTH_FRAMES = 5;  // mouth must be assessable, not covered by a hand
 const MIN_MOUTH_VISIBILITY_SCORE = 0.052; // relaxed so closed-mouth smiles can pass in normal lighting
@@ -971,9 +970,9 @@ const MIN_MOUTH_CENTRAL_DARK_RATIO = 0.002;
 const MIN_MOUTH_LINE_SCORE = 0.010;       // lip-line evidence; hand overlap is handled by HandLandmarker
 const HAND_MOUTH_OVERLAP_MIN = 0.08;      // if hand bbox overlaps mouth bbox this much, block assessment
 const MAX_WAIT_FOR_SMILE_MS = 14000; // no genuine assessable smile within this → "unable to assess"
-const SMILE_LOST_GRACE_MS = 1200;       // softer: allow brief tracking drops without discarding a real smile
+const SMILE_LOST_GRACE_MS = 1400;       // v6 softer: allow brief tracking drops without discarding a real smile
 const SMILE_OCCLUSION_RESET_MS = 120;  // hand/mouth occlusion during smile capture invalidates the current window
-const MIN_VALID_SMILE_RATIO = 0.15;    // softer: allow jitter while still requiring a continuous-enough smile window
+const MIN_VALID_SMILE_RATIO = 0.10;    // v6 softer: allow jitter while still requiring a continuous-enough smile window
 
 const SMILE_ASYM_WARN = 0.26;        // representative asym → caution
 const SMILE_ASYM_BAD  = 0.40;        // representative asym → abnormal
@@ -2083,8 +2082,8 @@ function initCamera(stream){
   phase = 'BEFORE_START';
   setUI({
     glassColor:'var(--col-blue-glass)',
-    msg:FL.pressStart,
-    showStart:true,
+    msg:modelReady ? FL.pressStart : FL.loadingModel,
+    showStart:modelReady,
     showReset:false,
     showHud:false
   });
@@ -2139,7 +2138,15 @@ async function loadModel(){
       catch(e2){ console.warn('HandLandmarker unavailable; falling back to visual mouth gate only', e2); handLandmarker = null; }
     }
     modelReady = true;
-    startCamera();
+    if (isCameraRunning) {
+      setUI({
+        glassColor:'var(--col-blue-glass)',
+        msg:FL.pressStart,
+        showStart:true,
+        showReset:false,
+        showHud:false
+      });
+    }
   } catch(err){
     console.error('model load failed', err);
     statusMsg.textContent = FL.modelErr;
@@ -2157,6 +2164,11 @@ initProgressDots();
 
 startBtn.addEventListener('click', ()=>{
   primeSpeech();
+  if (!modelReady) {
+    showStatusPanel(FL.loadingModel);
+    startBtn.classList.add('hidden');
+    return;
+  }
   document.body.classList.remove('result-visible');
   const oldNav=document.getElementById('fast-nav-btn'); if(oldNav) oldNav.remove();
   startBtn.classList.add('hidden');
@@ -2177,6 +2189,16 @@ window.addEventListener('beforeunload', ()=>{
   if (videoEl.srcObject){ videoEl.srcObject.getTracks().forEach(t=>t.stop()); }
 });
 
+// v6: open camera immediately, load ML models in parallel.
+// This reduces the perceived startup delay. The Start button appears when the models are ready.
+setUI({
+  glassColor:'var(--col-blue-glass)',
+  msg:FL.loading,
+  showStart:false,
+  showReset:false,
+  showHud:false
+});
+startCamera();
 loadModel();
 
 
