@@ -13,7 +13,7 @@ QuickStroke is a browser-based prototype for preliminary stroke risk screening b
 
 ## Live Demo
 
-**Web App:** https://fastscreening.vercel.app
+**Web App:** https://QuickStroke.vercel.app
 
 The system runs directly in a smartphone browser and does not require app installation.
 
