@@ -357,6 +357,7 @@
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -517,7 +518,7 @@ const I18N = {
   },
 };
 
-let lang = 'th';
+let lang = window.QS_CONFIG?.defaultLang || 'th';
 let indOpen = false;
 
 function setLang(l) {
@@ -608,7 +609,7 @@ function acceptDisclaimer() {
   if (overlay) overlay.classList.remove('show');
 }
 
-setLang(sessionStorage.getItem('fast_lang') || 'th');
+setLang(sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th');
 updateProgress();
 showDisclaimerIfNeeded();
 </script>
