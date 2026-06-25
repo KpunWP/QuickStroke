@@ -76,8 +76,19 @@ window.QS_CONFIG = {
     },
 
     speech: {
+      calibrationMs: 300,
+      noiseMultiplier: 2.5,
+      noiseFloorCap: 0.08,
+      
+      normalMin: 2.5,
+      normalMax: 6.0,
+      
       minSnrDb: 10,
-      maxNoiseFlatness: 0.8,
+      snrWarnDb: 10,
+      
+      flatnessMax: 0.78,
+      maxNoiseFlatness: 0.78,
+      
       minSpeechDurationSec: 1.2
     }
   }
