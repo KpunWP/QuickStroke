@@ -1844,10 +1844,30 @@ function onResults(results, handResults=null){
     const now = Date.now();
 
     const mouthAssessable = isMouthAssessable(mouthVis);
-    const realMove = Math.max(riseLn, riseRn) > REAL_MOVE_MIN;
-    const geometrySmile = Math.max(riseLn, riseRn) >= CLOSED_SMILE_RISE_MIN;
-    const hasSmileSignal = smileStrength >= SMILE_VALID_STRENGTH || geometrySmile;
-    const validSmileNow = hasSmileSignal && realMove && mouthAssessable;
+
+    // ใช้ "ข้างที่ขยับมากที่สุด" เป็นตัวตรวจว่ามีความพยายามยิ้ม
+    // เพราะ stroke-like smile อาจขยับชัดแค่ข้างเดียว
+    const strongBlendNow = Math.max(smileL, smileR);
+    const strongRiseNow  = Math.max(riseLn, riseRn);
+    
+    const realMove =
+      strongRiseNow > REAL_MOVE_MIN ||
+      strongBlendNow >= SMILE_DETECT_SIDE;
+    
+    const geometrySmile =
+      strongRiseNow >= CLOSED_SMILE_RISE_MIN;
+    
+    const oneSideBlendSmile =
+      strongBlendNow >= SMILE_DETECT_SIDE;
+    
+    const twoSideAverageSmile =
+      smileStrength >= SMILE_VALID_STRENGTH;
+    
+    const hasSmileSignal =
+      oneSideBlendSmile || twoSideAverageSmile || geometrySmile;
+    
+    const validSmileNow =
+      hasSmileSignal && realMove && mouthAssessable;
 
     // If a hand covers the mouth or the mouth becomes unassessable after the
     // smile window has started, discard everything recorded so far. Otherwise a
