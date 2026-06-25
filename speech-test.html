@@ -235,6 +235,8 @@
   }
 
 </style>
+<script src="config.js"></script>
+<script src="fast-permissions.js"></script>  
 </head>
 <body>
 
@@ -301,7 +303,6 @@
   <button id="action-btn" onclick="handleAction()"></button>
 </div>
 
-<script src="fast-permissions.js"></script>
 <script>
 'use strict';
 
@@ -389,14 +390,18 @@ const CONFIG = {
 // ═══════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════
-const CALIBRATION_MS   = 300;  // เก็บ noise floor 300ms แรกก่อนพูด
-const NOISE_MULTIPLIER = 2.5;  // threshold = noiseFloor × 2.5
-const NOISE_FLOOR_CAP  = 0.08; // จำกัดเพดาน noise ป้องกันไมค์หลอน
-const NORMAL_MIN       = 2.5;  // เกณฑ์ความเร็วขั้นต่ำคนปกติ (speech units/sec)
-const NORMAL_MAX       = 6.0;  // เกณฑ์ความเร็วสูงสุดคนปกติ (speech units/sec)
+const SPEECH_CFG = window.QS_CONFIG?.thresholds?.speech || {};
+
+const CALIBRATION_MS   = SPEECH_CFG.calibrationMs ?? 300;       // เก็บ noise floor 300ms แรกก่อนพูด
+const NOISE_MULTIPLIER = SPEECH_CFG.noiseMultiplier ?? 2.5;     // threshold = noiseFloor × 2.5
+const NOISE_FLOOR_CAP  = SPEECH_CFG.noiseFloorCap ?? 0.08;      // จำกัดเพดาน noise ป้องกันไมค์หลอน
+const NORMAL_MIN       = SPEECH_CFG.normalMin ?? 2.5;           // เกณฑ์ความเร็วขั้นต่ำ
+const NORMAL_MAX       = SPEECH_CFG.normalMax ?? 6.0;           // เกณฑ์ความเร็วสูงสุด
+
 // SNR gate: คำนวณหลังพูดเสร็จเท่านั้น เพราะต้องมีทั้งเสียงพูดจริงและ noise floor
-const SNR_WARN_DB      = 10;   // ถ้า speech/noise ต่ำกว่า 10 dB → ติดป้ายเตือนผลอาจคลาดเคลื่อน
-let   noisyAck         = false; // คงไว้เพื่อ compatibility กับ overlay เดิม แต่ไม่ใช้เตือนก่อนพูดแล้ว
+const SNR_WARN_DB      = SPEECH_CFG.minSnrDb ?? SPEECH_CFG.snrWarnDb ?? 10;
+
+let noisyAck = false; // คงไว้เพื่อ compatibility กับ overlay เดิม แต่ไม่ใช้เตือนก่อนพูดแล้ว
 
 // ═══════════════════════════════════════════════════
 // STATE
