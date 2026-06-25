@@ -401,6 +401,7 @@
   /* Updated guide images already include screen-direction labels/arrows */
   .screen-direction{display:none!important;}
 </style>
+<script src="config.js"></script>
 <script src="fast-permissions.js"></script>
 </head>
 <body>
@@ -566,16 +567,18 @@ const LANG = {
 /* ═══════════════════════════════
    CONFIG (องศาการดักจับเพื่อความไว)
 ═══════════════════════════════ */
-const MEASURE_SEC   = 10;
-const DRIFT_THR     = 10;     // เกิน 10 องศาถือว่าไม่ปกติ (FAIL ทันที)
-const DRIFT_WARN    = 5;      // เกิน 5 องศา แถบจะเริ่มเตือนเป็นสีเหลือง
-const STABLE_WINDOW = 20;   
-const STABLE_RANGE  = 5.0;  
-const STABLE_HOLD   = 25;   
-const FLAT_Z_THR    = 0.90;
-const GAMMA_THR     = 10;
-const RETRY_SEC     = 6;
-const LPF           = 0.15;
+const ARM_CFG = window.QS_CONFIG?.thresholds?.arm || {};
+
+const MEASURE_SEC   = ARM_CFG.measureSec ?? ARM_CFG.holdSeconds ?? 10;
+const DRIFT_THR     = ARM_CFG.driftThr ?? ARM_CFG.driftFailDeg ?? 10;   // fail threshold
+const DRIFT_WARN    = ARM_CFG.driftWarn ?? ARM_CFG.driftWarnDeg ?? 5;   // warning threshold
+const STABLE_WINDOW = ARM_CFG.stableWindow ?? 20;
+const STABLE_RANGE  = ARM_CFG.stableRange ?? 5.0;
+const STABLE_HOLD   = ARM_CFG.stableHold ?? 25;
+const FLAT_Z_THR    = ARM_CFG.flatZThr ?? 0.90;
+const GAMMA_THR     = ARM_CFG.gammaThr ?? 10;
+const RETRY_SEC     = ARM_CFG.retrySec ?? 6;
+const LPF           = ARM_CFG.lpf ?? 0.15;
 
 let _speaking  = false;
 let _voiceQ    = [];
