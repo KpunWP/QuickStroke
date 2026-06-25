@@ -657,7 +657,8 @@
   }
 
 </style>
-<script src="fast-permissions.js"></script>
+<script src="/config.js"></script>
+<script src="/fast-permissions.js"></script>
 </head>
 <body>
 
@@ -950,37 +951,41 @@ let mouthCanvas = null;
 let mouthCtx = null;
 
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
-const CALIBRATION_SECONDS = 3;       // short "get ready" before smiling
-const ACTION_DURATION_MS = 4000;     // length of the smile-recording window
-const MAX_ASSESS_ATTEMPTS = 3;       // auto-retry "unable to assess" up to this many times
-const RETRY_DELAY_MS = 2500;         // pause before each auto-retry
-const WEAK_SIDE_RATIO_BAD = 0.30;    // weak/strong rise below this → clearly one-sided → abnormal
+const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
 
-const SMILE_DETECT_MIN = 0.045;       // v6 softer: natural/closed-mouth smiles may produce lower blendshape scores
-const SMILE_DETECT_SIDE = 0.07;     // v6 softer one-sided trigger; geometry still confirms movement
-const SMILE_VALID_STRENGTH = 0.028;  // v6 softer valid signal; geometry can also validate a closed-mouth smile
-const REAL_MOVE_MIN = 0.0025;        // v6 softer mouth-corner rise from baseline (norm by eye width)
-const CLOSED_SMILE_RISE_MIN = 0.003; // v6 accepts normal closed-mouth smiles without requiring teeth
-const SMILE_REAL_MIN = 0.045;         // v6 stronger side must show real smile evidence, else "unable to assess"
-const MIN_VALID_SMILE_FRAMES = 2;    // fewer valid frames than this → "unable to assess"
-const MIN_VISIBLE_MOUTH_FRAMES = 5;  // mouth must be assessable, not covered by a hand
-const MIN_MOUTH_VISIBILITY_SCORE = 0.052; // relaxed so closed-mouth smiles can pass in normal lighting
-const MIN_MOUTH_DARK_RATIO = 0.003;       // dark oral-cavity is helpful but no longer required for closed-mouth smiles
-const MIN_MOUTH_CENTRAL_DARK_RATIO = 0.002;
-const MIN_MOUTH_LINE_SCORE = 0.010;       // lip-line evidence; hand overlap is handled by HandLandmarker
-const HAND_MOUTH_OVERLAP_MIN = 0.08;      // if hand bbox overlaps mouth bbox this much, block assessment
-const MAX_WAIT_FOR_SMILE_MS = 14000; // no genuine assessable smile within this → "unable to assess"
-const SMILE_LOST_GRACE_MS = 1400;       // v6 softer: allow brief tracking drops without discarding a real smile
-const SMILE_OCCLUSION_RESET_MS = 120;  // hand/mouth occlusion during smile capture invalidates the current window
-const MIN_VALID_SMILE_RATIO = 0.08;    // v6 softer: allow jitter while still requiring a continuous-enough smile window
+const CALIBRATION_SECONDS = FACE_CFG.calibrationSeconds ?? 3;       // short "get ready" before smiling
+const ACTION_DURATION_MS = FACE_CFG.actionDurationMs ?? 4000;       // length of the smile-recording window
+const MAX_ASSESS_ATTEMPTS = FACE_CFG.maxAssessAttempts ?? 3;        // auto-retry "unable to assess"
+const RETRY_DELAY_MS = FACE_CFG.retryDelayMs ?? 2500;               // pause before each auto-retry
+const WEAK_SIDE_RATIO_BAD = FACE_CFG.weakSideRatioBad ?? 0.30;      // weak/strong rise below this → abnormal
 
-const SMILE_ASYM_WARN = 0.26;        // representative asym → caution
-const SMILE_ASYM_BAD  = 0.40;        // representative asym → abnormal
-const REST_ASYM_CRITICAL = 0.30;     // resting mouth-corner asym (norm by eye width) → severe
+const SMILE_DETECT_MIN = FACE_CFG.smileDetectMin ?? 0.045;
+const SMILE_DETECT_SIDE = FACE_CFG.smileDetectSide ?? 0.07;
+const SMILE_VALID_STRENGTH = FACE_CFG.smileValidStrength ?? 0.028;
+const REAL_MOVE_MIN = FACE_CFG.realMoveMin ?? 0.0025;
+const CLOSED_SMILE_RISE_MIN = FACE_CFG.closedSmileRiseMin ?? 0.003;
+const SMILE_REAL_MIN = FACE_CFG.smileRealMin ?? 0.045;
 
-const MAX_ALLOWED_YAW = 28;
-const MAX_ALLOWED_PITCH = 24;
-const MAX_ALLOWED_ROLL = 20;
+const MIN_VALID_SMILE_FRAMES = FACE_CFG.minValidSmileFrames ?? 2;
+const MIN_VISIBLE_MOUTH_FRAMES = FACE_CFG.minVisibleMouthFrames ?? 5;
+const MIN_MOUTH_VISIBILITY_SCORE = FACE_CFG.minMouthVisibilityScore ?? 0.052;
+const MIN_MOUTH_DARK_RATIO = FACE_CFG.minMouthDarkRatio ?? 0.003;
+const MIN_MOUTH_CENTRAL_DARK_RATIO = FACE_CFG.minMouthCentralDarkRatio ?? 0.002;
+const MIN_MOUTH_LINE_SCORE = FACE_CFG.minMouthLineScore ?? 0.010;
+const HAND_MOUTH_OVERLAP_MIN = FACE_CFG.handMouthOverlapMin ?? 0.08;
+
+const MAX_WAIT_FOR_SMILE_MS = FACE_CFG.maxWaitForSmileMs ?? 14000;
+const SMILE_LOST_GRACE_MS = FACE_CFG.smileLostGraceMs ?? 1400;
+const SMILE_OCCLUSION_RESET_MS = FACE_CFG.smileOcclusionResetMs ?? 120;
+const MIN_VALID_SMILE_RATIO = FACE_CFG.minValidSmileRatio ?? 0.08;
+
+const SMILE_ASYM_WARN = FACE_CFG.smileAsymWarn ?? 0.26;
+const SMILE_ASYM_BAD = FACE_CFG.smileAsymBad ?? 0.40;
+const REST_ASYM_CRITICAL = FACE_CFG.restAsymCritical ?? 0.30;
+
+const MAX_ALLOWED_YAW = FACE_CFG.maxAllowedYaw ?? 28;
+const MAX_ALLOWED_PITCH = FACE_CFG.maxAllowedPitch ?? 24;
+const MAX_ALLOWED_ROLL = FACE_CFG.maxAllowedRoll ?? 20;
 
 const IDX_L_EYE = 133, IDX_R_EYE = 362;
 const IDX_NOSE = 4, IDX_FOREHEAD = 10, IDX_CHIN = 152;
