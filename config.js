@@ -53,7 +53,7 @@ window.QS_CONFIG = {
       maxAllowedYaw: 28,
       maxAllowedPitch: 24,
       maxAllowedRoll: 20
-    }
+    },
 
     arm: {
       holdSeconds: 10,
