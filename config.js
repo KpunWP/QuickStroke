@@ -56,9 +56,23 @@ window.QS_CONFIG = {
     },
 
     arm: {
+      measureSec: 10,
       holdSeconds: 10,
-      driftWarnDeg: 12,
-      driftFailDeg: 20
+    
+      driftWarn: 5,
+      driftThr: 10,
+    
+      driftWarnDeg: 5,
+      driftFailDeg: 10,
+    
+      stableWindow: 20,
+      stableRange: 5.0,
+      stableHold: 25,
+    
+      flatZThr: 0.90,
+      gammaThr: 10,
+      retrySec: 6,
+      lpf: 0.15
     },
 
     speech: {
