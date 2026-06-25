@@ -20,13 +20,40 @@ window.QS_CONFIG = {
 
   thresholds: {
     face: {
-      yawLimit: 18,
-      pitchLimit: 18,
-      rollLimit: 15,
-      smileMin: 0.045,
-      asymmetryWarn: 0.10,
-      asymmetryFail: 0.16
-    },
+      calibrationSeconds: 3,
+      actionDurationMs: 4000,
+      maxAssessAttempts: 3,
+      retryDelayMs: 2500,
+      weakSideRatioBad: 0.30,
+
+      smileDetectMin: 0.045,
+      smileDetectSide: 0.07,
+      smileValidStrength: 0.028,
+      realMoveMin: 0.0025,
+      closedSmileRiseMin: 0.003,
+      smileRealMin: 0.045,
+
+      minValidSmileFrames: 2,
+      minVisibleMouthFrames: 5,
+      minMouthVisibilityScore: 0.052,
+      minMouthDarkRatio: 0.003,
+      minMouthCentralDarkRatio: 0.002,
+      minMouthLineScore: 0.010,
+      handMouthOverlapMin: 0.08,
+
+      maxWaitForSmileMs: 14000,
+      smileLostGraceMs: 1400,
+      smileOcclusionResetMs: 120,
+      minValidSmileRatio: 0.08,
+
+      smileAsymWarn: 0.26,
+      smileAsymBad: 0.40,
+      restAsymCritical: 0.30,
+
+      maxAllowedYaw: 28,
+      maxAllowedPitch: 24,
+      maxAllowedRoll: 20
+    }
 
     arm: {
       holdSeconds: 10,
