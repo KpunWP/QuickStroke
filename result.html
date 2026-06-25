@@ -248,6 +248,7 @@
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
 </style>
+<script src="config.js"></script>
 </head>
 <body>
 
@@ -324,7 +325,15 @@
 function getLang() { return sessionStorage.getItem('fast_lang') || 'th'; }
 
 // น้ำหนักตามงานวิจัย: face และ arm เป็นตัวทำนาย stroke อิสระ (Santa Clara, n=359)
-const WEIGHTS = { face: 0.40, arm: 0.40, speech: 0.20 };
+const RESULT_CFG = window.QS_CONFIG?.scoring || {};
+
+const WEIGHTS = {
+  face: RESULT_CFG.faceWeight ?? 0.40,
+  arm: RESULT_CFG.armWeight ?? 0.40,
+  speech: RESULT_CFG.speechWeight ?? 0.20
+};
+
+const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
 
 const LABELS = {
   th: {
@@ -424,7 +433,9 @@ function buildResult() {
       anyBad = true; badModules.push(m);
     }
   });
-  const riskClass = anyBad ? 'bad' : getRiskClass(fastScore);
+  const riskClass = (SINGLE_POSITIVE_OVERRIDE && anyBad)
+  ? 'bad'
+  : getRiskClass(fastScore);
 
   // score ring
   const circumference = 376;
@@ -447,7 +458,7 @@ function buildResult() {
 
   document.getElementById('risk-desc').textContent =
     T['desc' + riskClass.charAt(0).toUpperCase() + riskClass.slice(1)];
-  if (anyBad && fastScore >= 45) {
+  if (SINGLE_POSITIVE_OVERRIDE && anyBad && fastScore >= 45) {
     const names = badModules.map(m => T[m]).join(', ');
     document.getElementById('risk-desc').textContent = T.overrideNote.replace('{modules}', names);
   }
