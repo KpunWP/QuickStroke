@@ -1,6 +1,13 @@
-/* QuickStroke Service Worker
- * กฎเหล็ก: ทุกครั้งที่ deploy โค้ดใหม่ → bump เลขเวอร์ชันบรรทัดล่างนี้เสมอ */
-const CACHE_NAME = "quickstroke-pwa-v2";
+/* QuickStroke Service Worker — Zero-Maintenance Edition
+ *
+ * ไม่ต้อง bump เวอร์ชันอีกต่อไป:
+ *   - หน้า HTML        → network-first        (ได้ของใหม่ทันทีที่เปิด, ออฟไลน์ใช้ cache)
+ *   - js/รูป/ไฟล์อื่นๆ → stale-while-revalidate (เสิร์ฟจาก cache ทันที + แอบอัปเดตเบื้องหลัง)
+ *
+ * CACHE_NAME ด้านล่างแก้ "ครั้งเดียว" ตอนติดตั้งไฟล์นี้ ให้เลขใหม่กว่าที่ deploy อยู่
+ * เพื่อล้าง cache ยุคเก่าทิ้ง — หลังจากนั้นปล่อยทิ้งไว้ได้ตลอดไป
+ */
+const CACHE_NAME = "quickstroke-pwa-v3";
 
 const APP_SHELL = [
   "/",
@@ -39,8 +46,7 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
 
-  // ไฟล์ cross-origin (เช่น MediaPipe CDN) — ปล่อยให้เบราว์เซอร์จัดการเอง
-  // ไม่เก็บลง cache ของเรา (ไฟล์โมเดลใหญ่หลาย MB และ CDN มี cache ในตัวอยู่แล้ว)
+  // ไฟล์ cross-origin (MediaPipe CDN ฯลฯ) — ให้เบราว์เซอร์จัดการเอง ไม่เก็บลง cache เรา
   if (url.origin !== self.location.origin) return;
 
   const isHTML =
@@ -49,32 +55,45 @@ self.addEventListener("fetch", (event) => {
     url.pathname === "/";
 
   if (isHTML) {
-    // ✨ NETWORK-FIRST สำหรับหน้า HTML:
-    //    ออนไลน์  → ได้เวอร์ชันล่าสุดจาก server ทันที (ไม่ต้องเปิดสองรอบ)
-    //    ออฟไลน์ → fallback ไปใช้ตัวใน cache (PWA ยังทำงานออฟไลน์ได้เหมือนเดิม)
+    /* NETWORK-FIRST: หน้าเว็บได้เวอร์ชันล่าสุดเสมอเมื่อออนไลน์
+       ออฟไลน์ → ใช้ตัวที่เก็บไว้ล่าสุด → PWA ยังทำงานได้ */
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+          }
           return response;
         })
         .catch(() =>
-          caches.match(event.request).then((cached) => cached || caches.match("/index.html"))
+          caches
+            .match(event.request)
+            .then((cached) => cached || caches.match("/index.html"))
         )
     );
     return;
   }
 
-  // CACHE-FIRST สำหรับ asset อื่นๆ (js/css/รูป/ไอคอน) — เร็ว และเวอร์ชันถูกคุมด้วย CACHE_NAME อยู่แล้ว
+  /* STALE-WHILE-REVALIDATE: ตอบจาก cache ทันที (เร็ว)
+     พร้อมยิงขอเวอร์ชันใหม่จาก server มาเก็บทับเบื้องหลัง
+     → แก้ config.js / รูป / js เมื่อไหร่ ผู้ใช้ได้ของใหม่เองภายใน 1-2 ครั้งที่เปิด
+     → ไม่ต้อง bump เวอร์ชันอีกเลย */
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        return response;
-      });
-    })
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.match(event.request).then((cached) => {
+        const refresh = fetch(event.request)
+          .then((response) => {
+            if (response && response.ok) {
+              cache.put(event.request, response.clone());
+            }
+            return response;
+          })
+          .catch(() => cached); // ออฟไลน์ → ใช้ cache
+
+        // มี cache → ส่งทันที (refresh ทำงานต่อเบื้องหลัง), ไม่มี → รอ network
+        return cached || refresh;
+      })
+    )
   );
 });
