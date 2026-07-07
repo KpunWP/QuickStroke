@@ -172,49 +172,63 @@
   #action-btn.green{background:linear-gradient(180deg,#22b99d,#126852);border-color:rgba(48,214,181,.52);}
   #action-btn.red{background:linear-gradient(180deg,#ff5a52,#aa2525);border-color:rgba(255,111,105,.52);}
 
-  #fast-nav-btn{position:absolute!important;bottom:84px!important;left:12px!important;right:12px!important;width:auto!important;margin:0!important;z-index:111!important;border-radius:22px!important;background:#2B7DE9!important;border:1px solid rgba(255,255,255,.22)!important;box-shadow:0 10px 28px rgba(0,0,0,.38)!important;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
+  #fast-nav-btn{
+    position:absolute;bottom:84px;left:12px;right:12px;z-index:111;
+    width:auto;margin:0;min-height:58px;border-radius:22px;
+    border:1px solid rgba(83,170,255,.60);
+    background:linear-gradient(180deg,#2388ff,#0d58b8);
+    color:#fff;font-family:'IBM Plex Sans Thai','Manrope',sans-serif;
+    font-size:18px;font-weight:800;cursor:pointer;
+    box-shadow:0 0 22px rgba(43,125,233,.32),0 10px 28px rgba(0,0,0,.38);
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  }
+  #fast-nav-btn.green{
+    background:linear-gradient(180deg,#22b99d,#126852);
+    border-color:rgba(48,214,181,.52);
+  }
+  #fast-nav-btn:active{transform:scale(.98);}
+  #fast-nav-btn[hidden]{display:none!important;}
 
   #noise-overlay{background:rgba(5,9,16,.78)!important;z-index:300!important;}
   #noise-overlay>div{background:rgba(12,18,28,.92)!important;border:1px solid rgba(255,255,255,.16);box-shadow:0 16px 44px rgba(0,0,0,.46)!important;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
   #noise-title{color:#fff!important;}
 
-  /* RESULT MODE FIX: ให้ปุ่มอยู่ใต้การ์ดผลลัพธ์ ไม่ทับคะแนน */
+  /* RESULT MODE FIX: ผลลัพธ์เลื่อนได้ แต่ปุ่มหลักคงอยู่ด้านล่างเสมอ */
   #test-screen.done{
+    overflow:hidden !important;
+  }
+
+  #test-screen.done #mid{
+    flex:1 1 auto;
     overflow-y:auto !important;
     -webkit-overflow-scrolling:touch;
+    padding-bottom:176px !important;
+    scroll-padding-bottom:176px;
   }
-  #test-screen.done #mid{
-    overflow:visible !important;
-    flex:0 0 auto;
-    padding-bottom:12px !important;
-  }
-  #test-screen.done #fast-nav-btn,
-  #test-screen.done #action-btn{
-    position:relative !important;
-    left:auto !important;
-    right:auto !important;
-    bottom:auto !important;
-    width:calc(100% - 24px) !important;
-    margin:8px 12px 0 !important;
-    min-height:58px;
-    flex-shrink:0;
-  }
+
   #test-screen.done #fast-nav-btn{
-    order:20;
+    position:absolute !important;
+    left:12px !important;
+    right:12px !important;
+    bottom:84px !important;
+    width:auto !important;
+    margin:0 !important;
   }
+
   #test-screen.done #action-btn{
-    order:21;
-    margin-bottom:18px !important;
+    position:absolute !important;
+    left:12px !important;
+    right:12px !important;
+    bottom:12px !important;
+    width:auto !important;
+    margin:0 !important;
   }
+
   #test-screen.done #debug-toggle,
   #test-screen.done #debug-box{
-    position:relative !important;
-    left:auto !important;
-    right:auto !important;
-    bottom:auto !important;
-    width:calc(100% - 24px) !important;
-    margin:8px 12px 0 !important;
+    display:none !important;
   }
+
   #test-screen.done .rb-score{
     font-size:38px;
   }
@@ -230,6 +244,9 @@
     .word-display{font-size:28px;}.hint-lbl{font-size:15px;}
     #metrics-box{padding:11px;gap:8px;}
     #action-btn{min-height:56px;font-size:21px;}
+    #fast-nav-btn{bottom:76px;min-height:52px;font-size:17px;}
+    #test-screen.done #fast-nav-btn{bottom:76px !important;}
+    #test-screen.done #mid{padding-bottom:156px !important;scroll-padding-bottom:156px;}
     .top-label{font-size:19px;}
     #speech-status-row{height:64px;top:82px;}
   }
@@ -300,6 +317,7 @@
   </div>
   <button id="debug-toggle" onclick="const d=document.getElementById('debug-box');d.style.display=d.style.display==='block'?'none':'block'" style="display:none;width:calc(100% - 44px);margin:0 22px 8px;padding:8px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">🔬 Debug</button>
   <div id="debug-box"></div>
+  <button id="fast-nav-btn" type="button" hidden></button>
   <button id="action-btn" onclick="handleAction()"></button>
 </div>
 
@@ -552,6 +570,12 @@ function resetUI() {
   $('debug-toggle').style.display  = 'none';
   $('action-btn').className        = '';
   $('action-btn').textContent      = T ? T.btnStart : '';
+  const fastNav = $('fast-nav-btn');
+  if (fastNav) {
+    fastNav.hidden = true;
+    fastNav.className = '';
+    fastNav.onclick = null;
+  }
   updateSpeechLabels();
   ['word','rate','stab'].forEach(k => {
     $('bar-'+k).style.width      = '0%';
@@ -582,9 +606,12 @@ function handleAction() {
     phase = 'IDLE';
     resetUI();
 
-    // ลบปุ่ม FAST navigation ที่ถูกสร้างหลังผลลัพธ์ เพื่อไม่ให้ซ้อนกับรอบใหม่
+    // ซ่อนปุ่ม FAST navigation ระหว่างเริ่มรอบใหม่
     const existing = document.getElementById('fast-nav-btn');
-    if (existing) existing.remove();
+    if (existing) {
+      existing.hidden = true;
+      existing.onclick = null;
+    }
 
     $('transcript-box').style.display = 'block';
     $('transcript-box').textContent = T.hint;
@@ -648,7 +675,10 @@ async function startRecording() {
   resetMeasurementState();
   if ($('test-screen')) $('test-screen').classList.remove('done');
   const existingNav = document.getElementById('fast-nav-btn');
-  if (existingNav) existingNav.remove();
+  if (existingNav) {
+    existingNav.hidden = true;
+    existingNav.onclick = null;
+  }
   phase = 'CALIBRATING';
   $('mic-circle').className        = 'mic-circle calibrating';
   $('mic-icon').textContent        = '🔇';
@@ -1201,9 +1231,10 @@ function evaluateSpeech(text, confidence) {
     `tonal ratio: ${loudCount>0?(tonerCount/loudCount*100).toFixed(0):0}%<br>` +
     `FLATNESS_MAX ปัจจุบัน: ${FLATNESS_MAX}`;
 
-  setTimeout(() => {
-    rb.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, 100);
+  // เลื่อนไปยังผลแบบทันที เพื่อลดอาการกระตุก/ค้างบนมือถือ
+  requestAnimationFrame(() => {
+    rb.scrollIntoView({ behavior: 'auto', block: 'nearest' });
+  });
 
   // ── FAST flow navigation ──
   handleFastFlow(cls);
@@ -1216,92 +1247,37 @@ function handleFastFlow(riskLevel) {
   const lang = sessionStorage.getItem('fast_lang') || 'th';
   const L = CONFIG[lang] || CONFIG.th;
 
-  // ตรวจว่ามีผลของทั้ง 3 โมดูลแล้วหรือยัง
-  const allDone = [
-    'fast_face',
-    'fast_arm',
-    'fast_speech'
-  ].every(key => {
-    const raw = sessionStorage.getItem(key);
+  const allDone = ['fast_face', 'fast_arm', 'fast_speech']
+    .every(key => {
+      const raw = sessionStorage.getItem(key);
+      if (!raw) return false;
 
-    if (!raw) return false;
-
-    try {
-      return JSON.parse(raw) !== null;
-    } catch (error) {
-      return false;
-    }
-  });
-
-  setTimeout(() => {
-    // ป้องกันปุ่มซ้ำ
-    const existingButton =
-      document.getElementById('fast-nav-btn');
-
-    if (existingButton) {
-      existingButton.remove();
-    }
-
-    const button = document.createElement('button');
-
-    button.id = 'fast-nav-btn';
-    button.type = 'button';
-
-    if (allDone) {
-      button.textContent = L.fastResult;
-      button.style.background = 'var(--green)';
-
-      button.onclick = () => {
-        stopAll();
-        window.location.href = 'result.html';
-      };
-    } else {
-      button.textContent = L.fastHome;
-      button.style.background = 'var(--blue)';
-
-      button.onclick = () => {
-        stopAll();
-        window.location.href = 'index.html';
-      };
-
-      // หากพบความผิดปกติ แต่ยังทำไม่ครบ
-      if (riskLevel !== 'ok') {
-        const resultSub =
-          document.getElementById('rb-sub');
-
-        if (resultSub) {
-          resultSub.textContent +=
-            ` · ${L.fastIncomplete}`;
-        }
+      try {
+        return JSON.parse(raw) !== null;
+      } catch (error) {
+        return false;
       }
+    });
+
+  const btn = document.getElementById('fast-nav-btn');
+  if (!btn) return;
+
+  btn.hidden = false;
+  btn.className = allDone ? 'green' : '';
+  btn.textContent = allDone ? L.fastResult : L.fastHome;
+
+  btn.onclick = () => {
+    stopAll();
+    window.location.href = allDone ? 'result.html' : 'index.html';
+  };
+
+  // หากพบความผิดปกติแต่ยังทำไม่ครบ ให้เตือนโดยไม่เขียนทับรายละเอียดเดิม
+  if (!allDone && riskLevel !== 'ok') {
+    const resultSub = document.getElementById('rb-sub');
+    if (resultSub && !resultSub.textContent.includes(L.fastIncomplete)) {
+      resultSub.textContent += ` · ${L.fastIncomplete}`;
     }
-
-    /*
-      วางปุ่มต่อจาก result banner โดยตรง
-      เพื่อให้ผู้ใช้มองเห็นก่อนปุ่ม “ทดสอบอีกครั้ง”
-    */
-    const resultBanner =
-      document.getElementById('result-banner');
-
-    if (resultBanner) {
-      resultBanner.insertAdjacentElement(
-        'afterend',
-        button
-      );
-      return;
-    }
-
-    // fallback หากหา result banner ไม่พบ
-    const actionButton =
-      document.getElementById('action-btn');
-
-    if (actionButton) {
-      actionButton.insertAdjacentElement(
-        'beforebegin',
-        button
-      );
-    }
-  }, 200);
+  }
 }
 
 // ── No language landing page: start directly and keep TH/EN/JA at top-right ──
