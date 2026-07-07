@@ -1210,54 +1210,97 @@ function evaluateSpeech(text, confidence) {
 }
 
 // ═══════════════════════════════════════════════════
-// FAST FLOW — จัดการ navigation ระหว่าง module
+// FAST FLOW — จัดการ navigation หลังจบ Speech
 // ═══════════════════════════════════════════════════
 function handleFastFlow(riskLevel) {
-  const mode = sessionStorage.getItem('fast_mode');
   const lang = sessionStorage.getItem('fast_lang') || 'th';
+  const L = CONFIG[lang] || CONFIG.th;
 
-  // ตรวจว่าทำครบ 3 module หรือยัง
-  const allDone = ['fast_face','fast_arm','fast_speech']
-    .every(k => sessionStorage.getItem(k));
+  // ตรวจว่ามีผลของทั้ง 3 โมดูลแล้วหรือยัง
+  const allDone = [
+    'fast_face',
+    'fast_arm',
+    'fast_speech'
+  ].every(key => {
+    const raw = sessionStorage.getItem(key);
 
-  // เพิ่มปุ่ม navigation ใต้ result banner
+    if (!raw) return false;
+
+    try {
+      return JSON.parse(raw) !== null;
+    } catch (error) {
+      return false;
+    }
+  });
+
   setTimeout(() => {
-    const existing = document.getElementById('fast-nav-btn');
-    if (existing) existing.remove();
+    // ป้องกันปุ่มซ้ำ
+    const existingButton =
+      document.getElementById('fast-nav-btn');
 
-    const btn = document.createElement('button');
-    btn.id = 'fast-nav-btn';
-    btn.style.cssText = 'width:calc(100% - 44px);margin:0 22px 16px;min-height:54px;border-radius:14px;border:none;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;color:#fff;background:var(--blue)';
+    if (existingButton) {
+      existingButton.remove();
+    }
 
-    const L = CONFIG[lang] || CONFIG.th;
+    const button = document.createElement('button');
 
-    if (mode === 'full') {
-      // Full mode: speech เป็นอันสุดท้าย → ไป result
-      if (allDone) {
-        btn.textContent = L.fastResult;
-        btn.onclick = () => window.location.href = 'result.html';
-      } else {
-        btn.textContent = L.fastHome;
-        btn.onclick = () => window.location.href = 'index.html';
-      }
+    button.id = 'fast-nav-btn';
+    button.type = 'button';
+
+    if (allDone) {
+      button.textContent = L.fastResult;
+      button.style.background = 'var(--green)';
+
+      button.onclick = () => {
+        stopAll();
+        window.location.href = 'result.html';
+      };
     } else {
-      // Individual mode
-      if (allDone) {
-        btn.textContent = L.fastResult;
-        btn.style.background = 'var(--green)';
-        btn.onclick = () => window.location.href = 'result.html';
-      } else {
-        btn.textContent = L.fastHome;
-        btn.onclick = () => window.location.href = 'index.html';
-        // ถ้าผิดปกติแต่ยังไม่ครบ แสดงข้อความเตือน
-        if (riskLevel !== 'ok') {
-          $('rb-sub').textContent = L.fastIncomplete;
+      button.textContent = L.fastHome;
+      button.style.background = 'var(--blue)';
+
+      button.onclick = () => {
+        stopAll();
+        window.location.href = 'index.html';
+      };
+
+      // หากพบความผิดปกติ แต่ยังทำไม่ครบ
+      if (riskLevel !== 'ok') {
+        const resultSub =
+          document.getElementById('rb-sub');
+
+        if (resultSub) {
+          resultSub.textContent +=
+            ` · ${L.fastIncomplete}`;
         }
       }
     }
 
-    const actionBtn = $('action-btn');
-    actionBtn.parentNode.insertBefore(btn, actionBtn);
+    /*
+      วางปุ่มต่อจาก result banner โดยตรง
+      เพื่อให้ผู้ใช้มองเห็นก่อนปุ่ม “ทดสอบอีกครั้ง”
+    */
+    const resultBanner =
+      document.getElementById('result-banner');
+
+    if (resultBanner) {
+      resultBanner.insertAdjacentElement(
+        'afterend',
+        button
+      );
+      return;
+    }
+
+    // fallback หากหา result banner ไม่พบ
+    const actionButton =
+      document.getElementById('action-btn');
+
+    if (actionButton) {
+      actionButton.insertAdjacentElement(
+        'beforebegin',
+        button
+      );
+    }
   }, 200);
 }
 
