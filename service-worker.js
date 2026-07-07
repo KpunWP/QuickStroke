@@ -8,7 +8,7 @@
  *
  * ไม่ต้อง bump เวอร์ชันเมื่อแก้โค้ดทั่วไป — bump เฉพาะเมื่อ "เปลี่ยนไฟล์โมเดล" เท่านั้น
  */
-const CACHE_NAME = "quickstroke-pwa-v5";
+const CACHE_NAME = "quickstroke-pwa-v6"; // v6: บังคับล้าง cache เก่าที่อาจมี HTML เก่าค้างจากปัญหา HTTP cache
 
 /* ไฟล์หลักของแอป — ถ้าตัวใดโหลดไม่สำเร็จตอน install ถือว่า install ล้มเหลว (ต้องมีครบ) */
 const CORE_SHELL = [
@@ -93,9 +93,14 @@ self.addEventListener("fetch", (event) => {
 
   if (isHTML) {
     /* NETWORK-FIRST + TIMEOUT:
-       เน็ตดี → ของใหม่ล่าสุดเสมอ | เน็ตอืด/ขาด → cache ขึ้นทันทีภายใน 3 วิ ไม่มีหน้าค้าง */
+       เน็ตดี → ของใหม่ล่าสุดเสมอ | เน็ตอืด/ขาด → cache ขึ้นทันทีภายใน 3 วิ ไม่มีหน้าค้าง
+
+       FIX: cache:"no-cache" บังคับให้ถาม server เสมอ (ผ่าน revalidate)
+       ไม่งั้น fetch จะหยิบ HTML เก่าจาก HTTP cache ของ browser โดยไม่ออกเน็ต
+       → network-first กลายเป็นได้ของเก่าตลอด แม้ deploy ไฟล์ใหม่แล้ว */
+    const freshRequest = new Request(event.request, { cache: "no-cache" });
     event.respondWith(
-      fetchWithTimeout(event.request, HTML_NETWORK_TIMEOUT_MS)
+      fetchWithTimeout(freshRequest, HTML_NETWORK_TIMEOUT_MS)
         .then((response) => {
           if (response && response.ok) {
             const clone = response.clone();
