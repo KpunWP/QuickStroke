@@ -8,7 +8,7 @@
  *
  * ไม่ต้อง bump เวอร์ชันเมื่อแก้โค้ดทั่วไป — bump เฉพาะเมื่อ "เปลี่ยนไฟล์โมเดล" เท่านั้น
  */
-const CACHE_NAME = "quickstroke-pwa-v3";
+const CACHE_NAME = "quickstroke-pwa-v4";
 
 /* ไฟล์หลักของแอป — ถ้าตัวใดโหลดไม่สำเร็จตอน install ถือว่า install ล้มเหลว (ต้องมีครบ) */
 const CORE_SHELL = [
