@@ -719,12 +719,16 @@ function hasLiveAudioTrack(stream) {
 
 async function waitForMicTrackReady(stream, timeoutMs = 1500) {
   const track = stream?.getAudioTracks?.()[0];
-  if (!track || track.readyState !== 'live' || !track.muted) return;
+  if (!track || track.readyState !== 'live') return false;
+  if (!track.muted) return true;
 
   await Promise.race([
     new Promise(resolve => track.addEventListener('unmute', resolve, { once:true })),
     sleep(timeoutMs)
   ]);
+
+  // FIX: รายงานผลจริง ถ้ายัง muted ค้าง ให้ caller ขอ stream ใหม่แทนการปล่อยผ่าน
+  return track.readyState === 'live' && !track.muted;
 }
 
 async function acquireFreshMicStream(permLang) {
@@ -826,7 +830,32 @@ async function startRecording(forceDirectMic = false) {
     }
 
     // บางเครื่องคืน stream ก่อน hardware mic พร้อมจริง รอ unmute สั้น ๆ
-    await waitForMicTrackReady(streamRef);
+    // FIX: ถ้า track ยัง muted ค้าง (พบบ่อยตอนทดสอบซ้ำทันทีบน Chrome/Android)
+    // ให้ทิ้ง stream เงียบนั้น แล้วขอ stream ใหม่จาก browser โดยตรง สูงสุด 2 ครั้ง
+    let micReady = await waitForMicTrackReady(streamRef);
+    for (let retry = 0; !micReady && retry < 2; retry++) {
+      try {
+        streamRef.getTracks().forEach(track => { try { track.stop(); } catch (e) {} });
+      } catch (e) {}
+      streamRef = null;
+
+      await sleep(600); // เว้นจังหวะให้ OS ปล่อย mic ก่อนขอใหม่
+
+      streamRef = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+
+      if (!hasLiveAudioTrack(streamRef)) continue;
+      micReady = await waitForMicTrackReady(streamRef, 2000);
+    }
+
+    if (!streamRef || !hasLiveAudioTrack(streamRef)) {
+      throw new Error('Microphone stream is not active');
+    }
 
     // resume ซ้ำหลังได้ stream เผื่อ browser suspend ระหว่าง permission request
     if (audioCtx.state === 'suspended') {
@@ -1038,15 +1067,16 @@ async function releaseCurrentAudioResources() {
       // close() คืน Promise ที่ resolve เมื่อ resource ที่ขวาง AudioContext ใหม่ถูกปล่อยแล้ว
       audioClose = Promise.race([
         oldAudioCtx.close(),
-        sleep(1500)
+        sleep(2500)   // FIX: เพิ่มจาก 1500 → 2500ms บางเครื่องปิดช้า
       ]);
     } catch (error) {}
   }
 
   await Promise.allSettled([recognitionClose, audioClose]);
 
-  // เว้นช่วงสั้น ๆ ให้ audio service ของ OS สลับ session อย่างเสถียร
-  if (hadResources) await sleep(350);
+  // FIX: เพิ่มจาก 350 → 1000ms ให้ OS สลับ audio session เสร็จจริงก่อนรอบใหม่
+  // (อาการเดิม: รอบสองขอ mic ทันทีแล้วได้ stream เงียบ ต้องรอ ~1 นาที)
+  if (hadResources) await sleep(1000);
 }
 
 function stopAll() {
