@@ -101,7 +101,41 @@
     display:flex;align-items:center;justify-content:center;
     box-shadow:var(--blue-glow);
   }
-  .hero-mark svg{width:40px;height:40px;stroke:#fff;fill:none;stroke-width:2.1}
+  .hero-mark svg {
+    width: 58px;
+    height: 58px;
+    overflow: visible;
+  }
+  
+  .hero-screening-icon .head-outline {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  
+  .hero-screening-icon .screening-pulse {
+    fill: none;
+    stroke: #fff;
+    stroke-width: 4.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  
+  .hero-screening-icon .check-badge {
+    fill: #fff;
+    stroke: rgba(15, 94, 168, 0.16);
+    stroke-width: 1.5;
+  }
+  
+  .hero-screening-icon .check-mark {
+    fill: none;
+    stroke: var(--clinical-deep);
+    stroke-width: 3.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
   .hero h1{font-size:clamp(27px,7.2vw,36px);font-weight:800;line-height:1.18;letter-spacing:-.6px;margin-bottom:8px;color:var(--ink)}
   .hero p{font-size:15px;color:var(--ink-soft);max-width:320px;margin:0 auto;line-height:1.6;font-weight:600}
 
@@ -377,10 +411,78 @@
     body{max-width:430px;margin:0 auto;box-shadow:0 0 0 1px rgba(27,42,58,.06),0 24px 70px rgba(27,42,58,.16)}
   }
   @media (max-height:760px){
-    header{min-height:62px;padding:10px 14px}.brand-mark{width:38px;height:38px}.brand-text{font-size:16px}
-    .lang-seg button{height:32px;min-width:36px;font-size:12px}
-    .hero{padding:20px 20px 12px}.hero-mark{width:64px;height:64px;border-radius:22px;margin-bottom:12px}.hero h1{font-size:25px}.hero p{font-size:13px}
-    .emergency{margin-top:12px;padding:11px 13px}.modes{padding-top:18px;gap:11px}.mode{padding:15px;border-radius:22px}.mode-icon{width:46px;height:46px;border-radius:18px}.mode-head{margin-bottom:10px}.cta-zone{padding-bottom:20px}
+    header{
+      min-height:62px;
+      padding:10px 14px;
+    }
+  
+    .brand-mark{
+      width:38px;
+      height:38px;
+    }
+  
+    .brand-text{
+      font-size:16px;
+    }
+  
+    .lang-seg button{
+      height:32px;
+      min-width:36px;
+      font-size:12px;
+    }
+  
+    .hero{
+      padding:20px 20px 12px;
+    }
+  
+    .hero-mark{
+      width:64px;
+      height:64px;
+      border-radius:22px;
+      margin-bottom:12px;
+    }
+  
+    .hero-screening-icon svg{
+      width:49px;
+      height:49px;
+    }
+  
+    .hero h1{
+      font-size:25px;
+    }
+  
+    .hero p{
+      font-size:13px;
+    }
+  
+    .emergency{
+      margin-top:12px;
+      padding:11px 13px;
+    }
+  
+    .modes{
+      padding-top:18px;
+      gap:11px;
+    }
+  
+    .mode{
+      padding:15px;
+      border-radius:22px;
+    }
+  
+    .mode-icon{
+      width:46px;
+      height:46px;
+      border-radius:18px;
+    }
+  
+    .mode-head{
+      margin-bottom:10px;
+    }
+  
+    .cta-zone{
+      padding-bottom:20px;
+    }
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 </style>
@@ -427,11 +529,49 @@
 </header>
 
 <div class="hero">
-  <div class="hero-mark quick-stroke-icon">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path class="pulse-line" d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"/><path class="bolt" d="M13.2 2.8 7.4 12h4.1l-1.2 9.2 6.3-10.8h-4.2z" opacity=".92"/></svg>
-  </div>
-  <h1 data-i="title">รู้ทันสโตรก</h1>
-  <p data-i="sub">หน้า · แขน · เสียง<br>ตรวจเบื้องต้นได้เอง</p>
+  <div class="hero-mark hero-screening-icon" aria-hidden="true">
+  <svg viewBox="0 0 64 64">
+    <!-- โครงศีรษะ -->
+    <path
+      class="head-outline"
+      d="
+        M40 10
+        C27.5 10 18 19.2 18 31
+        C18 35.4 19.4 39.4 22.2 42.8
+        L18 48
+        H25.5
+        V55
+        H37
+      "
+    />
+
+    <!-- เส้นชีพจร -->
+    <path
+      class="screening-pulse"
+      d="
+        M21 32
+        H29
+        L33 24
+        L38 40
+        L43 29
+        L47 34
+        H53
+      "
+    />
+
+    <!-- วงกลมเครื่องหมายถูก -->
+    <circle
+      class="check-badge"
+      cx="49"
+      cy="49"
+      r="10"
+    />
+
+    <path
+      class="check-mark"
+      d="M44.5 49 L48 52.5 L54 45.5"
+    />
+  </svg>
 </div>
 
 <div class="emergency" onclick="window.location.href='tel:1669'" role="button" tabindex="0" style="cursor:pointer">
