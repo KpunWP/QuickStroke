@@ -253,6 +253,21 @@
     backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
     text-align:center;
   }
+    .disc-lang{
+    display:flex;
+    justify-content:center;
+    margin:0 auto 20px;
+  }
+  
+  .disc-lang .lang-seg{
+    max-width:100%;
+  }
+  
+  .disc-lang .lang-seg button{
+    min-width:auto;
+    padding:0 14px;
+    white-space:nowrap;
+  }
   .disc-mark{
     width:82px;height:82px;margin:0 auto 18px;border-radius:30px;
     background:linear-gradient(180deg,#2388ff,var(--clinical-deep));
@@ -296,6 +311,15 @@
   .disc-note{font-size:12px;color:var(--ink-faint);font-weight:700;line-height:1.55;margin-top:12px;}
   @media (max-height:760px){
     .disclaimer-card{padding:22px 18px 18px;border-radius:28px;}
+    .disc-lang{
+      margin-bottom:14px;
+    }
+    
+    .disc-lang .lang-seg button{
+      height:32px;
+      padding:0 11px;
+      font-size:12px;
+    }
     .disc-mark{width:68px;height:68px;border-radius:25px;margin-bottom:12px;}
     .disc-mark svg{width:34px;height:34px;}
     .disclaimer-card h2{font-size:24px;margin-bottom:10px;}
@@ -580,14 +604,28 @@ let lang = window.QS_CONFIG?.defaultLang || 'th';
 let indOpen = false;
 
 function setLang(l) {
+  if (!I18N[l]) return;
+
   lang = l;
-  const order = ['th','en','ja'];
-  document.querySelectorAll('.lang-seg button').forEach((b,i) => b.classList.toggle('on', order[i]===l));
-  const T = I18N[l];
-  document.querySelectorAll('[data-i]').forEach(el => {
-    const k = el.dataset.i;
-    if (T[k] !== undefined) el.innerHTML = T[k];
+
+  document.querySelectorAll('.lang-seg button').forEach(button => {
+    const isActive = button.dataset.lang === l;
+
+    button.classList.toggle('on', isActive);
+    button.setAttribute('aria-pressed', String(isActive));
   });
+
+  const T = I18N[l];
+
+  document.querySelectorAll('[data-i]').forEach(el => {
+    const key = el.dataset.i;
+
+    if (T[key] !== undefined) {
+      el.innerHTML = T[key];
+    }
+  });
+
+  document.documentElement.lang = l;
   updateProgress();
   sessionStorage.setItem('fast_lang', l);
 }
