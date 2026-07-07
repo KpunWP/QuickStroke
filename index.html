@@ -303,12 +303,22 @@
     white-space:nowrap;
   }
   .disc-mark{
-    width:82px;height:82px;margin:0 auto 18px;border-radius:30px;
+    width:82px;
+    height:82px;
+    margin:0 auto 18px;
+    border-radius:30px;
     background:linear-gradient(180deg,#2388ff,var(--clinical-deep));
-    display:flex;align-items:center;justify-content:center;
+    display:flex;
+    align-items:center;
+    justify-content:center;
     box-shadow:var(--blue-glow);
   }
-  .disc-mark svg{width:42px;height:42px;stroke:#fff;fill:none;stroke-width:2.05;}
+  
+  .disc-mark svg{
+    width:60px;
+    height:60px;
+    overflow:visible;
+  }
   .disc-eyebrow{
     font-family:'Manrope';font-size:11px;font-weight:800;letter-spacing:1.6px;
     color:var(--clinical);text-transform:uppercase;margin-bottom:8px;
@@ -355,7 +365,7 @@
       font-size:12px;
     }
     .disc-mark{width:68px;height:68px;border-radius:25px;margin-bottom:12px;}
-    .disc-mark svg{width:34px;height:34px;}
+    .disc-mark svg{width:50px;height:50px;}
     .disclaimer-card h2{font-size:24px;margin-bottom:10px;}
     .disc-body{font-size:13.5px;margin-bottom:12px;}
     .disc-emergency{padding:11px 12px;border-radius:18px;margin-bottom:14px;}
@@ -405,7 +415,6 @@
   body.individual-open .cta-zone{padding-top:12px!important;}
 
   .quick-stroke-icon svg .pulse-line{stroke-linecap:round;stroke-linejoin:round;}
-  .quick-stroke-icon svg .bolt{fill:#fff;stroke:none;}
 
   @media (min-width:520px){
     body{max-width:430px;margin:0 auto;box-shadow:0 0 0 1px rgba(27,42,58,.06),0 24px 70px rgba(27,42,58,.16)}
@@ -493,7 +502,12 @@
 <header>
   <div class="brand">
     <div class="brand-mark quick-stroke-icon">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="pulse-line" d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"/><path class="bolt" d="M13.2 2.8 7.4 12h4.1l-1.2 9.2 6.3-10.8h-4.2z" opacity=".92"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          class="pulse-line"
+          d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"
+        />
+      </svg>
     </div>
     <div class="brand-text">Quick<span> Stroke</span></div>
   </div>
@@ -676,8 +690,46 @@
       </div>
     </div>
 
-    <div class="disc-mark quick-stroke-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path class="pulse-line" d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"/><path class="bolt" d="M13.2 2.8 7.4 12h4.1l-1.2 9.2 6.3-10.8h-4.2z" opacity=".92"/></svg>
+    <div class="disc-mark hero-screening-icon" aria-hidden="true">
+      <svg viewBox="0 0 64 64">
+        <path
+          class="head-outline"
+          d="
+            M40 10
+            C27.5 10 18 19.2 18 31
+            C18 35.4 19.4 39.4 22.2 42.8
+            L18 48
+            H25.5
+            V55
+            H37
+          "
+        />
+    
+        <path
+          class="screening-pulse"
+          d="
+            M21 32
+            H29
+            L33 24
+            L38 40
+            L43 29
+            L47 34
+            H53
+          "
+        />
+    
+        <circle
+          class="check-badge"
+          cx="49"
+          cy="49"
+          r="10"
+        />
+    
+        <path
+          class="check-mark"
+          d="M44.5 49 L48 52.5 L54 45.5"
+        />
+      </svg>
     </div>
     <div class="disc-eyebrow" data-i="discEyebrow">Quick Stroke</div>
     <h2 id="disc-title" data-i="discTitle">ข้อมูลสำคัญก่อนใช้งาน</h2>
