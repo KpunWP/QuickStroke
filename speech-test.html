@@ -456,6 +456,7 @@ function updateSpeechLabels() {
 }
 let T = null;
 let phase = 'IDLE'; // IDLE | CALIBRATING | RECORDING | DONE
+let retryStarting = false; // กันการกดทดสอบซ้ำซ้อนระหว่างขอไมค์ใหม่
 
 // Web Audio
 let audioCtx = null, analyser = null, source = null, streamRef = null;
@@ -571,6 +572,7 @@ function resetUI() {
   $('debug-box').style.display     = 'none';
   $('debug-toggle').style.display  = 'none';
   $('action-btn').className        = '';
+  $('action-btn').disabled         = false;
   $('action-btn').textContent      = T ? T.btnStart : '';
   const fastNav = $('fast-nav-btn');
   if (fastNav) {
@@ -593,9 +595,11 @@ function resetUI() {
   resetSpeechCards();
 }
 
-function handleAction() {
+async function handleAction() {
+  if (retryStarting) return;
+
   if (phase === 'IDLE') {
-    startRecording();
+    await startRecording(false);
   }
   else if (phase === 'RECORDING') {
     // ผู้ใช้กดปุ่มหยุดบันทึกด้วยตัวเองแมนนวล
@@ -603,11 +607,25 @@ function handleAction() {
     evaluateSpeech('__manual__', 0);
   }
   else if (phase === 'DONE') {
-    // เริ่มรอบใหม่จาก click เดิม และขอ MediaStream ใหม่ทุกครั้ง
-    stopAll();
-    phase = 'IDLE';
-    resetUI();
-    void startRecording();
+    // รอบทดสอบซ้ำต้องขอ MediaStream ใหม่โดยตรง
+    // ไม่ผ่าน FastPermissions เพราะ helper บาง browser คืน stream เก่าที่ถูก stop แล้ว
+    retryStarting = true;
+
+    const actionBtn = $('action-btn');
+    actionBtn.disabled = true;
+    actionBtn.textContent = T.calibrating;
+
+    try {
+      phase = 'IDLE';
+      resetUI();
+      actionBtn.disabled = true;
+      actionBtn.textContent = T.calibrating;
+
+      await startRecording(true);
+    } finally {
+      retryStarting = false;
+      actionBtn.disabled = false;
+    }
   }
 }
 
@@ -697,11 +715,13 @@ async function acquireFreshMicStream(permLang) {
   throw err;
 }
 
-async function startRecording() {
+async function startRecording(forceDirectMic = false) {
   // เคลียร์ ASR/audio จากรอบก่อนให้หมดก่อนเริ่มรอบใหม่
   stopAll();
   resetMeasurementState();
+
   if ($('test-screen')) $('test-screen').classList.remove('done');
+
   const existingNav = document.getElementById('fast-nav-btn');
   if (existingNav) {
     existingNav.className = '';
@@ -709,61 +729,101 @@ async function startRecording() {
     existingNav.setAttribute('aria-hidden', 'true');
     existingNav.onclick = null;
   }
+
   phase = 'CALIBRATING';
-  $('mic-circle').className        = 'mic-circle calibrating';
-  $('mic-icon').textContent        = '🔇';
-  $('action-btn').textContent      = T.calibrating;
-  $('action-btn').className        = '';
+  $('mic-circle').className         = 'mic-circle calibrating';
+  $('mic-icon').textContent         = '🔇';
+  $('action-btn').textContent       = T.calibrating;
+  $('action-btn').className         = '';
   $('transcript-box').style.display = 'block';
-  $('transcript-box').textContent  = T.noiseCalib;
-  $('metrics-box').style.display   = 'flex';
-  $('debug-toggle').style.display  = 'block';
-  $('debug-box').textContent       = 'calibrating noise floor...';
+  $('transcript-box').textContent   = T.noiseCalib;
+  $('metrics-box').style.display    = 'flex';
+  $('debug-toggle').style.display   = 'block';
+  $('debug-box').textContent        = 'calibrating noise floor...';
   setSpeechCard('word','active',T.noiseMetric,T.calibrating.replace(/\.\.\.|…/g,'').trim() || T.pending,'🔇');
   setSpeechCard('rate','',T.rate,T.pending,'⏱️');
 
   try {
     const permLang = sessionStorage.getItem('fast_lang') || 'th';
-    streamRef = await acquireFreshMicStream(permLang);
+
+    /*
+      สร้างและสั่ง resume AudioContext ก่อน await getUserMedia
+      เพื่อให้คำสั่งยังอยู่ใน user gesture ของปุ่ม โดยเฉพาะรอบทดสอบซ้ำ
+      บน Chrome/Edge/iOS บางรุ่น การสร้าง AudioContext หลัง await อาจค้างที่ suspended
+    */
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error('Web Audio API is not available');
+
+    audioCtx = new AudioContextClass();
+    if (audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch (error) {}
+    }
+
+    if (forceDirectMic) {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error('Microphone API is not available');
+      }
+
+      // รอบ Retry ขอ stream ใหม่จาก browser โดยตรง ไม่ใช้ stream cache ของ helper
+      streamRef = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+    } else {
+      streamRef = await acquireFreshMicStream(permLang);
+    }
 
     if (!hasLiveAudioTrack(streamRef)) {
       throw new Error('Microphone stream is not active');
     }
 
-    audioCtx  = new (window.AudioContext || window.webkitAudioContext)();
+    // resume ซ้ำหลังได้ stream เผื่อ browser suspend ระหว่าง permission request
     if (audioCtx.state === 'suspended') {
-      try { await audioCtx.resume(); } catch(e) {}
+      try { await audioCtx.resume(); } catch (error) {}
     }
-    analyser  = audioCtx.createAnalyser();
-    analyser.fftSize               = 1024;
-    analyser.smoothingTimeConstant = 0.2; 
-    source    = audioCtx.createMediaStreamSource(streamRef);
+
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 1024;
+    analyser.smoothingTimeConstant = 0.2;
+
+    source = audioCtx.createMediaStreamSource(streamRef);
     source.connect(analyser);
+
     calibStartMs = performance.now();
     runLoop();
   } catch (err) {
-    $('transcript-box').textContent = '⚠️ ไม่สามารถเข้าถึงไมค์: ' + err.message;
+    stopAll();
     phase = 'IDLE';
+
+    $('transcript-box').style.display = 'block';
+    $('transcript-box').textContent = '⚠️ ไม่สามารถเข้าถึงไมค์: ' + err.message;
+    $('action-btn').disabled = false;
     $('action-btn').textContent = T.btnStart;
     $('action-btn').className = '';
 
-    const permLang = sessionStorage.getItem('fast_lang') || 'th';
-    if (window.FastPermissions && typeof FastPermissions.requestWithUI === 'function') {
-      try {
-        FastPermissions.requestWithUI('mic', permLang, (stream) => {
-          if (hasLiveAudioTrack(stream)) {
-            stream.getTracks().forEach(track => track.stop());
-            startRecording();
-          }
-        });
-      } catch (uiError) {}
+    // แสดง permission UI เฉพาะการเริ่มครั้งแรก ไม่เรียกซ้ำใน Retry
+    // เพราะ Retry ต้องไม่ย้อนกลับไปใช้ MediaStream cache เดิม
+    if (!forceDirectMic) {
+      const permLang = sessionStorage.getItem('fast_lang') || 'th';
+      if (window.FastPermissions && typeof FastPermissions.requestWithUI === 'function') {
+        try {
+          FastPermissions.requestWithUI('mic', permLang, (stream) => {
+            if (hasLiveAudioTrack(stream)) {
+              stream.getTracks().forEach(track => track.stop());
+              startRecording(false);
+            }
+          });
+        } catch (uiError) {}
+      }
     }
+
     return;
   }
 
   // Speech Recognition จะเริ่มหลังจบ calibration เท่านั้น
-  // สำคัญ: ถ้า start ตอน CALIBRATING โดยเฉพาะ continuous=false
-  // engine อาจ onend ก่อนผู้ใช้พูด ทำให้ evaluate เป็น no voice ทุกภาษา
 }
 
 function beginSpeechRecognition() {
