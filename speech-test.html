@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>FAST · Speech Test (Trailing Silence V3)</title>
+<title>FAST · Speech Test (Retry Release Fix)</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0F6FFF">
 <meta name="apple-mobile-web-app-title" content="QuickStroke">
@@ -474,19 +474,54 @@ function clearRecognitionTimers() {
   if (recognitionSafetyTimer) { clearTimeout(recognitionSafetyTimer); recognitionSafetyTimer = null; }
 }
 
-function resetRecognitionEngine() {
-  recognitionRunId++; // ทำให้ event/timer จากรอบเก่าถูก ignore
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+let cleanupPromise = Promise.resolve();
+
+/*
+  SpeechRecognition.abort() และ AudioContext.close() ปล่อย resource แบบ asynchronous
+  รอบ Retry จึงต้องรอให้บริการเดิม disconnect/close จริงก่อนเริ่มรอบใหม่
+*/
+function shutdownRecognition() {
+  recognitionRunId++; // event/timer จากรอบเก่าจะถูก ignore ทันที
   clearRecognitionTimers();
+
+  const oldRecognition = recognition;
+  const wasStarted = recognitionStarted;
+
+  recognition = null;
   recognitionStarted = false;
-  if (recognition) {
+
+  if (!oldRecognition) return Promise.resolve();
+
+  return new Promise(resolve => {
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      resolve();
+    };
+
+    // ปิด handler เดิมเพื่อไม่ให้ onend ของรอบเก่า restart ตัวเอง
+    oldRecognition.onresult = null;
+    oldRecognition.onerror = finish;
+    oldRecognition.onend = finish;
+
     try {
-      recognition.onresult = null;
-      recognition.onerror = null;
-      recognition.onend = null;
-      recognition.abort();
-    } catch(e) {}
-    recognition = null;
-  }
+      if (wasStarted) oldRecognition.abort();
+      else finish();
+    } catch (error) {
+      finish();
+    }
+
+    // บาง browser ไม่ยิง end หลัง abort จึงมี timeout กันค้าง
+    setTimeout(finish, 1200);
+  });
+}
+
+// คงชื่อเดิมไว้สำหรับจุดเรียกเก่า แต่คืน Promise เพื่อให้ await ได้
+function resetRecognitionEngine() {
+  return shutdownRecognition();
 }
 
 // Noise Floor Calibration
@@ -591,7 +626,7 @@ function resetUI() {
   
   resetMeasurementState();
   if ($('noise-overlay')) $('noise-overlay').style.display = 'none';
-  resetRecognitionEngine();
+  // การปิด SpeechRecognition/AudioContext ทำใน stopAll() และรอแบบ async
   resetSpeechCards();
 }
 
@@ -682,6 +717,16 @@ function hasLiveAudioTrack(stream) {
   return !!stream && stream.getAudioTracks().some(track => track.readyState === 'live');
 }
 
+async function waitForMicTrackReady(stream, timeoutMs = 1500) {
+  const track = stream?.getAudioTracks?.()[0];
+  if (!track || track.readyState !== 'live' || !track.muted) return;
+
+  await Promise.race([
+    new Promise(resolve => track.addEventListener('unmute', resolve, { once:true })),
+    sleep(timeoutMs)
+  ]);
+}
+
 async function acquireFreshMicStream(permLang) {
   let permissionResult = null;
 
@@ -716,8 +761,8 @@ async function acquireFreshMicStream(permLang) {
 }
 
 async function startRecording(forceDirectMic = false) {
-  // เคลียร์ ASR/audio จากรอบก่อนให้หมดก่อนเริ่มรอบใหม่
-  stopAll();
+  // รอให้ ASR, MediaStream และ AudioContext รอบก่อนปล่อย resource จริงก่อน
+  await stopAll();
   resetMeasurementState();
 
   if ($('test-screen')) $('test-screen').classList.remove('done');
@@ -780,6 +825,9 @@ async function startRecording(forceDirectMic = false) {
       throw new Error('Microphone stream is not active');
     }
 
+    // บางเครื่องคืน stream ก่อน hardware mic พร้อมจริง รอ unmute สั้น ๆ
+    await waitForMicTrackReady(streamRef);
+
     // resume ซ้ำหลังได้ stream เผื่อ browser suspend ระหว่าง permission request
     if (audioCtx.state === 'suspended') {
       try { await audioCtx.resume(); } catch (error) {}
@@ -826,9 +874,11 @@ async function startRecording(forceDirectMic = false) {
   // Speech Recognition จะเริ่มหลังจบ calibration เท่านั้น
 }
 
-function beginSpeechRecognition() {
-  // เริ่ม ASR ใหม่แบบ clean ทุกครั้ง เพื่อกัน Chrome/WebKit ค้างจากรอบก่อน
-  resetRecognitionEngine();
+async function beginSpeechRecognition() {
+  // รอให้ recognition เก่าหยุดและ disconnect จริงก่อนสร้าง session ใหม่
+  await resetRecognitionEngine();
+  if (phase !== 'RECORDING') return;
+
   const runId = ++recognitionRunId;
 
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -951,13 +1001,60 @@ function beginSpeechRecognition() {
   }
 }
 
-function stopAll() {
-  if (animationFrameId) { cancelAnimationFrame(animationFrameId); animationFrameId = null; }
-  resetRecognitionEngine();
-  if (source)       { try { source.disconnect(); }   catch(e){} source = null; }
-  if (streamRef)    { streamRef.getTracks().forEach(t => t.stop()); streamRef = null; }
-  if (audioCtx)     { try { audioCtx.close(); }      catch(e){} audioCtx = null; }
+async function releaseCurrentAudioResources() {
+  const hadResources = !!(
+    recognition || recognitionStarted || source || streamRef || audioCtx || analyser || animationFrameId
+  );
+
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+
+  // เริ่มปิด ASR ก่อน และรอ end ซึ่งหมายถึงบริการ disconnect แล้ว
+  const recognitionClose = shutdownRecognition();
+
+  const oldSource = source;
+  source = null;
+  if (oldSource) {
+    try { oldSource.disconnect(); } catch (error) {}
+  }
+
+  const oldStream = streamRef;
+  streamRef = null;
+  if (oldStream) {
+    oldStream.getTracks().forEach(track => {
+      try { track.stop(); } catch (error) {}
+    });
+  }
+
+  const oldAudioCtx = audioCtx;
+  audioCtx = null;
   analyser = null;
+
+  let audioClose = Promise.resolve();
+  if (oldAudioCtx && oldAudioCtx.state !== 'closed') {
+    try {
+      // close() คืน Promise ที่ resolve เมื่อ resource ที่ขวาง AudioContext ใหม่ถูกปล่อยแล้ว
+      audioClose = Promise.race([
+        oldAudioCtx.close(),
+        sleep(1500)
+      ]);
+    } catch (error) {}
+  }
+
+  await Promise.allSettled([recognitionClose, audioClose]);
+
+  // เว้นช่วงสั้น ๆ ให้ audio service ของ OS สลับ session อย่างเสถียร
+  if (hadResources) await sleep(350);
+}
+
+function stopAll() {
+  cleanupPromise = cleanupPromise
+    .catch(() => {})
+    .then(() => releaseCurrentAudioResources());
+
+  return cleanupPromise;
 }
 
 // ═══════════════════════════════════════════════════
@@ -1020,7 +1117,7 @@ function runLoop() {
       $('transcript-box').textContent = T.listening || '... กำลังฟัง ...';
       // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
       window.MEASURED_NOISY = false;
-      beginSpeechRecognition();
+      void beginSpeechRecognition();
     }
 
     drawWave(freqArr, N);
