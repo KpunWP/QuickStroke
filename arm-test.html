@@ -618,7 +618,10 @@ function clearVoiceQueue() {
 
 function speakNow(txt, onDone) {
   clearVoiceQueue();
-  speak(txt, onDone);
+
+  setTimeout(() => {
+    speak(txt, onDone);
+  }, 180);
 }
 
 let T       = null;
