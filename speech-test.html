@@ -1457,9 +1457,20 @@ function getLastSpeechSegmentEnd() {
 // ═══════════════════════════════════════════════════
 function rateToScore(rate) {
   if (rate <= 0) return 0;
-  if (rate >= NORMAL_MIN && rate <= NORMAL_MAX) return 100;
-  if (rate < NORMAL_MIN) return Math.round((rate / NORMAL_MIN) * 100);
-  return Math.round(Math.max(60, 100 - (rate - NORMAL_MAX) * 10));
+
+  if (rate >= NORMAL_MIN && rate <= NORMAL_MAX) {
+    return 100;
+  }
+
+  if (rate < NORMAL_MIN) {
+    return Math.round((rate / NORMAL_MIN) * 100);
+  }
+
+  // พูดเร็วไม่ใช่สัญญาณหลักของ dysarthria
+  // จึงลดคะแนนเพียงเล็กน้อย และไม่ต่ำกว่า 80
+  return Math.round(
+    Math.max(80, 100 - (rate - NORMAL_MAX) * 5)
+  );
 }
 
 function calcStab(buf) {
