@@ -415,7 +415,7 @@ const CALIBRATION_MS   = SPEECH_CFG.calibrationMs ?? 300;       // เก็บ 
 const NOISE_MULTIPLIER = SPEECH_CFG.noiseMultiplier ?? 2.5;     // threshold = noiseFloor × 2.5
 const NOISE_FLOOR_CAP  = SPEECH_CFG.noiseFloorCap ?? 0.08;      // จำกัดเพดาน noise ป้องกันไมค์หลอน
 const NORMAL_MIN       = SPEECH_CFG.normalMin ?? 2.5;           // เกณฑ์ความเร็วขั้นต่ำ
-const NORMAL_MAX       = SPEECH_CFG.normalMax ?? 6.0;           // เกณฑ์ความเร็วสูงสุด
+const NORMAL_MAX       = SPEECH_CFG.normalMax ?? 7.0;           // เกณฑ์ความเร็วสูงสุด
 
 // SNR gate: คำนวณหลังพูดเสร็จเท่านั้น เพราะต้องมีทั้งเสียงพูดจริงและ noise floor
 const SNR_WARN_DB      = SPEECH_CFG.minSnrDb ?? SPEECH_CFG.snrWarnDb ?? 10;
