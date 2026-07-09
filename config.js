@@ -29,9 +29,9 @@ window.QS_CONFIG = {
       smileDetectMin: 0.030,
       smileDetectSide: 0.045,
       smileValidStrength: 0.020,
-      realMoveMin: 0.0020,
-      closedSmileRiseMin: 0.0025,
-      smileRealMin: 0.030,
+      realMoveMin: 0.0018,
+      closedSmileRiseMin: 0.0022,
+      smileRealMin: 0.018,
 
       minValidSmileFrames: 2,
       minVisibleMouthFrames: 5,
