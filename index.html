@@ -235,6 +235,36 @@
   .test-row.ok .test-icon svg{stroke:var(--mint)}
   .test-row.warn .test-icon svg{stroke:var(--amber)}
   .test-row.bad .test-icon svg{stroke:var(--coral)}
+  /* Medical hand icon */
+  .medical-hand-icon {
+    fill: none;
+    stroke: currentColor !important;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  
+  .test-icon .medical-hand-icon {
+    width: 25px;
+    height: 25px;
+    stroke-width: 1.55;
+    color: var(--ink-soft);
+  }
+  
+  .test-row.ok .medical-hand-icon {
+    color: var(--mint);
+  }
+  
+  .test-row.warn .medical-hand-icon {
+    color: var(--amber);
+  }
+  
+  .test-row.bad .medical-hand-icon {
+    color: var(--coral);
+  }
+  
+  .test-row.na .medical-hand-icon {
+    color: var(--ink-faint);
+  }
   .test-body{flex:1;min-width:0}
   .test-name{font-size:15px;font-weight:800;color:var(--ink)}
   .test-state{font-size:12.5px;color:var(--ink-faint);margin-top:1px;font-weight:700}
