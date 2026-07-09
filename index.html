@@ -212,6 +212,16 @@
   }
   .pill svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2.2}
 
+  .pill .medical-hand-icon {
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
   .progress-wrap{padding:20px 22px 0;display:none}
   .progress-wrap.open{display:block}
   .test-row{
@@ -235,35 +245,14 @@
   .test-row.ok .test-icon svg{stroke:var(--mint)}
   .test-row.warn .test-icon svg{stroke:var(--amber)}
   .test-row.bad .test-icon svg{stroke:var(--coral)}
-  /* Medical hand icon */
-  .medical-hand-icon {
+  .test-icon .medical-hand-icon {
+    width: 34px;
+    height: 34px;
     fill: none;
-    stroke: currentColor !important;
+    stroke: var(--ink-soft);
+    stroke-width: 4;
     stroke-linecap: round;
     stroke-linejoin: round;
-  }
-  
-  .test-icon .medical-hand-icon {
-    width: 31px;
-    height: 31px;
-    stroke-width: 1.55;
-    color: var(--ink-soft);
-  }
-  
-  .test-row.ok .medical-hand-icon {
-    color: var(--mint);
-  }
-  
-  .test-row.warn .medical-hand-icon {
-    color: var(--amber);
-  }
-  
-  .test-row.bad .medical-hand-icon {
-    color: var(--coral);
-  }
-  
-  .test-row.na .medical-hand-icon {
-    color: var(--ink-faint);
   }
   .test-body{flex:1;min-width:0}
   .test-name{font-size:15px;font-weight:800;color:var(--ink)}
@@ -690,22 +679,47 @@
     <div class="test-icon">
       <svg
         class="medical-hand-icon"
-        viewBox="0 0 24 24"
+        viewBox="0 0 80 72"
         aria-hidden="true"
       >
+        <path d="
+          M24 62
+          C15 62 9 55 9 46
+          V24
+          C9 20.7 11.7 18 15 18
+          C18.3 18 21 20.7 21 24
+          V33
+          L23 33
+          V16
+          C23 12.7 25.7 10 29 10
+          C32.3 10 35 12.7 35 16
+          V33
+          L37 33
+          V10
+          C37 6.7 39.7 4 43 4
+          C46.3 4 49 6.7 49 10
+          V33
+          L51 33
+          V16
+          C51 12.7 53.7 10 57 10
+          C60.3 10 63 12.7 63 16
+          V39
+          L66 36
+          C68.4 33.6 72.2 33.7 74.5 36.2
+          C76.8 38.7 76.4 42.5 73.8 44.8
+          L55 61
+          C48.8 66.3 41.5 69 33 69
+          H28
+          C26.3 69 24.9 67.6 24.9 65.9
+          V63.2
+          C24.9 62.8 24.5 62.4 24 62
+          Z
+        "/>
     
-        <path d="M8.2 13V8.8a1.25 1.25 0 0 1 2.5 0v3.1"/>
-    
-        <path d="M10.7 11.9V7.1a1.25 1.25 0 0 1 2.5 0v4.6"/>
-    
-        <path d="M13.2 11.7V7.8a1.25 1.25 0 0 1 2.5 0v4.5"/>
-    
-        <path d="M15.7 12.3V9.7a1.25 1.25 0 0 1 2.5 0v4.1
-                 c0 3.3-2.2 5.6-5.2 5.6h-.8
-                 c-2.7 0-4.8-2-4.8-4.7v-2.1
-                 a1.25 1.25 0 0 1 2.5 0v1.2"/>
-    
-        <path d="M18 12.7l1.1-1.6a1.15 1.15 0 0 1 1.9 1.3l-2 2.9"/>
+        <path d="
+          M44 53
+          C46.2 45.5 52 40.7 63 39
+        "/>
       </svg>
     </div>
     <div class="test-body">
