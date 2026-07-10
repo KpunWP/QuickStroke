@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "locale": "en-US",
+    "nativeName": "English",
+    "direction": "ltr",
+    "packVersion": "0.1.0",
+    "status": "developer-reference-language"
+  },
+  "index": {
+    "title": "QuickStroke",
+    "subtitle": "Face · Arm · Speech<br>A quick preliminary check",
+    "emergency": "Suspect a stroke? Call <b>local emergency services</b>",
+    "notDiagnosis": "Not a diagnosis · Seek medical evaluation",
+
+    "fullBadge": "All-in-one",
+    "fullName": "Check all three",
+    "individualBadge": "Choose a test",
+    "individualName": "Test one at a time",
+
+    "face": "Face",
+    "arm": "Arm",
+    "speech": "Speech",
+    "notDone": "Not tested",
+
+    "normal": "Normal",
+    "warning": "Caution",
+    "abnormal": "Abnormal",
+    "invalid": "Assessment unsuccessful · Tap to retry",
+
+    "seeResult": "View results",
+    "clear": "Clear results"
+  },
+  "disclaimer": {
+    "eyebrow": "QuickStroke",
+    "title": "Important information before use",
+    "body": "This application is intended for preliminary screening only. It is not a medical diagnosis and cannot replace evaluation by a healthcare professional.",
+    "emergency": "If you suspect a stroke, contact local emergency services immediately.",
+    "accept": "I understand — begin",
+    "note": "Shown only once during this browser tab session"
+  }
+}
