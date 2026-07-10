@@ -56,22 +56,36 @@ window.QS_CONFIG = {
     },
 
     arm: {
+      // ระยะเวลาวัดแขนแต่ละข้าง
       measureSec: 10,
-      holdSeconds: 10,
     
-      driftWarn: 5,
-      driftThr: 10,
-    
-      driftWarnDeg: 5,
+      // มุมเปลี่ยนของ Gravity Vector
+      // ต่ำกว่า 5° = ปกติ
+      // 5° ถึงต่ำกว่า 10° = ยังไม่ชัดเจน ให้ทดสอบใหม่
+      // ตั้งแต่ 10° = วิเคราะห์ต่อว่าเป็นแขนตกหรือข้อมือหมุน
+      normalDriftMaxDeg: 5,
       driftFailDeg: 10,
     
+      // แยกรูปแบบแขนตกออกจากการหมุนข้อมือ
+      wristRatioThr: 0.20,
+      dropZMin: 0.04,
+    
+      // ตรวจความนิ่งก่อนสร้าง Gravity baseline
       stableWindow: 20,
-      stableRange: 5.0,
+      stableAngleDeg: 2.5,
       stableHold: 25,
     
+      // ตรวจว่าโทรศัพท์อยู่ในแนวตั้ง ไม่ได้วางราบ
       flatZThr: 0.90,
-      gammaThr: 10,
+      portraitYMin: 0.55,
+    
+      // ต้องเกิน threshold ต่อเนื่องกี่มิลลิวินาที
+      driftFailHoldMs: 600,
+    
+      // เวลารอก่อนเริ่มทดสอบใหม่
       retrySec: 6,
+    
+      // Low-pass filter สำหรับลด sensor noise
       lpf: 0.15
     },
 
