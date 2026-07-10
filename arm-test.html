@@ -1096,8 +1096,53 @@ const PRE_MEASURE_DELAY_MS    = ARM_CFG.preMeasureDelayMs;
 const RETRY_SEC               = ARM_CFG.retrySec;
 const LPF                     = ARM_CFG.lpf;
 
-let _speaking  = false;
-let _voiceQ    = [];
+let _speaking = false;
+let _voiceQ = [];
+
+let _speechPrimed = false;
+
+function primeSpeechEngine() {
+  if (!window.speechSynthesis || _speechPrimed) {
+    return Promise.resolve();
+  }
+
+  speechSynthesis.cancel();
+  speechSynthesis.resume();
+
+  // กระตุ้นให้เบราว์เซอร์โหลดรายการเสียงไว้ล่วงหน้า
+  speechSynthesis.getVoices();
+
+  return new Promise(resolve => {
+    const seed =
+      T?.code?.startsWith('th') ? 'เริ่ม' :
+      T?.code?.startsWith('ja') ? '開始' :
+      'start';
+
+    const u = new SpeechSynthesisUtterance(seed);
+
+    u.lang = T?.code || 'th-TH';
+    u.rate = 10;
+    u.volume = 0.02;
+
+    let completed = false;
+
+    const done = () => {
+      if (completed) return;
+
+      completed = true;
+      _speechPrimed = true;
+      resolve();
+    };
+
+    u.onend = done;
+    u.onerror = done;
+
+    speechSynthesis.speak(u);
+
+    // ป้องกันบาง browser ไม่เรียก onend
+    setTimeout(done, 800);
+  });
+}
 
 function speak(txt, onDone) {
   _voiceQ.push({ txt, onDone });
@@ -1110,6 +1155,7 @@ function _drainQueue() {
   if (!window.speechSynthesis) { onDone && onDone(); _drainQueue(); return; }
   _speaking = true;
   speechSynthesis.cancel();
+  speechSynthesis.resume();
   const u = new SpeechSynthesisUtterance(txt);
   u.lang = T.code; u.rate = 0.93;
   
@@ -1756,24 +1802,51 @@ function showFinal() {
 
 function handleBtn() {
   initAudio();
-  if (phase==='IDLE') {
-    arm='left'; cardState('left','active','🤚',T.pending);
-    $('action-btn').disabled=true;
-    if (!sensorOk) requestSensor(()=>startWait()); else startWait();
-  } else if (phase==='BETWEEN' && arm==='left') {
-    arm='right'; $('action-btn').disabled=true; startWait();
-  } else if (phase==='RETRY_ARM') {
+
+  if (phase === 'IDLE') {
+    // ต้องเรียกทันทีภายใน event จากการกดปุ่ม
+    const speechReady = primeSpeechEngine();
+
+    arm = 'left';
+    cardState('left', 'active', '🤚', T.pending);
+    $('action-btn').disabled = true;
+
+    const beginLeftArm = () => {
+      speechReady.then(() => {
+        // ป้องกัน callback เก่าทำงานหลังเปลี่ยนหน้า/เปลี่ยน phase
+        if (phase === 'IDLE') {
+          startWait();
+        }
+      });
+    };
+
+    if (!sensorOk) {
+      requestSensor(beginLeftArm);
+    } else {
+      beginLeftArm();
+    }
+
+  } else if (phase === 'BETWEEN' && arm === 'left') {
+    arm = 'right';
     $('action-btn').disabled = true;
     startWait();
-  } else if (phase==='DONE') {
+
+  } else if (phase === 'RETRY_ARM') {
+    $('action-btn').disabled = true;
+    startWait();
+
+  } else if (phase === 'DONE') {
     if (ARM_DEV_MODE) {
       if (devProtocolIndex >= DEV_PROTOCOLS.length - 1) {
         downloadArmDevLog();
         return;
       }
+
       advanceDevProtocol();
     }
+
     resetAll();
+
     if (ARM_DEV_MODE) {
       const p = currentDevProtocol();
       $('instr').textContent = p.title;
@@ -1967,14 +2040,6 @@ function armSwitchLang(code) {
 
 function selectLang(code) {
   T = LANG[code];
-  
-  // ── 1. ปลดล็อกระบบเสียงของเบราว์เซอร์ล่วงหน้า (แก้ปัญหาแขนแรกไม่มีเสียง) ──
-  if (window.speechSynthesis) {
-    speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(' ');
-    u.lang = T.code;
-    speechSynthesis.speak(u);
-  }
 
   $('lang-screen').style.display='none';
   $('test-screen').style.display='flex';
