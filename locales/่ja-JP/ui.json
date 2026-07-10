@@ -1,0 +1,41 @@
+{
+  "meta": {
+    "locale": "ja-JP",
+    "nativeName": "日本語",
+    "direction": "ltr",
+    "packVersion": "0.1.0",
+    "status": "developer-reference-language"
+  },
+  "index": {
+    "title": "QuickStroke",
+    "subtitle": "顔・腕・発話<br>簡単な初期チェック",
+    "emergency": "脳卒中の疑いがありますか？<b>救急サービス</b>に連絡してください",
+    "notDiagnosis": "診断ではありません・医療機関に相談してください",
+
+    "fullBadge": "まとめて確認",
+    "fullName": "3項目すべてをチェック",
+    "individualBadge": "個別に選択",
+    "individualName": "1項目ずつチェック",
+
+    "face": "顔",
+    "arm": "腕",
+    "speech": "発話",
+    "notDone": "未チェック",
+
+    "normal": "正常",
+    "warning": "注意",
+    "abnormal": "異常",
+    "invalid": "測定できませんでした・タップして再試行",
+
+    "seeResult": "結果を見る",
+    "clear": "結果を消去"
+  },
+  "disclaimer": {
+    "eyebrow": "QuickStroke",
+    "title": "ご利用前の重要なお知らせ",
+    "body": "このアプリは初期スクリーニングを目的としています。医療診断ではなく、医療専門家による診察の代わりにはなりません。",
+    "emergency": "脳卒中が疑われる場合は、直ちに地域の救急サービスへ連絡してください。",
+    "accept": "内容を確認して開始",
+    "note": "このブラウザタブでは初回のみ表示されます"
+  }
+}
