@@ -1068,22 +1068,33 @@ const LANG = {
 /* ═══════════════════════════════
    CONFIG (องศาการดักจับเพื่อความไว)
 ═══════════════════════════════ */
-const ARM_CFG = window.QS_CONFIG?.thresholds?.arm || {};
+const ARM_CFG = window.QS_CONFIG?.thresholds?.arm;
 
-const MEASURE_SEC        = ARM_CFG.measureSec ?? ARM_CFG.holdSeconds ?? 10;
-const DRIFT_THR          = ARM_CFG.driftThr ?? ARM_CFG.driftFailDeg ?? 10;
-const DRIFT_WARN         = ARM_CFG.driftWarn ?? ARM_CFG.driftWarnDeg ?? 5;
-const NORMAL_DRIFT_MAX   = ARM_CFG.normalDriftMaxDeg ?? DRIFT_WARN;
-const WRIST_RATIO_THR    = ARM_CFG.wristRatioThr ?? 0.20;
-const DROP_Z_MIN         = ARM_CFG.dropZMin ?? 0.04;
-const STABLE_WINDOW      = ARM_CFG.stableWindow ?? 20;
-const STABLE_ANGLE       = ARM_CFG.stableAngleDeg ?? 2.5;
-const STABLE_HOLD        = ARM_CFG.stableHold ?? 25;
-const FLAT_Z_THR         = ARM_CFG.flatZThr ?? 0.90;
-const PORTRAIT_Y_MIN     = ARM_CFG.portraitYMin ?? 0.55;
-const DRIFT_FAIL_HOLD_MS = ARM_CFG.driftFailHoldMs ?? 600;
-const RETRY_SEC          = ARM_CFG.retrySec ?? 6;
-const LPF                = ARM_CFG.lpf ?? 0.15;
+if (!ARM_CFG) {
+  throw new Error('QuickStroke Arm configuration is missing');
+}
+
+const MEASURE_SEC             = ARM_CFG.measureSec;
+
+const NORMAL_DRIFT_MAX_DEG    = ARM_CFG.normalDriftMaxDeg;
+const DRIFT_FAIL_DEG          = ARM_CFG.driftFailDeg;
+
+const WRIST_RATIO_THR         = ARM_CFG.wristRatioThr;
+const DROP_Z_MIN              = ARM_CFG.dropZMin;
+
+const STABLE_WINDOW           = ARM_CFG.stableWindow;
+const STABLE_ANGLE_DEG        = ARM_CFG.stableAngleDeg;
+const STABLE_HOLD             = ARM_CFG.stableHold;
+
+const FLAT_Z_THR              = ARM_CFG.flatZThr;
+const PORTRAIT_Y_MIN          = ARM_CFG.portraitYMin;
+
+const THRESHOLD_ALERT_HOLD_MS = ARM_CFG.thresholdAlertHoldMs;
+const MOTION_FALLBACK_MS      = ARM_CFG.motionFallbackMs;
+const PRE_MEASURE_DELAY_MS    = ARM_CFG.preMeasureDelayMs;
+
+const RETRY_SEC               = ARM_CFG.retrySec;
+const LPF                     = ARM_CFG.lpf;
 
 let _speaking  = false;
 let _voiceQ    = [];
@@ -1306,7 +1317,7 @@ function onOrientation(e) {
   orientationAbsolute = typeof e.absolute === 'boolean' ? e.absolute : null;
 
   // Fallback only when DeviceMotion gravity is unavailable.
-  if (performance.now() - lastMotionAt > 600) {
+  if (performance.now() - lastMotionAt > MOTION_FALLBACK_MS) {
     const bR = betaNow * Math.PI/180;
     const gR = gammaNow * Math.PI/180;
 
@@ -1364,7 +1375,7 @@ function tickCalib() {
   const isStable =
     gravityWindow.length >= STABLE_WINDOW &&
     Number.isFinite(stableSpread) &&
-    stableSpread < STABLE_ANGLE;
+    stableSpread < STABLE_ANGLE_DEG;
 
   if (isStable) {
     stableCount++;
@@ -1388,7 +1399,7 @@ function tickCalib() {
         retryTimer = null;
       }
 
-      setTimeout(startMeasure, 600);
+      setTimeout(startMeasure, PRE_MEASURE_DELAY_MS);
     }
   } else {
     stableCount = 0;
@@ -1405,11 +1416,11 @@ function classifyArmMotion(deg = driftMax, delta = peakDelta) {
   const dz = Math.abs(delta?.z || 0);
   const ratio = dz / Math.max(dx, 0.001);
 
-  if (deg < NORMAL_DRIFT_MAX) {
+  if (deg < NORMAL_DRIFT_MAX_DEG) {
     return { key:'normal', valid:true, passed:true, deg, dx, dz, ratio };
   }
-
-  if (deg < DRIFT_THR) {
+  
+  if (deg < DRIFT_FAIL_DEG) {
     return { key:'uncertain', valid:false, passed:null, deg, dx, dz, ratio };
   }
 
@@ -1440,30 +1451,30 @@ function tickMeasure() {
   const liveAnalysis = classifyArmMotion();
   motionClass = liveAnalysis.key;
 
-  const pct = Math.min(driftMax / DRIFT_THR * 100, 100);
+  const pct = Math.min(driftMax / DRIFT_FAIL_DEG * 100, 100);
   $('drift-fill').style.width = pct + '%';
 
   const dw = $('drift-wrap');
   if (dw) dw.style.setProperty('--drift-pct', `calc(${pct}% - 6px)`);
 
   $('drift-fill').style.background =
-    driftMax >= DRIFT_THR       ? 'var(--red)' :
-    driftMax >= NORMAL_DRIFT_MAX ? 'var(--amber)' :
+    driftMax >= DRIFT_FAIL_DEG       ? 'var(--red)' :
+    driftMax >= NORMAL_DRIFT_MAX_DEG ? 'var(--amber)' :
                                    'var(--green)';
 
   $('drift-num').textContent = driftMax.toFixed(1) + '°';
   $('arm-circle').className =
-    currentDrift >= DRIFT_THR ? 'arm-circle drifting' : 'arm-circle stable';
+    currentDrift >= DRIFT_FAIL_DEG ? 'arm-circle drifting' : 'arm-circle stable';
   $('arm-ring').className =
-    currentDrift >= DRIFT_THR ? 'arm-ring-outer alert' : 'arm-ring-outer';
+    currentDrift >= DRIFT_FAIL_DEG ? 'arm-ring-outer alert' : 'arm-ring-outer';
 
   // A threshold crossing is logged only after it persists, but the measurement
   // always continues for the full 10 seconds. Final classification needs the
   // complete movement pattern to distinguish possible arm drift from wrist motion.
-  if (currentDrift >= DRIFT_THR) {
+  if (currentDrift >= DRIFT_FAIL_DEG) {
     if (failHoldStarted === null) failHoldStarted = performance.now();
 
-    if (performance.now() - failHoldStarted >= DRIFT_FAIL_HOLD_MS && !devThresholdMarked) {
+    if (performance.now() - failHoldStarted >= THRESHOLD_ALERT_HOLD_MS && !devThresholdMarked) {
       devThresholdMarked = true;
       addDevMarker(`THRESHOLD_${arm.toUpperCase()}`);
       vibe(60);
@@ -1678,11 +1689,11 @@ function driftToScore(deg, analysis) {
   if (!analysis || deg === null) return 50;
 
   if (analysis.key === 'normal') {
-    return Math.round(100 - (Math.min(deg, NORMAL_DRIFT_MAX) / NORMAL_DRIFT_MAX) * 20);
+    return Math.round(100 - (Math.min(deg, NORMAL_DRIFT_MAX_DEG) / NORMAL_DRIFT_MAX_DEG) * 20);
   }
 
   if (analysis.key === 'possible_arm_drift') {
-    return Math.round(Math.max(0, 40 - ((Math.max(deg, DRIFT_THR) - DRIFT_THR) / DRIFT_THR) * 40));
+    return Math.round(Math.max(0, 40 - ((Math.max(deg, DRIFT_FAIL_DEG) - DRIFT_FAIL_DEG) / DRIFT_FAIL_DEG) * 40));
   }
 
   return 50;
