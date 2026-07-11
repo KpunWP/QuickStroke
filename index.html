@@ -605,16 +605,23 @@
       d="M44.5 49 L48 52.5 L54 45.5"
     />
   </svg>
+  </div>
+  <h1 data-i18n="index.title">รู้ทันสโตรก</h1>
+
+  <p data-i18n-html="index.subtitle">
+    หน้า · แขน · เสียง<br>
+    ตรวจเบื้องต้นได้เอง
+  </p>
 </div>
 
 <div class="emergency" onclick="window.location.href='tel:1669'" role="button" tabindex="0" style="cursor:pointer">
   <div class="emergency-icon">
     <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
   </div>
-  <div class="emergency-text" data-i="emergency">สงสัยสโตรก? โทร <b>1669</b></div>
+  <div class="emergency-text" data-i18n-html="index.emergency">สงสัยสโตรก? โทร <b>1669</b></div>
 </div>
 
-<p class="disclaimer-line" data-i="notDiagnosis">ไม่ใช่การวินิจฉัย · ปรึกษาแพทย์เพื่อความแน่ใจ</p>
+<p class="disclaimer-line" data-i18n="index.notDiagnosis">ไม่ใช่การวินิจฉัย · ปรึกษาแพทย์เพื่อความแน่ใจ</p>
 
 <div class="modes">
   <button class="mode primary" onclick="startFull()">
@@ -623,13 +630,13 @@
         <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
       </div>
       <div class="mode-titles">
-        <span class="mode-badge" data-i="fullBadge">ครบ จบที่เดียว</span>
-        <div class="mode-name" data-i="fullName">เช็คครบ 3 อย่าง</div>
+        <span class="mode-badge" data-i18n="index.fullBadge">ครบ จบที่เดียว</span>
+        <div class="mode-name" data-i18n="index.fullName">เช็คครบ 3 อย่าง</div>
       </div>
       <span class="mode-arrow"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
     </div>
     <div class="mode-steps">
-      <span class="pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg><span data-i="face">หน้า</span></span>
+      <span class="pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg><span data-i18n="index.face">หน้า</span></span>
       <span class="pill">
         <svg
           class="medical-hand-icon"
@@ -650,9 +657,9 @@
           <path d="M18 12.7l1.1-1.6a1.15 1.15 0 0 1 1.9 1.3l-2 2.9"/>
         </svg>
       
-        <span data-i="arm">แขน</span>
+        <span data-i18n="index.arm">แขน</span>
       </span>
-      <span class="pill"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg><span data-i="speech">เสียง</span></span>
+      <span class="pill"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg><span data-i18n="index.speech">เสียง</span></span>
     </div>
   </button>
 
@@ -662,8 +669,8 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5h16M4 12h16M4 18.5h16"/><path d="m6.3 5.5 1.2 1.2 2.3-2.6M6.3 12l1.2 1.2 2.3-2.6M6.3 18.5l1.2 1.2 2.3-2.6"/></svg>
       </div>
       <div class="mode-titles">
-        <span class="mode-badge" data-i="indBadge">เลือกเองได้</span>
-        <div class="mode-name" data-i="indName">เลือกเช็คทีละอย่าง</div>
+        <span class="mode-badge" data-i18n="index.individualBadge">เลือกเองได้</span>
+        <div class="mode-name" data-i18n="index.individualName">เลือกเช็คทีละอย่าง</div>
       </div>
       <span class="mode-arrow" id="ind-chevron"><svg viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></span>
     </div>
@@ -672,7 +679,7 @@
   <div class="progress-wrap" id="ind-section">
   <button class="test-row" id="row-face" onclick="goTest('face')">
     <div class="test-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg></div>
-    <div class="test-body"><div class="test-name" data-i="face">หน้า</div><div class="test-state" id="state-face" data-i="notDone">ยังไม่เช็ค</div></div>
+    <div class="test-body"><div class="test-name" data-i18n="index.face">หน้า</div><div class="test-state" id="state-face" data-i18n="index.notDone">ยังไม่เช็ค</div></div>
     <div class="test-score" id="score-face">—</div>
   </button>
   <button class="test-row" id="row-arm" onclick="goTest('arm')">
@@ -723,14 +730,14 @@
       </svg>
     </div>
     <div class="test-body">
-      <div class="test-name" data-i="arm">แขน</div>
-      <div class="test-state" id="state-arm" data-i="notDone">ยังไม่เช็ค</div>
+      <div class="test-name" data-i18n="index.arm">แขน</div>
+      <div class="test-state" id="state-arm" data-i18n="index.notDone">ยังไม่เช็ค</div>
     </div>
     <div class="test-score" id="score-arm">—</div>
   </button>
   <button class="test-row" id="row-speech" onclick="goTest('speech')">
     <div class="test-icon"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg></div>
-    <div class="test-body"><div class="test-name" data-i="speech">เสียง</div><div class="test-state" id="state-speech" data-i="notDone">ยังไม่เช็ค</div></div>
+    <div class="test-body"><div class="test-name" data-i18n="index.speech">เสียง</div><div class="test-state" id="state-speech" data-i18n="index.notDone">ยังไม่เช็ค</div></div>
     <div class="test-score" id="score-speech">—</div>
   </button>
   </div>
@@ -739,9 +746,9 @@
 <div class="cta-zone">
   <button class="btn-result" id="btn-result" onclick="goResult()">
     <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-    <span data-i="seeResult">ดูผลรวม</span>
+    <span data-i18n="index.seeResult">ดูผลรวม</span>
   </button>
-  <button class="btn-clear" id="btn-clear" onclick="clearAll()" data-i="clearBtn">ล้างผล</button>
+  <button class="btn-clear" id="btn-clear" onclick="clearAll()" data-i18n="index.clear">ล้างผล</button>
 </div>
 
 
@@ -819,19 +826,19 @@
         />
       </svg>
     </div>
-    <div class="disc-eyebrow" data-i="discEyebrow">Quick Stroke</div>
-    <h2 id="disc-title" data-i="discTitle">ข้อมูลสำคัญก่อนใช้งาน</h2>
-    <p class="disc-body" data-i="discBody">
+    <div class="disc-eyebrow" data-i18n="disclaimer.eyebrow">Quick Stroke</div>
+    <h2 id="disc-title" data-i18n="disclaimer.title">ข้อมูลสำคัญก่อนใช้งาน</h2>
+    <p class="disc-body" data-i18n="disclaimer.body">
       แอปนี้ใช้เพื่อคัดกรองเบื้องต้นเท่านั้น ไม่ใช่การวินิจฉัยทางการแพทย์ และไม่สามารถทดแทนแพทย์ได้
     </p>
     <div class="disc-emergency">
       <div class="disc-emergency-icon" aria-hidden="true">
         <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
       </div>
-      <div class="disc-emergency-text" data-i="discEmergency">ถ้าสงสัยว่าเป็นสโตรก ให้โทร <b>1669</b> ทันที</div>
+      <div class="disc-emergency-text" data-i18n-html="disclaimer.emergency">ถ้าสงสัยว่าเป็นสโตรก ให้โทร <b>1669</b> ทันที</div>
     </div>
-    <button id="disc-accept-btn" type="button" onclick="acceptDisclaimer()" data-i="discAccept">รับทราบและเริ่มใช้งาน</button>
-    <div class="disc-note" data-i="discNote">จะแสดงเฉพาะครั้งแรกของแท็บนี้</div>
+    <button id="disc-accept-btn" type="button" onclick="acceptDisclaimer()" data-i18n="disclaimer.accept">รับทราบและเริ่มใช้งาน</button>
+    <div class="disc-note" data-i18n="disclaimer.note">จะแสดงเฉพาะครั้งแรกของแท็บนี้</div>
   </div>
 </div>
 
@@ -970,15 +977,7 @@ async function setLang(requestedLang) {
     button.setAttribute("aria-pressed", String(isActive));
   });
 
-  const T = I18N[lang];
-
-  document.querySelectorAll("[data-i]").forEach((element) => {
-    const key = element.dataset.i;
-
-    if (T[key] !== undefined) {
-      element.innerHTML = T[key];
-    }
-  });
+  window.QuickStrokeI18n.applyTranslations();
 
   document.documentElement.lang = LOCALE_MAP[lang] || lang;
 
