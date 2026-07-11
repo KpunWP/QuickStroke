@@ -847,50 +847,16 @@
 <script>
 'use strict';
 
-const I18N = {
-  th: {
-    title:'รู้ทันสโตรก', sub:'หน้า · แขน · เสียง<br>ตรวจเบื้องต้นได้เอง',
-    emergency:'สงสัยสโตรก? โทร <b>1669</b>',
-    notDiagnosis:'ไม่ใช่การวินิจฉัย · ปรึกษาแพทย์เพื่อความแน่ใจ',
-    fullBadge:'ครบ จบที่เดียว', fullName:'เช็คครบ 3 อย่าง', indBadge:'เลือกเองได้', indName:'เลือกเช็คทีละอย่าง',
-    face:'หน้า', arm:'แขน', speech:'เสียง', notDone:'ยังไม่เช็ค',
-    ok:'ปกติ', warn:'ต้องระวัง', bad:'ผิดปกติ', invalid:'ตรวจไม่สำเร็จ · แตะเพื่อลองใหม่',
-    seeResult:'ดูผลรวม', clearBtn:'ล้างผล',
-    discEyebrow:'Quick Stroke', discTitle:'ข้อมูลสำคัญก่อนใช้งาน',
-    discBody:'แอปนี้ใช้เพื่อคัดกรองเบื้องต้นเท่านั้น ไม่ใช่การวินิจฉัยทางการแพทย์ และไม่สามารถทดแทนแพทย์ได้',
-    discEmergency:'ถ้าสงสัยว่าเป็นสโตรก ให้โทร <b>1669</b> ทันที',
-    discAccept:'รับทราบและเริ่มใช้งาน', discNote:'จะแสดงเฉพาะครั้งแรกของแท็บนี้',
-  },
-  en: {
-    title:'Quick Stroke', sub:'Face · Arms · Speech<br>a first quick check',
-    emergency:'Suspect a stroke? Call <b>emergency</b>',
-    notDiagnosis:'Not a diagnosis · See a doctor to be sure',
-    fullBadge:'All-in-one', fullName:'Check all 3', indBadge:'Pick & go', indName:'Test one by one',
-    face:'Face', arm:'Arms', speech:'Speech', notDone:'Not yet',
-    ok:'Normal', warn:'Watch', bad:'Abnormal', invalid:'Could not assess · tap to retry',
-    seeResult:'See result', clearBtn:'Clear',
-    discEyebrow:'Quick Stroke', discTitle:'Important before use',
-    discBody:'This app is for preliminary screening only. It is not a medical diagnosis and cannot replace a doctor.',
-    discEmergency:'If you suspect a stroke, call <b>emergency services</b> immediately.',
-    discAccept:'I understand — start', discNote:'Shown only once for this tab',
-  },
-  ja: {
-    title:'脳卒中を<br>見逃さない', sub:'顔・腕・声で<br>まずは簡単チェック',
-    emergency:'脳卒中かも? <b>救急</b>へ',
-    notDiagnosis:'診断ではありません · 確認は医師へ',
-    fullBadge:'まとめて', fullName:'3つを一度に', indBadge:'自由に選択', indName:'1つずつ',
-    face:'顔', arm:'腕', speech:'声', notDone:'未チェック',
-    ok:'正常', warn:'注意', bad:'異常', invalid:'測定不可 · タップして再試行',
-    seeResult:'結果を見る', clearBtn:'クリア',
-    discEyebrow:'Quick Stroke', discTitle:'使用前の重要事項',
-    discBody:'このアプリは初期スクリーニング用です。医学的診断ではなく、医師の診察に代わるものではありません。',
-    discEmergency:'脳卒中が疑われる場合は、すぐに<b>救急</b>へ連絡してください。',
-    discAccept:'理解して開始', discNote:'このタブでは最初の1回だけ表示されます',
-  },
-};
-
 let lang = window.QS_CONFIG?.defaultLang || 'th';
 let indOpen = false;
+
+function tr(key, fallback = "") {
+  if (!window.QuickStrokeI18n) {
+    return fallback;
+  }
+
+  return window.QuickStrokeI18n.t(key, {}, fallback);
+}
 
 const LOCALE_MAP = Object.freeze({
   th: "th-TH",
@@ -903,72 +869,30 @@ async function setLang(requestedLang) {
     .split("-")[0]
     .toLowerCase();
 
-  if (!I18N[shortLang]) {
+  const requestedLocale = LOCALE_MAP[shortLang];
+
+  if (!requestedLocale) {
     console.warn(`Unsupported language: ${requestedLang}`);
     return;
   }
 
-  /*
-   * โหลดข้อความจาก locales/<locale>/ui.json
-   * หากโหลดไม่ได้ ระบบจะใช้ I18N เดิมที่ฝังในไฟล์เป็น fallback
-   */
   try {
     if (!window.QuickStrokeI18n) {
       throw new Error("QuickStrokeI18n is not available");
     }
 
-    const locale = LOCALE_MAP[shortLang];
+    const activeLocale =
+      await window.QuickStrokeI18n.setLocale(requestedLocale, {
+        persist: true,
+        apply: true
+      });
 
-    await window.QuickStrokeI18n.setLocale(locale, {
-      persist: true,
-      apply: false
-    });
-
-    const messages = window.QuickStrokeI18n.getMessages();
-
-    /*
-     * แปลงโครงสร้าง JSON ใหม่
-     * ให้เข้ากับ key เดิมของหน้า Index ชั่วคราว
-     */
-    I18N[shortLang] = {
-      title: messages.index.title,
-      sub: messages.index.subtitle,
-      emergency: messages.index.emergency,
-      notDiagnosis: messages.index.notDiagnosis,
-
-      fullBadge: messages.index.fullBadge,
-      fullName: messages.index.fullName,
-      indBadge: messages.index.individualBadge,
-      indName: messages.index.individualName,
-
-      face: messages.index.face,
-      arm: messages.index.arm,
-      speech: messages.index.speech,
-      notDone: messages.index.notDone,
-
-      ok: messages.index.normal,
-      warn: messages.index.warning,
-      bad: messages.index.abnormal,
-      invalid: messages.index.invalid,
-
-      seeResult: messages.index.seeResult,
-      clearBtn: messages.index.clear,
-
-      discEyebrow: messages.disclaimer.eyebrow,
-      discTitle: messages.disclaimer.title,
-      discBody: messages.disclaimer.body,
-      discEmergency: messages.disclaimer.emergency,
-      discAccept: messages.disclaimer.accept,
-      discNote: messages.disclaimer.note
-    };
+    // ใช้ภาษาที่โหลดสำเร็จจริง
+    lang = activeLocale.split("-")[0].toLowerCase();
   } catch (error) {
-    console.error(
-      "Could not load locale pack. Using embedded fallback.",
-      error
-    );
+    console.error("Could not load locale pack.", error);
+    return;
   }
-
-  lang = shortLang;
 
   document.querySelectorAll(".lang-seg button").forEach((button) => {
     const isActive = button.dataset.lang === lang;
@@ -977,10 +901,7 @@ async function setLang(requestedLang) {
     button.setAttribute("aria-pressed", String(isActive));
   });
 
-  window.QuickStrokeI18n.applyTranslations();
-
-  document.documentElement.lang = LOCALE_MAP[lang] || lang;
-
+  // หน้า Test เดิมยังอ่าน fast_lang แบบ th / en / ja
   sessionStorage.setItem("fast_lang", lang);
 
   updateProgress();
@@ -1018,37 +939,74 @@ function goTest(m) {
 function goResult() { location.href = 'result.html'; }
 
 function updateProgress() {
-  const T = I18N[lang];
   let done = 0;
-  ['face','arm','speech'].forEach(m => {
-    const raw = sessionStorage.getItem('fast_'+m);
-    const row = document.getElementById('row-'+m);
-    const state = document.getElementById('state-'+m);
-    const score = document.getElementById('score-'+m);
+
+  const statusKeys = {
+    ok: "index.normal",
+    warn: "index.warning",
+    bad: "index.abnormal"
+  };
+
+  const statusFallbacks = {
+    ok: "ปกติ",
+    warn: "ต้องระวัง",
+    bad: "ผิดปกติ"
+  };
+
+  ["face", "arm", "speech"].forEach((moduleName) => {
+    const raw = sessionStorage.getItem(`fast_${moduleName}`);
+    const row = document.getElementById(`row-${moduleName}`);
+    const state = document.getElementById(`state-${moduleName}`);
+    const score = document.getElementById(`score-${moduleName}`);
+
     if (!raw) {
-      row.className = 'test-row';
-      state.textContent = T.notDone;
-      score.textContent = '—';
+      row.className = "test-row";
+      state.textContent = tr("index.notDone", "ยังไม่เช็ค");
+      score.textContent = "—";
       return;
     }
+
     done++;
-    const d = JSON.parse(raw);
-    // แยกครบ 4 สถานะ: ok / warn / bad / invalid (เดิมยุบเหลือ ok|bad ทำให้
-    // ผล "ต้องระวัง" ถูกโชว์เป็น "ผิดปกติ" และ "ตรวจไม่สำเร็จ" กลายเป็นสีแดง 0 คะแนน)
-    const lv = d.riskLevel || (d.passed ? 'ok' : 'bad');
-    if (lv === 'invalid'){
-      row.className = 'test-row na';
-      state.textContent = T.invalid;
-      score.textContent = '—';
-      return; // ไม่โชว์ score 0 ที่ชวนเข้าใจผิด
+
+    const data = JSON.parse(raw);
+    const riskLevel =
+      data.riskLevel || (data.passed ? "ok" : "bad");
+
+    if (riskLevel === "invalid") {
+      row.className = "test-row na";
+      state.textContent = tr(
+        "index.invalid",
+        "ตรวจไม่สำเร็จ · แตะเพื่อลองใหม่"
+      );
+      score.textContent = "—";
+      return;
     }
-    const cls = (lv === 'ok') ? 'ok' : (lv === 'warn') ? 'warn' : 'bad';
-    row.className = 'test-row ' + cls;
-    state.textContent = T[cls];
-    score.textContent = d.score !== undefined ? d.score : '✓';
+
+    const statusClass =
+      riskLevel === "ok"
+        ? "ok"
+        : riskLevel === "warn"
+          ? "warn"
+          : "bad";
+
+    row.className = `test-row ${statusClass}`;
+
+    state.textContent = tr(
+      statusKeys[statusClass],
+      statusFallbacks[statusClass]
+    );
+
+    score.textContent =
+      data.score !== undefined ? data.score : "✓";
   });
-  document.getElementById('btn-result').classList.toggle('show', done === 3);
-  document.getElementById('btn-clear').classList.toggle('show', done > 0);
+
+  document
+    .getElementById("btn-result")
+    .classList.toggle("show", done === 3);
+
+  document
+    .getElementById("btn-clear")
+    .classList.toggle("show", done > 0);
 }
 
 function clearAll(silent) {
