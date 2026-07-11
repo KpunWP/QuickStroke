@@ -3,7 +3,7 @@
     "locale": "ja-JP",
     "nativeName": "日本語",
     "direction": "ltr",
-    "packVersion": "0.3.0",
+    "packVersion": "0.4.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -207,5 +207,49 @@
     "insufficientData": "データ不足",
     "scoreLabel": "スコア",
     "languageUnavailable": "言語データを読み込めません"
+  },
+  "result": {
+    "pageTitle": "FAST · 検査結果",
+    "face": "顔",
+    "arm": "腕",
+    "speech": "声",
+    "ok": "正常",
+    "warn": "注意",
+    "bad": "異常",
+    "riskOk": "正常な結果",
+    "riskWarn": "軽度の異常",
+    "riskBad": "高リスク · 医師へ",
+    "descOk": "明らかな異常なし。定期的に再チェックを。",
+    "descWarn": "一部に異常。医師の診察を。",
+    "descBad": "異常あり。すぐ医師へ。",
+    "suggestOk": [
+      "3〜6ヶ月ごとに再チェック",
+      "心臓・血管を大切に",
+      "突然の症状はすぐ受診"
+    ],
+    "suggestWarn": [
+      "医師の診察を受ける",
+      "症状と時刻を記録",
+      "悪化したら救急へ"
+    ],
+    "suggestBad": [
+      "すぐ救急へ",
+      "一人で運転しない",
+      "4.5時間以内に治療"
+    ],
+    "retryAll": "再テスト",
+    "back": "戻る",
+    "home": "ホーム",
+    "call": "救急へ電話",
+    "seeDoc": "医師へ",
+    "eyebrow": "FAST SCORE",
+    "breakdown": "詳細",
+    "suggest": "アドバイス",
+    "notTested": "未チェック",
+    "invalidStatus": "測定不可 · タップして再試行",
+    "partialNote": "{n}/3 のテストに基づく結果",
+    "noValidNote": "評価できる結果がありません。再テストしてください。",
+    "overrideNote": "{modules}に明らかな異常。1つでも脳卒中リスクの兆候です。医師へ。",
+    "languageUnavailable": "言語を読み込めません"
   }
 }

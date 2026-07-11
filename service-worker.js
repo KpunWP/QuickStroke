@@ -6,7 +6,7 @@
  *   - JS / JSON / รูปภาพ → stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v10";
+const CACHE_NAME = "quickstroke-pwa-v11";
 // v7: เพิ่ม shared i18n และ locale packs สำหรับใช้งาน offline
 
 const CORE_SHELL = [

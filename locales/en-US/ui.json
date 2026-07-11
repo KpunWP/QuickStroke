@@ -3,7 +3,7 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.3.0",
+    "packVersion": "0.4.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -204,6 +204,50 @@
     "speechApiUnavailable": "[Speech API unavailable]",
     "insufficientData": "Insufficient data",
     "scoreLabel": "score",
+    "languageUnavailable": "Language unavailable"
+  },
+  "result": {
+    "pageTitle": "FAST · Results",
+    "face": "Face",
+    "arm": "Arms",
+    "speech": "Speech",
+    "ok": "Normal",
+    "warn": "Watch",
+    "bad": "Abnormal",
+    "riskOk": "Normal result",
+    "riskWarn": "Minor abnormality",
+    "riskBad": "High risk · See a doctor",
+    "descOk": "No clear abnormality. Re-check periodically.",
+    "descWarn": "Some abnormality found. See a doctor.",
+    "descBad": "Abnormality found. See a doctor now.",
+    "suggestOk": [
+      "Re-check every 3-6 months",
+      "Care for heart & vessels",
+      "Sudden symptoms? See a doctor"
+    ],
+    "suggestWarn": [
+      "See a doctor for evaluation",
+      "Note symptoms & timing",
+      "Worsening? Call emergency"
+    ],
+    "suggestBad": [
+      "Call emergency now",
+      "Don't drive alone",
+      "Treat within 4.5 hrs"
+    ],
+    "retryAll": "Test Again",
+    "back": "Back",
+    "home": "Home",
+    "call": "Call Emergency",
+    "seeDoc": "See a doctor",
+    "eyebrow": "FAST SCORE",
+    "breakdown": "Breakdown",
+    "suggest": "Tips",
+    "notTested": "Not tested",
+    "invalidStatus": "Could not assess · tap to retry",
+    "partialNote": "Based on {n}/3 tests",
+    "noValidNote": "No assessable result yet. Please retest.",
+    "overrideNote": "Clear abnormality in: {modules}. A single sign can mean stroke risk. See a doctor.",
     "languageUnavailable": "Language unavailable"
   }
 }

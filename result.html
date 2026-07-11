@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>FAST · ผลการตรวจ</title>
+<title>QuickStroke</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0F6FFF">
 <meta name="apple-mobile-web-app-title" content="QuickStroke">
@@ -268,7 +268,7 @@
   <div class="header-actions">
     <button class="back-btn" onclick="history.back()">
       <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-      <span id="back-label">กลับ</span>
+      <span id="back-label">…</span>
     </button>
     <div id="lang-sw-fixed">
       <button class="lsf-btn" id="lsf-th" onclick="resultSwitchLang('th')">TH</button>
@@ -303,31 +303,35 @@
   <div class="emg-icon">
     <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
   </div>
-  <div class="emg-title" id="emg-sub">ควรพบแพทย์</div>
+  <div class="emg-title" id="emg-sub">…</div>
   <button class="emg-call" onclick="window.location.href='tel:1669'">
     <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-    <span id="call-label">โทร 1669</span>
+    <span id="call-label">…</span>
   </button>
 </div>
 
 <div class="suggest-box" id="suggest-box">
   <div class="suggest-title">
     <svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1h6c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
-    <span id="suggest-title">คำแนะนำ</span>
+    <span id="suggest-title">…</span>
   </div>
   <ul id="suggest-list"></ul>
 </div>
 
 <div class="actions">
-  <button class="btn-primary" id="retry-btn" onclick="retryAll()">ทดสอบใหม่</button>
-  <button class="btn-secondary" id="home-btn" onclick="window.location.href='index.html'">หน้าหลัก</button>
+  <button class="btn-primary" id="retry-btn" onclick="retryAll()">…</button>
+  <button class="btn-secondary" id="home-btn" onclick="window.location.href='index.html'">…</button>
 </div>
 
 <script>
 'use strict';
 
-// lang อ่านจาก sessionStorage ทุกครั้ง buildResult เรียก (รองรับการเปลี่ยนภาษา)
-function getLang() { return sessionStorage.getItem('fast_lang') || 'th'; }
+// อ่านภาษาปัจจุบันจาก sessionStorage และ normalize เป็น th / en / ja
+function getLang() {
+  return String(sessionStorage.getItem('fast_lang') || 'th')
+    .split('-')[0]
+    .toLowerCase();
+}
 
 const RESULT_LOCALE_MAP = Object.freeze({
   th: 'th-TH',
@@ -335,59 +339,102 @@ const RESULT_LOCALE_MAP = Object.freeze({
   ja: 'ja-JP'
 });
 
+const RESULT_REQUIRED_KEYS = Object.freeze([
+  'pageTitle', 'face', 'arm', 'speech',
+  'ok', 'warn', 'bad',
+  'riskOk', 'riskWarn', 'riskBad',
+  'descOk', 'descWarn', 'descBad',
+  'suggestOk', 'suggestWarn', 'suggestBad',
+  'retryAll', 'back', 'home', 'call', 'seeDoc',
+  'eyebrow', 'breakdown', 'suggest', 'notTested',
+  'invalidStatus', 'partialNote', 'noValidNote',
+  'overrideNote', 'languageUnavailable'
+]);
+
 let RESULT_T = null;
 let resultLanguageRequestId = 0;
 
-function setResultLanguageButtons(code) {
-  ['th','en','ja'].forEach(c => {
-    const b = document.getElementById('lsf-' + c);
-    if (b) {
-      const active = c === code;
-      b.classList.toggle('active', active);
-      b.setAttribute('aria-pressed', String(active));
+function validateResultMessages(messages, locale) {
+  if (!messages || typeof messages !== 'object') {
+    throw new Error(`Missing result translations for ${locale}`);
+  }
+
+  const missing = RESULT_REQUIRED_KEYS.filter(key => messages[key] === undefined);
+  if (missing.length) {
+    throw new Error(`Incomplete result translations for ${locale}: ${missing.join(', ')}`);
+  }
+
+  ['suggestOk', 'suggestWarn', 'suggestBad'].forEach(key => {
+    if (!Array.isArray(messages[key]) || messages[key].length === 0) {
+      throw new Error(`Invalid result suggestion list ${key} for ${locale}`);
     }
   });
 }
 
-async function loadResultLanguage(code, { persist = true } = {}) {
-  const shortCode = String(code || 'th').split('-')[0].toLowerCase();
-  const locale = RESULT_LOCALE_MAP[shortCode];
-  if (!locale || !LABELS[shortCode]) {
-    console.warn(`Unsupported result language: ${code}`);
-    return false;
+function setResultLanguageButtons(code) {
+  ['th','en','ja'].forEach(c => {
+    const button = document.getElementById('lsf-' + c);
+    if (!button) return;
+
+    const active = c === code;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
+
+async function readResultLocale(locale, persist) {
+  if (!window.QuickStrokeI18n) {
+    throw new Error('QuickStrokeI18n is not available');
+  }
+
+  await window.QuickStrokeI18n.setLocale(locale, {
+    persist,
+    apply: false
+  });
+
+  const messages = window.QuickStrokeI18n.getMessages();
+  const resultMessages = messages?.result;
+  validateResultMessages(resultMessages, locale);
+  return resultMessages;
+}
+
+async function loadResultLanguage(requestedCode, { persist = true } = {}) {
+  let code = String(requestedCode || 'th').split('-')[0].toLowerCase();
+  let locale = RESULT_LOCALE_MAP[code];
+
+  if (!locale) {
+    console.warn(`Unsupported result language: ${requestedCode}`);
+    code = 'th';
+    locale = RESULT_LOCALE_MAP.th;
   }
 
   const requestId = ++resultLanguageRequestId;
-  let nextMessages = LABELS[shortCode];
+  let messages;
 
   try {
-    if (!window.QuickStrokeI18n) {
-      throw new Error('QuickStrokeI18n is not available');
-    }
-
-    await window.QuickStrokeI18n.setLocale(locale, {
-      persist,
-      apply: false
-    });
-
-    if (requestId !== resultLanguageRequestId) return false;
-
-    const messages = window.QuickStrokeI18n.getMessages();
-    if (messages.result && typeof messages.result === 'object') {
-      // Bridge stage: JSON values override the embedded dictionary.
-      // Missing keys still use LABELS until final migration.
-      nextMessages = { ...LABELS[shortCode], ...messages.result };
-    }
+    messages = await readResultLocale(locale, persist);
   } catch (error) {
-    console.error('Could not load result locale. Using embedded fallback.', error);
+    console.error(`Could not load result locale ${locale}.`, error);
+
+    if (code === 'en') return false;
+
+    try {
+      code = 'en';
+      locale = RESULT_LOCALE_MAP.en;
+      messages = await readResultLocale(locale, false);
+    } catch (fallbackError) {
+      console.error('Could not load the English result fallback.', fallbackError);
+      return false;
+    }
   }
 
   if (requestId !== resultLanguageRequestId) return false;
 
-  RESULT_T = nextMessages;
-  if (persist) sessionStorage.setItem('fast_lang', shortCode);
+  RESULT_T = messages;
+  if (persist) sessionStorage.setItem('fast_lang', code);
   document.documentElement.lang = locale;
-  setResultLanguageButtons(shortCode);
+  document.title = RESULT_T.pageTitle;
+  setResultLanguageButtons(code);
   buildResult();
   return true;
 }
@@ -402,63 +449,6 @@ const WEIGHTS = {
 };
 
 const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
-
-const LABELS = {
-  th: {
-    face:'หน้า', arm:'แขน', speech:'เสียง',
-    ok:'ปกติ', warn:'ต้องระวัง', bad:'ผิดปกติ',
-    riskOk:'ผลปกติ', riskWarn:'พบความผิดปกติเล็กน้อย', riskBad:'เสี่ยงสูง · ควรพบแพทย์',
-    descOk:'ไม่พบความผิดปกติชัดเจน เช็คซ้ำเป็นระยะ',
-    descWarn:'พบความผิดปกติบางจุด ควรพบแพทย์',
-    descBad:'พบความผิดปกติ ควรพบแพทย์ทันที',
-    suggestOk:['เช็คซ้ำทุก 3-6 เดือน', 'ดูแลหัวใจและหลอดเลือด', 'มีอาการกะทันหัน รีบพบแพทย์'],
-    suggestWarn:['พบแพทย์เพื่อตรวจเพิ่ม', 'จดอาการและเวลาที่เกิด', 'อาการแย่ลง โทร 1669'],
-    suggestBad:['โทร 1669 ทันที', 'อย่าขับรถคนเดียว', 'รักษาภายใน 4.5 ชม.'],
-    retryAll:'ทดสอบใหม่', back:'กลับ', home:'หน้าหลัก', call:'โทร 1669',
-    seeDoc:'ควรพบแพทย์', eyebrow:'FAST SCORE', breakdown:'รายละเอียด', suggest:'คำแนะนำ',
-    notTested:'ไม่ได้เช็ค',
-    invalidStatus:'ตรวจไม่สำเร็จ · แตะเพื่อลองใหม่',
-    partialNote:'ผลจาก {n}/3 การทดสอบ',
-    noValidNote:'ยังไม่มีผลที่ประเมินได้ กรุณาทดสอบใหม่',
-    overrideNote:'พบความผิดปกติชัดที่: {modules} แม้อาการเดียวก็เสี่ยงสโตรก ควรพบแพทย์',
-  },
-  en: {
-    face:'Face', arm:'Arms', speech:'Speech',
-    ok:'Normal', warn:'Watch', bad:'Abnormal',
-    riskOk:'Normal result', riskWarn:'Minor abnormality', riskBad:'High risk · See a doctor',
-    descOk:'No clear abnormality. Re-check periodically.',
-    descWarn:'Some abnormality found. See a doctor.',
-    descBad:'Abnormality found. See a doctor now.',
-    suggestOk:['Re-check every 3-6 months', 'Care for heart & vessels', 'Sudden symptoms? See a doctor'],
-    suggestWarn:['See a doctor for evaluation', 'Note symptoms & timing', 'Worsening? Call emergency'],
-    suggestBad:['Call emergency now', "Don't drive alone", 'Treat within 4.5 hrs'],
-    retryAll:'Test Again', back:'Back', home:'Home', call:'Call Emergency',
-    seeDoc:'See a doctor', eyebrow:'FAST SCORE', breakdown:'Breakdown', suggest:'Tips',
-    notTested:'Not tested',
-    invalidStatus:'Could not assess · tap to retry',
-    partialNote:'Based on {n}/3 tests',
-    noValidNote:'No assessable result yet. Please retest.',
-    overrideNote:'Clear abnormality in: {modules}. A single sign can mean stroke risk. See a doctor.',
-  },
-  ja: {
-    face:'顔', arm:'腕', speech:'声',
-    ok:'正常', warn:'注意', bad:'異常',
-    riskOk:'正常な結果', riskWarn:'軽度の異常', riskBad:'高リスク · 医師へ',
-    descOk:'明らかな異常なし。定期的に再チェックを。',
-    descWarn:'一部に異常。医師の診察を。',
-    descBad:'異常あり。すぐ医師へ。',
-    suggestOk:['3〜6ヶ月ごとに再チェック', '心臓・血管を大切に', '突然の症状はすぐ受診'],
-    suggestWarn:['医師の診察を受ける', '症状と時刻を記録', '悪化したら救急へ'],
-    suggestBad:['すぐ救急へ', '一人で運転しない', '4.5時間以内に治療'],
-    retryAll:'再テスト', back:'戻る', home:'ホーム', call:'救急へ電話',
-    seeDoc:'医師へ', eyebrow:'FAST SCORE', breakdown:'詳細', suggest:'アドバイス',
-    notTested:'未チェック',
-    invalidStatus:'測定不可 · タップして再試行',
-    partialNote:'{n}/3 のテストに基づく結果',
-    noValidNote:'評価できる結果がありません。再テストしてください。',
-    overrideNote:'{modules}に明らかな異常。1つでも脳卒中リスクの兆候です。医師へ。',
-  },
-};
 
 // SVG icons แทน emoji
 const ICONS = {
@@ -484,7 +474,8 @@ function applyStaticLabels(T) {
 }
 
 function buildResult() {
-  const T = RESULT_T || LABELS[getLang()] || LABELS.th;
+  const T = RESULT_T;
+  if (!T) return;
   applyStaticLabels(T);
 
   const data = {
@@ -593,7 +584,7 @@ function buildResult() {
   }, 200);
 
   // emergency
-  if (riskClass === 'bad') document.getElementById('emergency-box').classList.add('visible');
+  document.getElementById('emergency-box').classList.toggle('visible', riskClass === 'bad');
 
   // suggestions
   const suggestions = T['suggest' + riskClass.charAt(0).toUpperCase() + riskClass.slice(1)];
@@ -617,8 +608,20 @@ window.resultSwitchLang = resultSwitchLang;
 (async function initResultLanguage() {
   const savedLang = getLang();
   const code = RESULT_LOCALE_MAP[savedLang] ? savedLang : 'th';
-  await loadResultLanguage(code, { persist: false });
-})();
+  const ready = await loadResultLanguage(code, { persist: false });
+
+  if (!ready) {
+    throw new Error('Result language initialization failed');
+  }
+})().catch(error => {
+  console.error('Result page initialization failed.', error);
+
+  const badge = document.getElementById('risk-badge');
+  if (badge) {
+    badge.className = 'risk-badge warn';
+    badge.textContent = 'Language unavailable';
+  }
+});
 </script>
 <script>
   if ("serviceWorker" in navigator) {
