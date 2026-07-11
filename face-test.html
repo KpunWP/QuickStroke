@@ -2247,54 +2247,91 @@ async function startCamera(){
   else FastPermissions.requestWithUI('camera', permLang, (stream)=>{ stream ? initCamera(stream) : (statusMsg.textContent = FL.cameraErr); });
 }
 
-async function loadModel(){
+async function loadModel() {
   try {
-    const { FaceLandmarker, HandLandmarker, FilesetResolver } =
-      await import("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14");
-    const fileset = await FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    const {
+      FaceLandmarker,
+      HandLandmarker,
+      FilesetResolver
+    } = await import(
+      "/models/tasks-vision/vision_bundle.mjs"
     );
-    const make = (delegate) => FaceLandmarker.createFromOptions(fileset, {
-      baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-        delegate
-      },
-      outputFaceBlendshapes: true,
-      runningMode: "VIDEO",
-      numFaces: 1
-    });
-    try { faceLandmarker = await make("GPU"); }
-    catch(e){ console.warn('GPU delegate failed, falling back to CPU', e); faceLandmarker = await make("CPU"); }
 
-    // Optional but important for safety: FaceLandmarker can estimate mouth landmarks
-    // even when a hand covers the mouth. HandLandmarker lets us block that case.
-    const makeHand = (delegate) => HandLandmarker.createFromOptions(fileset, {
-      baseOptions: {
-        modelAssetPath: "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
-        delegate
-      },
-      runningMode: "VIDEO",
-      numHands: 2
-    });
-    try { handLandmarker = await makeHand("GPU"); }
-    catch(e1){
-      try { handLandmarker = await makeHand("CPU"); }
-      catch(e2){ console.warn('HandLandmarker unavailable; falling back to visual mouth gate only', e2); handLandmarker = null; }
+    const fileset =
+      await FilesetResolver.forVisionTasks(
+        "/models/wasm"
+      );
+
+    const make = (delegate) =>
+      FaceLandmarker.createFromOptions(
+        fileset,
+        {
+          baseOptions: {
+            modelAssetPath:
+              "/models/face_landmarker.task",
+            delegate
+          },
+          outputFaceBlendshapes: true,
+          runningMode: "VIDEO",
+          numFaces: 1
+        }
+      );
+
+    try {
+      faceLandmarker = await make("GPU");
+    } catch (error) {
+      console.warn(
+        "GPU delegate failed, falling back to CPU",
+        error
+      );
+
+      faceLandmarker = await make("CPU");
     }
+
+    const makeHand = (delegate) =>
+      HandLandmarker.createFromOptions(
+        fileset,
+        {
+          baseOptions: {
+            modelAssetPath:
+              "/models/hand_landmarker.task",
+            delegate
+          },
+          runningMode: "VIDEO",
+          numHands: 2
+        }
+      );
+
+    try {
+      handLandmarker = await makeHand("GPU");
+    } catch (gpuError) {
+      try {
+        handLandmarker = await makeHand("CPU");
+      } catch (cpuError) {
+        console.warn(
+          "HandLandmarker unavailable; falling back to visual mouth gate only",
+          cpuError
+        );
+
+        handLandmarker = null;
+      }
+    }
+
     modelReady = true;
+
     if (isCameraRunning) {
       setUI({
-        glassColor:'var(--col-blue-glass)',
-        msg:FL.pressStart,
-        showStart:true,
-        showReset:false,
-        showHud:false
+        glassColor: "var(--col-blue-glass)",
+        msg: FL.pressStart,
+        showStart: true,
+        showReset: false,
+        showHud: false
       });
     }
-  } catch(err){
-    console.error('model load failed', err);
+  } catch (error) {
+    console.error("model load failed", error);
     statusMsg.textContent = FL.modelErr;
-    startBtn.classList.add('hidden');
+    startBtn.classList.add("hidden");
   }
 }
 
