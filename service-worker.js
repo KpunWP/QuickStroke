@@ -1,16 +1,14 @@
-/* QuickStroke Service Worker — Emergency-Ready Edition (v3)
+/* QuickStroke Service Worker — Emergency-Ready Edition (v7)
  *
  * ออกแบบสำหรับสถานการณ์ฉุกเฉิน + สัญญาณอินเทอร์เน็ตไม่ดี:
- *   - หน้า HTML        → network-first "แบบมี timeout 3 วินาที"
- *                        เน็ตดี = ได้ของใหม่, เน็ตอืด/ไม่มีเน็ต = หยิบ cache ทันที ไม่มีวันค้าง
- *   - โมเดล AI (MediaPipe) → precache ตั้งแต่เปิดครั้งแรก → หน้ากล้องขึ้นทันทีแม้ offline
- *   - js/รูป/ไฟล์อื่น    → stale-while-revalidate (ตอบจาก cache ทันที + อัปเดตเบื้องหลัง)
- *
- * ไม่ต้อง bump เวอร์ชันเมื่อแก้โค้ดทั่วไป — bump เฉพาะเมื่อ "เปลี่ยนไฟล์โมเดล" เท่านั้น
+ *   - หน้า HTML → network-first พร้อม timeout
+ *   - โมเดล MediaPipe → precache แบบ best-effort
+ *   - JS / JSON / รูปภาพ → stale-while-revalidate
  */
-const CACHE_NAME = "quickstroke-pwa-v6"; // v6: บังคับล้าง cache เก่าที่อาจมี HTML เก่าค้างจากปัญหา HTTP cache
 
-/* ไฟล์หลักของแอป — ถ้าตัวใดโหลดไม่สำเร็จตอน install ถือว่า install ล้มเหลว (ต้องมีครบ) */
+const CACHE_NAME = "quickstroke-pwa-v7";
+// v7: เพิ่ม shared i18n และ locale packs สำหรับใช้งาน offline
+
 const CORE_SHELL = [
   "/",
   "/index.html",
@@ -19,6 +17,13 @@ const CORE_SHELL = [
   "/speech-test.html",
   "/result.html",
   "/config.js",
+
+  // Shared internationalization system
+  "/js/i18n.js",
+  "/locales/th-TH/ui.json",
+  "/locales/en-US/ui.json",
+  "/locales/ja-JP/ui.json",
+
   "/fast-permissions.js",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
