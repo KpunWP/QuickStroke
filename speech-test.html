@@ -327,141 +327,105 @@
 'use strict';
 
 // ═══════════════════════════════════════════════════
-// CONFIG
+// SHARED SPEECH LOCALE
 // ═══════════════════════════════════════════════════
-const CONFIG = {
-  th: {
-    langCode: 'th-TH',
-    target: 'วันนี้ท้องฟ้าแจ่มใส',
-    // ใช้เป็นจำนวน speech units สำหรับคำนวณ rate; ภาษาไทย/อังกฤษ = syllables
-    syllables: 6,
-    rateUnit: 'syl/s',
-    keywords: ['วันนี้ท้องฟ้าแจ่มใส', 'ท้องฟ้าแจ่มใส', 'วันนี้'],
-    hint: 'กดปุ่ม รอสัญญาณ แล้วพูดประโยคนี้ให้ชัดเจน',
-    btnStart: 'เริ่มพูด', btnRetry: 'ทดสอบอีกครั้ง',
-    btnStop: '⏹ หยุด', listening: '... กำลังฟัง ...',
-    fastResult: 'ดูผลรวม FAST →', fastHome: 'กลับหน้าหลัก', fastNext: 'ทดสอบต่อไป →', fastIncomplete: 'พบความผิดปกติ — ควรทดสอบให้ครบทั้ง 3 อาการ',
-    noiseTitle: 'เสียงรบกวนมากเกินไป',
-    noiseDesc: 'ห้องนี้มีเสียงรบกวนสูง อาจทำให้ผลคลาดเคลื่อน',
-    noiseMove: 'ย้ายไปที่เงียบกว่า', noiseGo: 'วัดต่อ',
-    noisyTag: '⚠ SNR ต่ำกว่า 10 dB ผลอาจคลาดเคลื่อนจากเสียงรบกวน',
-    topTitle: 'FAST · คัดกรองการพูด',
-    accuracy: 'ความถูกต้อง', ready: 'พร้อม', rate: 'ความเร็ว', pending: 'รอวัด',
-    wordAccuracy: 'ความถูกต้องของคำ', speechRate: 'ความเร็วการพูด', volumeStability: 'ความสม่ำเสมอของเสียง',
-    noiseMetric: 'เสียงรบกวน', snrMetric: 'SNR',
-    calibrating: '... กำลังปรับค่า ...', noiseCalib: '🔇 วัดเสียงรบกวนรอบห้อง...',
-    resultOk: 'ปกติ', resultWarn: 'เฝ้าระวัง', resultBad: 'ความเสี่ยงสูง',
-    subOk: 'การพูดอยู่ในเกณฑ์ปกติ', subWarn: 'พบความผิดปกติเล็กน้อย ควรทดสอบซ้ำ', subBad: 'พบความผิดปกติของการพูด ควรพบแพทย์',
-    noVoice: 'ไม่มีเสียง', voiceButNoText: 'มีเสียงพูด แต่ระบบจำคำตามภาษาที่เลือกไม่ได้', noSpeechSegment: 'ไม่พบช่วงสัญญาณเสียง', wordMismatch: 'คำไม่ตรงประโยค',
-    issueWord: 'คำไม่ถูก/นึกไม่ออก', issueSlow: 'พูดช้า', issueUnstable: 'เสียงไม่สม่ำเสมอ',
-  },
-  en: {
-    langCode: 'en-US',
-    target: 'The sky is blue today',
-    // ใช้เป็นจำนวน speech units สำหรับคำนวณ rate; ภาษาไทย/อังกฤษ = syllables
-    syllables: 6,
-    rateUnit: 'syl/s',
-    keywords: ['the sky is blue today', 'sky is blue today', 'the sky is blue', 'sky blue today'],
-    hint: 'Press the button, wait for the signal, then speak clearly.',
-    btnStart: 'Start Speaking', btnRetry: 'Test Again',
-    btnStop: '⏹ Stop', listening: '... listening ...',
-    fastResult: 'View FAST Score →', fastHome: 'Back to Home', fastNext: 'Continue →', fastIncomplete: 'Abnormality found — complete all 3 tests',
-    noiseTitle: 'Too much noise',
-    noiseDesc: 'This room is noisy, results may be inaccurate.',
-    noiseMove: 'Move somewhere quieter', noiseGo: 'Measure anyway',
-    noisyTag: '⚠ SNR below 10 dB; background noise may affect the result',
-    topTitle: 'FAST · Speech Screening',
-    accuracy: 'Accuracy', ready: 'Ready', rate: 'Rate', pending: 'Pending',
-    wordAccuracy: 'Word Accuracy', speechRate: 'Speech Rate', volumeStability: 'Volume Stability',
-    noiseMetric: 'Noise', snrMetric: 'SNR',
-    calibrating: '... calibrating ...', noiseCalib: '🔇 Measuring background noise...',
-    resultOk: 'Normal', resultWarn: 'Caution', resultBad: 'High Risk',
-    subOk: 'Speech appears within normal range', subWarn: 'Mild abnormality detected; please retest', subBad: 'Speech abnormality detected; seek medical help',
-    noVoice: 'No voice', voiceButNoText: 'Voice detected, but not recognized in the selected language', noSpeechSegment: 'No speech segment detected', wordMismatch: 'Sentence mismatch',
-    issueWord: 'incorrect/missing words', issueSlow: 'slow speech', issueUnstable: 'unstable voice',
-  },
-  ja: {
-    langCode: 'ja-JP',
-    target: '今日は空がきれいです',
-    // ภาษาญี่ปุ่นเป็น mora-timed จึงใช้จำนวน mora เป็น speech units
-    syllables: 11,
-    rateUnit: 'mora/s',
-    keywords: ['今日は空がきれいです', '今日は空が綺麗です', '空がきれいです', '空が綺麗です', 'きょうはそらがきれいです', '今日はそらがきれいです'],
-    hint: 'ボタンを押して、合図を待ってから、はっきり話してください。',
-    btnStart: '発言する', btnRetry: '再テスト',
-    btnStop: '⏹ 停止', listening: '... 聞き取り中 ...',
-    fastResult: 'FAST結果を見る →', fastHome: 'ホームに戻る', fastNext: '次のテストへ →', fastIncomplete: '異常が見られました — 3つの項目をすべてテストしてください',
-    noiseTitle: '騒音が多すぎます',
-    noiseDesc: 'この部屋は騒がしく、結果が不正確になる可能性があります。',
-    noiseMove: '静かな場所へ移動', noiseGo: 'このまま測定',
-    noisyTag: '⚠ SNRが10 dB未満のため、騒音で結果が不正確な可能性があります',
-    topTitle: 'FAST · 音声スクリーニング',
-    accuracy: '正確さ', ready: '準備完了', rate: '速度', pending: '待機中',
-    wordAccuracy: '単語の正確さ', speechRate: '発話速度', volumeStability: '音量の安定性',
-    noiseMetric: '騒音', snrMetric: 'SNR',
-    calibrating: '... 調整中 ...', noiseCalib: '🔇 周囲の騒音を測定中...',
-    resultOk: '正常', resultWarn: '注意', resultBad: '高リスク',
-    subOk: '発話は正常範囲です', subWarn: '軽度の異常があります。再テストしてください', subBad: '発話の異常があります。医師に相談してください',
-    noVoice: '音声なし', voiceButNoText: '音声は検出されましたが、選択した言語として認識できません', noSpeechSegment: '音声区間が検出されません', wordMismatch: '文が一致しません',
-    issueWord: '単語が不正確/出ない', issueSlow: '発話が遅い', issueUnstable: '声が不安定',
-  },
-};
-
 const SPEECH_LOCALE_MAP = Object.freeze({
   th: 'th-TH',
   en: 'en-US',
   ja: 'ja-JP'
 });
 
+const SPEECH_REQUIRED_KEYS = Object.freeze([
+  'langCode', 'target', 'syllables', 'rateUnit', 'keywords', 'hint',
+  'btnStart', 'btnRetry', 'btnStop', 'listening',
+  'fastResult', 'fastHome', 'fastNext', 'fastIncomplete',
+  'noiseTitle', 'noiseDesc', 'noiseMove', 'noiseGo', 'noisyTag',
+  'topTitle', 'accuracy', 'ready', 'rate', 'pending',
+  'wordAccuracy', 'speechRate', 'volumeStability',
+  'noiseMetric', 'snrMetric', 'calibrating', 'noiseCalib',
+  'resultOk', 'resultWarn', 'resultBad', 'subOk', 'subWarn', 'subBad',
+  'noVoice', 'voiceButNoText', 'noSpeechSegment', 'wordMismatch',
+  'issueWord', 'issueSlow', 'issueUnstable',
+  'deadMicFailed', 'micReconnecting', 'micAccessError',
+  'manualStop', 'speechApiUnavailable', 'insufficientData',
+  'scoreLabel', 'languageUnavailable'
+]);
+
 let speechLocaleRequestId = 0;
 
+function validateSpeechMessages(messages, locale) {
+  if (!messages || typeof messages !== 'object') {
+    throw new Error(`Missing speech translations for ${locale}`);
+  }
+
+  const missing = SPEECH_REQUIRED_KEYS.filter(key => messages[key] === undefined);
+  if (missing.length) {
+    throw new Error(`Incomplete speech translations for ${locale}: ${missing.join(', ')}`);
+  }
+
+  if (!Array.isArray(messages.keywords) || !messages.keywords.length) {
+    throw new Error(`Invalid speech keywords for ${locale}`);
+  }
+
+  if (!Number.isFinite(Number(messages.syllables)) || Number(messages.syllables) <= 0) {
+    throw new Error(`Invalid speech unit count for ${locale}`);
+  }
+}
+
+async function readSpeechLocale(locale) {
+  if (!window.QuickStrokeI18n) {
+    throw new Error('QuickStrokeI18n is not available');
+  }
+
+  await window.QuickStrokeI18n.setLocale(locale, {
+    persist: true,
+    apply: false
+  });
+
+  const messages = window.QuickStrokeI18n.getMessages();
+  const speechMessages = messages?.speech;
+  validateSpeechMessages(speechMessages, locale);
+
+  return {
+    ...speechMessages,
+    langCode: speechMessages.langCode || locale,
+    syllables: Number(speechMessages.syllables)
+  };
+}
+
 async function loadSpeechLocale(requestedCode) {
-  const code = String(requestedCode || 'th')
-    .split('-')[0]
-    .toLowerCase();
+  let code = String(requestedCode || 'th').split('-')[0].toLowerCase();
+  let locale = SPEECH_LOCALE_MAP[code];
 
-  const locale = SPEECH_LOCALE_MAP[code];
-
-  if (!locale || !CONFIG[code]) {
+  if (!locale) {
     console.warn(`Unsupported speech language: ${requestedCode}`);
     return null;
   }
 
   const requestId = ++speechLocaleRequestId;
+  let messages;
 
   try {
-    if (!window.QuickStrokeI18n) {
-      throw new Error('QuickStrokeI18n is not available');
-    }
-
-    await window.QuickStrokeI18n.setLocale(locale, {
-      persist: true,
-      apply: false
-    });
-
-    const messages = window.QuickStrokeI18n.getMessages();
-    const speechMessages = messages?.speech;
-
-    if (speechMessages && typeof speechMessages === 'object') {
-      CONFIG[code] = {
-        ...CONFIG[code],
-        ...speechMessages,
-        langCode: speechMessages.langCode || locale
-      };
-    }
+    messages = await readSpeechLocale(locale);
   } catch (error) {
-    // Bridge stage: keep the embedded CONFIG as a safe fallback
-    // until the speech namespace is added to all locale JSON files.
-    console.warn('Could not load shared speech locale. Using embedded fallback.', error);
+    console.error(`Could not load speech locale ${locale}.`, error);
+
+    if (code === 'en') return null;
+
+    try {
+      code = 'en';
+      locale = SPEECH_LOCALE_MAP.en;
+      messages = await readSpeechLocale(locale);
+    } catch (fallbackError) {
+      console.error('Could not load the English speech fallback.', fallbackError);
+      return null;
+    }
   }
 
-  // Ignore an older language request that finished after a newer click.
-  if (requestId !== speechLocaleRequestId) {
-    return null;
-  }
+  if (requestId !== speechLocaleRequestId) return null;
 
   sessionStorage.setItem('fast_lang', code);
-  return { code, messages: CONFIG[code] };
+  return { code, messages };
 }
 
 // ═══════════════════════════════════════════════════
@@ -499,13 +463,15 @@ function setSpeechCard(key, state, main, sub, icon){
   if (iconEl && icon !== undefined) iconEl.textContent = icon;
 }
 function resetSpeechCards(){
-  const L = T || CONFIG.th;
+  if (!T) return;
+  const L = T;
   setSpeechCard('word','active',L.accuracy,L.ready,'🗣️');
   setSpeechCard('rate','',L.rate,L.pending,'⏱️');
 }
 
 function updateSpeechLabels() {
-  const L = T || CONFIG.th;
+  if (!T) return;
+  const L = T;
   if ($('top-lbl')) $('top-lbl').textContent = L.topTitle;
   if ($('speech-home-btn')) $('speech-home-btn').setAttribute('aria-label', L.fastHome || 'Home');
   if ($('lbl-word-accuracy')) $('lbl-word-accuracy').textContent = L.wordAccuracy;
@@ -539,7 +505,7 @@ async function recoverDeadMic() {
     deadMicAttempt = 0;
     await stopAll(true);
     $('transcript-box').style.display = 'block';
-    $('transcript-box').textContent = '⚠️ ไมค์ไม่ตอบสนอง กรุณารอสักครู่แล้วกดเริ่มใหม่';
+    $('transcript-box').textContent = T.deadMicFailed;
     $('action-btn').disabled = false;
     $('action-btn').textContent = T.btnStart;
     $('action-btn').className = '';
@@ -547,7 +513,9 @@ async function recoverDeadMic() {
   }
 
   $('transcript-box').style.display = 'block';
-  $('transcript-box').textContent = `🔄 ไมค์ยังไม่พร้อม กำลังเชื่อมต่อใหม่ (${deadMicAttempt}/${DEAD_MIC_MAX_ATTEMPT})...`;
+  $('transcript-box').textContent = T.micReconnecting
+    .replace('{attempt}', String(deadMicAttempt))
+    .replace('{max}', String(DEAD_MIC_MAX_ATTEMPT));
 
   // ถึงจุดนี้ = pipeline ตายจริง ต้องปิดหมด (full release) แล้วรอนานขึ้นให้ iOS reset audio session
   await stopAll(true);
@@ -743,6 +711,8 @@ async function selectLang(requestedCode) {
 
   const { code, messages } = loaded;
   T = messages;
+  document.documentElement.lang = T.langCode || SPEECH_LOCALE_MAP[code];
+  document.title = T.topTitle;
 
   $('lang-screen').style.display = 'none';
   $('test-screen').style.display = 'flex';
@@ -894,9 +864,9 @@ function setBar(key, pct, label) {
   $('bar-'+key).style.background = p >= 65 ? 'var(--green)' : p >= 35 ? 'var(--amber)' : 'var(--red)';
   $('val-'+key).textContent      = label;
   const scoreEl = $('score-'+key);
-  if (scoreEl) scoreEl.textContent = pct > 0 ? `score: ${Math.round(p)}` : '';
-  if (key === 'word') setSpeechCard('word', p >= 65 ? 'pass' : p >= 35 ? 'active' : 'fail', (T||CONFIG.th).accuracy, Math.round(p) + '%', p >= 65 ? '✅' : p >= 35 ? '⚠️' : '❌');
-  if (key === 'rate') setSpeechCard('rate', p >= 65 ? 'pass' : p >= 35 ? 'active' : 'fail', (T||CONFIG.th).rate, Math.round(p) + '%', p >= 65 ? '✅' : p >= 35 ? '⚠️' : '❌');
+  if (scoreEl) scoreEl.textContent = pct > 0 ? `${T.scoreLabel}: ${Math.round(p)}` : '';
+  if (key === 'word') setSpeechCard('word', p >= 65 ? 'pass' : p >= 35 ? 'active' : 'fail', T.accuracy, Math.round(p) + '%', p >= 65 ? '✅' : p >= 35 ? '⚠️' : '❌');
+  if (key === 'rate') setSpeechCard('rate', p >= 65 ? 'pass' : p >= 35 ? 'active' : 'fail', T.rate, Math.round(p) + '%', p >= 65 ? '✅' : p >= 35 ? '⚠️' : '❌');
 }
 
 
@@ -1100,7 +1070,7 @@ async function startRecording(forceDirectMic = false) {
     phase = 'IDLE';
 
     $('transcript-box').style.display = 'block';
-    $('transcript-box').textContent = '⚠️ ไม่สามารถเข้าถึงไมค์: ' + err.message;
+    $('transcript-box').textContent = T.micAccessError + err.message;
     $('action-btn').disabled = false;
     $('action-btn').textContent = T.btnStart;
     $('action-btn').className = '';
@@ -1635,7 +1605,7 @@ function evaluateSpeech(text, confidence) {
   
   if (isManual) {
     wordScore = 50; wordLabel = 'N/A';
-    $('transcript-box').textContent = text === '__manual__' ? '[หยุดแมนนวล]' : '[ไม่พบ Speech API]';
+    $('transcript-box').textContent = text === '__manual__' ? T.manualStop : T.speechApiUnavailable;
   } else if (text === '') {
     wordScore = 0;
     if (hasVoice) {
@@ -1673,7 +1643,7 @@ function evaluateSpeech(text, confidence) {
 
   // 3. คะแนน Volume Stability (20%)
   const stabScore = calcStab(vowelEnergyBuf);
-  const stabLabel = vowelEnergyBuf.length >= 10 ? `${stabScore}%` : 'ข้อมูลน้อยเกินไป';
+  const stabLabel = vowelEnergyBuf.length >= 10 ? `${stabScore}%` : T.insufficientData;
 
   // 4. SNR หลังพูดเสร็จ: speechEnergy เทียบกับ noiseFloor จริง
   const speechEnergy = calcSpeechEnergy(vowelEnergyBuf);
@@ -1768,8 +1738,7 @@ function evaluateSpeech(text, confidence) {
 // FAST FLOW — จัดการ navigation หลังจบ Speech
 // ═══════════════════════════════════════════════════
 function handleFastFlow(riskLevel) {
-  const lang = sessionStorage.getItem('fast_lang') || 'th';
-  const L = CONFIG[lang] || CONFIG.th;
+  const L = T;
 
   // ใช้การมี key เป็นหลัก เพื่อรองรับรูปแบบข้อมูล Face/Arm รุ่นเดิมด้วย
   const allDone = ['fast_face', 'fast_arm', 'fast_speech']
@@ -1820,7 +1789,7 @@ function handleFastFlow(riskLevel) {
   const actionBtn = document.getElementById('action-btn');
   if (actionBtn) {
     actionBtn.disabled = true;
-    actionBtn.textContent = 'Language unavailable';
+    actionBtn.textContent = T?.languageUnavailable || 'Language unavailable';
   }
 });
 </script>

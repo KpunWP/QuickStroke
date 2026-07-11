@@ -253,6 +253,7 @@
 
 </style>
 <script src="config.js"></script>
+<script src="./js/i18n.js"></script>
 </head>
 <body>
 
@@ -327,6 +328,69 @@
 
 // lang อ่านจาก sessionStorage ทุกครั้ง buildResult เรียก (รองรับการเปลี่ยนภาษา)
 function getLang() { return sessionStorage.getItem('fast_lang') || 'th'; }
+
+const RESULT_LOCALE_MAP = Object.freeze({
+  th: 'th-TH',
+  en: 'en-US',
+  ja: 'ja-JP'
+});
+
+let RESULT_T = null;
+let resultLanguageRequestId = 0;
+
+function setResultLanguageButtons(code) {
+  ['th','en','ja'].forEach(c => {
+    const b = document.getElementById('lsf-' + c);
+    if (b) {
+      const active = c === code;
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', String(active));
+    }
+  });
+}
+
+async function loadResultLanguage(code, { persist = true } = {}) {
+  const shortCode = String(code || 'th').split('-')[0].toLowerCase();
+  const locale = RESULT_LOCALE_MAP[shortCode];
+  if (!locale || !LABELS[shortCode]) {
+    console.warn(`Unsupported result language: ${code}`);
+    return false;
+  }
+
+  const requestId = ++resultLanguageRequestId;
+  let nextMessages = LABELS[shortCode];
+
+  try {
+    if (!window.QuickStrokeI18n) {
+      throw new Error('QuickStrokeI18n is not available');
+    }
+
+    await window.QuickStrokeI18n.setLocale(locale, {
+      persist,
+      apply: false
+    });
+
+    if (requestId !== resultLanguageRequestId) return false;
+
+    const messages = window.QuickStrokeI18n.getMessages();
+    if (messages.result && typeof messages.result === 'object') {
+      // Bridge stage: JSON values override the embedded dictionary.
+      // Missing keys still use LABELS until final migration.
+      nextMessages = { ...LABELS[shortCode], ...messages.result };
+    }
+  } catch (error) {
+    console.error('Could not load result locale. Using embedded fallback.', error);
+  }
+
+  if (requestId !== resultLanguageRequestId) return false;
+
+  RESULT_T = nextMessages;
+  if (persist) sessionStorage.setItem('fast_lang', shortCode);
+  document.documentElement.lang = locale;
+  setResultLanguageButtons(shortCode);
+  buildResult();
+  return true;
+}
 
 // น้ำหนักตามงานวิจัย: face และ arm เป็นตัวทำนาย stroke อิสระ (Santa Clara, n=359)
 const RESULT_CFG = window.QS_CONFIG?.scoring || {};
@@ -420,7 +484,7 @@ function applyStaticLabels(T) {
 }
 
 function buildResult() {
-  const T = LABELS[getLang()] || LABELS.th;
+  const T = RESULT_T || LABELS[getLang()] || LABELS.th;
   applyStaticLabels(T);
 
   const data = {
@@ -544,27 +608,17 @@ function retryAll() {
   window.location.href = 'index.html';
 }
 
-function resultSwitchLang(code) {
-  if (!LABELS[code]) return;
-  sessionStorage.setItem('fast_lang', code);
-  // rebuild result with new language
-  buildResult();
-  // update active button
-  ['th','en','ja'].forEach(c => {
-    const b = document.getElementById('lsf-' + c);
-    if (b) b.classList.toggle('active', c === code);
-  });
+async function resultSwitchLang(code) {
+  await loadResultLanguage(code, { persist: true });
 }
 
-buildResult();
-// init active lang button
-{
-  const curLang = sessionStorage.getItem('fast_lang') || 'th';
-  ['th','en','ja'].forEach(c => {
-    const b = document.getElementById('lsf-' + c);
-    if (b) b.classList.toggle('active', c === curLang);
-  });
-}
+window.resultSwitchLang = resultSwitchLang;
+
+(async function initResultLanguage() {
+  const savedLang = getLang();
+  const code = RESULT_LOCALE_MAP[savedLang] ? savedLang : 'th';
+  await loadResultLanguage(code, { persist: false });
+})();
 </script>
 <script>
   if ("serviceWorker" in navigator) {
