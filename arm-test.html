@@ -611,6 +611,7 @@
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
+<script src="./js/i18n.js"></script>
 </head>
 <body>
 
@@ -969,9 +970,16 @@ function initArmDevMode() {
 
 document.addEventListener('DOMContentLoaded', initArmDevMode);
 
+const ARM_LOCALE_MAP = Object.freeze({
+  th: "th-TH",
+  en: "en-US",
+  ja: "ja-JP"
+});
+
 const LANG = {
   en:{
     code:'en-US', topLbl:'Arm Check', cdUnit:'sec', driftLbl:'Phone-angle change',
+    navResult:'View FAST Score →', navNext:'Continue to Speech →', navHome:'Back to Home',
     armRight:'RIGHT', armLeft:'LEFT', pending:'Pending', passLbl:'Normal', failLbl:'Possible arm drift', retryLbl:'Retest', wristLbl:'Wrist moved', uncertainLbl:'Unclear movement',
     sensorDenied:'Motion access denied. Please allow in Settings and refresh.',
     sensorUnsupported:'Motion sensor not supported on this device.',
@@ -1003,6 +1011,7 @@ const LANG = {
   },
   th:{
     code:'th-TH', topLbl:'เช็คแขน', cdUnit:'วิ', driftLbl:'มุมเปลี่ยนของโทรศัพท์',
+    navResult:'ดูผลรวม FAST →', navNext:'ทดสอบการพูดต่อ →', navHome:'กลับหน้าหลัก',
     armRight:'แขนขวา', armLeft:'แขนซ้าย', pending:'รอทดสอบ', passLbl:'ปกติ', failLbl:'อาจพบแขนตก', retryLbl:'ทดสอบใหม่', wristLbl:'ข้อมือขยับ', uncertainLbl:'การเคลื่อนไหวยังไม่ชัด',
     sensorDenied:'ไม่ได้รับอนุญาตเข้าถึงเซนเซอร์ กรุณาเปิดสิทธิ์ในการตั้งค่า',
     sensorUnsupported:'อุปกรณ์นี้ไม่รองรับเซนเซอร์การเคลื่อนไหว',
@@ -1034,6 +1043,7 @@ const LANG = {
   },
   ja:{
     code:'ja-JP', topLbl:'腕チェック', cdUnit:'秒', driftLbl:'スマホ角度の変化',
+    navResult:'FASTスコアを見る →', navNext:'音声テストへ →', navHome:'ホームへ',
     armRight:'右腕', armLeft:'左腕', pending:'待機中', passLbl:'正常', failLbl:'腕下垂の可能性', retryLbl:'再テスト', wristLbl:'手首の動き', uncertainLbl:'動きが不明確',
     sensorDenied:'センサーの権限が拒否されました。設定で許可してください。',
     sensorUnsupported:'このデバイスはモーションセンサーに対応していません。',
@@ -1187,6 +1197,8 @@ function speakNow(txt, onDone) {
 }
 
 let T       = null;
+let activeArmLangCode = 'th';
+let armLangRequestId = 0;
 let phase   = 'IDLE'; 
 let arm     = 'left';
 let results = { right:null, left:null };
@@ -1935,22 +1947,83 @@ function goArmHome(){
   window.location.href = 'index.html';
 }
 
+function normaliseArmLang(code) {
+  const shortLang = String(code || 'th').split('-')[0].toLowerCase();
+  return ARM_LOCALE_MAP[shortLang] ? shortLang : 'th';
+}
+
 function currentLangCode(){
-  return Object.keys(LANG).find(k => LANG[k] === T) || sessionStorage.getItem('fast_lang') || 'th';
+  return activeArmLangCode || normaliseArmLang(sessionStorage.getItem('fast_lang'));
+}
+
+async function loadArmMessages(code) {
+  const shortLang = normaliseArmLang(code);
+  const locale = ARM_LOCALE_MAP[shortLang];
+  const embeddedFallback = LANG[shortLang] || LANG.th;
+  const requestId = ++armLangRequestId;
+
+  let loadedMessages = null;
+
+  try {
+    if (!window.QuickStrokeI18n) {
+      throw new Error('QuickStrokeI18n is not available');
+    }
+
+    await window.QuickStrokeI18n.setLocale(locale, {
+      persist: true,
+      apply: false
+    });
+
+    const messages = window.QuickStrokeI18n.getMessages();
+    loadedMessages = messages?.arm || null;
+
+    // Recovery for an older service-worker cache that still has ui.json
+    // without the arm namespace.
+    if (!loadedMessages) {
+      const response = await fetch(
+        `./locales/${locale}/ui.json?v=arm-i18n-v1`,
+        { cache: 'reload' }
+      );
+
+      if (response.ok) {
+        const directPack = await response.json();
+        loadedMessages = directPack?.arm || null;
+      }
+    }
+
+    if (!loadedMessages) {
+      throw new Error(`Missing arm translations for ${locale}`);
+    }
+  } catch (error) {
+    console.info(
+      `[Arm i18n] Embedded fallback active for ${locale}.`,
+      error?.message || error
+    );
+  }
+
+  // Ignore an older request if the user switched languages rapidly.
+  if (requestId !== armLangRequestId) return null;
+
+  T = {
+    ...embeddedFallback,
+    ...(loadedMessages || {})
+  };
+
+  activeArmLangCode = shortLang;
+  sessionStorage.setItem('fast_lang', shortLang);
+  document.documentElement.lang = locale;
+
+  return shortLang;
 }
 
 function armNavText(){
-  const code = currentLangCode();
   const mode = sessionStorage.getItem('fast_mode');
-  const allDone = ['fast_face','fast_arm','fast_speech'].every(k => sessionStorage.getItem(k));
-  const L = {
-    th: { result:'ดูผลรวม FAST →', next:'ทดสอบการพูดต่อ →', home:'กลับหน้าหลัก' },
-    en: { result:'View FAST Score →', next:'Continue to Speech →', home:'Back to Home' },
-    ja: { result:'FASTスコアを見る →', next:'音声テストへ →', home:'ホームへ' }
-  }[code] || { result:'ดูผลรวม FAST →', next:'ทดสอบการพูดต่อ →', home:'กลับหน้าหลัก' };
+  const allDone = ['fast_face','fast_arm','fast_speech']
+    .every(k => sessionStorage.getItem(k));
+  const labels = T || LANG[currentLangCode()] || LANG.th;
 
-  if (mode === 'full') return L.next;
-  return allDone ? L.result : L.home;
+  if (mode === 'full') return labels.navNext;
+  return allDone ? labels.navResult : labels.navHome;
 }
 
 function refreshArmLanguageUI(){
@@ -2028,40 +2101,55 @@ function refreshArmLanguageUI(){
   }
 }
 
-function armSwitchLang(code) {
+async function armSwitchLang(code) {
   // ห้ามสลับระหว่างวัดจริง เพื่อไม่ให้เสียง/ตัวจับเวลา/logic เพี้ยน
-  if (phase === 'CALIB' || phase === 'PRE_MEASURE' || phase === 'MEASURE') return;
-  if (!LANG[code]) return;
+  if (phase === 'CALIB' || phase === 'PRE_MEASURE' || phase === 'MEASURE') {
+    return;
+  }
 
-  T = LANG[code];
-  sessionStorage.setItem('fast_lang', code);
+  const shortLang = normaliseArmLang(code);
+
+  // Apply the embedded fallback immediately so the interface never goes blank.
+  T = LANG[shortLang] || LANG.th;
+  activeArmLangCode = shortLang;
+  sessionStorage.setItem('fast_lang', shortLang);
   refreshArmLanguageUI();
+
+  const loadedLang = await loadArmMessages(shortLang);
+  if (loadedLang) refreshArmLanguageUI();
 }
 
-function selectLang(code) {
-  T = LANG[code];
+async function selectLang(code) {
+  const shortLang = normaliseArmLang(code);
+
+  // Synchronous fallback prevents a race if Start is tapped before JSON finishes.
+  T = LANG[shortLang] || LANG.th;
+  activeArmLangCode = shortLang;
+  sessionStorage.setItem('fast_lang', shortLang);
 
   $('lang-screen').style.display='none';
   $('test-screen').style.display='flex';
-  
+
   // แสดงปุ่มภาษา
   const lsf = $('lang-sw-fixed');
   if (lsf) {
     const topRight = document.querySelector('.top-right');
-    if (topRight && lsf.parentNode !== topRight) topRight.insertBefore(lsf, topRight.firstChild);
+    if (topRight && lsf.parentNode !== topRight) {
+      topRight.insertBefore(lsf, topRight.firstChild);
+    }
     lsf.classList.add('show');
   }
-  ['th','en','ja'].forEach(c => {
-    const b = $('lsf-' + c);
-    if (b) b.classList.toggle('active', c === code);
-  });
-  
-  // ── 2. เริ่มต้นที่แขนซ้ายเสมอ และ render UI ตามภาษาปัจจุบัน ──
+
+  // เริ่มต้นที่แขนซ้ายเสมอ และ render fallback ก่อน
   arm = 'left';
   refreshArmLanguageUI();
-  
+
   $('action-btn').disabled=false;
   $('action-btn').className='';
+
+  // Replace fallback text with the shared locale pack when available.
+  const loadedLang = await loadArmMessages(shortLang);
+  if (loadedLang) refreshArmLanguageUI();
 }
 
 // ═══════════════════════════════════════════════════
@@ -2070,14 +2158,9 @@ function selectLang(code) {
 function handleArmFastFlow() {
   if (ARM_DEV_MODE) return;
   const mode = sessionStorage.getItem('fast_mode');
-  const lang = sessionStorage.getItem('fast_lang') || 'th';
-  const allDone = ['fast_face','fast_arm','fast_speech'].every(k => sessionStorage.getItem(k));
-
-  const L = {
-    th: { result:'ดูผลรวม FAST →', next:'ทดสอบการพูดต่อ →', home:'กลับหน้าหลัก' },
-    en: { result:'View FAST Score →', next:'Continue to Speech →', home:'Back to Home' },
-    ja: { result:'FASTスコアを見る →', next:'音声テストへ →', home:'ホームへ' }
-  }[lang] || { result:'ดูผลรวม FAST →', next:'ทดสอบการพูดต่อ →', home:'กลับหน้าหลัก' };
+  const allDone = ['fast_face','fast_arm','fast_speech']
+    .every(k => sessionStorage.getItem(k));
+  const labels = T || LANG[currentLangCode()] || LANG.th;
 
   setTimeout(() => {
     const existing = document.getElementById('fast-nav-btn');
@@ -2088,15 +2171,15 @@ function handleArmFastFlow() {
 
     if (mode === 'full') {
       // Full: arm เป็นอันที่ 2 → ไป speech ต่อ
-      btn.textContent = L.next;
+      btn.textContent = labels.navNext;
       btn.onclick = () => window.location.href = 'speech-test.html';
     } else {
       if (allDone) {
-        btn.textContent = L.result;
+        btn.textContent = labels.navResult;
         btn.style.background = 'var(--green)';
         btn.onclick = () => window.location.href = 'result.html';
       } else {
-        btn.textContent = L.home;
+        btn.textContent = labels.navHome;
         btn.onclick = () => window.location.href = 'index.html';
       }
     }
@@ -2106,10 +2189,13 @@ function handleArmFastFlow() {
 }
 
 // ── No language landing page: start directly and keep TH/EN/JA at top-right ──
-(function() {
+(async function initArmLanguage() {
   const savedLang = sessionStorage.getItem('fast_lang') || 'th';
-  const code = (savedLang === 'th' || savedLang === 'en' || savedLang === 'ja') ? savedLang : 'th';
-  if (typeof selectLang === 'function') selectLang(code);
+  const code = normaliseArmLang(savedLang);
+
+  if (typeof selectLang === 'function') {
+    await selectLang(code);
+  }
 })();
 </script>
 <script>
