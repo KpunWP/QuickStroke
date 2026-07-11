@@ -37,5 +37,67 @@
     "emergency": "脳卒中が疑われる場合は、直ちに地域の救急サービスへ連絡してください。",
     "accept": "内容を確認して開始",
     "note": "このブラウザタブでは初回のみ表示されます"
+  },
+    "face": {
+    "topLabel": "FAST · 顔スクリーニング",
+
+    "cardFace": "顔",
+    "cardSmile": "笑顔",
+    "cardReady": "準備完了",
+    "cardPending": "待機中",
+    "cardAligning": "調整中",
+    "cardAligned": "正面",
+    "cardTesting": "測定中",
+    "cardPassed": "正常",
+    "cardNormal": "対称",
+    "cardCheck": "確認",
+    "cardUnable": "判定不可",
+    "cardAbnormal": "異常",
+    "cardUrgent": "緊急",
+
+    "loadingModel": "顔検出エンジンを読み込み中...",
+    "noFace": "⚠️ 顔が検出されません — 顔を枠の中央に合わせてください",
+    "loading": "カメラを起動しています...",
+    "startBtn": "▶\u00A0 テスト開始",
+    "retryBtn": "↻ 再テスト",
+    "pressStart": "ボタンを押して開始",
+
+    "step1": "ステップ1：顔をまっすぐにしてリラックスしてください",
+    "step2": "😄 大きく笑ってください",
+    "noFaceBaseline": "⚠️ 基準値の記録中に顔が検出されませんでした。もう一度お試しください。",
+    "mouthNotAssessable": "⚠️ 判定できません — 口元がはっきり見えるように大きく笑ってください",
+    "retrying": "😐 笑顔が確認できません — 自動で再試行します",
+    "invalidHelp": "⚠️ 数回試しましたが判定できません — スタッフに依頼するか ↺ で再試行してください",
+    "faceUnableAssess": "⚠️ 顔を評価できません",
+    "resultInvalid": "判定不可",
+
+    "tiltLeft": "↙️ 頭が傾いています — まっすぐにしてください",
+    "tiltRight": "↘️ 頭が傾いています — まっすぐにしてください",
+    "turnRight": "➡️ 横を向きすぎています — 正面を向いてください",
+    "turnLeft": "⬅️ 横を向きすぎています — 正面を向いてください",
+    "lookUp": "⬇️ 下を向きすぎています — 少し頭を上げてください",
+    "lookDown": "⬆️ 上を向きすぎています — 少し頭を下げてください",
+
+    "critical": "🚨 重度の非対称が検出されました！\n直ちに医療機関を受診してください",
+    "faceDone": "✅ 顔のテストが完了しました",
+    "faceAbnormal": "⚠️ 顔の異常を検出しました",
+
+    "navResult": "📊 結果 →",
+    "navNext": "💪 腕 →",
+    "navHome": "🏠 ホーム",
+
+    "smilePrompt": "😄 笑ってください",
+    "smileVoice": "大きく笑ってください",
+    "noSmileWarn": "😐 大きく笑ってください",
+    "restVoice": "顔をまっすぐにして動かないでください",
+
+    "resultScore": "スコア",
+    "resultOk": "正常",
+    "resultWarn": "注意",
+    "resultBad": "異常",
+
+    "cameraErr": "⚠️ カメラにアクセスできません。カメラの使用を許可してください。",
+    "modelErr": "❌ 顔検出の読み込みに失敗しました。接続を確認してもう一度お試しください。",
+    "quit": "テストを終了しますか？"
   }
 }

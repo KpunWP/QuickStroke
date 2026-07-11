@@ -659,6 +659,7 @@
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
+<script src="./js/i18n.js?v=face-i18n-v1"></script>
 </head>
 <body>
 
@@ -772,163 +773,16 @@
 // CDN load does NOT crash the whole module (which would freeze the consent screen).
 
 /* ───────────────────────── i18n ───────────────────────── */
-const FACE_I18N = {
-  th: {
-    cardFace:'ใบหน้า',
-    cardSmile:'รอยยิ้ม',
-    cardReady:'พร้อม',
-    cardPending:'รอทดสอบ',
-    cardAligning:'จัดตำแหน่ง',
-    cardAligned:'ตรงแล้ว',
-    cardTesting:'กำลังทดสอบ',
-    cardPassed:'ปกติ',
-    cardNormal:'สมมาตร',
-    cardCheck:'ตรวจสอบ',
-    cardUnable:'ตรวจไม่ได้',
-    cardAbnormal:'ผิดปกติ',
-    cardUrgent:'เร่งด่วน',
-    loadingModel:'กำลังเตรียมระบบตรวจจับใบหน้า...',
-    noFace:'⚠️ ไม่พบใบหน้า — วางใบหน้าให้อยู่กลางกรอบ',
-    loading:'กำลังเปิดกล้องและโหลดระบบ...',
-    startBtn:'▶\u00A0 เริ่มทดสอบ',
-    pressStart:'กดปุ่มเพื่อเริ่มทดสอบ',
-    step1:'ขั้นที่ 1: ทำหน้าตรง นิ่งๆ ผ่อนคลาย',
-    step2:'😄 ยิ้มกว้าง',
-    noFaceBaseline:'⚠️ ไม่พบใบหน้าระหว่างบันทึกค่าเริ่มต้น กรุณาลองใหม่',
-    mouthNotAssessable:'⚠️ ตรวจไม่ได้ — กรุณาเปิดให้เห็นปากชัดเจนและยิ้มกว้างใหม่',
-    retrying:'😐 ยังไม่เห็นการยิ้มชัด — กำลังลองใหม่อัตโนมัติ',
-    invalidHelp:'⚠️ ตรวจไม่ได้หลายครั้ง — ให้เจ้าหน้าที่ช่วย หรือกด ↺ ลองใหม่',
-    faceUnableAssess:'⚠️ ไม่สามารถประเมินใบหน้าได้',
-    resultInvalid:'ตรวจไม่ได้',
-    tiltLeft:'↙️ ศีรษะเอียง — ตั้งหน้าให้ตรง',
-    tiltRight:'↘️ ศีรษะเอียง — ตั้งหน้าให้ตรง',
-    turnRight:'➡️ คุณหันหน้ามากไป — หันหน้าตรง',
-    turnLeft:'⬅️ คุณหันหน้ามากไป — หันหน้าตรง',
-    lookUp:'⬇️ ก้มหน้ามากไป — เงยขึ้นเล็กน้อย',
-    lookDown:'⬆️ เงยหน้ามากไป — ก้มลงเล็กน้อย',
-    critical:'🚨 ตรวจพบความไม่สมมาตรขั้นรุนแรง!\nกรุณาพบแพทย์โดยด่วน',
-    faceDone:'✅ การทดสอบใบหน้าเสร็จสิ้น',
-    faceAbnormal:'⚠️ พบความผิดปกติของใบหน้า',
-    navResult:'📊 ผลรวม →',
-    navNext:'💪 แขน →',
-    navHome:'🏠 หน้าหลัก',
-    smilePrompt:'😄 ยิ้มกว้าง',
-    smileVoice:'ยิ้มกว้าง',
-    noSmileWarn:'😐 กรุณายิ้มกว้าง',
-    restVoice:'ทำหน้าตรง นิ่งๆ',
-    resultScore:'คะแนน',
-    resultOk:'ปกติ',
-    resultWarn:'ควรระวัง',
-    resultBad:'ผิดปกติ',
-    cameraErr:'⚠️ ไม่สามารถเข้าถึงกล้องได้ กรุณาอนุญาตการใช้กล้อง',
-    modelErr:'❌ โหลดระบบตรวจจับใบหน้าไม่สำเร็จ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่',
-    quit:'ต้องการออกจากการทดสอบใช่หรือไม่?',
-  },
-  en: {
-    cardFace:'Face',
-    cardSmile:'Smile',
-    cardReady:'Ready',
-    cardPending:'Pending',
-    cardAligning:'Aligning',
-    cardAligned:'Aligned',
-    cardTesting:'Testing',
-    cardPassed:'Normal',
-    cardNormal:'Symmetric',
-    cardCheck:'Check',
-    cardUnable:'Unable',
-    cardAbnormal:'Abnormal',
-    cardUrgent:'Urgent',
-    loadingModel:'Loading face detection engine...',
-    noFace:'⚠️ No face detected — center your face in the frame',
-    loading:'Opening camera and loading...',
-    startBtn:'▶\u00A0 Start Test',
-    pressStart:'Press the button to start',
-    step1:'Step 1: Keep your face straight & relaxed',
-    step2:'😄 Smile widely',
-    noFaceBaseline:'⚠️ No face detected during baseline. Please try again.',
-    mouthNotAssessable:'⚠️ Unable to assess — keep your mouth clearly visible and smile widely',
-    retrying:'😐 No clear smile yet — retrying automatically',
-    invalidHelp:'⚠️ Could not assess after several tries — ask staff for help, or tap ↺',
-    faceUnableAssess:'⚠️ Unable to assess face',
-    resultInvalid:'Unable',
-    tiltLeft:'↙️ Head tilted — keep head straight',
-    tiltRight:'↘️ Head tilted — keep head straight',
-    turnRight:'➡️ Turned too far — face forward',
-    turnLeft:'⬅️ Turned too far — face forward',
-    lookUp:'⬇️ Looking down — lift your head a bit',
-    lookDown:'⬆️ Looking up — lower your head a bit',
-    critical:'🚨 Severe asymmetry detected!\nSee a doctor immediately',
-    faceDone:'✅ Face test complete',
-    faceAbnormal:'⚠️ Facial abnormality detected',
-    navResult:'📊 Result →',
-    navNext:'💪 Arms →',
-    navHome:'🏠 Home',
-    smilePrompt:'😄 Smile',
-    smileVoice:'Smile widely',
-    noSmileWarn:'😐 Please smile widely',
-    restVoice:'Keep your face straight and still',
-    resultScore:'Score',
-    resultOk:'Normal',
-    resultWarn:'Caution',
-    resultBad:'Abnormal',
-    cameraErr:'⚠️ Cannot access camera. Please allow camera access.',
-    modelErr:'❌ Failed to load face detection. Check your connection and retry.',
-    quit:'Quit the test?',
-  },
-  ja: {
-    cardFace:'顔',
-    cardSmile:'笑顔',
-    cardReady:'準備完了',
-    cardPending:'待機中',
-    cardAligning:'調整中',
-    cardAligned:'正面',
-    cardTesting:'測定中',
-    cardPassed:'正常',
-    cardNormal:'対称',
-    cardCheck:'確認',
-    cardUnable:'判定不可',
-    cardAbnormal:'異常',
-    cardUrgent:'緊急',
-    loadingModel:'顔検出エンジンを読み込み中...',
-    noFace:'⚠️ 顔が検出されません — 顔を枠の中央に合わせてください',
-    loading:'カメラを起動しています...',
-    startBtn:'▶\u00A0 テスト開始',
-    pressStart:'ボタンを押して開始',
-    step1:'ステップ1: 顔をまっすぐ、リラックス',
-    step2:'😄 大きく笑って',
-    noFaceBaseline:'⚠️ 基準値の記録中に顔が検出されませんでした。もう一度お試しください。',
-    mouthNotAssessable:'⚠️ 判定できません — 口元がはっきり見えるように大きく笑ってください',
-    retrying:'😐 笑顔が確認できません — 自動で再試行します',
-    invalidHelp:'⚠️ 数回試しましたが判定できません — スタッフに依頼するか ↺ で再試行',
-    faceUnableAssess:'⚠️ 顔を評価できません',
-    resultInvalid:'判定不可',
-    tiltLeft:'↙️ 頭が傾いています — まっすぐに',
-    tiltRight:'↘️ 頭が傾いています — まっすぐに',
-    turnRight:'➡️ 向きすぎ — 正面を向いて',
-    turnLeft:'⬅️ 向きすぎ — 正面を向いて',
-    lookUp:'⬇️ 下向きすぎ — 少し上げて',
-    lookDown:'⬆️ 上向きすぎ — 少し下げて',
-    critical:'🚨 重度の非対称が検出されました!\nすぐに医師の診察を受けてください',
-    faceDone:'✅ 顔のテスト完了',
-    faceAbnormal:'⚠️ 顔の異常を検出',
-    navResult:'📊 結果 →',
-    navNext:'💪 腕 →',
-    navHome:'🏠 ホーム',
-    smilePrompt:'😄 笑って',
-    smileVoice:'大きく笑ってください',
-    noSmileWarn:'😐 大きく笑ってください',
-    restVoice:'顔をまっすぐ静かに',
-    resultScore:'スコア',
-    resultOk:'正常',
-    resultWarn:'注意',
-    resultBad:'異常',
-    cameraErr:'⚠️ カメラにアクセスできません。カメラの使用を許可してください。',
-    modelErr:'❌ 顔検出の読み込みに失敗しました。接続を確認してください。',
-    quit:'終了しますか？',
-  }
-};
 
-let FL = FACE_I18N[sessionStorage.getItem('fast_lang') || 'th'] || FACE_I18N.th;
+const FACE_LOCALE_MAP = Object.freeze({
+  th: "th-TH",
+  en: "en-US",
+  ja: "ja-JP"
+});
+
+let FL = null;
+let activeFaceLang = null;
+let faceLocaleRequestId = 0;
 let phase = 'BEFORE_START';
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
@@ -1246,7 +1100,7 @@ function showSmilePrompt(text){
 
 function applyFaceLang(){
   const setText=(id,t)=>{const el=document.getElementById(id);if(el)el.textContent=t;};
-  const setHTML=(id,h)=>{const el=document.getElementById(id);if(el)el.innerHTML=h;};
+  setText('top-lbl', FL.topLabel);
   setText('no-face-banner',FL.noFace);
   setText('start-btn',FL.startBtn);
   setText('reset-btn','↺');
@@ -1276,18 +1130,136 @@ function applyFaceLang(){
   }
   updateFaceStatusCards();
   if (document.body.classList.contains('result-visible')) {
-    const langCode = sessionStorage.getItem('fast_lang') || 'th';
-    const retryText = langCode === 'en' ? '↻ Test Again' : (langCode === 'ja' ? '↻ 再テスト' : '↻ ทดสอบใหม่');
-    if (startBtn) startBtn.textContent = retryText;
+    if (startBtn) {
+      startBtn.textContent = FL.retryBtn;
+    }
   }
 }
 
 
-function switchFaceLang(code){
-  FL = FACE_I18N[code] || FACE_I18N.th;
-  sessionStorage.setItem('fast_lang', code);
+const FACE_LOCALE_ASSET_VERSION = "20260711-face-v1";
+
+async function fetchFaceMessagesDirect(locale) {
+  const localeUrl = new URL(`./locales/${locale}/ui.json`, document.baseURI);
+  localeUrl.searchParams.set("v", FACE_LOCALE_ASSET_VERSION);
+
+  const response = await fetch(localeUrl, { cache: "reload" });
+
+  if (!response.ok) {
+    throw new Error(`Locale request failed (${response.status}): ${localeUrl.pathname}`);
+  }
+
+  const pack = await response.json();
+
+  if (!pack || !pack.face) {
+    throw new Error(`Missing face translations for ${locale}`);
+  }
+
+  return pack.face;
+}
+
+async function loadFaceMessages(locale) {
+  let sharedLoaderError = null;
+
+  // Normal path: use the shared i18n loader.
+  if (window.QuickStrokeI18n) {
+    try {
+      await window.QuickStrokeI18n.setLocale(locale, {
+        persist: true,
+        apply: false
+      });
+
+      const messages = window.QuickStrokeI18n.getMessages();
+
+      if (messages && messages.face) {
+        return messages.face;
+      }
+
+      sharedLoaderError = new Error(`Shared locale pack has no face section for ${locale}`);
+    } catch (error) {
+      sharedLoaderError = error;
+    }
+  } else {
+    sharedLoaderError = new Error("QuickStrokeI18n is not available");
+  }
+
+  // Recovery path: request the same central JSON directly with a versioned URL.
+  // This avoids an older Service Worker cache from returning a pack without `face`.
+  console.warn("Shared i18n load failed; retrying locale directly.", sharedLoaderError);
+  return fetchFaceMessagesDirect(locale);
+}
+
+async function switchFaceLang(code) {
+  const requestId = ++faceLocaleRequestId;
+  const shortLang = String(code || "th")
+    .split("-")[0]
+    .toLowerCase();
+
+  const requestedLocale = FACE_LOCALE_MAP[shortLang];
+
+  if (!requestedLocale) {
+    console.warn(`Unsupported face language: ${code}`);
+    return false;
+  }
+
+  const previousFL = FL;
+  const previousLang = activeFaceLang;
+  let resolvedLang = shortLang;
+  let resolvedLocale = requestedLocale;
+  let nextFL;
+
+  try {
+    nextFL = await loadFaceMessages(requestedLocale);
+  } catch (error) {
+    if (requestId !== faceLocaleRequestId) return false;
+
+    console.error(`Could not load face locale ${requestedLocale}.`, error);
+
+    // During a running page, keep the last successfully loaded language.
+    if (previousFL) {
+      FL = previousFL;
+      activeFaceLang = previousLang;
+      return false;
+    }
+
+    // First load only: fall back to the English reference pack.
+    if (requestedLocale !== "en-US") {
+      try {
+        resolvedLang = "en";
+        resolvedLocale = "en-US";
+        nextFL = await loadFaceMessages(resolvedLocale);
+        console.warn(`Using ${resolvedLocale} as the face locale fallback.`);
+      } catch (fallbackError) {
+        console.error("Could not load the English face locale fallback.", fallbackError);
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  // Ignore an older request that finished after a newer language selection.
+  if (requestId !== faceLocaleRequestId) return false;
+
+  FL = nextFL;
+  activeFaceLang = resolvedLang;
+
+  document.documentElement.lang = resolvedLocale;
+  sessionStorage.setItem("fast_lang", resolvedLang);
+
   applyFaceLang();
-  ['th','en','ja'].forEach(c=>{ const b=document.getElementById('lsw-'+c); if(b) b.classList.toggle('active', c===code); });
+
+  ["th", "en", "ja"].forEach((langCode) => {
+    const button = document.getElementById(`lsw-${langCode}`);
+
+    if (button) {
+      const isActive = langCode === resolvedLang;
+      button.classList.toggle("active", isActive);
+      button.setAttribute("aria-pressed", String(isActive));
+    }
+  });
+
+  return true;
 }
 
 function initProgressDots(){
@@ -1633,9 +1605,7 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
   // ตอนแสดงผลจบ ให้ใช้ปุ่มหลักเป็น “ทดสอบใหม่” แบบ full-width
   // และซ่อนปุ่ม reset ลอยเดิม เพื่อไม่ให้ชนกับ panel คะแนน / ปุ่มไปต่อ
   if (showScore) {
-    const langCode = sessionStorage.getItem('fast_lang') || 'th';
-    const retryText = langCode === 'en' ? '↻ Test Again' : (langCode === 'ja' ? '↻ 再テスト' : '↻ ทดสอบใหม่');
-    startBtn.textContent = retryText;
+    startBtn.textContent = FL.retryBtn;
     startBtn.classList.remove('hidden');
     resetBtn.classList.add('hidden');
   } else {
@@ -2329,13 +2299,6 @@ async function loadModel(){
 }
 
 /* ───────────── init ───────────── */
-applyFaceLang();
-initProgressDots();
-{
-  const il = sessionStorage.getItem('fast_lang') || 'th';
-  ['th','en','ja'].forEach(c=>{ const b=document.getElementById('lsw-'+c); if(b) b.classList.toggle('active', c===il); });
-}
-
 startBtn.addEventListener('click', ()=>{
   // กันกดรัว/กดซ้ำระหว่างทดสอบ: เสียง prompt จะไม่พูดทับกัน และ state ไม่ถูกรีเซ็ตกลางคัน
   if (['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(phase)) return;
@@ -2367,17 +2330,34 @@ window.addEventListener('beforeunload', ()=>{
   if (videoEl.srcObject){ videoEl.srcObject.getTracks().forEach(t=>t.stop()); }
 });
 
-// v6: open camera immediately, load ML models in parallel.
-// This reduces the perceived startup delay. The Start button appears when the models are ready.
-setUI({
-  glassColor:'var(--col-blue-glass)',
-  msg:FL.loading,
-  showStart:false,
-  showReset:false,
-  showHud:false
-});
-startCamera();
-loadModel();
+// Load the locale pack first. Camera and ML startup still run in parallel afterward.
+async function bootstrapFaceTest() {
+  const initialLang = sessionStorage.getItem("fast_lang") || "th";
+  const languageReady = await switchFaceLang(initialLang);
+
+  if (!languageReady || !FL) {
+    statusMsg.textContent =
+      "⚠️ ไม่สามารถโหลดไฟล์ภาษาได้ / Unable to load language resources.";
+    statusMsg.style.display = "block";
+    startBtn.classList.add("hidden");
+    return;
+  }
+
+  initProgressDots();
+
+  setUI({
+    glassColor:'var(--col-blue-glass)',
+    msg:FL.loading,
+    showStart:false,
+    showReset:false,
+    showHud:false
+  });
+
+  startCamera();
+  loadModel();
+}
+
+bootstrapFaceTest();
 
 
 /* PATCH 3: keep CSS aware when score panel is visible */

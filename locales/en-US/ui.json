@@ -37,5 +37,67 @@
     "emergency": "If you suspect a stroke, contact local emergency services immediately.",
     "accept": "I understand — begin",
     "note": "Shown only once during this browser tab session"
+  },
+    "face": {
+    "topLabel": "FAST · Face Screening",
+
+    "cardFace": "Face",
+    "cardSmile": "Smile",
+    "cardReady": "Ready",
+    "cardPending": "Pending",
+    "cardAligning": "Aligning",
+    "cardAligned": "Aligned",
+    "cardTesting": "Testing",
+    "cardPassed": "Normal",
+    "cardNormal": "Symmetric",
+    "cardCheck": "Check",
+    "cardUnable": "Unable",
+    "cardAbnormal": "Abnormal",
+    "cardUrgent": "Urgent",
+
+    "loadingModel": "Loading face detection engine...",
+    "noFace": "⚠️ No face detected — center your face in the frame",
+    "loading": "Opening camera and loading...",
+    "startBtn": "▶\u00A0 Start Test",
+    "retryBtn": "↻ Test Again",
+    "pressStart": "Press the button to start",
+
+    "step1": "Step 1: Keep your face straight and relaxed",
+    "step2": "😄 Smile widely",
+    "noFaceBaseline": "⚠️ No face detected during baseline. Please try again.",
+    "mouthNotAssessable": "⚠️ Unable to assess — keep your mouth clearly visible and smile widely",
+    "retrying": "😐 No clear smile yet — retrying automatically",
+    "invalidHelp": "⚠️ Could not assess after several tries — ask staff for help, or tap ↺",
+    "faceUnableAssess": "⚠️ Unable to assess face",
+    "resultInvalid": "Unable",
+
+    "tiltLeft": "↙️ Head tilted — keep your head straight",
+    "tiltRight": "↘️ Head tilted — keep your head straight",
+    "turnRight": "➡️ Turned too far — face forward",
+    "turnLeft": "⬅️ Turned too far — face forward",
+    "lookUp": "⬇️ Looking down — lift your head slightly",
+    "lookDown": "⬆️ Looking up — lower your head slightly",
+
+    "critical": "🚨 Severe asymmetry detected!\nSeek medical attention immediately",
+    "faceDone": "✅ Face test complete",
+    "faceAbnormal": "⚠️ Facial abnormality detected",
+
+    "navResult": "📊 Results →",
+    "navNext": "💪 Arms →",
+    "navHome": "🏠 Home",
+
+    "smilePrompt": "😄 Smile",
+    "smileVoice": "Smile widely",
+    "noSmileWarn": "😐 Please smile widely",
+    "restVoice": "Keep your face straight and still",
+
+    "resultScore": "Score",
+    "resultOk": "Normal",
+    "resultWarn": "Caution",
+    "resultBad": "Abnormal",
+
+    "cameraErr": "⚠️ Cannot access the camera. Please allow camera access.",
+    "modelErr": "❌ Failed to load face detection. Check your connection and try again.",
+    "quit": "Quit the test?"
   }
 }
