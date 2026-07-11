@@ -835,6 +835,8 @@
   </div>
 </div>
 
+<script src="./js/i18n.js"></script>
+
 <script>
 'use strict';
 
@@ -883,31 +885,106 @@ const I18N = {
 let lang = window.QS_CONFIG?.defaultLang || 'th';
 let indOpen = false;
 
-function setLang(l) {
-  if (!I18N[l]) return;
+const LOCALE_MAP = Object.freeze({
+  th: "th-TH",
+  en: "en-US",
+  ja: "ja-JP"
+});
 
-  lang = l;
+async function setLang(requestedLang) {
+  const shortLang = String(requestedLang || "th")
+    .split("-")[0]
+    .toLowerCase();
 
-  document.querySelectorAll('.lang-seg button').forEach(button => {
-    const isActive = button.dataset.lang === l;
+  if (!I18N[shortLang]) {
+    console.warn(`Unsupported language: ${requestedLang}`);
+    return;
+  }
 
-    button.classList.toggle('on', isActive);
-    button.setAttribute('aria-pressed', String(isActive));
+  /*
+   * โหลดข้อความจาก locales/<locale>/ui.json
+   * หากโหลดไม่ได้ ระบบจะใช้ I18N เดิมที่ฝังในไฟล์เป็น fallback
+   */
+  try {
+    if (!window.QuickStrokeI18n) {
+      throw new Error("QuickStrokeI18n is not available");
+    }
+
+    const locale = LOCALE_MAP[shortLang];
+
+    await window.QuickStrokeI18n.setLocale(locale, {
+      persist: true,
+      apply: false
+    });
+
+    const messages = window.QuickStrokeI18n.getMessages();
+
+    /*
+     * แปลงโครงสร้าง JSON ใหม่
+     * ให้เข้ากับ key เดิมของหน้า Index ชั่วคราว
+     */
+    I18N[shortLang] = {
+      title: messages.index.title,
+      sub: messages.index.subtitle,
+      emergency: messages.index.emergency,
+      notDiagnosis: messages.index.notDiagnosis,
+
+      fullBadge: messages.index.fullBadge,
+      fullName: messages.index.fullName,
+      indBadge: messages.index.individualBadge,
+      indName: messages.index.individualName,
+
+      face: messages.index.face,
+      arm: messages.index.arm,
+      speech: messages.index.speech,
+      notDone: messages.index.notDone,
+
+      ok: messages.index.normal,
+      warn: messages.index.warning,
+      bad: messages.index.abnormal,
+      invalid: messages.index.invalid,
+
+      seeResult: messages.index.seeResult,
+      clearBtn: messages.index.clear,
+
+      discEyebrow: messages.disclaimer.eyebrow,
+      discTitle: messages.disclaimer.title,
+      discBody: messages.disclaimer.body,
+      discEmergency: messages.disclaimer.emergency,
+      discAccept: messages.disclaimer.accept,
+      discNote: messages.disclaimer.note
+    };
+  } catch (error) {
+    console.error(
+      "Could not load locale pack. Using embedded fallback.",
+      error
+    );
+  }
+
+  lang = shortLang;
+
+  document.querySelectorAll(".lang-seg button").forEach((button) => {
+    const isActive = button.dataset.lang === lang;
+
+    button.classList.toggle("on", isActive);
+    button.setAttribute("aria-pressed", String(isActive));
   });
 
-  const T = I18N[l];
+  const T = I18N[lang];
 
-  document.querySelectorAll('[data-i]').forEach(el => {
-    const key = el.dataset.i;
+  document.querySelectorAll("[data-i]").forEach((element) => {
+    const key = element.dataset.i;
 
     if (T[key] !== undefined) {
-      el.innerHTML = T[key];
+      element.innerHTML = T[key];
     }
   });
 
-  document.documentElement.lang = l;
+  document.documentElement.lang = LOCALE_MAP[lang] || lang;
+
+  sessionStorage.setItem("fast_lang", lang);
+
   updateProgress();
-  sessionStorage.setItem('fast_lang', l);
 }
 
 function startFull() {
@@ -994,9 +1071,15 @@ function acceptDisclaimer() {
   if (overlay) overlay.classList.remove('show');
 }
 
-setLang(sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th');
-updateProgress();
-showDisclaimerIfNeeded();
+(async function initIndexPage() {
+  const initialLang =
+    sessionStorage.getItem("fast_lang") ||
+    window.QS_CONFIG?.defaultLang ||
+    "th";
+
+  await setLang(initialLang);
+  showDisclaimerIfNeeded();
+})();
 </script>
 <script>
   if ("serviceWorker" in navigator) {
