@@ -3,7 +3,7 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.4.0",
+    "packVersion": "0.5.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -249,5 +249,41 @@
     "noValidNote": "No assessable result yet. Please retest.",
     "overrideNote": "Clear abnormality in: {modules}. A single sign can mean stroke risk. See a doctor.",
     "languageUnavailable": "Language unavailable"
+  },
+  "permissions": {
+    "checking": "Checking permissions...",
+    "needCamera": "This step needs your camera to check facial symmetry.",
+    "needMic": "This step needs your microphone to check speech.",
+    "cameraTitle": "Camera Permission",
+    "micTitle": "Microphone Permission",
+    "privacyNote": "QuickStroke processes camera and microphone data on this device only.",
+    "allowBtn": "Allow & Start",
+    "blockedTitle": "🔒 Permission Denied",
+    "blockedCamera": "Camera access is blocked. Please enable camera permission.",
+    "blockedMic": "Microphone access is blocked. Please enable microphone permission.",
+    "notFoundCamera": "No camera found on this device.",
+    "notFoundMic": "No microphone found on this device.",
+    "inUse": "The device is being used by another app. Close it and try again.",
+    "insecure": "This page must be opened over HTTPS.",
+    "generic": "Error accessing the device.",
+    "retryBtn": "Try Again",
+    "howToTitle": "How to enable access",
+    "iosSafari": [
+      "Tap the “aA” icon in the address bar.",
+      "Select “Website Settings”.",
+      "Enable Camera or Microphone, then reload the page."
+    ],
+    "androidChrome": [
+      "Tap the site controls icon next to the web address.",
+      "Select “Permissions”.",
+      "Enable Camera or Microphone, then reload the page."
+    ],
+    "desktop": [
+      "Click the site controls icon next to the web address.",
+      "Enable Camera or Microphone.",
+      "Reload the page."
+    ],
+    "reloadBtn": "Reload Page",
+    "loadError": "Unable to load language resources. Please reload the page."
   }
 }
