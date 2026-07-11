@@ -741,7 +741,7 @@
 </div>
 <div id="final-banner"><span class="fb-icon" id="fb-icon"></span><span class="fb-title" id="fb-title"></span><span class="fb-sub" id="fb-sub"></span></div>
 </div>
-<button id="action-btn" onclick="handleBtn()">Start Test</button>
+<button id="action-btn" onclick="handleBtn()" disabled>Start Test</button>
 </div>
 <script>
 'use strict';
@@ -976,104 +976,7 @@ const ARM_LOCALE_MAP = Object.freeze({
   ja: "ja-JP"
 });
 
-const LANG = {
-  en:{
-    code:'en-US', topLbl:'Arm Check', cdUnit:'sec', driftLbl:'Phone-angle change',
-    navResult:'View FAST Score →', navNext:'Continue to Speech →', navHome:'Back to Home',
-    armRight:'RIGHT', armLeft:'LEFT', pending:'Pending', passLbl:'Normal', failLbl:'Possible arm drift', retryLbl:'Retest', wristLbl:'Wrist moved', uncertainLbl:'Unclear movement',
-    sensorDenied:'Motion access denied. Please allow in Settings and refresh.',
-    sensorUnsupported:'Motion sensor not supported on this device.',
-    instrWait_right:'Extend your right arm', subWait_right:'Screen facing LEFT as shown · keep wrist straight',
-    instrWait_left:'Extend your left arm',   subWait_left:'Screen facing RIGHT as shown · keep wrist straight',
-    instrCalib:'Almost ready…',              subCalib:'Hold steady a moment',
-    instrMeasure:'Eyes closed — hold still', subMeasure:'Keep the wrist straight and let the phone move with the arm',
-    instrDone_right:'Lower your right arm',  instrDone_left:'Lower your left arm',
-    warnFlat:'Hold the phone upright',       warnFlatSub:'Keep the top of the phone up; side direction is not sensor-verified',
-    warnWrong_right:'Use your RIGHT hand',   warnWrongSub_right:'Screen should face LEFT',
-    warnWrong_left:'Use your LEFT hand',     warnWrongSub_left:'Screen should face RIGHT',
-    finalOk:'Both arms normal',              finalOkSub:'No significant phone-angle change consistent with arm drift was detected.',
-    finalBad:'Possible arm drift detected',  finalBadSub:'The movement pattern may be consistent with arm drift. Seek urgent medical assessment if stroke is suspected.',
-    btnStart:'Start Test', btnNext:'Continue — Right Arm', btnRetry:'Test Again', btnRetryArm:'Retry this arm',
-    vWait_right:'Extend your right arm. Screen faces left. Hold still.',
-    vWait_left: 'Now extend your left arm. Screen faces right. Hold still.',
-    vCalibRetry:'Hold as still as you can.',
-    vWrongHand: 'Please switch hands.',
-    vFlat:      'Hold the phone upright with the top facing up.',
-    vReady:     'Ready. Close your eyes.',
-    vMid4:'Good.', vMid7:'Almost done.',
-    vDone:'Well done. Lower your arm.',
-    instrRetryWrist:'Wrist movement detected', subRetryWrist:'Keep the wrist straight and repeat this arm.',
-    instrRetryUncertain:'Movement was unclear', subRetryUncertain:'Repeat this arm while keeping the wrist straight.',
-    vRetryWrist:'Your wrist moved. Please repeat this arm with the wrist straight.',
-    vRetryUncertain:'The movement was unclear. Please repeat this arm.',
-    vFinalOk: 'Both arms normal.',
-    vFinalBad:'Drift detected. Please see a doctor soon.',
-  },
-  th:{
-    code:'th-TH', topLbl:'เช็คแขน', cdUnit:'วิ', driftLbl:'มุมเปลี่ยนของโทรศัพท์',
-    navResult:'ดูผลรวม FAST →', navNext:'ทดสอบการพูดต่อ →', navHome:'กลับหน้าหลัก',
-    armRight:'แขนขวา', armLeft:'แขนซ้าย', pending:'รอทดสอบ', passLbl:'ปกติ', failLbl:'อาจพบแขนตก', retryLbl:'ทดสอบใหม่', wristLbl:'ข้อมือขยับ', uncertainLbl:'การเคลื่อนไหวยังไม่ชัด',
-    sensorDenied:'ไม่ได้รับอนุญาตเข้าถึงเซนเซอร์ กรุณาเปิดสิทธิ์ในการตั้งค่า',
-    sensorUnsupported:'อุปกรณ์นี้ไม่รองรับเซนเซอร์การเคลื่อนไหว',
-    instrWait_right:'เหยียดแขนขวาออกตรง', subWait_right:'หน้าจอหันซ้ายตามภาพ · รักษาข้อมือให้ตรง',
-    instrWait_left:'เหยียดแขนซ้ายออกตรง', subWait_left:'หน้าจอหันขวาตามภาพ · รักษาข้อมือให้ตรง',
-    instrCalib:'เกือบพร้อมแล้ว…',         subCalib:'ถือค้างไว้สักครู่นะคะ',
-    instrMeasure:'หลับตา · นิ่งๆ ไว้',     subMeasure:'รักษาข้อมือให้ตรง ให้โทรศัพท์เคลื่อนตามแขน',
-    instrDone_right:'ลดแขนขวาลงได้เลยค่ะ', instrDone_left:'ลดแขนซ้ายลงได้เลยค่ะ',
-    warnFlat:'กรุณาถือโทรศัพท์ตั้งหัวขึ้น', warnFlatSub:'ตั้งหัวเครื่องขึ้น ระบบยังไม่ตรวจว่าหน้าจอหันซ้ายหรือขวา',
-    warnWrong_right:'กรุณาใช้มือขวาค่ะ',    warnWrongSub_right:'หน้าจอควรหันซ้าย',
-    warnWrong_left:'กรุณาใช้มือซ้ายค่ะ',    warnWrongSub_left:'หน้าจอควรหันขวา',
-    finalOk:'แขนทั้งสองข้างปกติ',           finalOkSub:'ไม่พบการเปลี่ยนมุมโทรศัพท์ที่มีลักษณะสอดคล้องกับแขนตก',
-    finalBad:'อาจพบการตกของแขน',            finalBadSub:'รูปแบบการเคลื่อนไหวอาจสอดคล้องกับแขนตก หากสงสัยสโตรกให้โทร 1669 ทันที',
-    btnStart:'เริ่มทดสอบ', btnNext:'ต่อไป — แขนขวา', btnRetry:'ทดสอบอีกครั้ง', btnRetryArm:'ทดสอบแขนข้างนี้ใหม่',
-    vWait_right:'เหยียดแขนขวาออกตรง หน้าจอหันซ้าย แล้วถือนิ่งๆ นะคะ',
-    vWait_left: 'เยี่ยมค่ะ เหยียดแขนซ้ายออกตรง หน้าจอหันขวา แล้วถือนิ่งๆ นะคะ',
-    vCalibRetry:'ถือนิ่งๆ ได้เลยนะคะ',
-    vWrongHand: 'กรุณาเปลี่ยนมือนะคะ',
-    vFlat:      'กรุณาถือโทรศัพท์ตั้งหัวขึ้นนะคะ',
-    vReady:     'หลับตาได้เลยค่ะ', // 🔥 ปรับตัดคำว่า "พร้อมแล้ว" ออกตามคำแนะนำ เพื่อความกระชับและลื่นหูขึ้น
-    vMid4:'ดีมากค่ะ', vMid7:'เกือบแล้วค่ะ',
-    vDone:'เยี่ยมค่ะ ลดแขนลงได้เลยนะคะ',
-    instrRetryWrist:'ตรวจพบการขยับข้อมือ', subRetryWrist:'รักษาข้อมือให้ตรง แล้วทดสอบแขนข้างนี้อีกครั้ง',
-    instrRetryUncertain:'การเคลื่อนไหวยังไม่ชัด', subRetryUncertain:'กรุณาทดสอบแขนข้างนี้อีกครั้ง โดยรักษาข้อมือให้ตรง',
-    vRetryWrist:'ตรวจพบการขยับข้อมือ กรุณารักษาข้อมือให้ตรงแล้วลองใหม่ค่ะ',
-    vRetryUncertain:'การเคลื่อนไหวยังไม่ชัด กรุณาทดสอบแขนข้างนี้อีกครั้งค่ะ',
-    vFinalOk: 'แขนทั้งสองข้างปกติดีค่ะ',
-    vFinalBad:'พบการเอียง กรุณาพบแพทย์โดยเร็วนะคะ',
-  },
-  ja:{
-    code:'ja-JP', topLbl:'腕チェック', cdUnit:'秒', driftLbl:'スマホ角度の変化',
-    navResult:'FASTスコアを見る →', navNext:'音声テストへ →', navHome:'ホームへ',
-    armRight:'右腕', armLeft:'左腕', pending:'待機中', passLbl:'正常', failLbl:'腕下垂の可能性', retryLbl:'再テスト', wristLbl:'手首の動き', uncertainLbl:'動きが不明確',
-    sensorDenied:'センサーの権限が拒否されました。設定で許可してください。',
-    sensorUnsupported:'このデバイスはモーションセンサーに対応していません。',
-    instrWait_right:'右腕をまっすぐ前に', subWait_right:'図の通り画面を左向き · 手首をまっすぐに',
-    instrWait_left:'左腕をまっすぐ前に',  subWait_left:'図の通り画面を右向き · 手首をまっすぐに',
-    instrCalib:'もう少しです…',           subCalib:'そのまま静止してください',
-    instrMeasure:'目を閉じて静止',        subMeasure:'手首をまっすぐに保ち、スマホを腕と一緒に動かしてください',
-    instrDone_right:'右腕を下ろしてください', instrDone_left:'左腕を下ろしてください',
-    warnFlat:'スマホの上端を上にしてください', warnFlatSub:'左右の画面方向はセンサーでは確認していません',
-    warnWrong_right:'右腕で持ってください', warnWrongSub_right:'画面は左向きにしてください',
-    warnWrong_left:'左腕で持ってください',  warnWrongSub_left:'画面は右向きにしてください',
-    finalOk:'両腕ともに正常です',          finalOkSub:'腕下垂に一致する有意なスマホ角度変化は検出されませんでした。',
-    finalBad:'腕下垂の可能性があります',   finalBadSub:'腕下垂に一致する可能性のある動きです。脳卒中が疑われる場合は直ちに救急要請してください。',
-    btnStart:'テスト開始', btnNext:'次へ — 右腕', btnRetry:'再テスト', btnRetryArm:'この腕を再テスト',
-    vWait_right:'右腕をまっすぐ前に伸ばし、画面を左に向けて静止してください。',
-    vWait_left: 'お疲れ様でした。左腕をまっすぐ前に伸ばし、画面を右に向けて静止してください。',
-    vCalibRetry:'できるだけ静止してください。',
-    vWrongHand: '持つ手を替えてください。',
-    vFlat:      'スマホの上端を上にして持ってください。',
-    vReady:     '準備ができました。目を閉じてください。',
-    vMid4:'よくできています。', vMid7:'もうすぐ終わります。',
-    vDone:'お疲れ様でした。腕を下ろしてください。',
-    instrRetryWrist:'手首の動きを検出しました', subRetryWrist:'手首をまっすぐにして、この腕を再テストしてください。',
-    instrRetryUncertain:'動きが不明確です', subRetryUncertain:'手首をまっすぐにして、この腕を再テストしてください。',
-    vRetryWrist:'手首が動きました。手首をまっすぐにして再テストしてください。',
-    vRetryUncertain:'動きが不明確です。この腕を再テストしてください。',
-    vFinalOk: '両腕ともに正常です。',
-    vFinalBad:'ずれが検出されました。早めに医師に相談してください。',
-  },
-};
+// Arm translations are loaded from locales/<locale>/ui.json.
 
 /* ═══════════════════════════════
    CONFIG (องศาการดักจับเพื่อความไว)
@@ -1956,74 +1859,93 @@ function currentLangCode(){
   return activeArmLangCode || normaliseArmLang(sessionStorage.getItem('fast_lang'));
 }
 
-async function loadArmMessages(code) {
-  const shortLang = normaliseArmLang(code);
-  const locale = ARM_LOCALE_MAP[shortLang];
-  const embeddedFallback = LANG[shortLang] || LANG.th;
-  const requestId = ++armLangRequestId;
+async function fetchArmMessages(locale) {
+  let messages = null;
 
-  let loadedMessages = null;
+  if (window.QuickStrokeI18n) {
+    try {
+      await window.QuickStrokeI18n.setLocale(locale, {
+        persist: true,
+        apply: false
+      });
 
-  try {
-    if (!window.QuickStrokeI18n) {
-      throw new Error('QuickStrokeI18n is not available');
+      messages = window.QuickStrokeI18n.getMessages()?.arm || null;
+    } catch (error) {
+      console.info('[Arm i18n] Shared loader failed.', error?.message || error);
     }
+  }
 
-    await window.QuickStrokeI18n.setLocale(locale, {
-      persist: true,
-      apply: false
-    });
-
-    const messages = window.QuickStrokeI18n.getMessages();
-    loadedMessages = messages?.arm || null;
-
-    // Recovery for an older service-worker cache that still has ui.json
-    // without the arm namespace.
-    if (!loadedMessages) {
+  // Recovery for an older service-worker cache or a stale shared-loader result.
+  if (!messages) {
+    try {
       const response = await fetch(
-        `./locales/${locale}/ui.json?v=arm-i18n-v1`,
+        `./locales/${locale}/ui.json?v=arm-i18n-v2`,
         { cache: 'reload' }
       );
 
       if (response.ok) {
         const directPack = await response.json();
-        loadedMessages = directPack?.arm || null;
+        messages = directPack?.arm || null;
       }
+    } catch (error) {
+      console.info('[Arm i18n] Direct locale fetch failed.', error?.message || error);
     }
+  }
 
-    if (!loadedMessages) {
-      throw new Error(`Missing arm translations for ${locale}`);
-    }
-  } catch (error) {
-    console.info(
-      `[Arm i18n] Embedded fallback active for ${locale}.`,
-      error?.message || error
-    );
+  return messages;
+}
+
+function showArmLocaleError() {
+  const instr = $('instr');
+  const subInstr = $('sub-instr');
+  const actionBtn = $('action-btn');
+
+  if (instr) instr.textContent = 'Unable to load language files';
+  if (subInstr) subInstr.textContent = 'Refresh the page and check the locale JSON files.';
+  if (actionBtn) actionBtn.disabled = true;
+}
+
+async function loadArmMessages(code) {
+  const requestedShortLang = normaliseArmLang(code);
+  const requestedLocale = ARM_LOCALE_MAP[requestedShortLang];
+  const requestId = ++armLangRequestId;
+
+  let loadedMessages = await fetchArmMessages(requestedLocale);
+  let loadedShortLang = requestedShortLang;
+  let loadedLocale = requestedLocale;
+
+  // English is the reference-language fallback when the requested pack fails.
+  if (!loadedMessages && requestedShortLang !== 'en') {
+    loadedMessages = await fetchArmMessages(ARM_LOCALE_MAP.en);
+    loadedShortLang = 'en';
+    loadedLocale = ARM_LOCALE_MAP.en;
   }
 
   // Ignore an older request if the user switched languages rapidly.
-  if (requestId !== armLangRequestId) return null;
+  if (requestId !== armLangRequestId) return false;
 
-  T = {
-    ...embeddedFallback,
-    ...(loadedMessages || {})
-  };
+  if (!loadedMessages) {
+    console.error(`[Arm i18n] Missing arm translations for ${requestedLocale}`);
+    showArmLocaleError();
+    return false;
+  }
 
-  activeArmLangCode = shortLang;
-  sessionStorage.setItem('fast_lang', shortLang);
-  document.documentElement.lang = locale;
+  T = loadedMessages;
+  activeArmLangCode = loadedShortLang;
+  sessionStorage.setItem('fast_lang', loadedShortLang);
+  document.documentElement.lang = loadedLocale;
 
-  return shortLang;
+  return true;
 }
 
 function armNavText(){
   const mode = sessionStorage.getItem('fast_mode');
   const allDone = ['fast_face','fast_arm','fast_speech']
     .every(k => sessionStorage.getItem(k));
-  const labels = T || LANG[currentLangCode()] || LANG.th;
 
-  if (mode === 'full') return labels.navNext;
-  return allDone ? labels.navResult : labels.navHome;
+  if (!T) return '';
+  if (mode === 'full') return T.navNext;
+  return allDone ? T.navResult : T.navHome;
 }
 
 function refreshArmLanguageUI(){
@@ -2108,24 +2030,13 @@ async function armSwitchLang(code) {
   }
 
   const shortLang = normaliseArmLang(code);
+  const loaded = await loadArmMessages(shortLang);
 
-  // Apply the embedded fallback immediately so the interface never goes blank.
-  T = LANG[shortLang] || LANG.th;
-  activeArmLangCode = shortLang;
-  sessionStorage.setItem('fast_lang', shortLang);
-  refreshArmLanguageUI();
-
-  const loadedLang = await loadArmMessages(shortLang);
-  if (loadedLang) refreshArmLanguageUI();
+  if (loaded) refreshArmLanguageUI();
 }
 
 async function selectLang(code) {
   const shortLang = normaliseArmLang(code);
-
-  // Synchronous fallback prevents a race if Start is tapped before JSON finishes.
-  T = LANG[shortLang] || LANG.th;
-  activeArmLangCode = shortLang;
-  sessionStorage.setItem('fast_lang', shortLang);
 
   $('lang-screen').style.display='none';
   $('test-screen').style.display='flex';
@@ -2140,16 +2051,17 @@ async function selectLang(code) {
     lsf.classList.add('show');
   }
 
-  // เริ่มต้นที่แขนซ้ายเสมอ และ render fallback ก่อน
+  const actionBtn = $('action-btn');
+  actionBtn.disabled = true;
+  actionBtn.className = '';
+
+  const loaded = await loadArmMessages(shortLang);
+  if (!loaded) return;
+
+  // เริ่มต้นที่แขนซ้ายเสมอ และ render UI หลัง locale พร้อม
   arm = 'left';
   refreshArmLanguageUI();
-
-  $('action-btn').disabled=false;
-  $('action-btn').className='';
-
-  // Replace fallback text with the shared locale pack when available.
-  const loadedLang = await loadArmMessages(shortLang);
-  if (loadedLang) refreshArmLanguageUI();
+  actionBtn.disabled = false;
 }
 
 // ═══════════════════════════════════════════════════
@@ -2160,7 +2072,8 @@ function handleArmFastFlow() {
   const mode = sessionStorage.getItem('fast_mode');
   const allDone = ['fast_face','fast_arm','fast_speech']
     .every(k => sessionStorage.getItem(k));
-  const labels = T || LANG[currentLangCode()] || LANG.th;
+  const labels = T;
+  if (!labels) return;
 
   setTimeout(() => {
     const existing = document.getElementById('fast-nav-btn');
