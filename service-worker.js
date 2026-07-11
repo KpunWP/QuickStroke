@@ -1,13 +1,14 @@
-/* QuickStroke Service Worker — Emergency-Ready Edition (v7)
+/* QuickStroke Service Worker — Offline-Ready Face Edition (v13)
  *
- * ออกแบบสำหรับสถานการณ์ฉุกเฉิน + สัญญาณอินเทอร์เน็ตไม่ดี:
- *   - หน้า HTML → network-first พร้อม timeout
- *   - โมเดล MediaPipe → precache แบบ best-effort
- *   - JS / JSON / รูปภาพ → stale-while-revalidate
+ * กลยุทธ์:
+ * - HTML: network-first พร้อม timeout 3 วินาที
+ * - MediaPipe และโมเดล Face: ต้อง cache สำเร็จครบ
+ * - โมเดล: cache-first เพื่อใช้งาน offline
+ * - JS / JSON / รูปภาพ: stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v12";
-// v7: เพิ่ม shared i18n และ locale packs สำหรับใช้งาน offline
+const CACHE_NAME = "quickstroke-pwa-v13";
+const CACHE_PREFIX = "quickstroke-pwa-";
 
 const CORE_SHELL = [
   "/",
@@ -18,7 +19,6 @@ const CORE_SHELL = [
   "/result.html",
   "/config.js",
 
-  // Shared internationalization system
   "/js/i18n.js",
   "/locales/th-TH/ui.json",
   "/locales/en-US/ui.json",
@@ -30,10 +30,11 @@ const CORE_SHELL = [
   "/icons/icon-512.png"
 ];
 
-/* ไฟล์หนัก (โมเดล AI ~30MB) — พยายาม precache แบบ best-effort:
- * ถ้าเน็ตหลุดกลางคันหรือไฟล์ยังไม่ถูกวางใน repo จะไม่ทำให้ SW ทั้งตัวติดตั้งล้มเหลว
- * (ไฟล์ที่พลาดจะถูกเก็บอัตโนมัติผ่าน stale-while-revalidate ในครั้งแรกที่หน้ากล้องเรียกใช้) */
-const HEAVY_ASSETS = [
+/*
+ * ไฟล์ที่หน้า Face ต้องใช้ขณะ offline
+ * ถ้าขาดไฟล์ใดไฟล์หนึ่ง Service Worker รุ่นนี้จะไม่ติดตั้ง
+ */
+const FACE_OFFLINE_ASSETS = [
   "/models/tasks-vision/vision_bundle.mjs",
   "/models/wasm/vision_wasm_internal.js",
   "/models/wasm/vision_wasm_internal.wasm",
@@ -43,43 +44,101 @@ const HEAVY_ASSETS = [
   "/models/hand_landmarker.task"
 ];
 
-const HTML_NETWORK_TIMEOUT_MS = 3000; // เน็ตอืดเกิน 3 วิ → ใช้ cache ทันที
+const REQUIRED_OFFLINE_ASSETS = [
+  ...CORE_SHELL,
+  ...FACE_OFFLINE_ASSETS
+];
+
+const HTML_NETWORK_TIMEOUT_MS = 3000;
+
+/*
+ * โหลดไฟล์ที่จำเป็นทีละไฟล์
+ * ถ้ามีไฟล์ใดผิดพลาด จะลบ cache ที่ไม่สมบูรณ์ทิ้ง
+ */
+async function precacheRequiredAssets() {
+  await caches.delete(CACHE_NAME);
+
+  const cache = await caches.open(CACHE_NAME);
+
+  try {
+    for (const asset of REQUIRED_OFFLINE_ASSETS) {
+      const request = new Request(asset, {
+        cache: "reload"
+      });
+
+      const response = await fetch(request);
+
+      if (!response || !response.ok) {
+        throw new Error(
+          `[SW] Required offline asset failed: ${asset} ` +
+          `(${response?.status || "no response"})`
+        );
+      }
+
+      await cache.put(asset, response);
+    }
+  } catch (error) {
+    // ป้องกัน cache ที่มีไฟล์ไม่ครบ
+    await caches.delete(CACHE_NAME);
+    throw error;
+  }
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then(async (cache) => {
-      await cache.addAll(CORE_SHELL); // ต้องครบ
-      // โมเดล: เก็บทีละไฟล์ พลาดตัวไหนข้ามตัวนั้น (best-effort)
-      await Promise.allSettled(
-        HEAVY_ASSETS.map((url) =>
-          cache.add(url).catch((e) => console.warn("[SW] skip precache:", url))
-        )
-      );
+    precacheRequiredAssets().then(() => {
+      return self.skipWaiting();
     })
   );
-  self.skipWaiting();
 });
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      )
-    )
+    (async () => {
+      const keys = await caches.keys();
+
+      await Promise.all(
+        keys
+          .filter(
+            (key) =>
+              key.startsWith(CACHE_PREFIX) &&
+              key !== CACHE_NAME
+          )
+          .map((key) => caches.delete(key))
+      );
+
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
 
-/* fetch พร้อมยอมแพ้เมื่อช้าเกิน — หัวใจของโหมด "สัญญาณอ่อน" */
+/*
+ * ยกเลิก network request เมื่อเกินเวลาที่กำหนด
+ */
 function fetchWithTimeout(request, ms) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("network-timeout")), ms);
+    const timer = setTimeout(() => {
+      reject(new Error("network-timeout"));
+    }, ms);
+
     fetch(request).then(
-      (res) => { clearTimeout(timer); resolve(res); },
-      (err) => { clearTimeout(timer); reject(err); }
+      (response) => {
+        clearTimeout(timer);
+        resolve(response);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
     );
   });
+}
+
+function isFaceOfflineAsset(pathname) {
+  return (
+    pathname.startsWith("/models/") ||
+    FACE_OFFLINE_ASSETS.includes(pathname)
+  );
 }
 
 self.addEventListener("fetch", (event) => {
@@ -87,8 +146,10 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(event.request.url);
 
-  // cross-origin (Google Fonts ฯลฯ) — ปล่อยเบราว์เซอร์จัดการ, offline แล้ว font จะ
-  // fallback เป็น system font เองโดยหน้าเว็บยังใช้งานได้ปกติ
+  /*
+   * ปล่อยไฟล์ข้ามโดเมน เช่น Google Fonts
+   * ให้ browser จัดการเอง
+   */
   if (url.origin !== self.location.origin) return;
 
   const isHTML =
@@ -96,47 +157,124 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".html") ||
     url.pathname === "/";
 
+  /*
+   * HTML: network-first
+   * ถ้าไม่มีอินเทอร์เน็ตจะใช้ cache
+   */
   if (isHTML) {
-    /* NETWORK-FIRST + TIMEOUT:
-       เน็ตดี → ของใหม่ล่าสุดเสมอ | เน็ตอืด/ขาด → cache ขึ้นทันทีภายใน 3 วิ ไม่มีหน้าค้าง
+    const freshRequest = new Request(event.request, {
+      cache: "no-cache"
+    });
 
-       FIX: cache:"no-cache" บังคับให้ถาม server เสมอ (ผ่าน revalidate)
-       ไม่งั้น fetch จะหยิบ HTML เก่าจาก HTTP cache ของ browser โดยไม่ออกเน็ต
-       → network-first กลายเป็นได้ของเก่าตลอด แม้ deploy ไฟล์ใหม่แล้ว */
-    const freshRequest = new Request(event.request, { cache: "no-cache" });
     event.respondWith(
-      fetchWithTimeout(freshRequest, HTML_NETWORK_TIMEOUT_MS)
+      fetchWithTimeout(
+        freshRequest,
+        HTML_NETWORK_TIMEOUT_MS
+      )
         .then((response) => {
           if (response && response.ok) {
             const clone = response.clone();
-            caches.open(CACHE_NAME).then((c) => c.put(event.request, clone));
+
+            event.waitUntil(
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => {
+                  return cache.put(
+                    url.pathname || "/",
+                    clone
+                  );
+                })
+            );
           }
+
           return response;
         })
-        .catch(() =>
-          caches
-            .match(event.request)
-            .then((cached) => cached || caches.match("/index.html"))
-        )
+        .catch(async () => {
+          const cached = await caches.match(
+            event.request,
+            {
+              ignoreSearch: true
+            }
+          );
+
+          return cached || caches.match("/index.html");
+        })
     );
+
     return;
   }
 
-  /* STALE-WHILE-REVALIDATE สำหรับ asset ทั้งหมด (รวมโมเดล):
-     ตอบจาก cache ทันที + refresh เบื้องหลัง → แก้ไฟล์เมื่อไหร่ ผู้ใช้ได้ของใหม่เองใน 1-2 ครั้งที่เปิด */
+  /*
+   * MediaPipe, WASM และโมเดล:
+   * ใช้ cache ก่อน เพื่อให้ทำงาน offline
+   */
+  if (isFaceOfflineAsset(url.pathname)) {
+    event.respondWith(
+      caches
+        .match(event.request, {
+          ignoreSearch: true
+        })
+        .then(async (cached) => {
+          if (cached) return cached;
+
+          const response = await fetch(event.request);
+
+          if (response && response.ok) {
+            const clone = response.clone();
+
+            event.waitUntil(
+              caches
+                .open(CACHE_NAME)
+                .then((cache) => {
+                  return cache.put(
+                    url.pathname,
+                    clone
+                  );
+                })
+            );
+          }
+
+          return response;
+        })
+    );
+
+    return;
+  }
+
+  /*
+   * JS, JSON และไฟล์ทั่วไป:
+   * ใช้ของใน cache ก่อน พร้อมอัปเดตเบื้องหลัง
+   */
   event.respondWith(
-    caches.open(CACHE_NAME).then((cache) =>
-      cache.match(event.request).then((cached) => {
-        const refresh = fetch(event.request)
-          .then((response) => {
-            if (response && response.ok) {
-              cache.put(event.request, response.clone());
-            }
-            return response;
-          })
-          .catch(() => cached);
-        return cached || refresh;
-      })
-    )
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cached = await cache.match(
+        event.request,
+        {
+          ignoreSearch: true
+        }
+      );
+
+      const refresh = fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) {
+            return cache
+              .put(
+                url.pathname,
+                response.clone()
+              )
+              .then(() => response);
+          }
+
+          return response;
+        });
+
+      event.waitUntil(
+        refresh.catch(() => undefined)
+      );
+
+      if (cached) return cached;
+
+      return refresh;
+    })
   );
 });
