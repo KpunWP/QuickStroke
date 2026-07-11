@@ -254,7 +254,8 @@
 
 </style>
 <script src="config.js"></script>
-<script src="fast-permissions.js"></script>  
+<script src="fast-permissions.js"></script>
+<script src="./js/i18n.js"></script>  
 </head>
 <body>
 
@@ -319,7 +320,7 @@
   <button id="debug-toggle" onclick="const d=document.getElementById('debug-box');d.style.display=d.style.display==='block'?'none':'block'" style="display:none;width:calc(100% - 44px);margin:0 22px 8px;padding:8px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">🔬 Debug</button>
   <div id="debug-box"></div>
   <button id="fast-nav-btn" type="button" aria-hidden="true"></button>
-  <button id="action-btn" onclick="handleAction()"></button>
+  <button id="action-btn" onclick="handleAction()" disabled></button>
 </div>
 
 <script>
@@ -405,6 +406,63 @@ const CONFIG = {
     issueWord: '単語が不正確/出ない', issueSlow: '発話が遅い', issueUnstable: '声が不安定',
   },
 };
+
+const SPEECH_LOCALE_MAP = Object.freeze({
+  th: 'th-TH',
+  en: 'en-US',
+  ja: 'ja-JP'
+});
+
+let speechLocaleRequestId = 0;
+
+async function loadSpeechLocale(requestedCode) {
+  const code = String(requestedCode || 'th')
+    .split('-')[0]
+    .toLowerCase();
+
+  const locale = SPEECH_LOCALE_MAP[code];
+
+  if (!locale || !CONFIG[code]) {
+    console.warn(`Unsupported speech language: ${requestedCode}`);
+    return null;
+  }
+
+  const requestId = ++speechLocaleRequestId;
+
+  try {
+    if (!window.QuickStrokeI18n) {
+      throw new Error('QuickStrokeI18n is not available');
+    }
+
+    await window.QuickStrokeI18n.setLocale(locale, {
+      persist: true,
+      apply: false
+    });
+
+    const messages = window.QuickStrokeI18n.getMessages();
+    const speechMessages = messages?.speech;
+
+    if (speechMessages && typeof speechMessages === 'object') {
+      CONFIG[code] = {
+        ...CONFIG[code],
+        ...speechMessages,
+        langCode: speechMessages.langCode || locale
+      };
+    }
+  } catch (error) {
+    // Bridge stage: keep the embedded CONFIG as a safe fallback
+    // until the speech namespace is added to all locale JSON files.
+    console.warn('Could not load shared speech locale. Using embedded fallback.', error);
+  }
+
+  // Ignore an older language request that finished after a newer click.
+  if (requestId !== speechLocaleRequestId) {
+    return null;
+  }
+
+  sessionStorage.setItem('fast_lang', code);
+  return { code, messages: CONFIG[code] };
+}
 
 // ═══════════════════════════════════════════════════
 // CONSTANTS
@@ -672,29 +730,51 @@ function resetMeasurementState() {
 // ═══════════════════════════════════════════════════
 // UI CONTROL
 // ═══════════════════════════════════════════════════
-function selectLang(code) {
-  T = CONFIG[code];
-  sessionStorage.setItem('fast_lang', code);
+async function selectLang(requestedCode) {
+  const actionBtn = $('action-btn');
+  if (actionBtn) actionBtn.disabled = true;
+
+  const loaded = await loadSpeechLocale(requestedCode);
+
+  if (!loaded) {
+    if (actionBtn) actionBtn.disabled = false;
+    return false;
+  }
+
+  const { code, messages } = loaded;
+  T = messages;
+
   $('lang-screen').style.display = 'none';
   $('test-screen').style.display = 'flex';
   $('word-target').textContent   = T.target;
   $('hint-text').textContent     = T.hint;
   $('action-btn').textContent    = T.btnStart;
   updateSpeechLabels();
+
   // แสดงและ highlight ปุ่มภาษา
   const lsf = $('lang-sw-fixed');
   if (lsf) lsf.classList.add('show');
+
   ['th','en','ja'].forEach(c => {
     const b = $('lsf-' + c);
-    if (b) b.classList.toggle('active', c === code);
+    if (b) {
+      const isActive = c === code;
+      b.classList.toggle('active', isActive);
+      b.setAttribute('aria-pressed', String(isActive));
+    }
   });
+
   resetUI();
+  if (actionBtn) actionBtn.disabled = false;
+  return true;
 }
 
-function speechSwitchLang(code) {
-  if (phase === 'CALIBRATING' || phase === 'RECORDING') return; // ห้ามตอนวัด
-  if (!CONFIG[code]) return;
-  selectLang(code);
+async function speechSwitchLang(code) {
+  // ห้ามสลับระหว่างวัดจริง เพื่อไม่ให้ ASR, timer และ audio pipeline เพี้ยน
+  if (phase === 'CALIBRATING' || phase === 'RECORDING') return;
+  if (!SPEECH_LOCALE_MAP[String(code || '').split('-')[0].toLowerCase()]) return;
+
+  await selectLang(code);
 }
 
 function goBack() {
@@ -1725,11 +1805,24 @@ function handleFastFlow(riskLevel) {
 
 
 // ── No language landing page: start directly and keep TH/EN/JA at top-right ──
-(function() {
+(async function initSpeechLanguage() {
   const savedLang = sessionStorage.getItem('fast_lang') || 'th';
-  const code = (savedLang === 'th' || savedLang === 'en' || savedLang === 'ja') ? savedLang : 'th';
-  if (typeof selectLang === 'function') selectLang(code);
-})();
+  const code = SPEECH_LOCALE_MAP[savedLang] ? savedLang : 'th';
+
+  const ready = await selectLang(code);
+
+  if (!ready) {
+    throw new Error('Speech language initialization failed');
+  }
+})().catch(error => {
+  console.error('Speech test initialization failed.', error);
+
+  const actionBtn = document.getElementById('action-btn');
+  if (actionBtn) {
+    actionBtn.disabled = true;
+    actionBtn.textContent = 'Language unavailable';
+  }
+});
 </script>
 <div id="noise-overlay" style="display:none;position:fixed;inset:0;background:rgba(27,42,58,0.75);backdrop-filter:blur(6px);z-index:100;align-items:center;justify-content:center;padding:28px">
   <div style="background:#fff;border-radius:20px;padding:28px 24px;max-width:340px;width:100%;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,0.25)">
