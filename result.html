@@ -50,7 +50,7 @@
 
   header{
     position:sticky;top:0;z-index:20;
-    min-height:70px;padding:13px 18px;
+    min-height:64px;padding:10px 16px;
     display:flex;align-items:center;justify-content:space-between;gap:14px;
     background:rgba(243,246,250,.96);
     border-bottom:1px solid var(--line);
@@ -58,13 +58,13 @@
   }
   .brand{display:flex;align-items:center;gap:10px;min-width:0}
   .brand-mark{
-    width:44px;height:44px;border-radius:16px;flex-shrink:0;
+    width:40px;height:40px;border-radius:14px;flex-shrink:0;
     display:flex;align-items:center;justify-content:center;
     background:linear-gradient(180deg,#2388FF,var(--clinical-deep));
     box-shadow:0 8px 20px rgba(23,111,209,.20);
   }
-  .brand-mark svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
-  .brand-text{font-family:'Manrope';font-size:19px;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
+  .brand-mark svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+  .brand-text{font-family:'Manrope';font-size:18px;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
   .brand-text strong{color:var(--clinical)}
   .lang-seg{
     display:flex;gap:3px;padding:4px;border-radius:16px;
@@ -78,24 +78,23 @@
   .lang-seg button.active{background:var(--clinical);color:#fff}
   .lang-seg button:active{transform:scale(.97)}
 
-  main{width:100%;max-width:470px;margin:0 auto;padding:22px 18px 34px}
-  .page-label{font-size:17px;font-weight:800;color:var(--ink-soft);margin:0 2px 12px}
+  main{width:100%;max-width:470px;margin:0 auto;padding:16px 16px 24px}
 
   .result-hero{
-    padding:26px 20px 22px;border-radius:28px;border:2px solid var(--line);
+    padding:18px 16px 16px;border-radius:24px;border:2px solid var(--line);
     background:var(--surface);box-shadow:var(--shadow);text-align:center;
   }
   .result-symbol{
-    width:72px;height:72px;margin:0 auto 16px;border-radius:24px;
+    width:52px;height:52px;margin:0 auto 10px;border-radius:18px;
     display:flex;align-items:center;justify-content:center;
   }
-  .result-symbol svg{width:38px;height:38px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
-  .result-title{font-size:clamp(28px,7.5vw,34px);font-weight:800;line-height:1.22;letter-spacing:-.45px}
-  .result-desc{font-size:18px;font-weight:600;color:var(--ink-soft);line-height:1.6;margin:12px auto 0;max-width:370px}
-  .result-progress{font-size:17px;font-weight:800;margin-top:15px}
+  .result-symbol svg{width:29px;height:29px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .result-title{font-size:clamp(27px,7vw,32px);font-weight:800;line-height:1.18;letter-spacing:-.4px}
+  .result-desc{font-size:17px;font-weight:650;color:var(--ink-soft);line-height:1.45;margin:7px auto 0;max-width:370px}
+  .result-progress{font-size:16.5px;font-weight:800;margin-top:8px}
   .safety-note{
-    margin-top:18px;padding-top:16px;border-top:1px solid currentColor;
-    font-size:16px;font-weight:700;line-height:1.55;opacity:.90;
+    margin-top:12px;padding-top:10px;border-top:1px solid currentColor;
+    font-size:15.5px;font-weight:700;line-height:1.4;opacity:.90;
   }
 
   .state-ok{background:var(--mint-soft);border-color:#A9DCCD}
@@ -112,40 +111,39 @@
   .state-incomplete .result-title,.state-no-data .result-title,
   .state-incomplete .result-progress,.state-no-data .result-progress{color:var(--clinical-deep)}
 
-  .emergency-action{margin-top:20px}
+  .emergency-action{margin-top:14px}
   .emergency-call{
-    width:100%;min-height:64px;border:0;border-radius:20px;padding:13px 18px;
+    width:100%;min-height:58px;border:0;border-radius:18px;padding:11px 16px;
     display:flex;align-items:center;justify-content:center;gap:10px;
-    background:var(--coral);color:#fff;font-size:21px;font-weight:800;cursor:pointer;
+    background:var(--coral);color:#fff;font-size:20px;font-weight:800;cursor:pointer;
     box-shadow:0 10px 24px rgba(201,61,56,.22);
   }
   .emergency-call svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
   .emergency-call:active{transform:scale(.985)}
   .emergency-local{
-    min-height:64px;padding:15px 17px;border-radius:20px;
+    min-height:58px;padding:12px 15px;border-radius:18px;
     display:flex;align-items:center;justify-content:center;
-    background:var(--coral);color:#fff;font-size:19px;font-weight:800;line-height:1.45;
+    background:var(--coral);color:#fff;font-size:18px;font-weight:800;line-height:1.4;
   }
 
-  .section{margin-top:22px}
-  .section-title{font-size:21px;font-weight:800;margin:0 2px 12px}
-  .module-list{display:flex;flex-direction:column;gap:10px}
+  .section{margin-top:14px}
+  .module-list{display:flex;flex-direction:column;gap:7px}
   .module-row{
-    width:100%;min-height:82px;padding:14px 15px;border-radius:21px;
-    display:grid;grid-template-columns:50px minmax(0,1fr) auto;align-items:center;gap:12px;
+    width:100%;min-height:64px;padding:10px 12px;border-radius:18px;
+    display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;
     background:var(--surface);border:1.5px solid var(--line);color:var(--ink);text-align:left;
   }
   button.module-row{cursor:pointer}
   button.module-row:active{transform:scale(.99)}
   .module-icon{
-    width:50px;height:50px;border-radius:17px;display:flex;align-items:center;justify-content:center;
+    width:40px;height:40px;border-radius:14px;display:flex;align-items:center;justify-content:center;
     background:var(--neutral-soft);color:var(--neutral);
   }
-  .module-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  .module-name{font-size:20px;font-weight:800;line-height:1.25}
-  .module-status{font-size:17px;font-weight:700;color:var(--ink-soft);margin-top:3px;line-height:1.35}
+  .module-icon svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .module-name{font-size:18px;font-weight:800;line-height:1.2}
+  .module-status{font-size:16px;font-weight:700;color:var(--ink-soft);margin-top:1px;line-height:1.25}
   .module-side{display:flex;align-items:center;gap:8px;justify-content:flex-end}
-  .module-action-label{font-size:16px;font-weight:800;color:var(--clinical);white-space:nowrap}
+  .module-action-label{font-size:15px;font-weight:800;color:var(--clinical);white-space:nowrap}
   .module-chevron{width:20px;height:20px;fill:none;stroke:var(--clinical);stroke-width:2.4}
   .module-row.ok{border-color:#B6DED2}
   .module-row.ok .module-icon{background:var(--mint-soft);color:var(--mint)}
@@ -159,21 +157,16 @@
   .module-row.na .module-icon{background:var(--neutral-soft);color:var(--neutral)}
 
   .guidance-card{
-    margin-top:22px;padding:20px;border-radius:24px;background:var(--surface);
-    border:1.5px solid var(--line);box-shadow:var(--shadow);
+    margin-top:14px;padding:13px 15px;border-radius:18px;background:var(--surface);
+    border:1.5px solid var(--line);
   }
-  .guidance-title{font-size:21px;font-weight:800;margin-bottom:13px}
-  .guidance-list{list-style:none;display:flex;flex-direction:column;gap:12px}
-  .guidance-list li{
-    position:relative;padding-left:29px;color:var(--ink-soft);
-    font-size:18px;font-weight:650;line-height:1.55;
-  }
-  .guidance-list li::before{
-    content:'✓';position:absolute;left:0;top:0;color:var(--clinical);font-weight:900;
-  }
-  .state-urgent + .section + .guidance-card .guidance-list li::before{color:var(--coral)}
+  .guidance-text{font-size:17px;font-weight:750;color:var(--ink-soft);line-height:1.45;text-align:center}
+  .guidance-card.urgent{background:var(--coral-soft);border-color:#E7A39F}
+  .guidance-card.urgent .guidance-text{color:#922E2A}
+  .guidance-card.review{background:var(--amber-soft);border-color:#E7C88B}
+  .guidance-card.review .guidance-text{color:#754707}
 
-  .research-panel{margin-top:22px}
+  .research-panel{margin-top:14px}
   .research-panel details{border:1.5px dashed #9AABBC;border-radius:20px;background:#fff;padding:0 17px}
   .research-panel summary{min-height:58px;display:flex;align-items:center;cursor:pointer;font-size:17px;font-weight:800;color:var(--ink-soft)}
   .research-content{padding:0 0 18px}
@@ -182,17 +175,17 @@
   .technical-grid dt{color:var(--ink-soft);font-weight:700}
   .technical-grid dd{font-family:'Manrope';font-weight:800;text-align:right}
 
-  .actions{margin-top:24px;display:flex;flex-direction:column;gap:11px}
+  .actions{margin-top:16px;display:flex;flex-direction:column;gap:8px}
   .btn-primary,.btn-secondary{
-    width:100%;min-height:62px;border-radius:21px;padding:12px 18px;
-    font-size:20px;font-weight:800;cursor:pointer;
+    width:100%;min-height:56px;border-radius:19px;padding:10px 16px;
+    font-size:19px;font-weight:800;cursor:pointer;
   }
   .btn-primary{border:0;background:var(--clinical);color:#fff;box-shadow:0 10px 24px rgba(23,111,209,.20)}
   .btn-primary:active,.btn-secondary:active{transform:scale(.985)}
   .btn-secondary{border:1.5px solid #AFC0D1;background:#fff;color:var(--ink)}
   .btn-text{
-    min-height:50px;border:0;background:transparent;color:var(--ink-soft);
-    font-size:17px;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:4px;
+    min-height:42px;border:0;background:transparent;color:var(--ink-soft);
+    font-size:16px;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:4px;
   }
   [hidden]{display:none!important}
 
@@ -202,9 +195,9 @@
   @media(max-width:370px){
     header{padding-left:13px;padding-right:13px}.brand-text{font-size:17px}
     .lang-seg button{min-width:38px;padding:0 6px}
-    main{padding-left:14px;padding-right:14px}
-    .module-row{grid-template-columns:46px minmax(0,1fr) auto;padding-left:12px;padding-right:12px}
-    .module-icon{width:46px;height:46px}.module-name{font-size:18px}.module-status{font-size:16px}
+    main{padding-left:12px;padding-right:12px}
+    .module-row{grid-template-columns:38px minmax(0,1fr) auto;padding-left:10px;padding-right:10px}
+    .module-icon{width:38px;height:38px}.module-name{font-size:17px}.module-status{font-size:15.5px}
     .module-action-label{display:none}
   }
   @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
@@ -228,8 +221,6 @@
 </header>
 
 <main>
-  <div class="page-label" id="page-label">ผลการคัดกรอง</div>
-
   <section class="result-hero state-no-data" id="result-hero" aria-live="polite">
     <div class="result-symbol" id="result-symbol" aria-hidden="true"></div>
     <h1 class="result-title" id="result-title">กำลังเตรียมผล…</h1>
@@ -239,14 +230,12 @@
     <p class="safety-note" id="safety-note"></p>
   </section>
 
-  <section class="section" aria-labelledby="breakdown-title">
-    <h2 class="section-title" id="breakdown-title">ผลแต่ละรายการ</h2>
+  <section class="section" aria-label="Module results">
     <div class="module-list" id="module-list"></div>
   </section>
 
-  <section class="guidance-card" aria-labelledby="guidance-title">
-    <h2 class="guidance-title" id="guidance-title">สิ่งที่ควรทำต่อ</h2>
-    <ul class="guidance-list" id="guidance-list"></ul>
+  <section class="guidance-card" id="guidance-card" aria-live="polite">
+    <p class="guidance-text" id="guidance-text"></p>
   </section>
 
   <section class="research-panel" id="research-panel" hidden>
@@ -446,7 +435,9 @@ function renderHero(result){
   document.getElementById('result-symbol').innerHTML = STATE_ICONS[result.state];
   const [title,desc] = getStateCopy(result.state);
   document.getElementById('result-title').textContent = title;
-  document.getElementById('result-desc').textContent = desc;
+  const descElement = document.getElementById('result-desc');
+  descElement.textContent = desc;
+  descElement.hidden = !desc;
 
   const progress = document.getElementById('result-progress');
   const shouldShowProgress = result.state === 'incomplete' || result.state === 'noData';
@@ -522,13 +513,12 @@ function renderModules(result){
 function renderGuidance(state){
   const T = RESULT_T;
   const key = `guidance${state.charAt(0).toUpperCase()}${state.slice(1)}`;
-  const list = document.getElementById('guidance-list');
-  list.innerHTML = '';
-  T[key].forEach(item => {
-    const li = document.createElement('li');
-    li.textContent = item;
-    list.appendChild(li);
-  });
+  const card = document.getElementById('guidance-card');
+  const text = document.getElementById('guidance-text');
+  const items = Array.isArray(T[key]) ? T[key] : [];
+  text.textContent = items[0] || '';
+  card.className = `guidance-card ${state === 'urgent' ? 'urgent' : state === 'review' ? 'review' : ''}`.trim();
+  card.hidden = !text.textContent;
 }
 
 function renderResearch(result){
@@ -589,9 +579,6 @@ function renderActions(result){
 
 function buildResult(){
   if (!RESULT_T) return;
-  document.getElementById('page-label').textContent = RESULT_T.pageLabel;
-  document.getElementById('breakdown-title').textContent = RESULT_T.breakdown;
-  document.getElementById('guidance-title').textContent = RESULT_T.guidance;
   CURRENT_RESULT = calculateResult();
   renderHero(CURRENT_RESULT);
   renderModules(CURRENT_RESULT);
