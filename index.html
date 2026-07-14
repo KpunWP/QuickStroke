@@ -2,711 +2,638 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>QuickStroke</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>QuickStroke · ผลการคัดกรอง</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0F6FFF">
 <meta name="apple-mobile-web-app-title" content="QuickStroke">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root {
-    --paper:#F4F7FA;
-    --surface:rgba(255,255,255,.88);
-    --surface-solid:#FFFFFF;
+  :root{
+    --paper:#F3F6FA;
+    --surface:#FFFFFF;
     --surface-alt:#F8FAFC;
-    --ink:#172536;
-    --ink-soft:#5A6B7B;
-    --ink-faint:#8796A6;
-    --clinical:#2B7DE9;
-    --clinical-deep:#0D58B8;
-    --clinical-soft:#EAF2FD;
-    --mint:#1FA98F;
-    --mint-soft:#E6F6F2;
-    --amber:#D98625;
-    --amber-soft:#FCF3E6;
-    --coral:#D94843;
-    --coral-soft:#FCEBEA;
-    --line:rgba(27,42,58,.10);
-    --glass-border:rgba(255,255,255,.76);
-    --shadow:0 10px 28px rgba(27,42,58,.08);
-    --shadow-lg:0 18px 46px rgba(27,42,58,.13);
-    --blue-glow:0 0 24px rgba(43,125,233,.22),0 16px 40px rgba(27,42,58,.10);
+    --ink:#142235;
+    --ink-soft:#506174;
+    --ink-faint:#748397;
+    --clinical:#176FD1;
+    --clinical-deep:#0B55AD;
+    --clinical-soft:#EAF3FE;
+    --mint:#137F6D;
+    --mint-soft:#E9F7F3;
+    --amber:#A9650E;
+    --amber-soft:#FFF3DD;
+    --coral:#C93D38;
+    --coral-soft:#FDEDEC;
+    --neutral:#56677A;
+    --neutral-soft:#EEF2F6;
+    --line:#D7E0E9;
+    --shadow:0 10px 28px rgba(20,34,53,.08);
+    --radius:24px;
   }
 
-  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html{min-height:100%;background:#E8EEF5}
-  html,body{-webkit-overflow-scrolling:touch}
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{min-height:100%;background:#E7EDF4}
   body{
     min-height:100dvh;
-    background:
-      radial-gradient(circle at 50% -6%,rgba(43,125,233,.22),transparent 34%),
-      radial-gradient(circle at 100% 18%,rgba(31,169,143,.10),transparent 26%),
-      var(--paper);
+    background:var(--paper);
     color:var(--ink);
     font-family:'IBM Plex Sans Thai','Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
-    line-height:1.5;
+    line-height:1.55;
     overflow-x:hidden;
   }
-
   button{font:inherit}
-  button:focus-visible,[role="button"]:focus-visible{
-    outline:3px solid rgba(43,125,233,.36);
-    outline-offset:3px;
-  }
-
-  .app-shell{min-height:100dvh;display:flex;flex-direction:column}
+  button:focus-visible,summary:focus-visible{outline:3px solid rgba(23,111,209,.28);outline-offset:3px}
 
   header{
-    position:sticky;top:0;z-index:50;
-    min-height:70px;padding:14px 18px;
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
-    background:rgba(244,247,250,.82);
-    border-bottom:1px solid rgba(255,255,255,.74);
-    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-    box-shadow:0 8px 28px rgba(27,42,58,.05);
+    position:sticky;top:0;z-index:20;
+    min-height:64px;padding:10px 16px;
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    background:rgba(243,246,250,.96);
+    border-bottom:1px solid var(--line);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   }
-
   .brand{display:flex;align-items:center;gap:10px;min-width:0}
   .brand-mark{
-    width:42px;height:42px;border-radius:16px;flex-shrink:0;
+    width:40px;height:40px;border-radius:14px;flex-shrink:0;
     display:flex;align-items:center;justify-content:center;
     background:linear-gradient(180deg,#2388FF,var(--clinical-deep));
-    box-shadow:0 0 18px rgba(43,125,233,.32),0 10px 26px rgba(27,42,58,.13);
+    box-shadow:0 8px 20px rgba(23,111,209,.20);
   }
-  .brand-mark svg{width:23px;height:23px;stroke:#fff;fill:none;stroke-width:2.25;stroke-linecap:round;stroke-linejoin:round}
-  .brand-text{
-    font-family:'Manrope',sans-serif;font-size:18px;font-weight:800;letter-spacing:.1px;
-    white-space:nowrap;color:var(--ink);
-  }
-  .brand-text strong{color:var(--clinical);font-weight:800}
-
+  .brand-mark svg{width:22px;height:22px;fill:none;stroke:#fff;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+  .brand-text{font-family:'Manrope';font-size:18px;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
+  .brand-text strong{color:var(--clinical)}
   .lang-seg{
-    display:flex;gap:3px;padding:4px;border-radius:18px;
-    background:rgba(255,255,255,.76);border:1px solid var(--glass-border);
-    box-shadow:0 8px 22px rgba(27,42,58,.06);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    display:flex;gap:3px;padding:4px;border-radius:16px;
+    background:#fff;border:1px solid var(--line);
   }
   .lang-seg button{
-    min-width:42px;height:38px;padding:0 9px;border:0;border-radius:14px;
-    background:transparent;color:var(--ink-faint);cursor:pointer;
-    font-family:'Manrope',sans-serif;font-size:13px;font-weight:800;
-    transition:transform .12s,background .15s,color .15s,box-shadow .15s;
+    height:38px;min-width:42px;padding:0 8px;border:0;border-radius:12px;
+    background:transparent;color:var(--ink-faint);
+    font-family:'Manrope';font-size:14px;font-weight:800;cursor:pointer;
   }
-  .lang-seg button:active{transform:scale(.96)}
-  .lang-seg button.on{
-    color:#fff;background:linear-gradient(180deg,#2388FF,var(--clinical-deep));
-    box-shadow:0 0 0 1px rgba(73,158,255,.42),0 0 18px rgba(43,125,233,.28);
-  }
+  .lang-seg button.active{background:var(--clinical);color:#fff}
+  .lang-seg button:active{transform:scale(.97)}
 
-  main{width:100%;max-width:480px;margin:0 auto;padding-bottom:calc(28px + env(safe-area-inset-bottom))}
+  main{width:100%;max-width:470px;margin:0 auto;padding:16px 16px 24px}
 
-  .hero{padding:34px 22px 18px;text-align:center}
-  .hero h1{
-    max-width:410px;margin:0 auto 10px;color:var(--ink);
-    font-size:clamp(32px,8.5vw,42px);font-weight:800;
-    line-height:1.14;letter-spacing:-.7px;
+  .result-hero{
+    padding:18px 16px 16px;border-radius:24px;border:2px solid var(--line);
+    background:var(--surface);box-shadow:var(--shadow);text-align:center;
   }
-  .hero p{
-    max-width:390px;margin:0 auto;color:var(--ink-soft);
-    font-size:clamp(19px,5vw,22px);font-weight:700;line-height:1.45;
-  }
-
-  .actions{padding:12px 22px 0}
-  .action-panel{
-    overflow:hidden;border:2px solid rgba(43,125,233,.22);border-radius:28px;
-    background:#fff;box-shadow:0 16px 38px rgba(27,42,58,.12);
-  }
-  .panel-view[hidden]{display:none!important}
-
-  .combined-action{
-    width:100%;min-height:118px;padding:22px 20px;border:0;cursor:pointer;
-    display:flex;align-items:center;justify-content:center;gap:14px;text-align:center;
-    color:#fff;background:linear-gradient(145deg,#2388FF 0%,#0F6FFF 52%,#0D58B8 100%);
-    transition:transform .12s,filter .15s;position:relative;overflow:hidden;
-  }
-  .combined-action::after{
-    content:'';position:absolute;right:-42px;top:-70px;width:180px;height:180px;border-radius:50%;
-    background:rgba(255,255,255,.10);pointer-events:none;
-  }
-  .combined-action:active{transform:scale(.988);filter:brightness(.97)}
-  .combined-copy{min-width:0;position:relative;z-index:1;display:flex;flex-direction:column;align-items:center}
-  .combined-label{font-size:clamp(23px,6.2vw,28px);font-weight:800;line-height:1.25;color:#fff}
-  .combined-meta{margin-top:7px;font-size:clamp(17px,4.5vw,19px);font-weight:650;line-height:1.4;color:rgba(255,255,255,.88)}
-  .combined-arrow{position:relative;z-index:1;display:flex;flex-shrink:0;color:#fff}
-  .combined-arrow svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
-
-  .individual-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff}
-  .module-choice{
-    min-width:0;min-height:132px;padding:16px 7px 14px;border:0;border-right:1px solid rgba(27,42,58,.11);
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;
-    text-align:center;cursor:pointer;background:#fff;color:var(--ink);
-    transition:background .15s,transform .12s;
-  }
-  .module-choice:last-child{border-right:0}
-  .module-choice:active{transform:scale(.97);background:var(--clinical-soft)}
-  .module-icon{
-    width:48px;height:48px;border-radius:17px;display:flex;align-items:center;justify-content:center;
-    color:var(--clinical);background:var(--clinical-soft);
-  }
-  .module-icon svg{width:29px;height:29px;fill:none;stroke:currentColor;stroke-width:2.15;stroke-linecap:round;stroke-linejoin:round}
-  .module-name{font-size:clamp(17px,4.6vw,20px);font-weight:800;line-height:1.25;color:var(--ink)}
-  .module-state{min-height:21px;font-size:clamp(14px,3.8vw,16px);font-weight:750;line-height:1.3;color:var(--ink-faint)}
-  .module-choice.state-ok .module-icon{color:#168772;background:var(--mint-soft)}
-  .module-choice.state-ok .module-state{color:#168772}
-  .module-choice.state-warn .module-icon{color:#B56C16;background:var(--amber-soft)}
-  .module-choice.state-warn .module-state{color:#A96010}
-  .module-choice.state-bad .module-icon{color:var(--coral);background:var(--coral-soft)}
-  .module-choice.state-bad .module-state{color:var(--coral)}
-  .module-choice.state-invalid .module-icon{color:#9A651E;background:var(--amber-soft)}
-  .module-choice.state-invalid .module-state{color:#9A651E}
-
-  .mode-switch{
-    width:100%;min-height:58px;padding:10px 18px;border:0;border-top:2px solid rgba(43,125,233,.15);
-    display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;
-    color:var(--clinical-deep);background:var(--clinical-soft);
-    font-size:18px;font-weight:800;line-height:1.3;
-    transition:background .15s,transform .12s;
-  }
-  .mode-switch:active{background:#DCEBFF}
-  .mode-triangle{font-family:'Manrope',sans-serif;font-size:17px;line-height:1;transition:transform .2s}
-  .action-panel.individual-mode .mode-triangle{transform:rotate(180deg)}
-
-  .emergency{
-    margin:18px 22px 0;padding:16px;border-radius:23px;
-    display:flex;align-items:center;gap:14px;
-    background:#FFF0EF;border:2px solid rgba(217,72,67,.22);
-    box-shadow:0 9px 24px rgba(217,72,67,.07);
-    transition:transform .12s,box-shadow .18s;
-  }
-  .emergency.is-callable{cursor:pointer}
-  .emergency.is-callable:active{transform:scale(.988);box-shadow:0 6px 18px rgba(217,72,67,.08)}
-  .emergency-icon{
-    width:50px;height:50px;border-radius:17px;flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;background:var(--coral);
-    box-shadow:0 9px 21px rgba(217,72,67,.20);
-  }
-  .emergency-icon svg{width:25px;height:25px;fill:none;stroke:#fff;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}
-  .emergency-text{font-size:18px;font-weight:750;line-height:1.45;color:var(--ink)}
-  .emergency-text b{font-weight:800;color:var(--coral)}
-
-  .safety-note{
-    margin:14px 24px 0;text-align:center;color:#607080;
-    font-size:16px;font-weight:700;line-height:1.5;
-  }
-  .clear-zone{padding:4px 22px 0}
-  .btn-clear{
-    display:none;width:100%;min-height:48px;border:0;border-radius:17px;background:transparent;
-    color:var(--ink-faint);font-size:13.5px;font-weight:700;cursor:pointer;
-  }
-  .btn-clear.show{display:block}
-
-  .disclaimer-overlay{
-    position:fixed;inset:0;z-index:9999;display:none;align-items:center;justify-content:center;
-    padding:24px 20px calc(24px + env(safe-area-inset-bottom));overflow-y:auto;
-    color:var(--ink);
-    background:
-      radial-gradient(circle at 50% -6%,rgba(43,125,233,.22),transparent 34%),
-      radial-gradient(circle at 100% 18%,rgba(31,169,143,.10),transparent 26%),
-      var(--paper);
-  }
-  .disclaimer-overlay.show{display:flex}
-  .disclaimer-card{
-    width:100%;max-width:430px;margin:auto;padding:24px 22px 21px;border:1px solid var(--glass-border);border-radius:30px;
-    text-align:center;background:var(--surface);box-shadow:var(--shadow-lg);
-    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-  }
-  .disc-lang{display:flex;justify-content:center;margin:0 auto 17px}
-  .disc-lang .lang-seg button{min-width:auto;padding:0 14px;white-space:nowrap}
-  .disc-mark{
-    width:70px;height:70px;margin:0 auto 15px;border-radius:25px;
+  .result-symbol{
+    width:52px;height:52px;margin:0 auto 10px;border-radius:18px;
     display:flex;align-items:center;justify-content:center;
-    background:linear-gradient(180deg,#2388FF,var(--clinical-deep));box-shadow:var(--blue-glow);
   }
-  .disc-mark svg{width:42px;height:42px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-  .disc-eyebrow{
-    margin-bottom:7px;color:var(--clinical);font-family:'Manrope',sans-serif;
-    font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;
-  }
-  .disclaimer-card h2{
-    margin-bottom:12px;color:var(--ink);font-size:clamp(25px,6.8vw,33px);font-weight:800;
-    line-height:1.18;letter-spacing:-.45px;
-  }
-  .disc-body{max-width:365px;margin:0 auto 15px;color:var(--ink-soft);font-size:14.5px;font-weight:600;line-height:1.68}
-  .disc-emergency{
-    margin-bottom:17px;padding:12px 13px;border:1px solid rgba(217,72,67,.18);border-radius:20px;
-    display:flex;align-items:center;gap:11px;text-align:left;background:rgba(252,235,234,.88);
-  }
-  .disc-emergency-icon{
-    width:42px;height:42px;border-radius:15px;flex-shrink:0;
-    display:flex;align-items:center;justify-content:center;background:var(--coral);
-    box-shadow:0 9px 21px rgba(217,72,67,.20);
-  }
-  .disc-emergency-icon svg{width:21px;height:21px;fill:none;stroke:#fff;stroke-width:2.35;stroke-linecap:round;stroke-linejoin:round}
-  .disc-emergency-text{color:var(--ink);font-size:13.5px;font-weight:800;line-height:1.46}
-  .disc-emergency-text b{color:var(--coral)}
-  #disc-accept-btn{
-    width:100%;min-height:60px;border:0;border-radius:22px;cursor:pointer;
-    color:#fff;background:linear-gradient(180deg,#2388FF,var(--clinical-deep));
-    font-size:17.5px;font-weight:800;box-shadow:0 0 24px rgba(43,125,233,.22),0 15px 34px rgba(27,42,58,.12);
-    transition:transform .12s;
-  }
-  #disc-accept-btn:active{transform:scale(.985)}
-  .disc-note{margin-top:11px;color:var(--ink-faint);font-size:12px;font-weight:700;line-height:1.5}
-
-  @media (min-width:540px){
-    .app-shell{max-width:480px;margin:0 auto;box-shadow:0 0 0 1px rgba(27,42,58,.06),0 24px 70px rgba(27,42,58,.15)}
-    header{border-radius:0}
+  .result-symbol svg{width:29px;height:29px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .result-title{font-size:clamp(27px,7vw,32px);font-weight:800;line-height:1.18;letter-spacing:-.4px}
+  .result-desc{font-size:17px;font-weight:650;color:var(--ink-soft);line-height:1.45;margin:7px auto 0;max-width:370px}
+  .result-progress{font-size:16.5px;font-weight:800;margin-top:8px}
+  .safety-note{
+    margin-top:12px;padding-top:10px;border-top:1px solid currentColor;
+    font-size:15.5px;font-weight:700;line-height:1.4;opacity:.90;
   }
 
-  @media (max-width:360px){
-    header{padding-left:13px;padding-right:13px}
-    .brand-text{font-size:16px}
-    .lang-seg button{min-width:38px;padding:0 7px}
-    .hero{padding-left:18px;padding-right:18px}
-    .actions{padding-left:18px;padding-right:18px}
-    .emergency{margin-left:18px;margin-right:18px}
-    .clear-zone{padding-left:18px;padding-right:18px}
-    .module-choice{padding-left:4px;padding-right:4px}
-    .module-icon{width:44px;height:44px}
-    .module-state{font-size:13px}
+  .state-ok{background:var(--mint-soft);border-color:#A9DCCD}
+  .state-ok .result-symbol{background:#fff;color:var(--mint)}
+  .state-ok .result-title,.state-ok .result-progress{color:#0B6657}
+  .state-review{background:var(--amber-soft);border-color:#E7C88B}
+  .state-review .result-symbol{background:#fff;color:var(--amber)}
+  .state-review .result-title,.state-review .result-progress{color:#804C08}
+  .state-urgent{background:var(--coral-soft);border-color:#E7A39F}
+  .state-urgent .result-symbol{background:#fff;color:var(--coral)}
+  .state-urgent .result-title,.state-urgent .result-progress{color:#A72F2B}
+  .state-incomplete,.state-no-data{background:var(--clinical-soft);border-color:#AFCDEC}
+  .state-incomplete .result-symbol,.state-no-data .result-symbol{background:#fff;color:var(--clinical)}
+  .state-incomplete .result-title,.state-no-data .result-title,
+  .state-incomplete .result-progress,.state-no-data .result-progress{color:var(--clinical-deep)}
+
+  .emergency-action{margin-top:14px}
+  .emergency-call{
+    width:100%;min-height:58px;border:0;border-radius:18px;padding:11px 16px;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    background:var(--coral);color:#fff;font-size:20px;font-weight:800;cursor:pointer;
+    box-shadow:0 10px 24px rgba(201,61,56,.22);
+  }
+  .emergency-call svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .emergency-call:active{transform:scale(.985)}
+  .emergency-local{
+    min-height:58px;padding:12px 15px;border-radius:18px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--coral);color:#fff;font-size:18px;font-weight:800;line-height:1.4;
   }
 
-  @media (max-height:740px){
-    header{min-height:62px;padding-top:10px;padding-bottom:10px}
-    .brand-mark{width:38px;height:38px;border-radius:14px}
-    .lang-seg button{height:34px}
-    .hero{padding-top:20px;padding-bottom:10px}
-    .hero h1{font-size:27px}
-    .actions{padding-top:8px}
-    .combined-action{min-height:105px;padding-top:18px;padding-bottom:18px}
-    .module-choice{min-height:120px}
-    .emergency{margin-top:12px;padding-top:11px;padding-bottom:11px}
-    .disclaimer-card{padding:20px 18px 18px;border-radius:27px}
-    .disc-lang{margin-bottom:12px}
-    .disc-mark{width:60px;height:60px;margin-bottom:11px}
-    .disclaimer-card h2{font-size:24px;margin-bottom:9px}
-    .disc-body{font-size:13.5px;margin-bottom:11px}
-    .disc-emergency{padding:10px 11px;margin-bottom:13px}
-    #disc-accept-btn{min-height:54px;font-size:16.5px}
+  .section{margin-top:14px}
+  .module-list{display:flex;flex-direction:column;gap:7px}
+  .module-row{
+    width:100%;min-height:64px;padding:10px 12px;border-radius:18px;
+    display:grid;grid-template-columns:40px minmax(0,1fr) auto;align-items:center;gap:10px;
+    background:var(--surface);border:1.5px solid var(--line);color:var(--ink);text-align:left;
   }
+  button.module-row{cursor:pointer}
+  button.module-row:active{transform:scale(.99)}
+  .module-icon{
+    width:40px;height:40px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    background:var(--neutral-soft);color:var(--neutral);
+  }
+  .module-icon svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .module-name{font-size:18px;font-weight:800;line-height:1.2}
+  .module-status{font-size:16px;font-weight:700;color:var(--ink-soft);margin-top:1px;line-height:1.25}
+  .module-side{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .module-action-label{font-size:15px;font-weight:800;color:var(--clinical);white-space:nowrap}
+  .module-chevron{width:20px;height:20px;fill:none;stroke:var(--clinical);stroke-width:2.4}
+  .module-row.ok{border-color:#B6DED2}
+  .module-row.ok .module-icon{background:var(--mint-soft);color:var(--mint)}
+  .module-row.ok .module-status{color:var(--mint)}
+  .module-row.warn{border-color:#E8CE9A}
+  .module-row.warn .module-icon{background:var(--amber-soft);color:var(--amber)}
+  .module-row.warn .module-status{color:var(--amber)}
+  .module-row.bad{border-color:#E8ADAA}
+  .module-row.bad .module-icon{background:var(--coral-soft);color:var(--coral)}
+  .module-row.bad .module-status{color:var(--coral)}
+  .module-row.na .module-icon{background:var(--neutral-soft);color:var(--neutral)}
 
-  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+  .guidance-card{
+    margin-top:14px;padding:13px 15px;border-radius:18px;background:var(--surface);
+    border:1.5px solid var(--line);
+  }
+  .guidance-text{font-size:17px;font-weight:750;color:var(--ink-soft);line-height:1.45;text-align:center}
+  .guidance-card.urgent{background:var(--coral-soft);border-color:#E7A39F}
+  .guidance-card.urgent .guidance-text{color:#922E2A}
+  .guidance-card.review{background:var(--amber-soft);border-color:#E7C88B}
+  .guidance-card.review .guidance-text{color:#754707}
+
+  .research-panel{margin-top:14px}
+  .research-panel details{border:1.5px dashed #9AABBC;border-radius:20px;background:#fff;padding:0 17px}
+  .research-panel summary{min-height:58px;display:flex;align-items:center;cursor:pointer;font-size:17px;font-weight:800;color:var(--ink-soft)}
+  .research-content{padding:0 0 18px}
+  .research-warning{font-size:16px;font-weight:700;color:var(--coral);line-height:1.5;margin-bottom:13px}
+  .technical-grid{display:grid;grid-template-columns:1fr auto;gap:9px 12px;font-size:16px}
+  .technical-grid dt{color:var(--ink-soft);font-weight:700}
+  .technical-grid dd{font-family:'Manrope';font-weight:800;text-align:right}
+
+  .actions{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+  .btn-primary,.btn-secondary{
+    width:100%;min-height:56px;border-radius:19px;padding:10px 16px;
+    font-size:19px;font-weight:800;cursor:pointer;
+  }
+  .btn-primary{border:0;background:var(--clinical);color:#fff;box-shadow:0 10px 24px rgba(23,111,209,.20)}
+  .btn-primary:active,.btn-secondary:active{transform:scale(.985)}
+  .btn-secondary{border:1.5px solid #AFC0D1;background:#fff;color:var(--ink)}
+  .btn-text{
+    min-height:42px;border:0;background:transparent;color:var(--ink-soft);
+    font-size:16px;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:4px;
+  }
+  [hidden]{display:none!important}
+
+  @media(min-width:520px){
+    body{max-width:500px;margin:0 auto;box-shadow:0 0 0 1px rgba(20,34,53,.05),0 20px 64px rgba(20,34,53,.14)}
+  }
+  @media(max-width:370px){
+    header{padding-left:13px;padding-right:13px}.brand-text{font-size:17px}
+    .lang-seg button{min-width:38px;padding:0 6px}
+    main{padding-left:12px;padding-right:12px}
+    .module-row{grid-template-columns:38px minmax(0,1fr) auto;padding-left:10px;padding-right:10px}
+    .module-icon{width:38px;height:38px}.module-name{font-size:17px}.module-status{font-size:15.5px}
+    .module-action-label{display:none}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
 <script src="config.js"></script>
+<script src="./js/i18n.js"></script>
 </head>
 <body>
-<div class="app-shell">
-  <header>
-    <div class="brand" aria-label="QuickStroke">
-      <div class="brand-mark" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"/></svg>
-      </div>
-      <div class="brand-text">Quick<strong>Stroke</strong></div>
-    </div>
-
-    <div class="lang-seg" aria-label="Language selection">
-      <button type="button" class="on" data-lang="th" onclick="setLang('th')" aria-label="ภาษาไทย">TH</button>
-      <button type="button" data-lang="en" onclick="setLang('en')" aria-label="English">EN</button>
-      <button type="button" data-lang="ja" onclick="setLang('ja')" aria-label="日本語">JA</button>
-    </div>
-  </header>
-
-  <main>
-    <section class="hero" aria-labelledby="hero-title">
-      <h1 id="hero-title" data-i18n="index.title">เช็กสัญญาณสโตรก</h1>
-      <p id="hero-subtitle">ใบหน้า · แขน · การพูด</p>
-    </section>
-
-    <section class="actions" aria-label="Screening actions">
-      <div class="action-panel" id="action-panel">
-        <div class="panel-view" id="combined-view">
-          <button type="button" class="combined-action" id="primary-action" onclick="handlePrimaryAction()">
-            <span class="combined-copy">
-              <span class="combined-label" id="primary-label" data-i18n="index.primaryStart">เริ่มทดสอบ</span>
-              <span class="combined-meta" id="primary-meta" aria-live="polite">ใบหน้า · แขน · การพูด</span>
-            </span>
-            <span class="combined-arrow" aria-hidden="true">
-              <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-            </span>
-          </button>
-        </div>
-
-        <div class="panel-view" id="individual-view" hidden>
-          <div class="individual-grid" aria-label="Choose one screening test">
-            <button type="button" class="module-choice" id="row-face" onclick="goTest('face')">
-              <span class="module-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>
-              </span>
-              <span class="module-name" data-i18n="index.face">ใบหน้า</span>
-              <span class="module-state" id="state-face">ยังไม่ตรวจ</span>
-            </button>
-
-            <button type="button" class="module-choice" id="row-arm" onclick="goTest('arm')">
-              <span class="module-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M6.5 20V9.5a1.5 1.5 0 0 1 3 0V13"/><path d="M9.5 13V6.5a1.5 1.5 0 0 1 3 0V13"/><path d="M12.5 13V7.5a1.5 1.5 0 0 1 3 0V13"/><path d="M15.5 13v-3a1.5 1.5 0 0 1 3 0v5.5c0 3.6-2.5 6.5-6.2 6.5H11c-2.5 0-4.5-2-4.5-4.5"/></svg>
-              </span>
-              <span class="module-name" data-i18n="index.arm">แขน</span>
-              <span class="module-state" id="state-arm">ยังไม่ตรวจ</span>
-            </button>
-
-            <button type="button" class="module-choice" id="row-speech" onclick="goTest('speech')">
-              <span class="module-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg>
-              </span>
-              <span class="module-name" data-i18n="index.speech">การพูด</span>
-              <span class="module-state" id="state-speech">ยังไม่ตรวจ</span>
-            </button>
-          </div>
-        </div>
-
-        <button type="button" class="mode-switch" id="individual-toggle" onclick="toggleIndividual()" aria-expanded="false" aria-controls="individual-view">
-          <span id="mode-switch-label">แยกทดสอบ</span>
-          <span class="mode-triangle" aria-hidden="true">▼</span>
-        </button>
-      </div>
-    </section>
-
-
-    <div class="emergency" id="emergency-card" aria-live="polite">
-      <div class="emergency-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-      </div>
-      <div class="emergency-text" data-i18n-html="index.emergency">สงสัยสโตรก? <b>อย่ารอผล — โทร 1669 ทันที</b></div>
-    </div>
-
-    <p class="safety-note" data-i18n="index.notDiagnosis">คัดกรองเบื้องต้นเท่านั้น · ไม่ใช่การวินิจฉัย</p>
-
-    <div class="clear-zone">
-      <button type="button" class="btn-clear" id="btn-clear" onclick="clearAll()" data-i18n="index.clear">ล้างผลการตรวจ</button>
-    </div>
-  </main>
-</div>
-
-<div id="disclaimer-overlay" class="disclaimer-overlay" role="dialog" aria-modal="true" aria-labelledby="disc-title">
-  <div class="disclaimer-card">
-    <div class="disc-lang">
-      <div class="lang-seg" aria-label="Language selection">
-        <button type="button" class="on" data-lang="th" onclick="setLang('th')">ไทย</button>
-        <button type="button" data-lang="en" onclick="setLang('en')">English</button>
-        <button type="button" data-lang="ja" onclick="setLang('ja')">日本語</button>
-      </div>
-    </div>
-
-    <div class="disc-mark" aria-hidden="true">
+<header>
+  <div class="brand" aria-label="QuickStroke">
+    <div class="brand-mark" aria-hidden="true">
       <svg viewBox="0 0 24 24"><path d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"/></svg>
     </div>
-    <div class="disc-eyebrow" data-i18n="disclaimer.eyebrow">QuickStroke</div>
-    <h2 id="disc-title" data-i18n="disclaimer.title">ข้อมูลสำคัญก่อนใช้งาน</h2>
-    <p class="disc-body" data-i18n="disclaimer.body">QuickStroke ใช้คัดกรองสัญญาณเบื้องต้นเท่านั้น ไม่ใช่การวินิจฉัย และผลที่ไม่พบสัญญาณผิดปกติไม่ได้ยืนยันว่าไม่มีสโตรก</p>
-
-    <div class="disc-emergency">
-      <div class="disc-emergency-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-      </div>
-      <div class="disc-emergency-text" data-i18n-html="disclaimer.emergency">หากสงสัยสโตรก อย่ารอผล ให้โทร <b>1669</b> ทันที</div>
-    </div>
-
-    <button id="disc-accept-btn" type="button" onclick="acceptDisclaimer()" data-i18n="disclaimer.accept">รับทราบและเริ่มใช้งาน</button>
-    <div class="disc-note" data-i18n="disclaimer.note">แสดงครั้งเดียวต่อแท็บนี้</div>
+    <div class="brand-text">Quick<strong>Stroke</strong></div>
   </div>
-</div>
+  <div class="lang-seg" aria-label="Language selection">
+    <button type="button" id="lang-th" onclick="resultSwitchLang('th')">TH</button>
+    <button type="button" id="lang-en" onclick="resultSwitchLang('en')">EN</button>
+    <button type="button" id="lang-ja" onclick="resultSwitchLang('ja')">JA</button>
+  </div>
+</header>
 
-<script src="./js/i18n.js"></script>
+<main>
+  <section class="result-hero state-no-data" id="result-hero" aria-live="polite">
+    <div class="result-symbol" id="result-symbol" aria-hidden="true"></div>
+    <h1 class="result-title" id="result-title">กำลังเตรียมผล…</h1>
+    <p class="result-desc" id="result-desc"></p>
+    <p class="result-progress" id="result-progress" hidden></p>
+    <div class="emergency-action" id="emergency-action" hidden></div>
+    <p class="safety-note" id="safety-note"></p>
+  </section>
+
+  <section class="section" aria-label="Module results">
+    <div class="module-list" id="module-list"></div>
+  </section>
+
+  <section class="guidance-card" id="guidance-card" aria-live="polite">
+    <p class="guidance-text" id="guidance-text"></p>
+  </section>
+
+  <section class="research-panel" id="research-panel" hidden>
+    <details>
+      <summary id="technical-title">รายละเอียดสำหรับงานวิจัย</summary>
+      <div class="research-content">
+        <p class="research-warning" id="technical-disclaimer"></p>
+        <dl class="technical-grid" id="technical-grid"></dl>
+      </div>
+    </details>
+  </section>
+
+  <div class="actions">
+    <button type="button" class="btn-primary" id="primary-action"></button>
+    <button type="button" class="btn-secondary" id="secondary-action"></button>
+    <button type="button" class="btn-text" id="retry-all" hidden></button>
+  </div>
+</main>
+
 <script>
 'use strict';
 
-const MODULES = Object.freeze(['face', 'arm', 'speech']);
-const LOCALE_MAP = Object.freeze({ th:'th-TH', en:'en-US', ja:'ja-JP' });
+const RESULT_LOCALE_MAP = Object.freeze({ th:'th-TH', en:'en-US', ja:'ja-JP' });
+const MODULES = Object.freeze(['face','arm','speech']);
+const RESULT_CFG = window.QS_CONFIG?.scoring || {};
+const WEIGHTS = Object.freeze({
+  face: RESULT_CFG.faceWeight ?? 0.40,
+  arm: RESULT_CFG.armWeight ?? 0.40,
+  speech: RESULT_CFG.speechWeight ?? 0.20
+});
+const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
+const RESEARCH_MODE = new URLSearchParams(window.location.search).get('research') === '1'
+  || window.QS_CONFIG?.researchMode === true;
 
-let lang = window.QS_CONFIG?.defaultLang || 'th';
-let indOpen = false;
-let screeningState = {
-  attemptedCount: 0,
-  validCompleted: 0,
-  invalidCount: 0,
-  nextModule: 'face'
-};
+const RESULT_REQUIRED_KEYS = Object.freeze([
+  'pageTitle','pageLabel','face','arm','speech',
+  'moduleOk','moduleReview','moduleBad','notTested','invalidStatus',
+  'stateNoDataTitle','stateNoDataDesc','stateIncompleteTitle','stateIncompleteDesc',
+  'stateOkTitle','stateOkDesc','stateReviewTitle','stateReviewDesc',
+  'stateUrgentTitle','stateUrgentDesc','progress', 'safetyNote',
+  'breakdown','guidance','guidanceNoData','guidanceIncomplete','guidanceOk','guidanceReview','guidanceUrgent',
+  'startTests','continueTests','home','retryAll','retryConfirm','startModule','retryModule',
+  'emergencyThailand','emergencyLocal','technicalTitle','technicalDisclaimer',
+  'moduleScore','internalWeightedScore','basedOn','languageUnavailable'
+]);
 
-function interpolate(text, params = {}) {
-  return String(text ?? '').replace(/\{\{\s*(\w+)\s*\}\}/g, (match, key) =>
-    Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : match
-  );
+const ICONS = Object.freeze({
+  face:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>',
+  arm:'<svg viewBox="0 0 24 24"><path d="M7 20v-8a2 2 0 0 1 4 0v1-5a2 2 0 0 1 4 0v5-3a2 2 0 0 1 4 0v5c0 4-2.5 6-6 6h-1c-2.8 0-5-2.2-5-5z"/></svg>',
+  speech:'<svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg>'
+});
+
+const STATE_ICONS = Object.freeze({
+  ok:'<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+  review:'<svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+  urgent:'<svg viewBox="0 0 24 24"><path d="M12 8v5m0 4h.01"/><circle cx="12" cy="12" r="9"/></svg>',
+  incomplete:'<svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h8M8 18h5"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  noData:'<svg viewBox="0 0 24 24"><path d="M9.1 9a3 3 0 1 1 5.2 2c-1.2 1.1-2.3 1.7-2.3 3"/><path d="M12 18h.01"/><circle cx="12" cy="12" r="9"/></svg>'
+});
+
+let RESULT_T = null;
+let RESULT_LANG_CODE = 'th';
+let languageRequestId = 0;
+let CURRENT_RESULT = null;
+
+function validateMessages(messages, locale){
+  if (!messages || typeof messages !== 'object') throw new Error(`Missing result translations for ${locale}`);
+  const missing = RESULT_REQUIRED_KEYS.filter(key => messages[key] === undefined);
+  if (missing.length) throw new Error(`Incomplete result translations for ${locale}: ${missing.join(', ')}`);
+  ['guidanceNoData','guidanceIncomplete','guidanceOk','guidanceReview','guidanceUrgent'].forEach(key => {
+    if (!Array.isArray(messages[key]) || !messages[key].length) throw new Error(`Invalid list ${key} for ${locale}`);
+  });
 }
 
-function tr(key, fallback = '', params = {}) {
-  if (!window.QuickStrokeI18n) return interpolate(fallback, params);
-  return interpolate(window.QuickStrokeI18n.t(key, params, fallback), params);
+function getSavedLang(){
+  return String(sessionStorage.getItem('fast_lang') || 'th').split('-')[0].toLowerCase();
 }
 
-function readModuleResult(moduleName) {
+function setLanguageButtons(code){
+  ['th','en','ja'].forEach(item => {
+    const button = document.getElementById(`lang-${item}`);
+    const active = item === code;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-pressed', String(active));
+  });
+}
+
+async function readLocale(locale, persist){
+  if (!window.QuickStrokeI18n) throw new Error('QuickStrokeI18n is not available');
+  await window.QuickStrokeI18n.setLocale(locale, { persist, apply:false });
+  const messages = window.QuickStrokeI18n.getMessages()?.result;
+  validateMessages(messages, locale);
+  return messages;
+}
+
+async function loadResultLanguage(requestedCode, {persist=true}={}){
+  let code = String(requestedCode || 'th').split('-')[0].toLowerCase();
+  let locale = RESULT_LOCALE_MAP[code];
+  if (!locale){ code='th'; locale=RESULT_LOCALE_MAP.th; }
+
+  const requestId = ++languageRequestId;
+  let messages;
+  try{
+    messages = await readLocale(locale, persist);
+  }catch(error){
+    console.error(`Could not load ${locale}.`, error);
+    if (code === 'en') return false;
+    code='en'; locale=RESULT_LOCALE_MAP.en;
+    try{ messages = await readLocale(locale, false); }
+    catch(fallbackError){ console.error('English fallback failed.', fallbackError); return false; }
+  }
+
+  if (requestId !== languageRequestId) return false;
+  RESULT_T = messages;
+  RESULT_LANG_CODE = code;
+  if (persist) sessionStorage.setItem('fast_lang', code);
+  document.documentElement.lang = locale;
+  document.title = RESULT_T.pageTitle;
+  setLanguageButtons(code);
+  buildResult();
+  return true;
+}
+
+function safeReadModule(moduleName){
   const raw = sessionStorage.getItem(`fast_${moduleName}`);
-  if (!raw) return { attempted:false, valid:false, riskLevel:null, score:null };
-
-  try {
-    const data = JSON.parse(raw);
-    const knownLevels = ['ok', 'warn', 'bad', 'invalid'];
-    let riskLevel = knownLevels.includes(data.riskLevel) ? data.riskLevel : null;
-
-    if (!riskLevel && typeof data.passed === 'boolean') {
-      riskLevel = data.passed ? 'ok' : 'bad';
-    }
-
-    if (!riskLevel) riskLevel = 'invalid';
-
-    return {
-      attempted:true,
-      valid:riskLevel !== 'invalid',
-      riskLevel,
-      score:data.score
-    };
-  } catch (error) {
+  if (!raw) return null;
+  try{
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  }catch(error){
     console.warn(`Invalid stored result for ${moduleName}.`, error);
-    return { attempted:true, valid:false, riskLevel:'invalid', score:null };
+    return { riskLevel:'invalid' };
   }
 }
 
-function setIndividualOpen(open) {
-  indOpen = Boolean(open);
-
-  const panel = document.getElementById('action-panel');
-  const combinedView = document.getElementById('combined-view');
-  const individualView = document.getElementById('individual-view');
-  const toggle = document.getElementById('individual-toggle');
-
-  panel?.classList.toggle('individual-mode', indOpen);
-  if (combinedView) combinedView.hidden = indOpen;
-  if (individualView) individualView.hidden = !indOpen;
-  toggle?.setAttribute('aria-expanded', String(indOpen));
-
-  updateModeSwitchText();
+function getRiskClass(score){
+  if (score >= 70) return 'ok';
+  if (score >= 45) return 'warn';
+  return 'bad';
 }
 
-function updateModeSwitchText() {
-  const label = document.getElementById('mode-switch-label');
-  if (!label) return;
-
-  label.textContent = indOpen
-    ? tr('index.fullName', 'ทดสอบรวม')
-    : tr('index.individualName', 'แยกทดสอบ');
+function getModuleClass(data){
+  if (!data || data.riskLevel === 'invalid' || data.score === undefined || data.score === null) return 'na';
+  if (['ok','warn','bad'].includes(data.riskLevel)) return data.riskLevel;
+  return getRiskClass(Number(data.score));
 }
 
-function getModuleListText() {
-  return [
-    tr('index.face', 'ใบหน้า'),
-    tr('index.arm', 'แขน'),
-    tr('index.speech', 'การพูด')
-  ].join(' · ');
-}
+function calculateResult(){
+  const data = Object.fromEntries(MODULES.map(moduleName => [moduleName, safeReadModule(moduleName)]));
+  const validModules = MODULES.filter(moduleName => getModuleClass(data[moduleName]) !== 'na');
+  const invalidModules = MODULES.filter(moduleName => data[moduleName]?.riskLevel === 'invalid');
+  const missingModules = MODULES.filter(moduleName => !data[moduleName]);
+  const badModules = validModules.filter(moduleName => getModuleClass(data[moduleName]) === 'bad');
+  const warnModules = validModules.filter(moduleName => getModuleClass(data[moduleName]) === 'warn');
 
-async function setLang(requestedLang) {
-  const shortLang = String(requestedLang || 'th').split('-')[0].toLowerCase();
-  const requestedLocale = LOCALE_MAP[shortLang];
-
-  if (!requestedLocale) {
-    console.warn(`Unsupported language: ${requestedLang}`);
-    return;
-  }
-
-  try {
-    if (!window.QuickStrokeI18n) throw new Error('QuickStrokeI18n is not available');
-
-    const activeLocale = await window.QuickStrokeI18n.setLocale(requestedLocale, {
-      persist:true,
-      apply:true
-    });
-
-    lang = activeLocale.split('-')[0].toLowerCase();
-    document.documentElement.lang = activeLocale;
-  } catch (error) {
-    console.error('Could not load locale pack.', error);
-    return;
-  }
-
-  document.querySelectorAll('.lang-seg button').forEach((button) => {
-    const isActive = button.dataset.lang === lang;
-    button.classList.toggle('on', isActive);
-    button.setAttribute('aria-pressed', String(isActive));
+  let totalWeight = 0;
+  let weightedSum = 0;
+  validModules.forEach(moduleName => {
+    totalWeight += WEIGHTS[moduleName];
+    weightedSum += Number(data[moduleName].score) * WEIGHTS[moduleName];
   });
+  const weightedScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : null;
 
-  sessionStorage.setItem('fast_lang', lang);
-  updateEmergencyAction();
-  updateProgress();
+  let state;
+  if (SINGLE_POSITIVE_OVERRIDE && badModules.length > 0) state = 'urgent';
+  else if (validModules.length === 0) state = 'noData';
+  else if (validModules.length < 3) state = 'incomplete';
+  else if (warnModules.length > 0 || getRiskClass(weightedScore) === 'warn') state = 'review';
+  else if (getRiskClass(weightedScore) === 'bad') state = 'urgent';
+  else state = 'ok';
+
+  return { data, validModules, invalidModules, missingModules, badModules, warnModules, weightedScore, state };
 }
 
-function updateEmergencyAction() {
-  const card = document.getElementById('emergency-card');
-  if (!card) return;
+function getEmergencyPhone(){
+  const configured = window.QS_CONFIG?.emergency?.phone || window.QS_CONFIG?.emergencyPhone;
+  if (configured) return String(configured).replace(/[^+\d]/g,'');
+  return RESULT_LANG_CODE === 'th' ? '1669' : '';
+}
 
-  const canCallThailandEMS = lang === 'th';
-  card.classList.toggle('is-callable', canCallThailandEMS);
+function getStateCopy(state){
+  const T = RESULT_T;
+  const map = {
+    noData:[T.stateNoDataTitle,T.stateNoDataDesc],
+    incomplete:[T.stateIncompleteTitle,T.stateIncompleteDesc],
+    ok:[T.stateOkTitle,T.stateOkDesc],
+    review:[T.stateReviewTitle,T.stateReviewDesc],
+    urgent:[T.stateUrgentTitle,T.stateUrgentDesc]
+  };
+  return map[state];
+}
 
-  if (canCallThailandEMS) {
-    card.setAttribute('role', 'button');
-    card.setAttribute('tabindex', '0');
-    card.setAttribute('aria-label', 'สงสัยสโตรก อย่ารอผล โทร 1669 ทันที');
-  } else {
-    card.removeAttribute('role');
-    card.removeAttribute('tabindex');
-    card.removeAttribute('aria-label');
+function renderHero(result){
+  const T = RESULT_T;
+  const hero = document.getElementById('result-hero');
+  hero.className = `result-hero state-${result.state === 'noData' ? 'no-data' : result.state}`;
+  document.getElementById('result-symbol').innerHTML = STATE_ICONS[result.state];
+  const [title,desc] = getStateCopy(result.state);
+  document.getElementById('result-title').textContent = title;
+  const descElement = document.getElementById('result-desc');
+  descElement.textContent = desc;
+  descElement.hidden = !desc;
+
+  const progress = document.getElementById('result-progress');
+  const shouldShowProgress = result.state === 'incomplete' || result.state === 'noData';
+  progress.hidden = !shouldShowProgress;
+  progress.textContent = T.progress.replace('{n}', result.validModules.length);
+  document.getElementById('safety-note').textContent = T.safetyNote;
+
+  const emergency = document.getElementById('emergency-action');
+  emergency.innerHTML = '';
+  emergency.hidden = result.state !== 'urgent';
+  if (result.state === 'urgent'){
+    const phone = getEmergencyPhone();
+    if (phone){
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'emergency-call';
+      button.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2.1z"/></svg><span></span>';
+      button.querySelector('span').textContent = T.emergencyThailand;
+      button.addEventListener('click', () => { window.location.href = `tel:${phone}`; });
+      emergency.appendChild(button);
+    }else{
+      const block = document.createElement('div');
+      block.className = 'emergency-local';
+      block.textContent = T.emergencyLocal;
+      emergency.appendChild(block);
+    }
   }
 }
 
-function activateEmergencyCard(event) {
-  if (lang !== 'th') return;
-
-  if (event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
-  if (event.type === 'keydown') event.preventDefault();
-
-  window.location.href = 'tel:1669';
-}
-
-function handlePrimaryAction() {
-  sessionStorage.setItem('fast_lang', lang);
-
-  if (screeningState.validCompleted === MODULES.length) {
-    goResult();
-    return;
+function moduleStatus(moduleName, data){
+  const T = RESULT_T;
+  if (!data) return { cls:'na', text:T.notTested, action:T.startModule, actionable:true };
+  if (data.riskLevel === 'invalid' || data.score === undefined || data.score === null){
+    return { cls:'na', text:T.invalidStatus, action:T.retryModule, actionable:true };
   }
-
-  sessionStorage.setItem('fast_mode', 'full');
-  location.href = `${screeningState.nextModule}-test.html`;
+  const cls = getModuleClass(data);
+  const text = cls === 'ok' ? T.moduleOk : cls === 'warn' ? T.moduleReview : T.moduleBad;
+  return { cls, text, action:'', actionable:false };
 }
 
-function toggleIndividual() {
-  setIndividualOpen(!indOpen);
-  updateProgress();
-}
-
-function goTest(moduleName) {
-  if (!MODULES.includes(moduleName)) return;
-  sessionStorage.setItem('fast_mode', 'individual');
-  sessionStorage.setItem('fast_lang', lang);
-  location.href = `${moduleName}-test.html`;
-}
-
-function goResult() {
-  location.href = 'result.html';
-}
-
-function updateProgress() {
-  let attemptedCount = 0;
-  let validCompleted = 0;
-  let invalidCount = 0;
-  let nextModule = null;
-
-  const shortStatusKeys = {
-    ok:'index.statusDone',
-    warn:'index.statusCaution',
-    bad:'index.statusDetected'
-  };
-
-  const shortStatusFallbacks = {
-    ok:'ตรวจแล้ว',
-    warn:'ควรระวัง',
-    bad:'พบสัญญาณ'
-  };
-
-  MODULES.forEach((moduleName) => {
-    const result = readModuleResult(moduleName);
-    const row = document.getElementById(`row-${moduleName}`);
-    const state = document.getElementById(`state-${moduleName}`);
-
-    if (!row || !state) return;
-
-    if (!result.attempted) {
-      row.className = 'module-choice';
-      state.textContent = tr('index.statusNotDone', 'ยังไม่ตรวจ');
-      if (!nextModule) nextModule = moduleName;
-      return;
+function renderModules(result){
+  const T = RESULT_T;
+  const list = document.getElementById('module-list');
+  list.innerHTML = '';
+  MODULES.forEach(moduleName => {
+    const status = moduleStatus(moduleName, result.data[moduleName]);
+    const element = document.createElement(status.actionable && result.state !== 'urgent' ? 'button' : 'div');
+    if (element.tagName === 'BUTTON') element.type = 'button';
+    element.className = `module-row ${status.cls}`;
+    element.innerHTML = `
+      <div class="module-icon">${ICONS[moduleName]}</div>
+      <div>
+        <div class="module-name"></div>
+        <div class="module-status"></div>
+      </div>
+      <div class="module-side"></div>`;
+    element.querySelector('.module-name').textContent = T[moduleName];
+    element.querySelector('.module-status').textContent = status.text;
+    if (status.actionable && result.state !== 'urgent'){
+      const side = element.querySelector('.module-side');
+      const actionLabel = document.createElement('span');
+      actionLabel.className = 'module-action-label';
+      actionLabel.textContent = status.action;
+      side.appendChild(actionLabel);
+      side.insertAdjacentHTML('beforeend','<svg class="module-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>');
+      element.addEventListener('click', () => retryModule(moduleName));
+      element.setAttribute('aria-label', `${T[moduleName]} · ${status.text} · ${status.action}`);
     }
-
-    attemptedCount += 1;
-
-    if (!result.valid) {
-      invalidCount += 1;
-      row.className = 'module-choice state-invalid';
-      state.textContent = tr('index.statusRetry', 'ลองใหม่');
-      if (!nextModule) nextModule = moduleName;
-      return;
-    }
-
-    validCompleted += 1;
-    const statusClass = result.riskLevel === 'ok' ? 'ok' : result.riskLevel === 'warn' ? 'warn' : 'bad';
-    row.className = `module-choice state-${statusClass}`;
-    state.textContent = tr(shortStatusKeys[statusClass], shortStatusFallbacks[statusClass]);
+    list.appendChild(element);
   });
+}
 
-  screeningState = {
-    attemptedCount,
-    validCompleted,
-    invalidCount,
-    nextModule:nextModule || 'face'
-  };
+function renderGuidance(state){
+  const T = RESULT_T;
+  const key = `guidance${state.charAt(0).toUpperCase()}${state.slice(1)}`;
+  const card = document.getElementById('guidance-card');
+  const text = document.getElementById('guidance-text');
+  const items = Array.isArray(T[key]) ? T[key] : [];
+  text.textContent = items[0] || '';
+  card.className = `guidance-card ${state === 'urgent' ? 'urgent' : state === 'review' ? 'review' : ''}`.trim();
+  card.hidden = !text.textContent;
+}
 
-  const primaryLabel = document.getElementById('primary-label');
-  const primaryMeta = document.getElementById('primary-meta');
-  const heroSubtitle = document.getElementById('hero-subtitle');
-  const clearButton = document.getElementById('btn-clear');
+function renderResearch(result){
+  const panel = document.getElementById('research-panel');
+  panel.hidden = !RESEARCH_MODE;
+  if (!RESEARCH_MODE) return;
+  const T = RESULT_T;
+  document.getElementById('technical-title').textContent = T.technicalTitle;
+  document.getElementById('technical-disclaimer').textContent = T.technicalDisclaimer;
+  const grid = document.getElementById('technical-grid');
+  grid.innerHTML = '';
+  MODULES.forEach(moduleName => {
+    const data = result.data[moduleName];
+    const valid = getModuleClass(data) !== 'na';
+    const dt = document.createElement('dt');
+    const dd = document.createElement('dd');
+    dt.textContent = T.moduleScore.replace('{module}', T[moduleName]);
+    dd.textContent = valid ? String(data.score) : '—';
+    grid.append(dt,dd);
+  });
+  const dt = document.createElement('dt');
+  const dd = document.createElement('dd');
+  dt.textContent = T.internalWeightedScore;
+  dd.textContent = result.weightedScore === null ? '—' : `${result.weightedScore} · ${T.basedOn.replace('{n}', result.validModules.length)}`;
+  grid.append(dt,dd);
+}
 
-  if (heroSubtitle) heroSubtitle.textContent = getModuleListText();
+function setAction(button, label, handler, hidden=false){
+  button.hidden = hidden;
+  button.textContent = label;
+  button.onclick = hidden ? null : handler;
+}
 
-  if (validCompleted === MODULES.length) {
-    primaryLabel.textContent = tr('index.primaryComplete', 'ดูผลการคัดกรอง');
-    primaryMeta.textContent = tr('index.progress', 'ตรวจแล้ว {{done}} จาก 3', { done:validCompleted });
-  } else if (attemptedCount > 0) {
-    primaryLabel.textContent = tr('index.primaryContinue', 'ตรวจต่อ');
-    primaryMeta.textContent = tr('index.progress', 'ตรวจแล้ว {{done}} จาก 3', { done:validCompleted });
-  } else {
-    primaryLabel.textContent = tr('index.primaryStart', 'เริ่มทดสอบ');
-    primaryMeta.textContent = getModuleListText();
+function renderActions(result){
+  const T = RESULT_T;
+  const primary = document.getElementById('primary-action');
+  const secondary = document.getElementById('secondary-action');
+  const retry = document.getElementById('retry-all');
+
+  if (result.state === 'noData'){
+    setAction(primary,T.startTests,continueTests);
+    setAction(secondary,T.home,goHome);
+    setAction(retry,T.retryAll,retryAll,true);
+  }else if (result.state === 'incomplete'){
+    setAction(primary,T.continueTests,continueTests);
+    setAction(secondary,T.home,goHome);
+    setAction(retry,T.retryAll,retryAll,false);
+  }else if (result.state === 'urgent'){
+    setAction(primary,T.home,goHome);
+    setAction(secondary,'',null,true);
+    setAction(retry,'',null,true);
+  }else{
+    setAction(primary,T.home,goHome);
+    setAction(secondary,T.retryAll,retryAll);
+    setAction(retry,'',null,true);
   }
-
-  updateModeSwitchText();
-  clearButton?.classList.toggle('show', attemptedCount > 0);
 }
 
-function clearAll(silent = false) {
-  ['fast_face','fast_arm','fast_speech','fast_mode'].forEach((key) => sessionStorage.removeItem(key));
-  screeningState = { attemptedCount:0, validCompleted:0, invalidCount:0, nextModule:'face' };
-  if (!silent) {
-    setIndividualOpen(false);
-    updateProgress();
-  }
+function buildResult(){
+  if (!RESULT_T) return;
+  CURRENT_RESULT = calculateResult();
+  renderHero(CURRENT_RESULT);
+  renderModules(CURRENT_RESULT);
+  renderGuidance(CURRENT_RESULT.state);
+  renderResearch(CURRENT_RESULT);
+  renderActions(CURRENT_RESULT);
 }
 
-function showDisclaimerIfNeeded() {
-  if (!sessionStorage.getItem('fast_disclaimer_ok')) {
-    document.getElementById('disclaimer-overlay')?.classList.add('show');
-  }
+function retryModule(moduleName){
+  sessionStorage.removeItem(`fast_${moduleName}`);
+  sessionStorage.setItem('fast_mode','individual');
+  sessionStorage.setItem('fast_lang',RESULT_LANG_CODE);
+  window.location.href = `${moduleName}-test.html`;
 }
 
-function acceptDisclaimer() {
-  sessionStorage.setItem('fast_disclaimer_ok', '1');
-  document.getElementById('disclaimer-overlay')?.classList.remove('show');
+function getNextModule(){
+  if (!CURRENT_RESULT) return 'face';
+  return CURRENT_RESULT.invalidModules[0] || CURRENT_RESULT.missingModules[0] || 'face';
 }
 
-(async function initIndexPage() {
-  const emergencyCard = document.getElementById('emergency-card');
-  emergencyCard?.addEventListener('click', activateEmergencyCard);
-  emergencyCard?.addEventListener('keydown', activateEmergencyCard);
+function continueTests(){
+  const next = getNextModule();
+  sessionStorage.setItem('fast_mode','full');
+  sessionStorage.setItem('fast_lang',RESULT_LANG_CODE);
+  window.location.href = `${next}-test.html`;
+}
 
-  const initialLang = sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';
-  await setLang(initialLang);
-  showDisclaimerIfNeeded();
-})();
+function retryAll(){
+  if (!RESULT_T || !window.confirm(RESULT_T.retryConfirm)) return;
+  ['fast_face','fast_arm','fast_speech','fast_mode'].forEach(key => sessionStorage.removeItem(key));
+  sessionStorage.setItem('fast_lang',RESULT_LANG_CODE);
+  window.location.href = 'index.html';
+}
+
+function goHome(){ window.location.href = 'index.html'; }
+async function resultSwitchLang(code){ await loadResultLanguage(code,{persist:true}); }
+window.resultSwitchLang = resultSwitchLang;
+
+(async function init(){
+  const saved = getSavedLang();
+  const code = RESULT_LOCALE_MAP[saved] ? saved : 'th';
+  const ready = await loadResultLanguage(code,{persist:false});
+  if (!ready) throw new Error('Result language initialization failed');
+})().catch(error => {
+  console.error(error);
+  const title = document.getElementById('result-title');
+  if (title) title.textContent = 'Language unavailable';
+});
 </script>
 <script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker
-        .register('/service-worker.js')
-        .then(() => console.log('QuickStroke service worker registered'))
-        .catch((error) => console.error('Service worker registration failed:', error));
-    });
-  }
+if ('serviceWorker' in navigator){
+  window.addEventListener('load',() => {
+    navigator.serviceWorker.register('/service-worker.js').catch(error => console.error('Service worker registration failed:',error));
+  });
+}
 </script>
 </body>
 </html>

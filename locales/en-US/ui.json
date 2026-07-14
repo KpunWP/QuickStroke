@@ -222,52 +222,42 @@
     "face": "Face",
     "arm": "Arm",
     "speech": "Speech",
-    "moduleOk": "No abnormal sign detected",
-    "moduleReview": "Needs further assessment",
-    "moduleBad": "Abnormal sign detected",
+    "moduleOk": "No abnormal sign",
+    "moduleReview": "Needs assessment",
+    "moduleBad": "Sign detected",
     "notTested": "Not checked",
     "invalidStatus": "Unable to assess",
-    "stateNoDataTitle": "Unable to assess yet",
-    "stateNoDataDesc": "There is no assessable result yet. Start the checks or retry any item that could not be assessed.",
+    "stateNoDataTitle": "No result yet",
+    "stateNoDataDesc": "Start a check to see the result",
     "stateIncompleteTitle": "Result incomplete",
-    "stateIncompleteDesc": "An overall result cannot be given yet. Complete the remaining checks or retry any item that could not be assessed.",
+    "stateIncompleteDesc": "",
     "stateOkTitle": "No abnormal sign detected",
-    "stateOkDesc": "No abnormal sign was detected across all three screening checks.",
-    "stateReviewTitle": "A sign needs further assessment",
-    "stateReviewDesc": "Seek medical advice, especially if the symptom started suddenly or is still present.",
+    "stateOkDesc": "This result does not rule out stroke",
+    "stateReviewTitle": "Further assessment needed",
+    "stateReviewDesc": "For sudden symptoms, contact emergency services",
     "stateUrgentTitle": "Abnormal sign detected",
-    "stateUrgentDesc": "Do not wait for another result or repeat the test. Contact emergency services immediately.",
-    "progress": "{n} of 3 checks assessed",
-    "safetyNote": "This is preliminary screening, not a diagnosis, and it cannot rule out stroke.",
+    "stateUrgentDesc": "Contact emergency services now",
+    "progress": "{n} of 3 checks complete",
+    "safetyNote": "Preliminary screening only · Not a diagnosis",
     "breakdown": "Results by check",
     "guidance": "What to do next",
     "guidanceNoData": [
-      "Start the checks that have not been completed",
-      "Tap an item that could not be assessed to retry it",
-      "If stroke is already suspected, do not wait for this result—contact local emergency services now"
+      "Choose a check below to begin"
     ],
     "guidanceIncomplete": [
-      "Complete the remaining checks",
-      "Tap an item that could not be assessed to retry it",
-      "For sudden symptoms or suspected stroke, do not wait—contact local emergency services now"
+      "Complete the remaining checks for an overall result"
     ],
     "guidanceOk": [
-      "If symptoms remain or stroke is suspected, contact local emergency services immediately",
-      "A negative screening result cannot rule out stroke",
-      "Note the time symptoms started if any develop later"
+      "If symptoms remain or stroke is suspected, contact emergency services now"
     ],
     "guidanceReview": [
-      "Seek medical assessment",
-      "For sudden or worsening symptoms, contact local emergency services immediately",
-      "Note the time symptoms started"
+      "Seek medical advice; for sudden symptoms, contact emergency services"
     ],
     "guidanceUrgent": [
-      "Contact local emergency services immediately",
-      "Note the time symptoms started",
-      "Do not drive yourself and do not wait to repeat the test"
+      "Note when symptoms started and do not drive yourself"
     ],
     "startTests": "Start checks",
-    "continueTests": "Complete remaining checks",
+    "continueTests": "Continue checks",
     "home": "Back to home",
     "retryAll": "Restart all checks",
     "retryConfirm": "Clear all results and restart every check?",
