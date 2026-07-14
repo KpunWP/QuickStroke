@@ -219,47 +219,69 @@
     "languageUnavailable": "言語データを読み込めません"
   },
   "result": {
-    "pageTitle": "FAST · 検査結果",
+    "pageTitle": "QuickStroke・スクリーニング結果",
+    "pageLabel": "スクリーニング結果",
     "face": "顔",
     "arm": "腕",
-    "speech": "声",
-    "ok": "正常",
-    "warn": "注意",
-    "bad": "異常",
-    "riskOk": "正常な結果",
-    "riskWarn": "軽度の異常",
-    "riskBad": "高リスク · 医師へ",
-    "descOk": "明らかな異常なし。定期的に再チェックを。",
-    "descWarn": "一部に異常。医師の診察を。",
-    "descBad": "異常あり。すぐ医師へ。",
-    "suggestOk": [
-      "3〜6ヶ月ごとに再チェック",
-      "心臓・血管を大切に",
-      "突然の症状はすぐ受診"
-    ],
-    "suggestWarn": [
-      "医師の診察を受ける",
-      "症状と時刻を記録",
-      "悪化したら救急へ"
-    ],
-    "suggestBad": [
-      "すぐ救急へ",
-      "一人で運転しない",
-      "4.5時間以内に治療"
-    ],
-    "retryAll": "再テスト",
-    "back": "戻る",
-    "home": "ホーム",
-    "call": "救急へ電話",
-    "seeDoc": "医師へ",
-    "eyebrow": "FAST SCORE",
-    "breakdown": "詳細",
-    "suggest": "アドバイス",
+    "speech": "話し方",
+    "moduleOk": "異常なサインは検出されませんでした",
+    "moduleReview": "追加の評価が必要です",
+    "moduleBad": "異常なサインを検出",
     "notTested": "未チェック",
-    "invalidStatus": "測定不可 · タップして再試行",
-    "partialNote": "{n}/3 のテストに基づく結果",
-    "noValidNote": "評価できる結果がありません。再テストしてください。",
-    "overrideNote": "{modules}に明らかな異常。1つでも脳卒中リスクの兆候です。医師へ。",
+    "invalidStatus": "判定できません",
+    "stateNoDataTitle": "まだ判定できません",
+    "stateNoDataDesc": "判定できる結果がありません。未チェックの項目を開始するか、判定できなかった項目を再試行してください。",
+    "stateIncompleteTitle": "結果がそろっていません",
+    "stateIncompleteDesc": "まだ総合結果を出せません。残りの項目を完了するか、判定できなかった項目を再試行してください。",
+    "stateOkTitle": "異常なサインは検出されませんでした",
+    "stateOkDesc": "3項目すべてのスクリーニングで異常なサインは検出されませんでした。",
+    "stateReviewTitle": "追加の評価が必要なサインがあります",
+    "stateReviewDesc": "特に症状が突然始まった場合や続いている場合は、医療機関に相談してください。",
+    "stateUrgentTitle": "異常なサインを検出しました",
+    "stateUrgentDesc": "結果を待ったり再検査したりせず、直ちに地域の救急サービスへ連絡してください。",
+    "progress": "3項目中{n}項目を判定",
+    "safetyNote": "これは初期スクリーニングであり、医療診断ではありません。脳卒中を否定するものでもありません。",
+    "breakdown": "項目別の結果",
+    "guidance": "次に行うこと",
+    "guidanceNoData": [
+      "未チェックの項目を開始してください",
+      "判定できなかった項目をタップして再試行してください",
+      "すでに脳卒中が疑われる場合は、結果を待たず地域の救急サービスへ連絡してください"
+    ],
+    "guidanceIncomplete": [
+      "残りの項目を完了してください",
+      "判定できなかった項目をタップして再試行してください",
+      "突然の症状や脳卒中の疑いがある場合は、結果を待たず地域の救急サービスへ連絡してください"
+    ],
+    "guidanceOk": [
+      "症状が続く、または脳卒中が疑われる場合は、直ちに地域の救急サービスへ連絡してください",
+      "異常なしの結果でも脳卒中を否定できません",
+      "症状が現れた時刻を記録してください"
+    ],
+    "guidanceReview": [
+      "医療機関で追加の評価を受けてください",
+      "症状が突然始まった、または悪化した場合は地域の救急サービスへ連絡してください",
+      "症状が始まった時刻を記録してください"
+    ],
+    "guidanceUrgent": [
+      "直ちに地域の救急サービスへ連絡してください",
+      "症状が始まった時刻を記録してください",
+      "自分で運転せず、再検査のために待たないでください"
+    ],
+    "startTests": "チェックを開始",
+    "continueTests": "残りをチェック",
+    "home": "ホームへ戻る",
+    "retryAll": "すべて再チェック",
+    "retryConfirm": "すべての結果を消去して、最初から再チェックしますか？",
+    "startModule": "開始",
+    "retryModule": "再試行",
+    "emergencyThailand": "タイの救急医療 1669へ電話",
+    "emergencyLocal": "地域の救急サービスへ直ちに連絡してください",
+    "moduleScore": "{module}スコア",
+    "technicalTitle": "研究用の詳細",
+    "technicalDisclaimer": "内部スコアはシステム分析専用です。リスクの割合、重症度、診断結果ではありません。",
+    "internalWeightedScore": "内部加重スコア",
+    "basedOn": "{n}/3項目に基づく",
     "languageUnavailable": "言語を読み込めません"
   },
   "permissions": {

@@ -217,47 +217,69 @@
     "languageUnavailable": "Language unavailable"
   },
   "result": {
-    "pageTitle": "FAST · Results",
+    "pageTitle": "QuickStroke · Screening Result",
+    "pageLabel": "Screening result",
     "face": "Face",
-    "arm": "Arms",
+    "arm": "Arm",
     "speech": "Speech",
-    "ok": "Normal",
-    "warn": "Watch",
-    "bad": "Abnormal",
-    "riskOk": "Normal result",
-    "riskWarn": "Minor abnormality",
-    "riskBad": "High risk · See a doctor",
-    "descOk": "No clear abnormality. Re-check periodically.",
-    "descWarn": "Some abnormality found. See a doctor.",
-    "descBad": "Abnormality found. See a doctor now.",
-    "suggestOk": [
-      "Re-check every 3-6 months",
-      "Care for heart & vessels",
-      "Sudden symptoms? See a doctor"
+    "moduleOk": "No abnormal sign detected",
+    "moduleReview": "Needs further assessment",
+    "moduleBad": "Abnormal sign detected",
+    "notTested": "Not checked",
+    "invalidStatus": "Unable to assess",
+    "stateNoDataTitle": "Unable to assess yet",
+    "stateNoDataDesc": "There is no assessable result yet. Start the checks or retry any item that could not be assessed.",
+    "stateIncompleteTitle": "Result incomplete",
+    "stateIncompleteDesc": "An overall result cannot be given yet. Complete the remaining checks or retry any item that could not be assessed.",
+    "stateOkTitle": "No abnormal sign detected",
+    "stateOkDesc": "No abnormal sign was detected across all three screening checks.",
+    "stateReviewTitle": "A sign needs further assessment",
+    "stateReviewDesc": "Seek medical advice, especially if the symptom started suddenly or is still present.",
+    "stateUrgentTitle": "Abnormal sign detected",
+    "stateUrgentDesc": "Do not wait for another result or repeat the test. Contact emergency services immediately.",
+    "progress": "{n} of 3 checks assessed",
+    "safetyNote": "This is preliminary screening, not a diagnosis, and it cannot rule out stroke.",
+    "breakdown": "Results by check",
+    "guidance": "What to do next",
+    "guidanceNoData": [
+      "Start the checks that have not been completed",
+      "Tap an item that could not be assessed to retry it",
+      "If stroke is already suspected, do not wait for this result—contact local emergency services now"
     ],
-    "suggestWarn": [
-      "See a doctor for evaluation",
-      "Note symptoms & timing",
-      "Worsening? Call emergency"
+    "guidanceIncomplete": [
+      "Complete the remaining checks",
+      "Tap an item that could not be assessed to retry it",
+      "For sudden symptoms or suspected stroke, do not wait—contact local emergency services now"
     ],
-    "suggestBad": [
-      "Call emergency now",
-      "Don't drive alone",
-      "Treat within 4.5 hrs"
+    "guidanceOk": [
+      "If symptoms remain or stroke is suspected, contact local emergency services immediately",
+      "A negative screening result cannot rule out stroke",
+      "Note the time symptoms started if any develop later"
     ],
-    "retryAll": "Test Again",
-    "back": "Back",
-    "home": "Home",
-    "call": "Call Emergency",
-    "seeDoc": "See a doctor",
-    "eyebrow": "FAST SCORE",
-    "breakdown": "Breakdown",
-    "suggest": "Tips",
-    "notTested": "Not tested",
-    "invalidStatus": "Could not assess · tap to retry",
-    "partialNote": "Based on {n}/3 tests",
-    "noValidNote": "No assessable result yet. Please retest.",
-    "overrideNote": "Clear abnormality in: {modules}. A single sign can mean stroke risk. See a doctor.",
+    "guidanceReview": [
+      "Seek medical assessment",
+      "For sudden or worsening symptoms, contact local emergency services immediately",
+      "Note the time symptoms started"
+    ],
+    "guidanceUrgent": [
+      "Contact local emergency services immediately",
+      "Note the time symptoms started",
+      "Do not drive yourself and do not wait to repeat the test"
+    ],
+    "startTests": "Start checks",
+    "continueTests": "Complete remaining checks",
+    "home": "Back to home",
+    "retryAll": "Restart all checks",
+    "retryConfirm": "Clear all results and restart every check?",
+    "startModule": "Start",
+    "retryModule": "Retry",
+    "emergencyThailand": "Call Thailand EMS · 1669",
+    "emergencyLocal": "Contact local emergency services now",
+    "moduleScore": "{module} score",
+    "technicalTitle": "Research details",
+    "technicalDisclaimer": "Internal scores are for system analysis only. They are not risk percentages, severity measures, or diagnostic results.",
+    "internalWeightedScore": "Internal weighted score",
+    "basedOn": "based on {n}/3 checks",
     "languageUnavailable": "Language unavailable"
   },
   "permissions": {

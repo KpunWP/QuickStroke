@@ -3,639 +3,650 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>QuickStroke</title>
+<title>QuickStroke · ผลการคัดกรอง</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <meta name="theme-color" content="#0F6FFF">
 <meta name="apple-mobile-web-app-title" content="QuickStroke">
 <link rel="apple-touch-icon" href="/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-
-  :root {
-    --paper:#F4F7FA;
-    --surface:rgba(255,255,255,.86);
-    --surface-solid:#FFFFFF;
+  :root{
+    --paper:#F3F6FA;
+    --surface:#FFFFFF;
     --surface-alt:#F8FAFC;
-    --ink:#172536;
-    --ink-soft:#5A6B7B;
-    --ink-faint:#94A3B2;
-    --clinical:#2B7DE9;
-    --clinical-deep:#0D58B8;
-    --clinical-soft:#EAF2FD;
-    --mint:#1FA98F;
-    --mint-soft:#E6F6F2;
-    --amber:#E89B3C;
-    --amber-soft:#FCF3E6;
-    --coral:#E5544E;
-    --coral-soft:#FCEBEA;
-    --line:rgba(27,42,58,.10);
-    --line-soft:rgba(27,42,58,.07);
-    --glass-border:rgba(255,255,255,.70);
-    --shadow:0 10px 28px rgba(27,42,58,.08);
-    --shadow-lg:0 18px 46px rgba(27,42,58,.13);
-    --blue-glow:0 0 24px rgba(43,125,233,.22),0 16px 40px rgba(27,42,58,.10);
-    --r:24px;
-    --r-sm:18px;
+    --ink:#142235;
+    --ink-soft:#506174;
+    --ink-faint:#748397;
+    --clinical:#176FD1;
+    --clinical-deep:#0B55AD;
+    --clinical-soft:#EAF3FE;
+    --mint:#137F6D;
+    --mint-soft:#E9F7F3;
+    --amber:#A9650E;
+    --amber-soft:#FFF3DD;
+    --coral:#C93D38;
+    --coral-soft:#FDEDEC;
+    --neutral:#56677A;
+    --neutral-soft:#EEF2F6;
+    --line:#D7E0E9;
+    --shadow:0 10px 28px rgba(20,34,53,.08);
+    --radius:24px;
   }
-  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html{background:#E8EEF5;min-height:100dvh}
-  html,body{-webkit-overflow-scrolling:touch}
+
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html{min-height:100%;background:#E7EDF4}
   body{
     min-height:100dvh;
-    background:
-      radial-gradient(circle at 50% -6%, rgba(43,125,233,.22), transparent 34%),
-      radial-gradient(circle at 100% 18%, rgba(31,169,143,.10), transparent 26%),
-      var(--paper);
-    font-family:'IBM Plex Sans Thai','Manrope',-apple-system,sans-serif;
+    background:var(--paper);
     color:var(--ink);
-    display:flex;flex-direction:column;
-    overflow-x:hidden;line-height:1.5;
+    font-family:'IBM Plex Sans Thai','Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+    line-height:1.55;
+    overflow-x:hidden;
   }
-  .num{font-family:'Manrope',sans-serif;font-variant-numeric:tabular-nums}
+  button{font:inherit}
+  button:focus-visible,summary:focus-visible{outline:3px solid rgba(23,111,209,.28);outline-offset:3px}
 
   header{
-    position:sticky;top:0;z-index:50;
-    min-height:70px;padding:14px 18px;
-    display:flex;align-items:center;justify-content:space-between;gap:12px;
-    background:rgba(244,247,250,.78);
-    border-bottom:1px solid rgba(255,255,255,.72);
-    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-    box-shadow:0 8px 28px rgba(27,42,58,.05);
+    position:sticky;top:0;z-index:20;
+    min-height:70px;padding:13px 18px;
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    background:rgba(243,246,250,.96);
+    border-bottom:1px solid var(--line);
+    backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);
   }
   .brand{display:flex;align-items:center;gap:10px;min-width:0}
   .brand-mark{
-    width:42px;height:42px;border-radius:21px;
-    background:linear-gradient(180deg,#2388ff,var(--clinical-deep));
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    box-shadow:0 0 18px rgba(43,125,233,.35),0 10px 26px rgba(27,42,58,.14);
+    width:44px;height:44px;border-radius:16px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(180deg,#2388FF,var(--clinical-deep));
+    box-shadow:0 8px 20px rgba(23,111,209,.20);
   }
-  .brand-mark svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2.25}
-  .brand-mark svg .pulse-line{stroke-linecap:round;stroke-linejoin:round}
-  .brand-mark svg .bolt{fill:#fff;stroke:none}
-  .brand-text{
-    font-family:'Manrope';font-weight:800;font-size:18px;letter-spacing:.2px;color:var(--ink);
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  .brand-mark svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+  .brand-text{font-family:'Manrope';font-size:19px;font-weight:800;letter-spacing:-.2px;white-space:nowrap}
+  .brand-text strong{color:var(--clinical)}
+  .lang-seg{
+    display:flex;gap:3px;padding:4px;border-radius:16px;
+    background:#fff;border:1px solid var(--line);
   }
-  .brand-text span{color:var(--clinical)}
-  .header-actions{display:flex;align-items:center;gap:8px;flex-shrink:0}
-  .back-btn{
-    height:42px;border:1px solid var(--glass-border);background:rgba(255,255,255,.72);border-radius:16px;
-    color:var(--ink-soft);font-family:'IBM Plex Sans Thai';font-size:13px;font-weight:800;
-    padding:0 13px;cursor:pointer;display:flex;align-items:center;gap:5px;
-    box-shadow:0 8px 22px rgba(27,42,58,.06);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-    transition:transform .12s,background .15s,color .15s;
+  .lang-seg button{
+    height:38px;min-width:42px;padding:0 8px;border:0;border-radius:12px;
+    background:transparent;color:var(--ink-faint);
+    font-family:'Manrope';font-size:14px;font-weight:800;cursor:pointer;
   }
-  .back-btn:active{transform:scale(.96)}
-  .back-btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.2}
-  #lang-sw-fixed{
-    display:flex;gap:3px;padding:4px;border-radius:18px;
-    background:rgba(255,255,255,.72);border:1px solid var(--glass-border);
-    box-shadow:0 8px 22px rgba(27,42,58,.06);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  }
-  .lsf-btn{
-    height:34px;min-width:38px;border:none;background:transparent;
-    font-family:'Manrope';font-weight:800;font-size:12px;color:var(--ink-faint);
-    padding:0 8px;border-radius:14px;cursor:pointer;transition:transform .12s,background .15s,color .15s,box-shadow .15s;
-  }
-  .lsf-btn:active{transform:scale(.96)}
-  .lsf-btn.active{
-    color:#fff;background:linear-gradient(180deg,#2388ff,var(--clinical-deep));
-    box-shadow:0 0 0 1px rgba(73,158,255,.45),0 0 18px rgba(43,125,233,.32);
-  }
+  .lang-seg button.active{background:var(--clinical);color:#fff}
+  .lang-seg button:active{transform:scale(.97)}
 
-  /* ── Score hero ── */
-  .score-hero{padding:28px 22px 18px;text-align:center}
-  .score-eyebrow{
-    font-family:'Manrope';font-size:11px;font-weight:800;letter-spacing:1.5px;
-    color:var(--ink-faint);text-transform:uppercase;margin-bottom:14px;
+  main{width:100%;max-width:470px;margin:0 auto;padding:22px 18px 34px}
+  .page-label{font-size:17px;font-weight:800;color:var(--ink-soft);margin:0 2px 12px}
+
+  .result-hero{
+    padding:26px 20px 22px;border-radius:28px;border:2px solid var(--line);
+    background:var(--surface);box-shadow:var(--shadow);text-align:center;
   }
-  .score-ring{
-    width:186px;height:186px;margin:0 auto 18px;position:relative;
-    border-radius:38px;background:var(--surface);
-    border:1px solid var(--glass-border);box-shadow:var(--blue-glow);
-    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  .result-symbol{
+    width:72px;height:72px;margin:0 auto 16px;border-radius:24px;
     display:flex;align-items:center;justify-content:center;
   }
-  .score-ring svg{transform:rotate(-90deg);filter:drop-shadow(0 8px 18px rgba(27,42,58,.08))}
-  .ring-track{fill:none;stroke:rgba(27,42,58,.07);stroke-width:12}
-  .ring-fill{fill:none;stroke-width:12;stroke-linecap:round;
-    stroke-dasharray:376;stroke-dashoffset:376;transition:stroke-dashoffset 1.2s cubic-bezier(0.4,0,0.2,1)}
-  .score-center{position:absolute;inset:0;display:flex;flex-direction:column;
-    align-items:center;justify-content:center}
-  .score-num{font-family:'Manrope';font-size:56px;font-weight:800;line-height:1;letter-spacing:-2px}
-  .score-denom{font-family:'Manrope';font-size:14px;font-weight:700;color:var(--ink-faint);margin-top:2px}
-
-  .risk-badge{
-    display:inline-flex;align-items:center;gap:7px;padding:9px 20px;
-    border-radius:24px;font-size:16px;font-weight:800;margin-bottom:12px;
-    border:1px solid rgba(255,255,255,.65);box-shadow:0 8px 22px rgba(27,42,58,.06);
-  }
-  .risk-badge svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.5}
-  .risk-badge.ok{background:rgba(230,246,242,.86);color:var(--mint)}
-  .risk-badge.warn{background:rgba(252,243,230,.88);color:var(--amber)}
-  .risk-badge.bad{background:rgba(252,235,234,.88);color:var(--coral)}
-  .risk-desc{font-size:15px;color:var(--ink-soft);line-height:1.6;max-width:330px;margin:0 auto;font-weight:700}
-
-  /* ── Module breakdown ── */
-  .section{padding:8px 22px 0}
-  .section-eyebrow{
-    font-family:'Manrope';font-size:11px;font-weight:800;letter-spacing:1.5px;
-    color:var(--ink-faint);text-transform:uppercase;margin-bottom:13px;padding-left:2px;
-  }
-  #module-cards{display:flex;flex-direction:column;gap:10px}
-  .mcard{
-    background:var(--surface);border:1px solid var(--glass-border);border-radius:24px;
-    padding:18px;box-shadow:var(--shadow);
-    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-  }
-  .mcard.ok{border-color:rgba(31,169,143,.24);background:rgba(230,246,242,.72)}
-  .mcard.warn{border-color:rgba(232,155,60,.25);background:rgba(252,243,230,.74)}
-  .mcard.bad{border-color:rgba(229,84,78,.24);background:rgba(252,235,234,.74)}
-  .mcard.na{border-color:rgba(27,42,58,.12);background:rgba(248,250,252,.82)}
-  .mcard.na .mcard-status{color:var(--ink-faint)}
-  .mcard.na .mcard-icon svg{stroke:var(--ink-faint)}
-  .partial-note{text-align:center;font-size:12.5px;color:var(--ink-faint);font-weight:700;margin-top:8px}
-  .mcard-top{display:flex;align-items:center;gap:13px;margin-bottom:13px}
-  .mcard-icon{
-    width:52px;height:52px;border-radius:21px;display:flex;align-items:center;
-    justify-content:center;flex-shrink:0;background:rgba(248,250,252,.95);
-    box-shadow:inset 0 0 0 1px rgba(27,42,58,.05);
-  }
-  .mcard-icon svg{width:27px;height:27px;stroke:var(--ink-soft);fill:none;stroke-width:2.1}
-  .mcard.ok .mcard-icon,.mcard.warn .mcard-icon,.mcard.bad .mcard-icon{background:#fff}
-  .mcard.ok .mcard-icon svg{stroke:var(--mint)}
-  .mcard.warn .mcard-icon svg{stroke:var(--amber)}
-  .mcard.bad .mcard-icon svg{stroke:var(--coral)}
-  .mcard-name{font-size:17px;font-weight:800;color:var(--ink)}
-  .mcard-status{font-size:13.5px;font-weight:800;margin-top:1px;color:var(--ink-faint)}
-  .mcard.ok .mcard-status{color:var(--mint)}
-  .mcard.warn .mcard-status{color:var(--amber)}
-  .mcard.bad .mcard-status{color:var(--coral)}
-  .mcard-score-row{display:flex;align-items:center;gap:12px}
-  .mcard-bar-track{flex:1;height:8px;background:rgba(27,42,58,.07);border-radius:8px;overflow:hidden}
-  .mcard-bar-fill{height:100%;border-radius:8px;transition:width 1s cubic-bezier(0.4,0,0.2,1)}
-  .mcard.ok .mcard-bar-fill{background:var(--mint)}
-  .mcard.warn .mcard-bar-fill{background:var(--amber)}
-  .mcard.bad .mcard-bar-fill{background:var(--coral)}
-  .mcard-score-num{font-family:'Manrope';font-size:20px;font-weight:800;
-    color:var(--ink);width:62px;text-align:right;flex-shrink:0}
-
-  /* ── Emergency box ── */
-  .emergency-box{
-    margin:20px 22px 0;background:rgba(252,235,234,.78);
-    border:1px solid rgba(229,84,78,.18);border-radius:24px;padding:18px;
-    display:none;text-align:center;box-shadow:0 10px 28px rgba(229,84,78,.07);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  }
-  .emergency-box.visible{display:block}
-  .emg-icon{width:48px;height:48px;margin:0 auto 10px;border-radius:18px;
-    background:var(--coral);display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(229,84,78,.22)}
-  .emg-icon svg{width:26px;height:26px;stroke:#fff;fill:none;stroke-width:2.2}
-  .emg-title{font-size:18px;font-weight:800;color:var(--coral);margin-bottom:14px}
-  .emg-call{display:flex;align-items:center;justify-content:center;gap:9px;
-    background:var(--coral);color:#fff;border:none;border-radius:20px;padding:15px;
-    font-family:'IBM Plex Sans Thai';font-size:18px;font-weight:800;cursor:pointer;width:100%;
-    transition:transform .12s;box-shadow:0 10px 24px rgba(229,84,78,.20)}
-  .emg-call:active{transform:scale(.97)}
-  .emg-call svg{width:21px;height:21px;stroke:#fff;fill:none;stroke-width:2.2}
-
-  /* ── Suggestions ── */
-  .suggest-box{margin:20px 22px 0;background:var(--surface);
-    border:1px solid var(--glass-border);border-radius:24px;padding:18px;box-shadow:var(--shadow);
-    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
-  .suggest-title{font-size:15px;font-weight:800;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:var(--ink)}
-  .suggest-title svg{width:18px;height:18px;stroke:var(--clinical);fill:none;stroke-width:2.2}
-  #suggest-list{list-style:none;display:flex;flex-direction:column;gap:11px}
-  #suggest-list li{font-size:14.5px;color:var(--ink-soft);line-height:1.5;
-    padding-left:24px;position:relative;font-weight:700}
-  #suggest-list li::before{
-    content:'';position:absolute;left:4px;top:8px;width:8px;height:8px;
-    border-radius:50%;background:var(--clinical);box-shadow:0 0 10px rgba(43,125,233,.24);
+  .result-symbol svg{width:38px;height:38px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+  .result-title{font-size:clamp(28px,7.5vw,34px);font-weight:800;line-height:1.22;letter-spacing:-.45px}
+  .result-desc{font-size:18px;font-weight:600;color:var(--ink-soft);line-height:1.6;margin:12px auto 0;max-width:370px}
+  .result-progress{font-size:17px;font-weight:800;margin-top:15px}
+  .safety-note{
+    margin-top:18px;padding-top:16px;border-top:1px solid currentColor;
+    font-size:16px;font-weight:700;line-height:1.55;opacity:.90;
   }
 
-  /* ── Actions ── */
-  .actions{padding:24px 22px 32px;margin-top:auto;display:flex;flex-direction:column;gap:11px}
-  .btn-primary{
-    min-height:62px;border-radius:24px;border:none;
-    background:linear-gradient(180deg,#2388ff,var(--clinical-deep));
-    color:#fff;font-family:'IBM Plex Sans Thai';font-size:18px;font-weight:800;
-    cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;
-    box-shadow:var(--blue-glow);transition:transform .12s;
-  }
-  .btn-primary:active{transform:scale(.985)}
-  .btn-primary svg{width:19px;height:19px;stroke:#fff;fill:none;stroke-width:2.2}
-  .btn-secondary{
-    min-height:52px;border-radius:20px;border:1px solid var(--glass-border);
-    background:rgba(255,255,255,.72);color:var(--ink-soft);font-family:'IBM Plex Sans Thai';
-    font-size:15px;font-weight:800;cursor:pointer;transition:transform .12s;
-    box-shadow:0 8px 22px rgba(27,42,58,.06);
-    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  }
-  .btn-secondary:active{transform:scale(.98)}
+  .state-ok{background:var(--mint-soft);border-color:#A9DCCD}
+  .state-ok .result-symbol{background:#fff;color:var(--mint)}
+  .state-ok .result-title,.state-ok .result-progress{color:#0B6657}
+  .state-review{background:var(--amber-soft);border-color:#E7C88B}
+  .state-review .result-symbol{background:#fff;color:var(--amber)}
+  .state-review .result-title,.state-review .result-progress{color:#804C08}
+  .state-urgent{background:var(--coral-soft);border-color:#E7A39F}
+  .state-urgent .result-symbol{background:#fff;color:var(--coral)}
+  .state-urgent .result-title,.state-urgent .result-progress{color:#A72F2B}
+  .state-incomplete,.state-no-data{background:var(--clinical-soft);border-color:#AFCDEC}
+  .state-incomplete .result-symbol,.state-no-data .result-symbol{background:#fff;color:var(--clinical)}
+  .state-incomplete .result-title,.state-no-data .result-title,
+  .state-incomplete .result-progress,.state-no-data .result-progress{color:var(--clinical-deep)}
 
-  @media (min-width:520px){
-    body{max-width:430px;margin:0 auto;box-shadow:0 0 0 1px rgba(27,42,58,.06),0 24px 70px rgba(27,42,58,.16)}
+  .emergency-action{margin-top:20px}
+  .emergency-call{
+    width:100%;min-height:64px;border:0;border-radius:20px;padding:13px 18px;
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    background:var(--coral);color:#fff;font-size:21px;font-weight:800;cursor:pointer;
+    box-shadow:0 10px 24px rgba(201,61,56,.22);
   }
-  @media (max-width:390px){
-    .brand-text{font-size:16px}.back-btn span{display:none}.back-btn{width:42px;padding:0;justify-content:center}.lsf-btn{min-width:34px;padding:0 7px}
+  .emergency-call svg{width:24px;height:24px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .emergency-call:active{transform:scale(.985)}
+  .emergency-local{
+    min-height:64px;padding:15px 17px;border-radius:20px;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--coral);color:#fff;font-size:19px;font-weight:800;line-height:1.45;
   }
-  @media (max-height:760px){
-    header{min-height:62px;padding:10px 14px}.brand-mark{width:38px;height:38px}.brand-text{font-size:16px}
-    .lsf-btn{height:32px;min-width:36px;font-size:12px}.back-btn{height:40px}
-    .score-hero{padding:20px 20px 12px}.score-ring{width:168px;height:168px;border-radius:32px;margin-bottom:12px}
-    .score-num{font-size:50px}.section{padding-left:20px;padding-right:20px}.actions{padding-bottom:20px}
-  }
-  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 
+  .section{margin-top:22px}
+  .section-title{font-size:21px;font-weight:800;margin:0 2px 12px}
+  .module-list{display:flex;flex-direction:column;gap:10px}
+  .module-row{
+    width:100%;min-height:82px;padding:14px 15px;border-radius:21px;
+    display:grid;grid-template-columns:50px minmax(0,1fr) auto;align-items:center;gap:12px;
+    background:var(--surface);border:1.5px solid var(--line);color:var(--ink);text-align:left;
+  }
+  button.module-row{cursor:pointer}
+  button.module-row:active{transform:scale(.99)}
+  .module-icon{
+    width:50px;height:50px;border-radius:17px;display:flex;align-items:center;justify-content:center;
+    background:var(--neutral-soft);color:var(--neutral);
+  }
+  .module-icon svg{width:28px;height:28px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+  .module-name{font-size:20px;font-weight:800;line-height:1.25}
+  .module-status{font-size:17px;font-weight:700;color:var(--ink-soft);margin-top:3px;line-height:1.35}
+  .module-side{display:flex;align-items:center;gap:8px;justify-content:flex-end}
+  .module-action-label{font-size:16px;font-weight:800;color:var(--clinical);white-space:nowrap}
+  .module-chevron{width:20px;height:20px;fill:none;stroke:var(--clinical);stroke-width:2.4}
+  .module-row.ok{border-color:#B6DED2}
+  .module-row.ok .module-icon{background:var(--mint-soft);color:var(--mint)}
+  .module-row.ok .module-status{color:var(--mint)}
+  .module-row.warn{border-color:#E8CE9A}
+  .module-row.warn .module-icon{background:var(--amber-soft);color:var(--amber)}
+  .module-row.warn .module-status{color:var(--amber)}
+  .module-row.bad{border-color:#E8ADAA}
+  .module-row.bad .module-icon{background:var(--coral-soft);color:var(--coral)}
+  .module-row.bad .module-status{color:var(--coral)}
+  .module-row.na .module-icon{background:var(--neutral-soft);color:var(--neutral)}
+
+  .guidance-card{
+    margin-top:22px;padding:20px;border-radius:24px;background:var(--surface);
+    border:1.5px solid var(--line);box-shadow:var(--shadow);
+  }
+  .guidance-title{font-size:21px;font-weight:800;margin-bottom:13px}
+  .guidance-list{list-style:none;display:flex;flex-direction:column;gap:12px}
+  .guidance-list li{
+    position:relative;padding-left:29px;color:var(--ink-soft);
+    font-size:18px;font-weight:650;line-height:1.55;
+  }
+  .guidance-list li::before{
+    content:'✓';position:absolute;left:0;top:0;color:var(--clinical);font-weight:900;
+  }
+  .state-urgent + .section + .guidance-card .guidance-list li::before{color:var(--coral)}
+
+  .research-panel{margin-top:22px}
+  .research-panel details{border:1.5px dashed #9AABBC;border-radius:20px;background:#fff;padding:0 17px}
+  .research-panel summary{min-height:58px;display:flex;align-items:center;cursor:pointer;font-size:17px;font-weight:800;color:var(--ink-soft)}
+  .research-content{padding:0 0 18px}
+  .research-warning{font-size:16px;font-weight:700;color:var(--coral);line-height:1.5;margin-bottom:13px}
+  .technical-grid{display:grid;grid-template-columns:1fr auto;gap:9px 12px;font-size:16px}
+  .technical-grid dt{color:var(--ink-soft);font-weight:700}
+  .technical-grid dd{font-family:'Manrope';font-weight:800;text-align:right}
+
+  .actions{margin-top:24px;display:flex;flex-direction:column;gap:11px}
+  .btn-primary,.btn-secondary{
+    width:100%;min-height:62px;border-radius:21px;padding:12px 18px;
+    font-size:20px;font-weight:800;cursor:pointer;
+  }
+  .btn-primary{border:0;background:var(--clinical);color:#fff;box-shadow:0 10px 24px rgba(23,111,209,.20)}
+  .btn-primary:active,.btn-secondary:active{transform:scale(.985)}
+  .btn-secondary{border:1.5px solid #AFC0D1;background:#fff;color:var(--ink)}
+  .btn-text{
+    min-height:50px;border:0;background:transparent;color:var(--ink-soft);
+    font-size:17px;font-weight:750;cursor:pointer;text-decoration:underline;text-underline-offset:4px;
+  }
+  [hidden]{display:none!important}
+
+  @media(min-width:520px){
+    body{max-width:500px;margin:0 auto;box-shadow:0 0 0 1px rgba(20,34,53,.05),0 20px 64px rgba(20,34,53,.14)}
+  }
+  @media(max-width:370px){
+    header{padding-left:13px;padding-right:13px}.brand-text{font-size:17px}
+    .lang-seg button{min-width:38px;padding:0 6px}
+    main{padding-left:14px;padding-right:14px}
+    .module-row{grid-template-columns:46px minmax(0,1fr) auto;padding-left:12px;padding-right:12px}
+    .module-icon{width:46px;height:46px}.module-name{font-size:18px}.module-status{font-size:16px}
+    .module-action-label{display:none}
+  }
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 </style>
 <script src="config.js"></script>
 <script src="./js/i18n.js"></script>
 </head>
 <body>
-
 <header>
-  <div class="brand">
-    <div class="brand-mark">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><path class="pulse-line" d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"/><path class="bolt" d="M13.2 2.8 7.4 12h4.1l-1.2 9.2 6.3-10.8h-4.2z" opacity=".92"/></svg>
+  <div class="brand" aria-label="QuickStroke">
+    <div class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"/></svg>
     </div>
-    <div class="brand-text">Quick<span> Stroke</span></div>
+    <div class="brand-text">Quick<strong>Stroke</strong></div>
   </div>
-
-  <div class="header-actions">
-    <button class="back-btn" onclick="history.back()">
-      <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
-      <span id="back-label">…</span>
-    </button>
-    <div id="lang-sw-fixed">
-      <button class="lsf-btn" id="lsf-th" onclick="resultSwitchLang('th')">TH</button>
-      <button class="lsf-btn" id="lsf-en" onclick="resultSwitchLang('en')">EN</button>
-      <button class="lsf-btn" id="lsf-ja" onclick="resultSwitchLang('ja')">JA</button>
-    </div>
+  <div class="lang-seg" aria-label="Language selection">
+    <button type="button" id="lang-th" onclick="resultSwitchLang('th')">TH</button>
+    <button type="button" id="lang-en" onclick="resultSwitchLang('en')">EN</button>
+    <button type="button" id="lang-ja" onclick="resultSwitchLang('ja')">JA</button>
   </div>
 </header>
 
-<div class="score-hero">
-  <div class="score-eyebrow" id="eyebrow">FAST SCORE</div>
-  <div class="score-ring">
-    <svg width="168" height="168" viewBox="0 0 168 168">
-      <circle class="ring-track" cx="84" cy="84" r="60"/>
-      <circle class="ring-fill" id="ring-fill" cx="84" cy="84" r="60"/>
-    </svg>
-    <div class="score-center">
-      <div class="score-num" id="total-score">—</div>
-      <div class="score-denom">/ 100</div>
-    </div>
+<main>
+  <div class="page-label" id="page-label">ผลการคัดกรอง</div>
+
+  <section class="result-hero state-no-data" id="result-hero" aria-live="polite">
+    <div class="result-symbol" id="result-symbol" aria-hidden="true"></div>
+    <h1 class="result-title" id="result-title">กำลังเตรียมผล…</h1>
+    <p class="result-desc" id="result-desc"></p>
+    <p class="result-progress" id="result-progress" hidden></p>
+    <div class="emergency-action" id="emergency-action" hidden></div>
+    <p class="safety-note" id="safety-note"></p>
+  </section>
+
+  <section class="section" aria-labelledby="breakdown-title">
+    <h2 class="section-title" id="breakdown-title">ผลแต่ละรายการ</h2>
+    <div class="module-list" id="module-list"></div>
+  </section>
+
+  <section class="guidance-card" aria-labelledby="guidance-title">
+    <h2 class="guidance-title" id="guidance-title">สิ่งที่ควรทำต่อ</h2>
+    <ul class="guidance-list" id="guidance-list"></ul>
+  </section>
+
+  <section class="research-panel" id="research-panel" hidden>
+    <details>
+      <summary id="technical-title">รายละเอียดสำหรับงานวิจัย</summary>
+      <div class="research-content">
+        <p class="research-warning" id="technical-disclaimer"></p>
+        <dl class="technical-grid" id="technical-grid"></dl>
+      </div>
+    </details>
+  </section>
+
+  <div class="actions">
+    <button type="button" class="btn-primary" id="primary-action"></button>
+    <button type="button" class="btn-secondary" id="secondary-action"></button>
+    <button type="button" class="btn-text" id="retry-all" hidden></button>
   </div>
-  <div class="risk-badge" id="risk-badge">—</div>
-  <div class="risk-desc" id="risk-desc"></div>
-</div>
-
-<div class="section">
-  <div class="section-eyebrow" id="breakdown-title">รายละเอียด</div>
-  <div id="module-cards"></div>
-</div>
-
-<div class="emergency-box" id="emergency-box">
-  <div class="emg-icon">
-    <svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
-  </div>
-  <div class="emg-title" id="emg-sub">…</div>
-  <button class="emg-call" onclick="window.location.href='tel:1669'">
-    <svg viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-    <span id="call-label">…</span>
-  </button>
-</div>
-
-<div class="suggest-box" id="suggest-box">
-  <div class="suggest-title">
-    <svg viewBox="0 0 24 24"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.6.5 1 1.3 1 2.1h6c0-.8.4-1.6 1-2.1A7 7 0 0 0 12 2z"/></svg>
-    <span id="suggest-title">…</span>
-  </div>
-  <ul id="suggest-list"></ul>
-</div>
-
-<div class="actions">
-  <button class="btn-primary" id="retry-btn" onclick="retryAll()">…</button>
-  <button class="btn-secondary" id="home-btn" onclick="window.location.href='index.html'">…</button>
-</div>
+</main>
 
 <script>
 'use strict';
 
-// อ่านภาษาปัจจุบันจาก sessionStorage และ normalize เป็น th / en / ja
-function getLang() {
-  return String(sessionStorage.getItem('fast_lang') || 'th')
-    .split('-')[0]
-    .toLowerCase();
-}
-
-const RESULT_LOCALE_MAP = Object.freeze({
-  th: 'th-TH',
-  en: 'en-US',
-  ja: 'ja-JP'
+const RESULT_LOCALE_MAP = Object.freeze({ th:'th-TH', en:'en-US', ja:'ja-JP' });
+const MODULES = Object.freeze(['face','arm','speech']);
+const RESULT_CFG = window.QS_CONFIG?.scoring || {};
+const WEIGHTS = Object.freeze({
+  face: RESULT_CFG.faceWeight ?? 0.40,
+  arm: RESULT_CFG.armWeight ?? 0.40,
+  speech: RESULT_CFG.speechWeight ?? 0.20
 });
+const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
+const RESEARCH_MODE = new URLSearchParams(window.location.search).get('research') === '1'
+  || window.QS_CONFIG?.researchMode === true;
 
 const RESULT_REQUIRED_KEYS = Object.freeze([
-  'pageTitle', 'face', 'arm', 'speech',
-  'ok', 'warn', 'bad',
-  'riskOk', 'riskWarn', 'riskBad',
-  'descOk', 'descWarn', 'descBad',
-  'suggestOk', 'suggestWarn', 'suggestBad',
-  'retryAll', 'back', 'home', 'call', 'seeDoc',
-  'eyebrow', 'breakdown', 'suggest', 'notTested',
-  'invalidStatus', 'partialNote', 'noValidNote',
-  'overrideNote', 'languageUnavailable'
+  'pageTitle','pageLabel','face','arm','speech',
+  'moduleOk','moduleReview','moduleBad','notTested','invalidStatus',
+  'stateNoDataTitle','stateNoDataDesc','stateIncompleteTitle','stateIncompleteDesc',
+  'stateOkTitle','stateOkDesc','stateReviewTitle','stateReviewDesc',
+  'stateUrgentTitle','stateUrgentDesc','progress', 'safetyNote',
+  'breakdown','guidance','guidanceNoData','guidanceIncomplete','guidanceOk','guidanceReview','guidanceUrgent',
+  'startTests','continueTests','home','retryAll','retryConfirm','startModule','retryModule',
+  'emergencyThailand','emergencyLocal','technicalTitle','technicalDisclaimer',
+  'moduleScore','internalWeightedScore','basedOn','languageUnavailable'
 ]);
 
+const ICONS = Object.freeze({
+  face:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>',
+  arm:'<svg viewBox="0 0 24 24"><path d="M7 20v-8a2 2 0 0 1 4 0v1-5a2 2 0 0 1 4 0v5-3a2 2 0 0 1 4 0v5c0 4-2.5 6-6 6h-1c-2.8 0-5-2.2-5-5z"/></svg>',
+  speech:'<svg viewBox="0 0 24 24"><path d="M12 3a3 3 0 0 0-3 3v5a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg>'
+});
+
+const STATE_ICONS = Object.freeze({
+  ok:'<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
+  review:'<svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>',
+  urgent:'<svg viewBox="0 0 24 24"><path d="M12 8v5m0 4h.01"/><circle cx="12" cy="12" r="9"/></svg>',
+  incomplete:'<svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h8M8 18h5"/><path d="M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>',
+  noData:'<svg viewBox="0 0 24 24"><path d="M9.1 9a3 3 0 1 1 5.2 2c-1.2 1.1-2.3 1.7-2.3 3"/><path d="M12 18h.01"/><circle cx="12" cy="12" r="9"/></svg>'
+});
+
 let RESULT_T = null;
-let resultLanguageRequestId = 0;
+let RESULT_LANG_CODE = 'th';
+let languageRequestId = 0;
+let CURRENT_RESULT = null;
 
-function validateResultMessages(messages, locale) {
-  if (!messages || typeof messages !== 'object') {
-    throw new Error(`Missing result translations for ${locale}`);
-  }
-
+function validateMessages(messages, locale){
+  if (!messages || typeof messages !== 'object') throw new Error(`Missing result translations for ${locale}`);
   const missing = RESULT_REQUIRED_KEYS.filter(key => messages[key] === undefined);
-  if (missing.length) {
-    throw new Error(`Incomplete result translations for ${locale}: ${missing.join(', ')}`);
-  }
-
-  ['suggestOk', 'suggestWarn', 'suggestBad'].forEach(key => {
-    if (!Array.isArray(messages[key]) || messages[key].length === 0) {
-      throw new Error(`Invalid result suggestion list ${key} for ${locale}`);
-    }
+  if (missing.length) throw new Error(`Incomplete result translations for ${locale}: ${missing.join(', ')}`);
+  ['guidanceNoData','guidanceIncomplete','guidanceOk','guidanceReview','guidanceUrgent'].forEach(key => {
+    if (!Array.isArray(messages[key]) || !messages[key].length) throw new Error(`Invalid list ${key} for ${locale}`);
   });
 }
 
-function setResultLanguageButtons(code) {
-  ['th','en','ja'].forEach(c => {
-    const button = document.getElementById('lsf-' + c);
-    if (!button) return;
+function getSavedLang(){
+  return String(sessionStorage.getItem('fast_lang') || 'th').split('-')[0].toLowerCase();
+}
 
-    const active = c === code;
+function setLanguageButtons(code){
+  ['th','en','ja'].forEach(item => {
+    const button = document.getElementById(`lang-${item}`);
+    const active = item === code;
     button.classList.toggle('active', active);
     button.setAttribute('aria-pressed', String(active));
   });
 }
 
-async function readResultLocale(locale, persist) {
-  if (!window.QuickStrokeI18n) {
-    throw new Error('QuickStrokeI18n is not available');
-  }
-
-  await window.QuickStrokeI18n.setLocale(locale, {
-    persist,
-    apply: false
-  });
-
-  const messages = window.QuickStrokeI18n.getMessages();
-  const resultMessages = messages?.result;
-  validateResultMessages(resultMessages, locale);
-  return resultMessages;
+async function readLocale(locale, persist){
+  if (!window.QuickStrokeI18n) throw new Error('QuickStrokeI18n is not available');
+  await window.QuickStrokeI18n.setLocale(locale, { persist, apply:false });
+  const messages = window.QuickStrokeI18n.getMessages()?.result;
+  validateMessages(messages, locale);
+  return messages;
 }
 
-async function loadResultLanguage(requestedCode, { persist = true } = {}) {
+async function loadResultLanguage(requestedCode, {persist=true}={}){
   let code = String(requestedCode || 'th').split('-')[0].toLowerCase();
   let locale = RESULT_LOCALE_MAP[code];
+  if (!locale){ code='th'; locale=RESULT_LOCALE_MAP.th; }
 
-  if (!locale) {
-    console.warn(`Unsupported result language: ${requestedCode}`);
-    code = 'th';
-    locale = RESULT_LOCALE_MAP.th;
-  }
-
-  const requestId = ++resultLanguageRequestId;
+  const requestId = ++languageRequestId;
   let messages;
-
-  try {
-    messages = await readResultLocale(locale, persist);
-  } catch (error) {
-    console.error(`Could not load result locale ${locale}.`, error);
-
+  try{
+    messages = await readLocale(locale, persist);
+  }catch(error){
+    console.error(`Could not load ${locale}.`, error);
     if (code === 'en') return false;
-
-    try {
-      code = 'en';
-      locale = RESULT_LOCALE_MAP.en;
-      messages = await readResultLocale(locale, false);
-    } catch (fallbackError) {
-      console.error('Could not load the English result fallback.', fallbackError);
-      return false;
-    }
+    code='en'; locale=RESULT_LOCALE_MAP.en;
+    try{ messages = await readLocale(locale, false); }
+    catch(fallbackError){ console.error('English fallback failed.', fallbackError); return false; }
   }
 
-  if (requestId !== resultLanguageRequestId) return false;
-
+  if (requestId !== languageRequestId) return false;
   RESULT_T = messages;
+  RESULT_LANG_CODE = code;
   if (persist) sessionStorage.setItem('fast_lang', code);
   document.documentElement.lang = locale;
   document.title = RESULT_T.pageTitle;
-  setResultLanguageButtons(code);
+  setLanguageButtons(code);
   buildResult();
   return true;
 }
 
-// น้ำหนักตามงานวิจัย: face และ arm เป็นตัวทำนาย stroke อิสระ (Santa Clara, n=359)
-const RESULT_CFG = window.QS_CONFIG?.scoring || {};
+function safeReadModule(moduleName){
+  const raw = sessionStorage.getItem(`fast_${moduleName}`);
+  if (!raw) return null;
+  try{
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  }catch(error){
+    console.warn(`Invalid stored result for ${moduleName}.`, error);
+    return { riskLevel:'invalid' };
+  }
+}
 
-const WEIGHTS = {
-  face: RESULT_CFG.faceWeight ?? 0.40,
-  arm: RESULT_CFG.armWeight ?? 0.40,
-  speech: RESULT_CFG.speechWeight ?? 0.20
-};
-
-const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
-
-// SVG icons แทน emoji
-const ICONS = {
-  face:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>',
-  arm:'<svg viewBox="0 0 24 24"><path d="M6 19V9a3 3 0 0 1 6 0v1m0-1a3 3 0 0 1 6 0v10"/></svg>',
-  speech:'<svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg>',
-};
-
-function getRiskClass(score) {
+function getRiskClass(score){
   if (score >= 70) return 'ok';
   if (score >= 45) return 'warn';
   return 'bad';
 }
 
-function applyStaticLabels(T) {
-  document.getElementById('eyebrow').textContent = T.eyebrow;
-  document.getElementById('breakdown-title').textContent = T.breakdown;
-  document.getElementById('suggest-title').textContent = T.suggest;
-  document.getElementById('back-label').textContent = T.back;
-  document.getElementById('call-label').textContent = T.call;
-  document.getElementById('emg-sub').textContent = T.seeDoc;
-  document.getElementById('home-btn').textContent = T.home;
+function getModuleClass(data){
+  if (!data || data.riskLevel === 'invalid' || data.score === undefined || data.score === null) return 'na';
+  if (['ok','warn','bad'].includes(data.riskLevel)) return data.riskLevel;
+  return getRiskClass(Number(data.score));
 }
 
-function buildResult() {
+function calculateResult(){
+  const data = Object.fromEntries(MODULES.map(moduleName => [moduleName, safeReadModule(moduleName)]));
+  const validModules = MODULES.filter(moduleName => getModuleClass(data[moduleName]) !== 'na');
+  const invalidModules = MODULES.filter(moduleName => data[moduleName]?.riskLevel === 'invalid');
+  const missingModules = MODULES.filter(moduleName => !data[moduleName]);
+  const badModules = validModules.filter(moduleName => getModuleClass(data[moduleName]) === 'bad');
+  const warnModules = validModules.filter(moduleName => getModuleClass(data[moduleName]) === 'warn');
+
+  let totalWeight = 0;
+  let weightedSum = 0;
+  validModules.forEach(moduleName => {
+    totalWeight += WEIGHTS[moduleName];
+    weightedSum += Number(data[moduleName].score) * WEIGHTS[moduleName];
+  });
+  const weightedScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : null;
+
+  let state;
+  if (SINGLE_POSITIVE_OVERRIDE && badModules.length > 0) state = 'urgent';
+  else if (validModules.length === 0) state = 'noData';
+  else if (validModules.length < 3) state = 'incomplete';
+  else if (warnModules.length > 0 || getRiskClass(weightedScore) === 'warn') state = 'review';
+  else if (getRiskClass(weightedScore) === 'bad') state = 'urgent';
+  else state = 'ok';
+
+  return { data, validModules, invalidModules, missingModules, badModules, warnModules, weightedScore, state };
+}
+
+function getEmergencyPhone(){
+  const configured = window.QS_CONFIG?.emergency?.phone || window.QS_CONFIG?.emergencyPhone;
+  if (configured) return String(configured).replace(/[^+\d]/g,'');
+  return RESULT_LANG_CODE === 'th' ? '1669' : '';
+}
+
+function getStateCopy(state){
   const T = RESULT_T;
-  if (!T) return;
-  applyStaticLabels(T);
-
-  const data = {
-    face:   JSON.parse(sessionStorage.getItem('fast_face')   || 'null'),
-    arm:    JSON.parse(sessionStorage.getItem('fast_arm')    || 'null'),
-    speech: JSON.parse(sessionStorage.getItem('fast_speech') || 'null'),
+  const map = {
+    noData:[T.stateNoDataTitle,T.stateNoDataDesc],
+    incomplete:[T.stateIncompleteTitle,T.stateIncompleteDesc],
+    ok:[T.stateOkTitle,T.stateOkDesc],
+    review:[T.stateReviewTitle,T.stateReviewDesc],
+    urgent:[T.stateUrgentTitle,T.stateUrgentDesc]
   };
-
-  // ── แยกประเภทผลก่อนคำนวณ ──
-  // 'invalid' = ตรวจไม่สำเร็จทางเทคนิค (เช่น กล้องมองปากไม่เห็น) ไม่ใช่ผลผิดปกติ
-  // เดิม: score 0 ของ invalid ถูกนับเป็น bad → ยิง single-positive override
-  //       → ขึ้น "เสี่ยงสูง โทร 1669" ทั้งที่แค่วัดไม่ได้ = false alarm ร้ายแรง
-  // ใหม่: invalid ถูกตัดออกจาก weighted score และ override โดยสิ้นเชิง
-  const isValid = (m) => data[m] && data[m].score !== undefined && data[m].riskLevel !== 'invalid';
-
-  // weighted FAST score (เฉพาะโมดูลที่ประเมินได้จริง)
-  let totalWeight = 0, weightedSum = 0, validCount = 0;
-  ['face','arm','speech'].forEach(m => {
-    if (isValid(m)) {
-      weightedSum += data[m].score * WEIGHTS[m];
-      totalWeight += WEIGHTS[m];
-      validCount++;
-    }
-  });
-  const fastScore = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : 0;
-
-  // single-positive override (หลัก CPSS) — เฉพาะผลที่ valid เท่านั้น
-  let anyBad = false, badModules = [];
-  ['face','arm','speech'].forEach(m => {
-    if (isValid(m) && getRiskClass(data[m].score) === 'bad') {
-      anyBad = true; badModules.push(m);
-    }
-  });
-  const noValidData = (validCount === 0);
-  const riskClass = noValidData ? 'warn'
-    : (SINGLE_POSITIVE_OVERRIDE && anyBad) ? 'bad'
-    : getRiskClass(fastScore);
-
-  // score ring
-  const circumference = 376;
-  const offset = circumference - (fastScore / 100) * circumference;
-  const ringColors = { ok:'#1FA98F', warn:'#E89B3C', bad:'#E5544E' };
-  const fill = document.getElementById('ring-fill');
-  fill.style.stroke = ringColors[riskClass];
-  setTimeout(() => { fill.style.strokeDashoffset = offset; }, 100);
-  document.getElementById('total-score').textContent = noValidData ? '—' : fastScore;
-  document.getElementById('total-score').style.color = ringColors[riskClass];
-
-  // #4: บอกชัดเมื่อคะแนนมาจากผลไม่ครบ 3 โมดูล
-  let pn = document.getElementById('partial-note');
-  if (!pn){
-    pn = document.createElement('div');
-    pn.id = 'partial-note'; pn.className = 'partial-note';
-    document.getElementById('risk-desc').insertAdjacentElement('afterend', pn);
-  }
-  pn.textContent = noValidData ? '' : (validCount < 3 ? T.partialNote.replace('{n}', validCount) : '');
-
-  // risk badge
-  const checkIcon = '<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';
-  const warnIcon = '<svg viewBox="0 0 24 24"><path d="M12 9v4m0 4h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>';
-  const badge = document.getElementById('risk-badge');
-  badge.className = 'risk-badge ' + riskClass;
-  const badgeIcon = riskClass === 'ok' ? checkIcon : warnIcon;
-  const badgeText = { ok:T.riskOk, warn:T.riskWarn, bad:T.riskBad }[riskClass];
-  badge.innerHTML = badgeIcon + '<span>' + badgeText + '</span>';
-
-  document.getElementById('risk-desc').textContent = noValidData
-    ? T.noValidNote
-    : T['desc' + riskClass.charAt(0).toUpperCase() + riskClass.slice(1)];
-  if (SINGLE_POSITIVE_OVERRIDE && anyBad && fastScore >= 45) {
-    const names = badModules.map(m => T[m]).join(', ');
-    document.getElementById('risk-desc').textContent = T.overrideNote.replace('{modules}', names);
-  }
-
-  // module cards
-  const container = document.getElementById('module-cards');
-  container.innerHTML = '';
-  ['face','arm','speech'].forEach(m => {
-    const d = data[m];
-    const invalid = d && d.riskLevel === 'invalid';
-    const score = (d && !invalid) ? (d.score ?? null) : null;
-    // ยังไม่เช็ค / ตรวจไม่สำเร็จ → สีเทากลาง (เดิมใช้ warn สีส้ม สื่อผิดว่ามีความเสี่ยง)
-    const cls = score !== null ? getRiskClass(score) : 'na';
-    const statusText = invalid ? T.invalidStatus
-      : (score !== null ? { ok:T.ok, warn:T.warn, bad:T.bad }[cls] : T.notTested);
-    const card = document.createElement('div');
-    card.className = 'mcard ' + cls;
-    if (invalid){
-      // แตะการ์ดเพื่อกลับไปทดสอบโมดูลนั้นใหม่ได้ทันที
-      card.style.cursor = 'pointer';
-      card.onclick = () => { window.location.href = m + '-test.html'; };
-    }
-    card.innerHTML = `
-      <div class="mcard-top">
-        <div class="mcard-icon">${ICONS[m]}</div>
-        <div><div class="mcard-name">${T[m]}</div><div class="mcard-status">${statusText}</div></div>
-      </div>
-      <div class="mcard-score-row">
-        <div class="mcard-bar-track"><div class="mcard-bar-fill" style="width:0%" data-target="${score ?? 0}"></div></div>
-        <div class="mcard-score-num">${score !== null ? score : '—'}</div>
-      </div>`;
-    container.appendChild(card);
-  });
-  setTimeout(() => {
-    document.querySelectorAll('.mcard-bar-fill').forEach(el => { el.style.width = el.dataset.target + '%'; });
-  }, 200);
-
-  // emergency
-  document.getElementById('emergency-box').classList.toggle('visible', riskClass === 'bad');
-
-  // suggestions
-  const suggestions = T['suggest' + riskClass.charAt(0).toUpperCase() + riskClass.slice(1)];
-  document.getElementById('suggest-list').innerHTML = suggestions.map(s => `<li>${s}</li>`).join('');
-
-  // retry button
-  document.getElementById('retry-btn').textContent = T.retryAll;
+  return map[state];
 }
 
-function retryAll() {
-  ['fast_face','fast_arm','fast_speech','fast_mode'].forEach(k => sessionStorage.removeItem(k));
+function renderHero(result){
+  const T = RESULT_T;
+  const hero = document.getElementById('result-hero');
+  hero.className = `result-hero state-${result.state === 'noData' ? 'no-data' : result.state}`;
+  document.getElementById('result-symbol').innerHTML = STATE_ICONS[result.state];
+  const [title,desc] = getStateCopy(result.state);
+  document.getElementById('result-title').textContent = title;
+  document.getElementById('result-desc').textContent = desc;
+
+  const progress = document.getElementById('result-progress');
+  const shouldShowProgress = result.state === 'incomplete' || result.state === 'noData';
+  progress.hidden = !shouldShowProgress;
+  progress.textContent = T.progress.replace('{n}', result.validModules.length);
+  document.getElementById('safety-note').textContent = T.safetyNote;
+
+  const emergency = document.getElementById('emergency-action');
+  emergency.innerHTML = '';
+  emergency.hidden = result.state !== 'urgent';
+  if (result.state === 'urgent'){
+    const phone = getEmergencyPhone();
+    if (phone){
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'emergency-call';
+      button.innerHTML = '<svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2.1z"/></svg><span></span>';
+      button.querySelector('span').textContent = T.emergencyThailand;
+      button.addEventListener('click', () => { window.location.href = `tel:${phone}`; });
+      emergency.appendChild(button);
+    }else{
+      const block = document.createElement('div');
+      block.className = 'emergency-local';
+      block.textContent = T.emergencyLocal;
+      emergency.appendChild(block);
+    }
+  }
+}
+
+function moduleStatus(moduleName, data){
+  const T = RESULT_T;
+  if (!data) return { cls:'na', text:T.notTested, action:T.startModule, actionable:true };
+  if (data.riskLevel === 'invalid' || data.score === undefined || data.score === null){
+    return { cls:'na', text:T.invalidStatus, action:T.retryModule, actionable:true };
+  }
+  const cls = getModuleClass(data);
+  const text = cls === 'ok' ? T.moduleOk : cls === 'warn' ? T.moduleReview : T.moduleBad;
+  return { cls, text, action:'', actionable:false };
+}
+
+function renderModules(result){
+  const T = RESULT_T;
+  const list = document.getElementById('module-list');
+  list.innerHTML = '';
+  MODULES.forEach(moduleName => {
+    const status = moduleStatus(moduleName, result.data[moduleName]);
+    const element = document.createElement(status.actionable && result.state !== 'urgent' ? 'button' : 'div');
+    if (element.tagName === 'BUTTON') element.type = 'button';
+    element.className = `module-row ${status.cls}`;
+    element.innerHTML = `
+      <div class="module-icon">${ICONS[moduleName]}</div>
+      <div>
+        <div class="module-name"></div>
+        <div class="module-status"></div>
+      </div>
+      <div class="module-side"></div>`;
+    element.querySelector('.module-name').textContent = T[moduleName];
+    element.querySelector('.module-status').textContent = status.text;
+    if (status.actionable && result.state !== 'urgent'){
+      const side = element.querySelector('.module-side');
+      const actionLabel = document.createElement('span');
+      actionLabel.className = 'module-action-label';
+      actionLabel.textContent = status.action;
+      side.appendChild(actionLabel);
+      side.insertAdjacentHTML('beforeend','<svg class="module-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>');
+      element.addEventListener('click', () => retryModule(moduleName));
+      element.setAttribute('aria-label', `${T[moduleName]} · ${status.text} · ${status.action}`);
+    }
+    list.appendChild(element);
+  });
+}
+
+function renderGuidance(state){
+  const T = RESULT_T;
+  const key = `guidance${state.charAt(0).toUpperCase()}${state.slice(1)}`;
+  const list = document.getElementById('guidance-list');
+  list.innerHTML = '';
+  T[key].forEach(item => {
+    const li = document.createElement('li');
+    li.textContent = item;
+    list.appendChild(li);
+  });
+}
+
+function renderResearch(result){
+  const panel = document.getElementById('research-panel');
+  panel.hidden = !RESEARCH_MODE;
+  if (!RESEARCH_MODE) return;
+  const T = RESULT_T;
+  document.getElementById('technical-title').textContent = T.technicalTitle;
+  document.getElementById('technical-disclaimer').textContent = T.technicalDisclaimer;
+  const grid = document.getElementById('technical-grid');
+  grid.innerHTML = '';
+  MODULES.forEach(moduleName => {
+    const data = result.data[moduleName];
+    const valid = getModuleClass(data) !== 'na';
+    const dt = document.createElement('dt');
+    const dd = document.createElement('dd');
+    dt.textContent = T.moduleScore.replace('{module}', T[moduleName]);
+    dd.textContent = valid ? String(data.score) : '—';
+    grid.append(dt,dd);
+  });
+  const dt = document.createElement('dt');
+  const dd = document.createElement('dd');
+  dt.textContent = T.internalWeightedScore;
+  dd.textContent = result.weightedScore === null ? '—' : `${result.weightedScore} · ${T.basedOn.replace('{n}', result.validModules.length)}`;
+  grid.append(dt,dd);
+}
+
+function setAction(button, label, handler, hidden=false){
+  button.hidden = hidden;
+  button.textContent = label;
+  button.onclick = hidden ? null : handler;
+}
+
+function renderActions(result){
+  const T = RESULT_T;
+  const primary = document.getElementById('primary-action');
+  const secondary = document.getElementById('secondary-action');
+  const retry = document.getElementById('retry-all');
+
+  if (result.state === 'noData'){
+    setAction(primary,T.startTests,continueTests);
+    setAction(secondary,T.home,goHome);
+    setAction(retry,T.retryAll,retryAll,true);
+  }else if (result.state === 'incomplete'){
+    setAction(primary,T.continueTests,continueTests);
+    setAction(secondary,T.home,goHome);
+    setAction(retry,T.retryAll,retryAll,false);
+  }else if (result.state === 'urgent'){
+    setAction(primary,T.home,goHome);
+    setAction(secondary,'',null,true);
+    setAction(retry,'',null,true);
+  }else{
+    setAction(primary,T.home,goHome);
+    setAction(secondary,T.retryAll,retryAll);
+    setAction(retry,'',null,true);
+  }
+}
+
+function buildResult(){
+  if (!RESULT_T) return;
+  document.getElementById('page-label').textContent = RESULT_T.pageLabel;
+  document.getElementById('breakdown-title').textContent = RESULT_T.breakdown;
+  document.getElementById('guidance-title').textContent = RESULT_T.guidance;
+  CURRENT_RESULT = calculateResult();
+  renderHero(CURRENT_RESULT);
+  renderModules(CURRENT_RESULT);
+  renderGuidance(CURRENT_RESULT.state);
+  renderResearch(CURRENT_RESULT);
+  renderActions(CURRENT_RESULT);
+}
+
+function retryModule(moduleName){
+  sessionStorage.removeItem(`fast_${moduleName}`);
+  sessionStorage.setItem('fast_mode','individual');
+  sessionStorage.setItem('fast_lang',RESULT_LANG_CODE);
+  window.location.href = `${moduleName}-test.html`;
+}
+
+function getNextModule(){
+  if (!CURRENT_RESULT) return 'face';
+  return CURRENT_RESULT.invalidModules[0] || CURRENT_RESULT.missingModules[0] || 'face';
+}
+
+function continueTests(){
+  const next = getNextModule();
+  sessionStorage.setItem('fast_mode','full');
+  sessionStorage.setItem('fast_lang',RESULT_LANG_CODE);
+  window.location.href = `${next}-test.html`;
+}
+
+function retryAll(){
+  if (!RESULT_T || !window.confirm(RESULT_T.retryConfirm)) return;
+  ['fast_face','fast_arm','fast_speech','fast_mode'].forEach(key => sessionStorage.removeItem(key));
+  sessionStorage.setItem('fast_lang',RESULT_LANG_CODE);
   window.location.href = 'index.html';
 }
 
-async function resultSwitchLang(code) {
-  await loadResultLanguage(code, { persist: true });
-}
-
+function goHome(){ window.location.href = 'index.html'; }
+async function resultSwitchLang(code){ await loadResultLanguage(code,{persist:true}); }
 window.resultSwitchLang = resultSwitchLang;
 
-(async function initResultLanguage() {
-  const savedLang = getLang();
-  const code = RESULT_LOCALE_MAP[savedLang] ? savedLang : 'th';
-  const ready = await loadResultLanguage(code, { persist: false });
-
-  if (!ready) {
-    throw new Error('Result language initialization failed');
-  }
+(async function init(){
+  const saved = getSavedLang();
+  const code = RESULT_LOCALE_MAP[saved] ? saved : 'th';
+  const ready = await loadResultLanguage(code,{persist:false});
+  if (!ready) throw new Error('Result language initialization failed');
 })().catch(error => {
-  console.error('Result page initialization failed.', error);
-
-  const badge = document.getElementById('risk-badge');
-  if (badge) {
-    badge.className = 'risk-badge warn';
-    badge.textContent = 'Language unavailable';
-  }
+  console.error(error);
+  const title = document.getElementById('result-title');
+  if (title) title.textContent = 'Language unavailable';
 });
 </script>
 <script>
-  if ("serviceWorker" in navigator) {
-    window.addEventListener("load", () => {
-      navigator.serviceWorker
-        .register("/service-worker.js")
-        .then(() => {
-          console.log("QuickStroke service worker registered");
-        })
-        .catch((err) => {
-          console.error("Service worker registration failed:", err);
-        });
-    });
-  }
+if ('serviceWorker' in navigator){
+  window.addEventListener('load',() => {
+    navigator.serviceWorker.register('/service-worker.js').catch(error => console.error('Service worker registration failed:',error));
+  });
+}
 </script>
 </body>
 </html>
