@@ -1691,6 +1691,7 @@ function showFinal() {
         leftPeakDelta: armAnalysis.left?.peakDelta || null
       }
     }));
+    sessionStorage.setItem('fast_result_source', 'arm');
 
     handleArmFastFlow();
   }
@@ -1938,14 +1939,11 @@ async function loadArmMessages(code) {
   return true;
 }
 
-function armNavText(){
+function armNavText() {
   const mode = sessionStorage.getItem('fast_mode');
-  const allDone = ['fast_face','fast_arm','fast_speech']
-    .every(k => sessionStorage.getItem(k));
 
   if (!T) return '';
-  if (mode === 'full') return T.navNext;
-  return allDone ? T.navResult : T.navHome;
+  return mode === 'full' ? T.navNext : T.navResult;
 }
 
 function refreshArmLanguageUI(){
@@ -2069,33 +2067,34 @@ async function selectLang(code) {
 // ═══════════════════════════════════════════════════
 function handleArmFastFlow() {
   if (ARM_DEV_MODE) return;
+
   const mode = sessionStorage.getItem('fast_mode');
-  const allDone = ['fast_face','fast_arm','fast_speech']
-    .every(k => sessionStorage.getItem(k));
   const labels = T;
   if (!labels) return;
 
   setTimeout(() => {
     const existing = document.getElementById('fast-nav-btn');
     if (existing) existing.remove();
+
     const btn = document.createElement('button');
     btn.id = 'fast-nav-btn';
     btn.style.cssText = 'width:calc(100% - 44px);margin:0 22px 16px;min-height:54px;border-radius:14px;border:none;font-family:inherit;font-size:16px;font-weight:600;cursor:pointer;color:#fff;background:var(--blue)';
 
     if (mode === 'full') {
-      // Full: arm เป็นอันที่ 2 → ไป speech ต่อ
+      // Full: Arm is the second step, so continue to Speech.
       btn.textContent = labels.navNext;
-      btn.onclick = () => window.location.href = 'speech-test.html';
+      btn.onclick = () => {
+        window.location.href = 'speech-test.html';
+      };
     } else {
-      if (allDone) {
-        btn.textContent = labels.navResult;
-        btn.style.background = 'var(--green)';
-        btn.onclick = () => window.location.href = 'result.html';
-      } else {
-        btn.textContent = labels.navHome;
-        btn.onclick = () => window.location.href = 'index.html';
-      }
+      // Individual: show this module's result immediately.
+      btn.textContent = labels.navResult;
+      btn.style.background = 'var(--green)';
+      btn.onclick = () => {
+        window.location.href = 'result.html';
+      };
     }
+
     const actionBtn = $('action-btn');
     actionBtn.parentNode.insertBefore(btn, actionBtn);
   }, 700);

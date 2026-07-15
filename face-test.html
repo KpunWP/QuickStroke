@@ -1122,11 +1122,9 @@ function applyFaceLang(){
   }
 
   const navBtn = document.getElementById('fast-nav-btn');
-  if (navBtn){
+  if (navBtn) {
     const mode = sessionStorage.getItem('fast_mode');
-    const allDone = ['fast_face','fast_arm','fast_speech'].every(k=>sessionStorage.getItem(k));
-    if (mode==='full') navBtn.textContent = FL.navNext;
-    else navBtn.textContent = allDone ? FL.navResult : FL.navHome;
+    navBtn.textContent = mode === 'full' ? FL.navNext : FL.navResult;
   }
   updateFaceStatusCards();
   if (document.body.classList.contains('result-visible')) {
@@ -2125,6 +2123,7 @@ function finishInvalid(){
     score:0, riskLevel:'invalid', passed:false,
     breakdown:{ reason:FL.mouthNotAssessable, attempts:assessAttempts, validSmileFrames, smileFrameCount, validSmileRatio:(validSmileFrames/Math.max(1,smileFrameCount)), visibleMouthFrames, lastMouthVisibilityScore, lastMouthDarkRatio, smileEverDetected, method:'unable_to_assess' }
   }));
+  sessionStorage.setItem('fast_result_source', 'face');
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
   setUI({glassColor:'var(--col-orange-glass)', msg:FL.invalidHelp, showReset:true, showScore:true});
   speakFace(FL.mouthNotAssessable, {force:true});
@@ -2138,12 +2137,16 @@ function finishInvalid(){
 function addNavButton(){
   setTimeout(()=>{
     const old=document.getElementById('fast-nav-btn'); if(old) old.remove();
-    const mode=sessionStorage.getItem('fast_mode');
-    const allDone=['fast_face','fast_arm','fast_speech'].every(k=>sessionStorage.getItem(k));
-    let label=FL.navHome, target='index.html', bg='rgba(255,255,255,0.15)';
-    if (mode==='full'){ label=FL.navNext; target='arm-test.html'; bg='#2B7DE9'; }
-    else if (allDone){ label=FL.navResult; target='result.html'; bg='#1FA98F'; }
-    else { label=FL.navHome; target='index.html'; bg='rgba(255,255,255,0.15)'; }
+    const mode = sessionStorage.getItem('fast_mode');
+    let label = FL.navResult;
+    let target = 'result.html';
+    let bg = '#1FA98F';
+
+    if (mode === 'full') {
+      label = FL.navNext;
+      target = 'arm-test.html';
+      bg = '#2B7DE9';
+    }
     const btn=document.createElement('button');
     btn.id='fast-nav-btn'; btn.className='action-btn';
     btn.style.cssText=`background:${bg};border-color:rgba(255,255,255,0.25);color:#fff;font-weight:700;box-shadow:0 4px 12px rgba(43,125,233,0.35);width:100%;padding:13px 16px;border-radius:14px;`;
@@ -2155,7 +2158,13 @@ function addNavButton(){
 
 function saveAndShow(score, riskLevel, breakdown){
   phase='FACE_DONE';
-  sessionStorage.setItem('fast_face', JSON.stringify({ score, riskLevel, passed: riskLevel==='ok', breakdown }));
+  sessionStorage.setItem('fast_face', JSON.stringify({
+    score,
+    riskLevel,
+    passed: riskLevel === 'ok',
+    breakdown
+  }));
+  sessionStorage.setItem('fast_result_source', 'face');
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
 
   const ok = riskLevel==='ok';

@@ -1709,6 +1709,7 @@ function evaluateSpeech(text, confidence) {
     measuredNoisy: !!window.MEASURED_NOISY
   };
   sessionStorage.setItem('fast_speech', JSON.stringify(result));
+  sessionStorage.setItem('fast_result_source', 'speech');
   window.SPEECH_RESULT = result;
 
   // แสดงปุ่มนำทางทันทีหลังบันทึกผล เพื่อไม่ให้ diagnostic error ขัด flow
@@ -1739,8 +1740,10 @@ function evaluateSpeech(text, confidence) {
 // ═══════════════════════════════════════════════════
 function handleFastFlow(riskLevel) {
   const L = T;
+  const mode = sessionStorage.getItem('fast_mode');
 
-  // ใช้การมี key เป็นหลัก เพื่อรองรับรูปแบบข้อมูล Face/Arm รุ่นเดิมด้วย
+  // Keep this check for full-mode diagnostics, but Individual mode can show
+  // the Speech result immediately without waiting for Face and Arm.
   const allDone = ['fast_face', 'fast_arm', 'fast_speech']
     .every(key => Boolean(sessionStorage.getItem(key)));
 
@@ -1753,18 +1756,19 @@ function handleFastFlow(riskLevel) {
   }
   if (!btn) return;
 
-  btn.textContent = allDone ? L.fastResult : L.fastHome;
-  btn.className = allDone ? 'show green' : 'show';
+  btn.textContent = L.fastResult;
+  btn.className = 'show green';
   btn.style.display = 'block';
   btn.setAttribute('aria-hidden', 'false');
 
   btn.onclick = () => {
     stopAll();
-    window.location.href = allDone ? 'result.html' : 'index.html';
+    window.location.href = 'result.html';
   };
 
-  // หากพบความผิดปกติแต่ยังทำไม่ครบ ให้เตือนโดยไม่เขียนทับรายละเอียดเดิม
-  if (!allDone && riskLevel !== 'ok') {
+  // Only Full mode needs an incomplete-flow note here. Individual mode opens
+  // the module-specific result page by design.
+  if (mode === 'full' && !allDone && riskLevel !== 'ok') {
     const resultSub = document.getElementById('rb-sub');
     if (resultSub && !resultSub.textContent.includes(L.fastIncomplete)) {
       resultSub.textContent += ` · ${L.fastIncomplete}`;
