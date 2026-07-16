@@ -1062,6 +1062,118 @@
   .guide-info{background:#FFFFFF;}
   .warn-sub,.fb-sub{color:#526377;}
 
+
+
+  /* --- arm-test elderly typography refinements START --- */
+  .top-label{
+    font-size:clamp(21px,5.7vw,24px);
+    line-height:1.15;
+  }
+  #result-row{
+    top:88px;
+    left:16px;
+    right:16px;
+    gap:12px;
+  }
+  .rcard{
+    min-height:100px;
+    padding:13px 14px;
+    grid-template-columns:44px minmax(0,1fr);
+    column-gap:12px;
+    border-radius:22px;
+  }
+  .rcard-icon{
+    width:44px;
+    height:44px;
+    border-radius:16px;
+    font-size:23px;
+  }
+  .rcard-arm{
+    color:#526377;
+    font-size:19px;
+    line-height:1.12;
+    font-weight:800;
+    letter-spacing:0;
+    text-transform:none;
+    white-space:nowrap;
+  }
+  .rcard-lbl{
+    color:#172536;
+    font-size:20px;
+    line-height:1.18;
+    font-weight:800;
+    white-space:nowrap;
+  }
+  #mid{
+    padding-top:208px;
+    gap:17px;
+  }
+  #instr{
+    max-width:370px;
+    font-size:clamp(29px,7.6vw,34px);
+    line-height:1.22;
+  }
+  #sub-instr{
+    max-width:365px;
+    color:#465A70;
+    font-size:clamp(19px,5.1vw,22px);
+    line-height:1.45;
+    font-weight:700;
+  }
+  .guide-note{
+    padding:13px 15px;
+    color:#26384D;
+    font-size:clamp(18px,4.8vw,20px);
+    line-height:1.45;
+    font-weight:750;
+  }
+  .guide-info{
+    width:32px;
+    height:32px;
+    min-width:32px;
+    font-size:18px;
+  }
+  .warn-title{
+    font-size:21px;
+    line-height:1.3;
+  }
+  .warn-sub{
+    font-size:17px;
+    line-height:1.5;
+  }
+  .drift-lbl{
+    font-size:18px;
+    font-weight:750;
+  }
+  .fb-title{
+    font-size:25px;
+    line-height:1.25;
+  }
+  .fb-sub{
+    font-size:18px;
+    line-height:1.5;
+  }
+  #action-btn{
+    min-height:68px;
+    font-size:clamp(23px,6vw,26px);
+  }
+  @media (max-width:370px){
+    .top-label{font-size:20px}
+    .rcard{padding:11px 10px;grid-template-columns:40px minmax(0,1fr);column-gap:8px}
+    .rcard-icon{width:40px;height:40px;font-size:21px}
+    .rcard-arm{font-size:17px}
+    .rcard-lbl{font-size:18px}
+  }
+  @media (max-height:720px){
+    #result-row{top:76px}
+    .rcard{min-height:88px}
+    #mid{padding-top:182px}
+    #instr{font-size:27px}
+    #sub-instr{font-size:18px}
+    .guide-note{font-size:17px}
+  }
+  /* --- arm-test elderly typography refinements END --- */
+
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
@@ -1916,7 +2028,7 @@ function updatePoseGuide() {
   const noteRight = $('guide-note-right');
   if (dirLeft) dirLeft.innerHTML = T.subWait_left.split('·')[0].trim().replace('Screen facing','Screen<br>facing').replace('หน้าจอหัน','หน้าจอ<br>หัน').replace('画面を','画面<br>');
   if (dirRight) dirRight.innerHTML = T.subWait_right.split('·')[0].trim().replace('Screen facing','Screen<br>facing').replace('หน้าจอหัน','หน้าจอ<br>หัน').replace('画面を','画面<br>');
-  const noteText = (T.code === 'th-TH') ? 'กางไหล่ เหยียดแขนตรง ไม่งอข้อศอก ไม่แกว่งแขน' : (T.code === 'ja-JP' ? '肩の高さで腕をまっすぐ伸ばし、肘を曲げずに静止' : 'Shoulder height · arm straight · do not bend elbow or swing');
+  const noteText = (T.code === 'th-TH') ? 'เหยียดแขนตรง · ไม่งอศอก · อย่าแกว่ง' : (T.code === 'ja-JP' ? '腕を伸ばす · 肘を曲げない · 動かさない' : 'Arm straight · elbow straight · keep still');
   if (noteLeft) noteLeft.textContent = noteText;
   if (noteRight) noteRight.textContent = noteText;
 }
