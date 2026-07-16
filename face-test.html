@@ -1124,6 +1124,242 @@
     body.result-visible #score-box{bottom:calc(132px + env(safe-area-inset-bottom))!important}
   }
 
+
+
+  /* ═══════════════════════════════════════════════════════════════
+     QUICKSTROKE IOS GLASS COMPACT RESULT — v1
+     Keep the camera as the primary surface. Compact, translucent UI.
+     Visual-only override; screening logic and DOM contracts unchanged.
+     ═══════════════════════════════════════════════════════════════ */
+
+  :root{
+    --ios-glass:rgba(18,27,39,.34);
+    --ios-glass-strong:rgba(18,27,39,.52);
+    --ios-glass-light:rgba(255,255,255,.18);
+    --ios-glass-border:rgba(255,255,255,.34);
+    --ios-text:#FFFFFF;
+    --ios-text-soft:rgba(255,255,255,.76);
+  }
+
+  /* The camera must remain visually dominant. */
+  #face-home-btn{
+    color:#fff!important;
+    background:var(--ios-glass)!important;
+    border:1px solid var(--ios-glass-border)!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.22)!important;
+    backdrop-filter:blur(26px) saturate(155%)!important;
+    -webkit-backdrop-filter:blur(26px) saturate(155%)!important;
+  }
+
+  #top-bar{
+    color:#fff!important;
+    background:var(--ios-glass)!important;
+    border:1px solid var(--ios-glass-border)!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.20)!important;
+    backdrop-filter:blur(26px) saturate(155%)!important;
+    -webkit-backdrop-filter:blur(26px) saturate(155%)!important;
+  }
+  .top-label{
+    color:#fff!important;
+    text-shadow:0 2px 10px rgba(0,0,0,.34)!important;
+  }
+  #lang-sw-fixed{
+    background:rgba(255,255,255,.08)!important;
+    border:1px solid rgba(255,255,255,.08)!important;
+  }
+  .lang-sw-btn{
+    color:rgba(255,255,255,.70)!important;
+  }
+  .lang-sw-btn.active{
+    color:#fff!important;
+    background:linear-gradient(180deg,rgba(35,136,255,.96),rgba(13,88,184,.94))!important;
+    box-shadow:0 0 0 1px rgba(124,191,255,.48),0 5px 16px rgba(0,84,190,.34)!important;
+  }
+  #debug-btn-top{
+    color:rgba(255,255,255,.76)!important;
+  }
+
+  /* Compact status chips instead of large opaque cards. */
+  #face-status-row{
+    top:calc(68px + env(safe-area-inset-top))!important;
+    left:12px!important;
+    right:12px!important;
+    min-height:58px!important;
+    gap:8px!important;
+  }
+  .s-card{
+    min-height:58px!important;
+    padding:8px 10px!important;
+    grid-template-columns:34px minmax(0,1fr)!important;
+    column-gap:8px!important;
+    color:#fff!important;
+    background:var(--ios-glass)!important;
+    border:1px solid var(--ios-glass-border)!important;
+    border-radius:18px!important;
+    box-shadow:0 10px 28px rgba(0,0,0,.18)!important;
+    backdrop-filter:blur(24px) saturate(150%)!important;
+    -webkit-backdrop-filter:blur(24px) saturate(150%)!important;
+  }
+  .s-card-icon{
+    width:34px!important;
+    height:34px!important;
+    border-radius:13px!important;
+    color:#fff!important;
+    background:rgba(255,255,255,.13)!important;
+    font-size:18px!important;
+  }
+  .s-card-main{
+    color:#fff!important;
+    font-size:14px!important;
+    text-shadow:0 2px 8px rgba(0,0,0,.30)!important;
+  }
+  .s-card-sub{
+    color:var(--ios-text-soft)!important;
+    font-size:11.5px!important;
+    text-shadow:0 2px 8px rgba(0,0,0,.28)!important;
+  }
+  .s-card.active,.s-card.pass,.s-card.fail,.s-card.warn{
+    background:var(--ios-glass-strong)!important;
+  }
+  .s-card.active .s-card-icon{background:rgba(43,125,233,.48)!important}
+  .s-card.pass .s-card-icon{background:rgba(31,169,143,.48)!important}
+  .s-card.fail .s-card-icon{background:rgba(217,72,67,.50)!important}
+  .s-card.warn .s-card-icon{background:rgba(217,134,37,.50)!important}
+
+  /* Instruction materials also use translucent glass. */
+  #pose-hud,
+  #status-msg,
+  #pose-warn-msg,
+  body:not(.result-visible) #smile-prompt > div{
+    color:#fff!important;
+    background:var(--ios-glass-strong)!important;
+    border:1px solid var(--ios-glass-border)!important;
+    box-shadow:0 12px 30px rgba(0,0,0,.22)!important;
+    backdrop-filter:blur(26px) saturate(155%)!important;
+    -webkit-backdrop-filter:blur(26px) saturate(155%)!important;
+  }
+  .pose-item-label,.pose-val{color:rgba(255,255,255,.78)!important}
+  .pose-bar-wrap{background:rgba(255,255,255,.18)!important}
+
+  /* Final result: compact score strip above a single horizontal action row. */
+  body.result-visible #score-box{
+    left:12px!important;
+    right:12px!important;
+    bottom:calc(78px + env(safe-area-inset-bottom))!important;
+    min-height:82px!important;
+    max-height:102px!important;
+    padding:11px 14px!important;
+    overflow:hidden!important;
+    color:#fff!important;
+    background:var(--ios-glass-strong)!important;
+    border:1px solid var(--ios-glass-border)!important;
+    border-radius:24px!important;
+    box-shadow:0 14px 36px rgba(0,0,0,.25)!important;
+    backdrop-filter:blur(30px) saturate(165%)!important;
+    -webkit-backdrop-filter:blur(30px) saturate(165%)!important;
+  }
+  body.result-visible #score-container{
+    width:100%!important;
+    min-height:46px!important;
+    gap:12px!important;
+    justify-content:center!important;
+  }
+  body.result-visible #score-num{
+    color:#fff!important;
+    font-size:clamp(30px,8.4vw,40px)!important;
+    line-height:1!important;
+    text-shadow:0 3px 14px rgba(0,0,0,.32)!important;
+  }
+  body.result-visible #score-label{
+    padding:7px 12px!important;
+    color:#fff!important;
+    background:rgba(255,255,255,.15)!important;
+    border:1px solid rgba(255,255,255,.16)!important;
+    border-radius:15px!important;
+    font-size:clamp(14px,4vw,17px)!important;
+    backdrop-filter:blur(12px)!important;
+    -webkit-backdrop-filter:blur(12px)!important;
+  }
+  body.result-visible #score-threshold{
+    margin-top:3px!important;
+    color:rgba(255,255,255,.72)!important;
+    font-size:11px!important;
+    line-height:1.2!important;
+  }
+
+  body.result-visible #dashboard{
+    left:12px!important;
+    right:12px!important;
+    bottom:calc(12px + env(safe-area-inset-bottom))!important;
+  }
+  body.result-visible #btn-row{
+    display:flex!important;
+    flex-direction:row!important;
+    align-items:stretch!important;
+    gap:10px!important;
+    width:100%!important;
+  }
+  body.result-visible #start-btn,
+  body.result-visible #fast-nav-btn{
+    position:static!important;
+    flex:1 1 0!important;
+    width:auto!important;
+    min-width:0!important;
+    min-height:56px!important;
+    margin:0!important;
+    padding:10px 8px!important;
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    border-radius:19px!important;
+    font-size:clamp(15px,4.2vw,18px)!important;
+    line-height:1.15!important;
+    white-space:nowrap!important;
+  }
+  body.result-visible #start-btn{
+    color:#fff!important;
+    background:rgba(15,111,255,.78)!important;
+    border:1px solid rgba(132,195,255,.46)!important;
+    box-shadow:0 12px 28px rgba(0,75,180,.24)!important;
+    backdrop-filter:blur(24px) saturate(150%)!important;
+    -webkit-backdrop-filter:blur(24px) saturate(150%)!important;
+  }
+  body.result-visible #fast-nav-btn{
+    color:#fff!important;
+    background:var(--ios-glass-strong)!important;
+    border:1px solid var(--ios-glass-border)!important;
+    box-shadow:0 12px 28px rgba(0,0,0,.22)!important;
+    backdrop-filter:blur(26px) saturate(155%)!important;
+    -webkit-backdrop-filter:blur(26px) saturate(155%)!important;
+  }
+
+  /* Result mode is already clear from the score; reduce top visual weight. */
+  body.result-visible #face-status-row{
+    opacity:.88!important;
+  }
+
+  @media (max-width:370px){
+    body.result-visible #btn-row{gap:7px!important}
+    body.result-visible #start-btn,
+    body.result-visible #fast-nav-btn{
+      padding-inline:5px!important;
+      font-size:14px!important;
+    }
+    body.result-visible #score-num{font-size:29px!important}
+  }
+
+  @media (max-height:720px){
+    body.result-visible #score-box{
+      bottom:calc(72px + env(safe-area-inset-bottom))!important;
+      min-height:74px!important;
+      padding:8px 12px!important;
+    }
+    body.result-visible #start-btn,
+    body.result-visible #fast-nav-btn{
+      min-height:50px!important;
+    }
+  }
+
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
