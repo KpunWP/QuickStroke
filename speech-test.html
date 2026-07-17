@@ -712,6 +712,46 @@
     #action-btn{min-height:56px}
   }
 
+
+
+  /* QUICKSTROKE SPEECH PORTRAIT SHELL — v5 */
+  @media (min-width:500px){
+    html{
+      width:100%!important;
+      min-height:100dvh!important;
+      display:flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      padding:12px!important;
+      overflow:hidden!important;
+      background:#10141D!important;
+    }
+    body{
+      width:430px!important;
+      min-width:430px!important;
+      max-width:430px!important;
+      height:min(844px, calc(100dvh - 24px))!important;
+      max-height:calc(100dvh - 24px)!important;
+      margin:0!important;
+      position:relative!important;
+      overflow:hidden!important;
+      border-radius:38px!important;
+      box-shadow:0 0 0 1px rgba(255,255,255,.08),0 24px 60px rgba(0,0,0,.55)!important;
+    }
+    #mobile-dbg-panel,#mobile-dbg-toggle{position:absolute!important;}
+  }
+  @media (max-width:499px){
+    html{display:block!important;padding:0!important;overflow:hidden!important;}
+    body{
+      width:100vw!important;
+      min-width:0!important;
+      max-width:none!important;
+      height:100dvh!important;
+      max-height:none!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+    }
+  }
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
@@ -731,15 +771,15 @@
   <button aria-label="Home" id="speech-home-btn" onclick="goSpeechHome()" type="button">⌂</button>
   <div id="top-bar">
     <span aria-hidden="true" class="top-spacer"></span>
-    <span class="top-label" id="top-lbl">FAST · Speech Screening</span>
+    <span class="top-label" id="top-lbl">FAST · Speech</span>
     <div class="top-right">
       <div id="lang-sw-fixed" data-language-picker data-language-variant="compact" data-language-handler="speechSwitchLang" data-button-class="lsf-btn" data-id-prefix="lsf-" data-active-class="active"></div>
       <script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
     </div>
   </div>
   <div id="speech-status-row" aria-label="Speech test status">
-    <div class="s-card active" id="speech-card-word"><span class="s-card-icon" id="speech-ico-word">🗣️</span><span class="s-card-main" id="speech-main-word">Accuracy</span><span class="s-card-sub" id="speech-sub-word">Ready</span></div>
-    <div class="s-card" id="speech-card-rate"><span class="s-card-icon" id="speech-ico-rate">⏱️</span><span class="s-card-main" id="speech-main-rate">Rate</span><span class="s-card-sub" id="speech-sub-rate">Pending</span></div>
+    <div class="s-card active" id="speech-card-word"><span class="s-card-icon" id="speech-ico-word">🗣️</span><span class="s-card-main" id="speech-main-word">Words</span><span class="s-card-sub" id="speech-sub-word">Ready</span></div>
+    <div class="s-card" id="speech-card-rate"><span class="s-card-icon" id="speech-ico-rate">⏱️</span><span class="s-card-main" id="speech-main-rate">Speed</span><span class="s-card-sub" id="speech-sub-rate">Waiting</span></div>
   </div>
   <div id="mid">
     <div class="mic-box">
@@ -751,17 +791,17 @@
     <div id="transcript-box"></div>
     <div id="metrics-box">
       <div>
-        <div class="metric-row"><span id="lbl-word-accuracy">Word Accuracy</span><span class="metric-val" id="val-word">—</span></div>
+        <div class="metric-row"><span id="lbl-word-accuracy">Correct words</span><span class="metric-val" id="val-word">—</span></div>
         <div class="bar-track"><div class="bar-fill" id="bar-word"></div></div>
         <div style="text-align:right;font-family:monospace;font-size:11px;color:var(--muted);margin-top:2px" id="score-word"></div>
       </div>
       <div>
-        <div class="metric-row"><span id="lbl-speech-rate">Speech Rate</span><span class="metric-val" id="val-rate">—</span></div>
+        <div class="metric-row"><span id="lbl-speech-rate">Speed</span><span class="metric-val" id="val-rate">—</span></div>
         <div class="bar-track"><div class="bar-fill" id="bar-rate"></div></div>
         <div style="text-align:right;font-family:monospace;font-size:11px;color:var(--muted);margin-top:2px" id="score-rate"></div>
       </div>
       <div>
-        <div class="metric-row"><span id="lbl-volume-stability">Volume Stability</span><span class="metric-val" id="val-stab">—</span></div>
+        <div class="metric-row"><span id="lbl-volume-stability">Voice consistency</span><span class="metric-val" id="val-stab">—</span></div>
         <div class="bar-track"><div class="bar-fill" id="bar-stab"></div></div>
         <div style="text-align:right;font-family:monospace;font-size:11px;color:var(--muted);margin-top:2px" id="score-stab"></div>
       </div>
@@ -996,11 +1036,10 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 let cleanupPromise = Promise.resolve();
 
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
-// เปิดใช้โดยเติม ?debug=1 ท้าย URL เช่น /speech-test.html?debug=1
+// เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
 const DEBUG_BUILD = 'PRODUCTION v1 (iOS keep-alive) — 2026-07-07';
-const DEBUG_ON = new URLSearchParams(location.search).has('debug') ||
-                 location.hash.includes('debug');
+const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
 
@@ -1401,7 +1440,7 @@ async function startRecording(forceDirectMic = false) {
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent   = T.noiseCalib;
   $('metrics-box').style.display    = 'flex';
-  $('debug-toggle').style.display   = 'block';
+  $('debug-toggle').style.display   = DEBUG_ON ? 'block' : 'none';
   $('debug-box').textContent        = 'calibrating noise floor...';
   setSpeechCard('word','active',T.noiseMetric,T.calibrating.replace(/\.\.\.|…/g,'').trim() || T.pending,'🔇');
   setSpeechCard('rate','',T.rate,T.pending,'⏱️');

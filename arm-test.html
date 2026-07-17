@@ -1378,6 +1378,47 @@
   @media (max-height:760px){
     .guide-image-wrap{height:228px !important;}
   }
+
+
+  /* QUICKSTROKE ARM PORTRAIT SHELL — v5 */
+  @media (min-width:500px){
+    html{
+      width:100%!important;
+      min-height:100dvh!important;
+      display:flex!important;
+      align-items:center!important;
+      justify-content:center!important;
+      padding:12px!important;
+      overflow:hidden!important;
+      background:#10141D!important;
+    }
+    body{
+      width:430px!important;
+      min-width:430px!important;
+      max-width:430px!important;
+      height:min(844px, calc(100dvh - 24px))!important;
+      max-height:calc(100dvh - 24px)!important;
+      margin:0!important;
+      position:relative!important;
+      overflow:hidden!important;
+      border-radius:38px!important;
+      box-shadow:0 0 0 1px rgba(255,255,255,.08),0 24px 60px rgba(0,0,0,.55)!important;
+    }
+    body.dev-mode #arm-dev-toggle,
+    body.dev-mode #arm-dev-panel.visible{position:absolute!important;}
+  }
+  @media (max-width:499px){
+    html{display:block!important;padding:0!important;overflow:hidden!important;}
+    body{
+      width:100vw!important;
+      min-width:0!important;
+      max-width:none!important;
+      height:100dvh!important;
+      max-height:none!important;
+      border-radius:0!important;
+      box-shadow:none!important;
+    }
+  }
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
@@ -1457,7 +1498,7 @@
 <div id="test-screen">
 <div id="top-bar">
 <span aria-hidden="true" class="top-spacer"></span>
-<span class="top-label" id="top-lbl">FAST · Arm Screening</span>
+<span class="top-label" id="top-lbl">FAST · Arm</span>
 <div class="top-right"></div>
 </div>
 <div id="result-row">
@@ -2647,7 +2688,7 @@ async function fetchArmMessages(locale) {
   if (!messages) {
     try {
       const response = await fetch(
-        `./locales/${locale}/ui.json?v=arm-i18n-v2`,
+        `./locales/${locale}/ui.json?v=arm-i18n-copy-v1`,
         { cache: 'reload' }
       );
 

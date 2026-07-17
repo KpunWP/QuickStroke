@@ -354,7 +354,7 @@
         <div class="panel-view" id="combined-view">
           <button type="button" class="combined-action" id="primary-action" onclick="handlePrimaryAction()">
             <span class="combined-copy">
-              <span class="combined-label" id="primary-label" data-i18n="index.primaryStart">เริ่มทดสอบ</span>
+              <span class="combined-label" id="primary-label" data-i18n="index.primaryStart">เริ่ม</span>
               <span class="combined-meta" id="primary-meta" aria-live="polite">ใบหน้า · แขน · การพูด</span>
             </span>
             <span class="combined-arrow" aria-hidden="true">
@@ -392,7 +392,7 @@
         </div>
 
         <button type="button" class="mode-switch" id="individual-toggle" onclick="toggleIndividual()" aria-expanded="false" aria-controls="individual-view">
-          <span id="mode-switch-label">แยกทดสอบ</span>
+          <span id="mode-switch-label">เลือกทีละอย่าง</span>
           <span class="mode-triangle" aria-hidden="true">▼</span>
         </button>
       </div>
@@ -415,7 +415,7 @@
         id="btn-clear"
         onclick="openNewPersonDialog()"
         data-i18n="index.newPersonButton"
-      >เริ่มตรวจบุคคลใหม่</button>
+      >เริ่มรายใหม่</button>
     </div>
   </main>
 </div>
@@ -437,7 +437,7 @@
         <path d="M19 8v6m-3-3h6"/>
       </svg>
     </div>
-    <h2 id="new-person-title" data-i18n="index.newPersonTitle">เริ่มตรวจบุคคลใหม่?</h2>
+    <h2 id="new-person-title" data-i18n="index.newPersonTitle">เริ่มรายใหม่?</h2>
     <p id="new-person-body" data-i18n="index.newPersonBody">ผลการตรวจปัจจุบันจะถูกล้าง และระบบจะสร้างรอบการตรวจใหม่</p>
     <div class="new-person-actions">
       <button
@@ -469,7 +469,7 @@
       <svg viewBox="0 0 24 24"><path d="M3 13h3.4l1.7-4.8 3.1 10.2 2.3-7.8 1.7 2.4H21"/></svg>
     </div>
     <div class="disc-eyebrow" data-i18n="disclaimer.eyebrow">QuickStroke</div>
-    <h2 id="disc-title" data-i18n="disclaimer.title">ข้อมูลสำคัญก่อนใช้งาน</h2>
+    <h2 id="disc-title" data-i18n="disclaimer.title">ก่อนเริ่มใช้งาน</h2>
     <p class="disc-body" data-i18n="disclaimer.body">QuickStroke ใช้คัดกรองสัญญาณเบื้องต้นเท่านั้น ไม่ใช่การวินิจฉัย และผลที่ไม่พบสัญญาณผิดปกติไม่ได้ยืนยันว่าไม่มีสโตรก</p>
 
     <div class="disc-emergency">
@@ -479,7 +479,7 @@
       <div class="disc-emergency-text" data-i18n-html="disclaimer.emergency">หากสงสัยสโตรก อย่ารอผล ให้โทร <b>1669</b> ทันที</div>
     </div>
 
-    <button id="disc-accept-btn" type="button" onclick="acceptDisclaimer()" data-i18n="disclaimer.accept">รับทราบและเริ่มใช้งาน</button>
+    <button id="disc-accept-btn" type="button" onclick="acceptDisclaimer()" data-i18n="disclaimer.accept">รับทราบ</button>
     <div class="disc-note" data-i18n="disclaimer.note">แสดงครั้งเดียวต่อแท็บนี้</div>
   </div>
 </div>
@@ -706,7 +706,7 @@ function updateProgress() {
   };
 
   const shortStatusFallbacks = {
-    ok:'ตรวจแล้ว',
+    ok:'เสร็จแล้ว',
     warn:'ควรระวัง',
     bad:'พบสัญญาณ'
   };
@@ -756,13 +756,13 @@ function updateProgress() {
   if (heroSubtitle) heroSubtitle.textContent = getModuleListText();
 
   if (validCompleted === MODULES.length) {
-    primaryLabel.textContent = tr('index.primaryComplete', 'ดูผลการคัดกรอง');
-    primaryMeta.textContent = tr('index.progress', 'ตรวจแล้ว {{done}} จาก 3', { done:validCompleted });
+    primaryLabel.textContent = tr('index.primaryComplete', 'ดูผล');
+    primaryMeta.textContent = tr('index.progress', 'เสร็จแล้ว {{done}}/3', { done:validCompleted });
   } else if (attemptedCount > 0) {
-    primaryLabel.textContent = tr('index.primaryContinue', 'ตรวจต่อ');
-    primaryMeta.textContent = tr('index.progress', 'ตรวจแล้ว {{done}} จาก 3', { done:validCompleted });
+    primaryLabel.textContent = tr('index.primaryContinue', 'ทำต่อ');
+    primaryMeta.textContent = tr('index.progress', 'เสร็จแล้ว {{done}}/3', { done:validCompleted });
   } else {
-    primaryLabel.textContent = tr('index.primaryStart', 'เริ่มทดสอบ');
+    primaryLabel.textContent = tr('index.primaryStart', 'เริ่ม');
     primaryMeta.textContent = getModuleListText();
   }
 
