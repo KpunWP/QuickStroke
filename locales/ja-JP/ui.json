@@ -104,7 +104,7 @@
   "arm": {
     "code": "ja-JP",
     "topLbl": "腕",
-    "cdUnit": "秒",
+    "cdUnit": "",
     "driftLbl": "スマホ角度",
     "navResult": "結果を見る →",
     "navNext": "音声テストへ →",
@@ -159,7 +159,8 @@
     "vRetryWrist": "手首が動きました。手首をまっすぐにして再テストしてください。",
     "vRetryUncertain": "動きが不明確です。この腕を再テストしてください。",
     "vFinalOk": "両腕ともに正常です。",
-    "vFinalBad": "ずれが検出されました。早めに医師に相談してください。"
+    "vFinalBad": "ずれが検出されました。早めに医師に相談してください。",
+    "guideNote": "腕を伸ばす · 肘を曲げない · 動かさない"
   },
   "speech": {
     "langCode": "ja-JP",

@@ -1363,6 +1363,7 @@
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
+<script src="./js/languages.js?v=20260717-lang-v1"></script>
 <script src="./js/i18n.js?v=face-i18n-v1"></script>
 </head>
 <body>
@@ -1373,11 +1374,8 @@
   <span aria-hidden="true" class="top-spacer"></span>
   <span class="top-label" id="top-lbl">FAST · Face Screening</span>
   <div class="top-right">
-    <div id="lang-sw-fixed">
-      <button class="lang-sw-btn" id="lsw-th" onclick="switchFaceLang('th')">TH</button>
-      <button class="lang-sw-btn" id="lsw-en" onclick="switchFaceLang('en')">EN</button>
-      <button class="lang-sw-btn" id="lsw-ja" onclick="switchFaceLang('ja')">JA</button>
-    </div>
+    <div id="lang-sw-fixed" data-language-picker data-language-variant="compact" data-language-handler="switchFaceLang" data-button-class="lang-sw-btn" data-id-prefix="lsw-" data-active-class="active"></div>
+    <script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
     <button id="debug-btn-top" onclick="toggleDebug()" type="button" aria-label="Debug">🔬</button>
   </div>
 </div>
@@ -1478,7 +1476,7 @@
 
 /* ───────────────────────── i18n ───────────────────────── */
 
-const FACE_LOCALE_MAP = Object.freeze({
+const FACE_LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze({
   th: "th-TH",
   en: "en-US",
   ja: "ja-JP"
@@ -1686,7 +1684,7 @@ let lastSpeechAt = 0;
 let lastSpeechText = '';
 
 /* ───────────── helpers ───────────── */
-const SPEAK_LANG = { th:'th-TH', en:'en-US', ja:'ja-JP' };
+const SPEAK_LANG = FACE_LOCALE_MAP;
 let cachedVoices = [];
 let speechPrimed = false;
 function loadVoices(){ try { cachedVoices = speechSynthesis.getVoices() || []; } catch(e){ cachedVoices = []; } }
@@ -1951,15 +1949,11 @@ async function switchFaceLang(code) {
 
   applyFaceLang();
 
-  ["th", "en", "ja"].forEach((langCode) => {
-    const button = document.getElementById(`lsw-${langCode}`);
-
-    if (button) {
-      const isActive = langCode === resolvedLang;
-      button.classList.toggle("active", isActive);
-      button.setAttribute("aria-pressed", String(isActive));
-    }
-  });
+  window.QuickStrokeLanguages?.setActive(
+    document.getElementById('lang-sw-fixed'),
+    resolvedLang,
+    'active'
+  );
 
   return true;
 }

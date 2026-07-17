@@ -715,6 +715,7 @@
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
+<script src="./js/languages.js?v=20260717-lang-v1"></script>
 <script src="./js/i18n.js"></script>  
 </head>
 <body>
@@ -722,11 +723,8 @@
 <div id="lang-screen">
   <span class="title-lbl">🗣️ FAST · Speech Test</span>
   <div class="main-title">Select Language</div>
-  <div class="lang-btns">
-    <button class="lang-btn" onclick="selectLang('th')"><span class="lang-flag">🇹🇭</span><span class="lang-text">ภาษาไทย</span></button>
-    <button class="lang-btn" onclick="selectLang('en')"><span class="lang-flag">🇬🇧</span><span class="lang-text">English</span></button>
-    <button class="lang-btn" onclick="selectLang('ja')"><span class="lang-flag">🇯🇵</span><span class="lang-text">日本語</span></button>
-  </div>
+  <div class="lang-btns" data-language-picker data-language-variant="card-simple" data-language-handler="selectLang" data-button-class="lang-btn"></div>
+  <script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
 </div>
 
 <div id="test-screen">
@@ -735,11 +733,8 @@
     <span aria-hidden="true" class="top-spacer"></span>
     <span class="top-label" id="top-lbl">FAST · Speech Screening</span>
     <div class="top-right">
-      <div id="lang-sw-fixed">
-        <button class="lsf-btn" id="lsf-th" onclick="speechSwitchLang('th')">TH</button>
-        <button class="lsf-btn" id="lsf-en" onclick="speechSwitchLang('en')">EN</button>
-        <button class="lsf-btn" id="lsf-ja" onclick="speechSwitchLang('ja')">JA</button>
-      </div>
+      <div id="lang-sw-fixed" data-language-picker data-language-variant="compact" data-language-handler="speechSwitchLang" data-button-class="lsf-btn" data-id-prefix="lsf-" data-active-class="active"></div>
+      <script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
     </div>
   </div>
   <div id="speech-status-row" aria-label="Speech test status">
@@ -789,7 +784,7 @@
 // ═══════════════════════════════════════════════════
 // SHARED SPEECH LOCALE
 // ═══════════════════════════════════════════════════
-const SPEECH_LOCALE_MAP = Object.freeze({
+const SPEECH_LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze({
   th: 'th-TH',
   en: 'en-US',
   ja: 'ja-JP'
@@ -1184,15 +1179,11 @@ async function selectLang(requestedCode) {
   // แสดงและ highlight ปุ่มภาษา
   const lsf = $('lang-sw-fixed');
   if (lsf) lsf.classList.add('show');
-
-  ['th','en','ja'].forEach(c => {
-    const b = $('lsf-' + c);
-    if (b) {
-      const isActive = c === code;
-      b.classList.toggle('active', isActive);
-      b.setAttribute('aria-pressed', String(isActive));
-    }
-  });
+  window.QuickStrokeLanguages?.setActive(
+    $('lang-sw-fixed'),
+    code,
+    'active'
+  );
 
   resetUI();
   if (actionBtn) actionBtn.disabled = false;

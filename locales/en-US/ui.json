@@ -104,7 +104,7 @@
   "arm": {
     "code": "en-US",
     "topLbl": "Arm",
-    "cdUnit": "sec",
+    "cdUnit": "",
     "driftLbl": "Phone angle",
     "navResult": "View result →",
     "navNext": "Continue to Speech →",
@@ -159,7 +159,8 @@
     "vRetryWrist": "Your wrist moved. Please repeat this arm with the wrist straight.",
     "vRetryUncertain": "The movement was unclear. Please repeat this arm.",
     "vFinalOk": "Both arms normal.",
-    "vFinalBad": "Drift detected. Please see a doctor soon."
+    "vFinalBad": "Drift detected. Please see a doctor soon.",
+    "guideNote": "Arm straight · elbow straight · keep still"
   },
   "speech": {
     "langCode": "en-US",

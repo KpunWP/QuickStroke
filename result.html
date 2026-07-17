@@ -717,6 +717,7 @@
   </style>
   <script src="config.js">
   </script>
+  <script src="./js/languages.js?v=20260717-lang-v1"></script>
   <script src="./js/i18n.js">
   </script>
  </head>
@@ -736,17 +737,8 @@
      </strong>
     </div>
    </div>
-   <div aria-label="Language selection" class="lang-seg">
-    <button id="lang-th" onclick="resultSwitchLang('th')" type="button">
-     TH
-    </button>
-    <button id="lang-en" onclick="resultSwitchLang('en')" type="button">
-     EN
-    </button>
-    <button id="lang-ja" onclick="resultSwitchLang('ja')" type="button">
-     JA
-    </button>
-   </div>
+   <div aria-label="Language selection" class="lang-seg" data-language-picker data-language-variant="compact" data-language-handler="resultSwitchLang" data-id-prefix="lang-" data-active-class="active"></div>
+   <script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
   </header>
   <main>
    <section aria-live="polite" class="summary-card noData" id="summary-card">
@@ -808,7 +800,7 @@
   </main>
   <script>
    'use strict';
-   const RESULT_LOCALE_MAP = Object.freeze({
+   const RESULT_LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze({
      th: 'th-TH',
      en: 'en-US',
      ja: 'ja-JP'
@@ -904,12 +896,11 @@
    }
 
    function setLangButtons(code) {
-     ['th', 'en', 'ja'].forEach(x => {
-       const b = document.getElementById(`lang-${x}`),
-         a = x === code;
-       b.classList.toggle('active', a);
-       b.setAttribute('aria-pressed', String(a))
-     })
+     window.QuickStrokeLanguages?.setActive(
+       document.querySelector('header .lang-seg'),
+       code,
+       'active'
+     )
    }
    async function readLocale(locale, persist) {
      if (!window.QuickStrokeI18n) throw new Error('QuickStrokeI18n unavailable');

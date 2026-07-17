@@ -339,11 +339,8 @@
       <div class="brand-text">Quick<strong>Stroke</strong></div>
     </div>
 
-    <div class="lang-seg" aria-label="Language selection">
-      <button type="button" class="on" data-lang="th" onclick="setLang('th')" aria-label="ภาษาไทย">TH</button>
-      <button type="button" data-lang="en" onclick="setLang('en')" aria-label="English">EN</button>
-      <button type="button" data-lang="ja" onclick="setLang('ja')" aria-label="日本語">JA</button>
-    </div>
+    <div class="lang-seg" aria-label="Language selection" data-language-picker data-language-variant="compact" data-language-handler="setLang" data-active-class="on"></div>
+    <script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
   </header>
 
   <main>
@@ -464,11 +461,8 @@
 <div id="disclaimer-overlay" class="disclaimer-overlay" role="dialog" aria-modal="true" aria-labelledby="disc-title">
   <div class="disclaimer-card">
     <div class="disc-lang">
-      <div class="lang-seg" aria-label="Language selection">
-        <button type="button" class="on" data-lang="th" onclick="setLang('th')">ไทย</button>
-        <button type="button" data-lang="en" onclick="setLang('en')">English</button>
-        <button type="button" data-lang="ja" onclick="setLang('ja')">日本語</button>
-      </div>
+      <div class="lang-seg" aria-label="Language selection" data-language-picker data-language-variant="native" data-language-handler="setLang" data-active-class="on"></div>
+      <script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
     </div>
 
     <div class="disc-mark" aria-hidden="true">
@@ -490,12 +484,13 @@
   </div>
 </div>
 
+<script src="./js/languages.js?v=20260717-lang-v1"></script>
 <script src="./js/i18n.js"></script>
 <script>
 'use strict';
 
 const MODULES = Object.freeze(['face', 'arm', 'speech']);
-const LOCALE_MAP = Object.freeze({ th:'th-TH', en:'en-US', ja:'ja-JP' });
+const LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze({ th:'th-TH', en:'en-US', ja:'ja-JP' });
 const SCREENING_SESSION_KEYS = Object.freeze([
   'fast_face',
   'fast_arm',
@@ -632,10 +627,8 @@ async function setLang(requestedLang) {
     return;
   }
 
-  document.querySelectorAll('.lang-seg button').forEach((button) => {
-    const isActive = button.dataset.lang === lang;
-    button.classList.toggle('on', isActive);
-    button.setAttribute('aria-pressed', String(isActive));
+  document.querySelectorAll('.lang-seg').forEach((picker) => {
+    window.QuickStrokeLanguages?.setActive(picker, lang, 'on');
   });
 
   sessionStorage.setItem('fast_lang', lang);

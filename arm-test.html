@@ -1381,6 +1381,7 @@
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
+<script src="./js/languages.js?v=20260717-lang-v1"></script>
 <script src="./js/i18n.js"></script>
 </head>
 <body>
@@ -1442,22 +1443,16 @@
 </aside>
 
 <button aria-label="Home" id="arm-home-btn" onclick="goArmHome()" type="button">⌂</button>
-<div id="lang-sw-fixed">
-<button class="lsf-btn" id="lsf-th" onclick="armSwitchLang('th')">TH</button>
-<button class="lsf-btn" id="lsf-en" onclick="armSwitchLang('en')">EN</button>
-<button class="lsf-btn" id="lsf-ja" onclick="armSwitchLang('ja')">JA</button>
-</div>
+<div id="lang-sw-fixed" data-language-picker data-language-variant="compact" data-language-handler="armSwitchLang" data-button-class="lsf-btn" data-id-prefix="lsf-" data-active-class="active"></div>
+<script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
 <div id="lang-screen">
 <span class="lang-logo">🚨 FAST · Arm Drift</span>
 <div style="text-align:center">
 <div class="lang-title">Select Language</div>
 </div>
 <div class="disclaimer-box">⚠️ ตรวจเบื้องต้นเท่านั้น · ไม่ใช่การวินิจฉัย<br/>สงสัยสโตรก โทร 1669 ทันที</div>
-<div class="lang-btns">
-<button class="lang-btn" onclick="selectLang('en')"><span class="lang-flag">🇬🇧</span><div><span class="lang-name">English</span><span class="lang-native">English</span></div></button>
-<button class="lang-btn" onclick="selectLang('th')"><span class="lang-flag">🇹🇭</span><div><span class="lang-name">Thai</span><span class="lang-native">ภาษาไทย</span></div></button>
-<button class="lang-btn" onclick="selectLang('ja')"><span class="lang-flag">🇯🇵</span><div><span class="lang-name">Japanese</span><span class="lang-native">日本語</span></div></button>
-</div>
+<div class="lang-btns" data-language-picker data-language-variant="card-detailed" data-language-handler="selectLang" data-button-class="lang-btn"></div>
+<script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
 </div>
 <div id="test-screen">
 <div id="top-bar">
@@ -1740,7 +1735,7 @@ function initArmDevMode() {
 
 document.addEventListener('DOMContentLoaded', initArmDevMode);
 
-const ARM_LOCALE_MAP = Object.freeze({
+const ARM_LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze({
   th: "th-TH",
   en: "en-US",
   ja: "ja-JP"
@@ -2232,7 +2227,7 @@ function updatePoseGuide() {
   const noteRight = $('guide-note-right');
   if (dirLeft) dirLeft.innerHTML = T.subWait_left.split('·')[0].trim().replace('Screen facing','Screen<br>facing').replace('หน้าจอหัน','หน้าจอ<br>หัน').replace('画面を','画面<br>');
   if (dirRight) dirRight.innerHTML = T.subWait_right.split('·')[0].trim().replace('Screen facing','Screen<br>facing').replace('หน้าจอหัน','หน้าจอ<br>หัน').replace('画面を','画面<br>');
-  const noteText = (T.code === 'th-TH') ? 'เหยียดแขนตรง · ไม่งอศอก · อย่าแกว่ง' : (T.code === 'ja-JP' ? '腕を伸ばす · 肘を曲げない · 動かさない' : 'Arm straight · elbow straight · keep still');
+  const noteText = T.guideNote || 'Arm straight · elbow straight · keep still';
   if (noteLeft) noteLeft.textContent = noteText;
   if (noteRight) noteRight.textContent = noteText;
 }
@@ -2731,13 +2726,13 @@ function refreshArmLanguageUI(){
   if ($('lbl-l-arm')) $('lbl-l-arm').textContent = T.armLeft;
   if ($('lbl-right')) $('lbl-right').textContent = armAnalysis.right ? armAnalysisLabel(armAnalysis.right) : T.pending;
   if ($('lbl-left'))  $('lbl-left').textContent  = armAnalysis.left  ? armAnalysisLabel(armAnalysis.left) : T.pending;
-
   // Language buttons
   const code = currentLangCode();
-  ['th','en','ja'].forEach(c => {
-    const b = $('lsf-' + c);
-    if (b) b.classList.toggle('active', c === code);
-  });
+  window.QuickStrokeLanguages?.setActive(
+    $('lang-sw-fixed'),
+    code,
+    'active'
+  );
 
   // Guide image text
   updatePoseGuide();
