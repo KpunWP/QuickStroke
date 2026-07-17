@@ -1419,6 +1419,49 @@
       box-shadow:none!important;
     }
   }
+
+
+  /* QUICKSTROKE ARM FINAL ACTIONS — equal left/right buttons */
+  #action-dock{
+    position:absolute;
+    left:18px;
+    right:18px;
+    bottom:calc(14px + env(safe-area-inset-bottom));
+    z-index:120;
+    display:flex;
+    gap:12px;
+    align-items:stretch;
+  }
+  #action-dock #action-btn,
+  #action-dock #fast-nav-btn{
+    position:static!important;
+    left:auto!important;
+    right:auto!important;
+    bottom:auto!important;
+    width:auto!important;
+    min-width:0!important;
+    min-height:64px!important;
+    margin:0!important;
+    flex:1 1 0!important;
+    border-radius:20px!important;
+    font-family:'IBM Plex Sans Thai','Manrope',sans-serif!important;
+    font-size:clamp(18px,4.8vw,22px)!important;
+    font-weight:800!important;
+    line-height:1.2!important;
+    padding:12px 10px!important;
+  }
+  #action-dock:not(.split) #action-btn{
+    flex-basis:100%!important;
+  }
+  #action-dock.split #action-btn,
+  #action-dock.split #fast-nav-btn{
+    flex-basis:0!important;
+  }
+  @media (max-width:360px){
+    #action-dock{left:14px;right:14px;gap:10px;}
+    #action-dock #action-btn,
+    #action-dock #fast-nav-btn{font-size:18px!important;padding-inline:8px!important;}
+  }
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
@@ -1547,7 +1590,9 @@
 </div>
 <div id="final-banner"><span class="fb-icon" id="fb-icon"></span><span class="fb-title" id="fb-title"></span><span class="fb-sub" id="fb-sub"></span></div>
 </div>
+<div id="action-dock">
 <button id="action-btn" onclick="handleBtn()" disabled>Start Test</button>
+</div>
 </div>
 <script>
 'use strict';
@@ -2253,6 +2298,8 @@ function tickMeasure() {
 
 function removeFastNavButton() {
   document.querySelectorAll('#fast-nav-btn,.fast-nav-btn').forEach(el => el.remove());
+  const dock = document.getElementById('action-dock');
+  if (dock) dock.classList.remove('split');
 }
 
 function updatePoseGuide() {
@@ -2904,7 +2951,9 @@ function handleArmFastFlow() {
     }
 
     const actionBtn = $('action-btn');
-    actionBtn.parentNode.insertBefore(btn, actionBtn);
+    const dock = $('action-dock') || actionBtn.parentNode;
+    dock.appendChild(btn);
+    dock.classList.add('split');
   }, 700);
 }
 
