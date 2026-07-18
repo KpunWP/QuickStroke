@@ -1503,6 +1503,8 @@
     <div class="arm-dev-cell"><span class="arm-dev-label">Drift max</span><span class="arm-dev-value" id="dev-drift">0.0°</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Stable spread</span><span class="arm-dev-value" id="dev-stable-spread">—</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Samples</span><span class="arm-dev-value arm-dev-small" id="dev-samples">0</span></div>
+    <div class="arm-dev-cell"><span class="arm-dev-label">Build</span><span class="arm-dev-value arm-dev-small" id="dev-build">—</span></div>
+    <div class="arm-dev-cell"><span class="arm-dev-label">Permission</span><span class="arm-dev-value arm-dev-small" id="dev-permission">—</span></div>
 
     <div class="arm-dev-cell"><span class="arm-dev-label">Peak ΔX</span><span class="arm-dev-value" id="dev-dx">0.000</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Peak ΔZ</span><span class="arm-dev-value" id="dev-dz">0.000</span></div>
@@ -1679,7 +1681,9 @@ function updateArmDevHUD() {
   set('dev-current-drift', formatDevAngle(currentDrift));
   set('dev-drift', formatDevAngle(driftMax));
   set('dev-stable-spread', formatDevAngle(stableSpread));
-  set('dev-samples', String(devLogRows.length));
+  set('dev-samples', String(validSensorSampleCount));
+  set('dev-build', ARM_BUILD_ID);
+  set('dev-permission', `O:${sensorPermission.orientation} M:${sensorPermission.motion}`);
   set('dev-dx', formatDevNumber(peakDelta.x));
   set('dev-dz', formatDevNumber(peakDelta.z));
   set('dev-ratio', formatDevNumber(peakRatio));
@@ -2019,6 +2023,9 @@ let sensorAttached   = false;
 let sensorApiSupported = false;
 let permissionReady = false;
 let sensorPermission = { orientation:'unknown', motion:'unknown' };
+let sensorPermissionAttempted = false;
+const ARM_BUILD_ID = 'arm-readiness-v1.2-sensor-pipeline-restore';
+window.__ARM_BUILD_ID = ARM_BUILD_ID;
 let firstSensorSampleAt = 0;
 let lastSensorSampleAt = 0;
 let validSensorSampleCount = 0;
@@ -2075,80 +2082,66 @@ function beep(freq, dur) {
 function vibe(p) { if (navigator.vibrate) navigator.vibrate(p); }
 
 async function requestSensor(cb) {
-  try {
-    // Keep the permission flow equivalent to the original working Arm module.
-    // This function is called directly from handleBtn(), inside the user's tap.
-    const orientationApi = typeof DeviceOrientationEvent !== 'undefined';
-    const motionApi = typeof DeviceMotionEvent !== 'undefined';
+  sensorPermissionAttempted = true;
+  console.log('[Arm sensor]', ARM_BUILD_ID, 'requestSensor start', {
+    secureContext:window.isSecureContext,
+    orientationApi:typeof DeviceOrientationEvent !== 'undefined',
+    motionApi:typeof DeviceMotionEvent !== 'undefined'
+  });
 
+  try {
     let orientationGranted = true;
     let motionGranted = true;
 
     sensorPermission = {
-      orientation: orientationApi ? 'not_required' : 'unsupported',
-      motion: motionApi ? 'not_required' : 'unsupported'
+      orientation: typeof DeviceOrientationEvent !== 'undefined' ? 'not_required' : 'unsupported',
+      motion: typeof DeviceMotionEvent !== 'undefined' ? 'not_required' : 'unsupported'
     };
 
-    if (orientationApi &&
+    // Keep the proven original iOS order and invoke directly from the button tap.
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
-      orientationGranted = (await DeviceOrientationEvent.requestPermission()) === 'granted';
-      sensorPermission.orientation = orientationGranted ? 'granted' : 'denied';
+      const result = await DeviceOrientationEvent.requestPermission();
+      orientationGranted = result === 'granted';
+      sensorPermission.orientation = result;
     }
 
-    if (motionApi &&
+    if (typeof DeviceMotionEvent !== 'undefined' &&
         typeof DeviceMotionEvent.requestPermission === 'function') {
-      motionGranted = (await DeviceMotionEvent.requestPermission()) === 'granted';
-      sensorPermission.motion = motionGranted ? 'granted' : 'denied';
+      const result = await DeviceMotionEvent.requestPermission();
+      motionGranted = result === 'granted';
+      sensorPermission.motion = result;
     }
 
     if (!orientationGranted && !motionGranted) {
       permissionReady = false;
       sensorOk = false;
-      phase = 'READINESS_ERROR';
-      readinessInvalidReason = 'permission_denied';
-      showReadinessWarning('permission_denied');
-      $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
-      $('action-btn').className = 'amber';
-      $('action-btn').disabled = false;
+      alert(T.sensorDenied);
       return;
     }
 
-    permissionReady = true;
     attachSensor();
-
-    if (!sensorApiSupported) {
-      permissionReady = false;
-      sensorOk = false;
-      phase = 'READINESS_ERROR';
-      readinessInvalidReason = 'sensor_unsupported';
-      showReadinessWarning('sensor_unsupported');
-      $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
-      $('action-btn').className = 'amber';
-      $('action-btn').disabled = false;
-      return;
-    }
-
-    sensorOk = true;
+    permissionReady = true;
+    sensorApiSupported = sensorOk;
+    console.log('[Arm sensor]', ARM_BUILD_ID, 'permission/listeners ready', {
+      sensorPermission,
+      sensorOk,
+      sensorAttached
+    });
     cb();
   } catch (err) {
-    console.error('Sensor permission error:', err);
+    console.error('[Arm sensor] permission error:', err);
     permissionReady = false;
     sensorOk = false;
     sensorPermission = { orientation:'error', motion:'error' };
-    phase = 'READINESS_ERROR';
-    readinessInvalidReason = 'permission_error';
-    showReadinessWarning('permission_error');
-    $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
-    $('action-btn').className = 'amber';
-    $('action-btn').disabled = false;
+    alert(T.sensorDenied);
   }
 }
 
 function attachSensor() {
   if (sensorAttached) return;
-  sensorAttached = true;
 
-  // Keep the listener feature detection identical to the original working file.
+  // Use the exact event-property detection from the original working file.
   const orientationApi = 'ondeviceorientation' in window;
   const motionApi = 'ondevicemotion' in window;
 
@@ -2160,16 +2153,21 @@ function attachSensor() {
     window.addEventListener('devicemotion', onMotion, true);
   }
 
-  sensorApiSupported = orientationApi || motionApi;
-  sensorOk = sensorApiSupported;
+  sensorOk = orientationApi || motionApi;
+  sensorApiSupported = sensorOk;
+  sensorAttached = sensorOk;
 
+  // Readiness-only listeners are attached separately and do not gate sensor setup.
   if (screen.orientation && typeof screen.orientation.addEventListener === 'function') {
     screen.orientation.addEventListener('change', onScreenOrientationChange);
   }
   window.addEventListener('orientationchange', onScreenOrientationChange, true);
   document.addEventListener('visibilitychange', onArmVisibilityChange);
-
   screenOrientationSnapshot = readScreenOrientation();
+
+  if (!sensorOk) {
+    alert(T.sensorUnsupported);
+  }
 }
 
 function normalizeVector(v) {
@@ -2573,45 +2571,19 @@ function onArmVisibilityChange() {
 }
 
 function setGravityVector(raw, source, magnitude = null) {
+  // Preserve the original acquisition/filtering path.
   const unit = normalizeVector(raw);
-  if (!unit) {
-    invalidSensorSampleCount++;
-    return;
-  }
+  if (!unit) return;
 
-  const now = performance.now();
-  const previousSource = gravitySource;
-
-  if (previousSource && previousSource !== source) {
+  if (gravitySource && gravitySource !== source) {
     gravityWindow = [];
     stableCount = 0;
     sensorSourceSwitchCount++;
-    recordReadinessEvent('sensor_source_changed', {
-      fromSource:previousSource,
-      toSource:source
-    });
-
-    if (phase === 'MEASURE') {
-      gravitySource = source;
-      abortMeasurementForReadiness('sensor_source_changed');
-      return;
-    }
-    if (phase === 'PRE_MEASURE_RECHECK') {
-      gravitySource = source;
-      returnToCalibration('sensor_source_changed');
-      return;
-    }
-    if (phase === 'CALIB') {
-      showReadinessWarning('sensor_source_changed');
-    }
   }
 
   gravitySource = source;
   gravityRaw = { ...raw };
   gravityMagnitude = magnitude;
-  lastSensorSampleAt = now;
-  if (!firstSensorSampleAt) firstSensorSampleAt = now;
-  validSensorSampleCount++;
 
   if (!gravityReady) {
     gravityFilt = { ...unit };
@@ -2624,6 +2596,11 @@ function setGravityVector(raw, source, magnitude = null) {
     }) || { ...unit };
   }
 
+  // Readiness bookkeeping happens only after the original sensor value is valid.
+  const now = performance.now();
+  lastSensorSampleAt = now;
+  if (!firstSensorSampleAt) firstSensorSampleAt = now;
+  validSensorSampleCount++;
   screenOrientationSnapshot = readScreenOrientation();
   gravityScreen = toScreenFrame(gravityFilt, screenOrientationSnapshot.angle);
 
@@ -2641,16 +2618,10 @@ function setGravityVector(raw, source, magnitude = null) {
 
 function onMotion(e) {
   const a = e.accelerationIncludingGravity;
-  if (!a) {
-    invalidSensorSampleCount++;
-    return;
-  }
+  if (!a) return;
 
   const x = Number(a.x), y = Number(a.y), z = Number(a.z);
-  if (![x,y,z].every(Number.isFinite)) {
-    invalidSensorSampleCount++;
-    return;
-  }
+  if (![x,y,z].every(Number.isFinite)) return;
 
   lastMotionAt = performance.now();
   const magnitude = Math.hypot(x,y,z);
@@ -3296,23 +3267,20 @@ function handleBtn() {
   initAudio();
 
   if (phase === 'IDLE') {
-    // ต้องเรียกทันทีภายใน event จากการกดปุ่ม
-    const speechReady = primeSpeechEngine();
-
     arm = 'left';
     cardState('left', 'active', '🤚', T.pending);
     $('action-btn').disabled = true;
 
     const beginLeftArm = () => {
+      const speechReady = primeSpeechEngine();
       speechReady.then(() => {
-        // ป้องกัน callback เก่าทำงานหลังเปลี่ยนหน้า/เปลี่ยน phase
-        if (phase === 'IDLE') {
-          startWait();
-        }
+        if (phase === 'IDLE') startWait();
       });
     };
 
-    if (!sensorOk) {
+    // Always enter the permission path on the first tap. Do not trust API presence
+    // as proof that permission/listeners are already active.
+    if (!sensorPermissionAttempted || !sensorOk || !sensorAttached) {
       requestSensor(beginLeftArm);
     } else {
       beginLeftArm();
@@ -3718,6 +3686,7 @@ function handleArmFastFlow() {
 }
 
 // ── No language landing page: start directly and keep TH/EN/JA at top-right ──
+console.log('[Arm build]', ARM_BUILD_ID);
 (async function initArmLanguage() {
   const savedLang = sessionStorage.getItem('fast_lang') || 'th';
   const code = normaliseArmLang(savedLang);
