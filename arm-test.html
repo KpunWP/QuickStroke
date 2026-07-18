@@ -2076,24 +2076,14 @@ function vibe(p) { if (navigator.vibrate) navigator.vibrate(p); }
 
 async function requestSensor(cb) {
   try {
+    // Keep the permission flow equivalent to the original working Arm module.
+    // This function is called directly from handleBtn(), inside the user's tap.
     const orientationApi = typeof DeviceOrientationEvent !== 'undefined';
     const motionApi = typeof DeviceMotionEvent !== 'undefined';
-    sensorApiSupported = orientationApi || motionApi;
 
-    if (!sensorApiSupported) {
-      permissionReady = false;
-      sensorPermission = { orientation:'unsupported', motion:'unsupported' };
-      sensorOk = false;
-      phase = 'READINESS_ERROR';
-      showReadinessWarning('sensor_unsupported');
-      $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
-      $('action-btn').className = 'amber';
-      $('action-btn').disabled = false;
-      return;
-    }
+    let orientationGranted = true;
+    let motionGranted = true;
 
-    let orientationGranted = !orientationApi;
-    let motionGranted = !motionApi;
     sensorPermission = {
       orientation: orientationApi ? 'not_required' : 'unsupported',
       motion: motionApi ? 'not_required' : 'unsupported'
@@ -2103,23 +2093,16 @@ async function requestSensor(cb) {
         typeof DeviceOrientationEvent.requestPermission === 'function') {
       orientationGranted = (await DeviceOrientationEvent.requestPermission()) === 'granted';
       sensorPermission.orientation = orientationGranted ? 'granted' : 'denied';
-    } else if (orientationApi) {
-      orientationGranted = true;
-      sensorPermission.orientation = 'not_required';
     }
 
     if (motionApi &&
         typeof DeviceMotionEvent.requestPermission === 'function') {
       motionGranted = (await DeviceMotionEvent.requestPermission()) === 'granted';
       sensorPermission.motion = motionGranted ? 'granted' : 'denied';
-    } else if (motionApi) {
-      motionGranted = true;
-      sensorPermission.motion = 'not_required';
     }
 
-    permissionReady = Boolean(orientationGranted || motionGranted);
-
-    if (!permissionReady) {
+    if (!orientationGranted && !motionGranted) {
+      permissionReady = false;
       sensorOk = false;
       phase = 'READINESS_ERROR';
       readinessInvalidReason = 'permission_denied';
@@ -2130,8 +2113,22 @@ async function requestSensor(cb) {
       return;
     }
 
+    permissionReady = true;
     attachSensor();
-    sensorOk = sensorApiSupported && permissionReady;
+
+    if (!sensorApiSupported) {
+      permissionReady = false;
+      sensorOk = false;
+      phase = 'READINESS_ERROR';
+      readinessInvalidReason = 'sensor_unsupported';
+      showReadinessWarning('sensor_unsupported');
+      $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
+      $('action-btn').className = 'amber';
+      $('action-btn').disabled = false;
+      return;
+    }
+
+    sensorOk = true;
     cb();
   } catch (err) {
     console.error('Sensor permission error:', err);
@@ -2151,9 +2148,9 @@ function attachSensor() {
   if (sensorAttached) return;
   sensorAttached = true;
 
+  // Keep the listener feature detection identical to the original working file.
   const orientationApi = 'ondeviceorientation' in window;
   const motionApi = 'ondevicemotion' in window;
-  sensorApiSupported = orientationApi || motionApi;
 
   if (orientationApi) {
     window.addEventListener('deviceorientation', onOrientation, true);
@@ -2163,6 +2160,9 @@ function attachSensor() {
     window.addEventListener('devicemotion', onMotion, true);
   }
 
+  sensorApiSupported = orientationApi || motionApi;
+  sensorOk = sensorApiSupported;
+
   if (screen.orientation && typeof screen.orientation.addEventListener === 'function') {
     screen.orientation.addEventListener('change', onScreenOrientationChange);
   }
@@ -2170,11 +2170,6 @@ function attachSensor() {
   document.addEventListener('visibilitychange', onArmVisibilityChange);
 
   screenOrientationSnapshot = readScreenOrientation();
-  sensorOk = sensorApiSupported && permissionReady;
-
-  if (!sensorApiSupported) {
-    showReadinessWarning('sensor_unsupported');
-  }
 }
 
 function normalizeVector(v) {
