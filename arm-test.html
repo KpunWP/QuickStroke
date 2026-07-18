@@ -1685,7 +1685,7 @@ function updateArmDevHUD() {
   set('dev-ratio', formatDevNumber(peakRatio));
   set('dev-motion-class', motionClass || 'pending');
   set('dev-arm', arm || '—');
-  set('dev-phase', phase || '—');
+  set('dev-phase', readinessInvalidReason ? `${phase}:${readinessInvalidReason}` : (phase || '—'));
 
   const live = document.getElementById('dev-live-state');
   if (live) live.textContent = devLogging ? 'REC' : 'PAUSED';
@@ -1745,7 +1745,23 @@ function recordArmDevSample(force = false) {
     gravity_x: Number.isFinite(gravityFilt.x) ? gravityFilt.x : '',
     gravity_y: Number.isFinite(gravityFilt.y) ? gravityFilt.y : '',
     gravity_z: Number.isFinite(gravityFilt.z) ? gravityFilt.z : '',
+    screen_gravity_x: Number.isFinite(gravityScreen.x) ? gravityScreen.x : '',
+    screen_gravity_y: Number.isFinite(gravityScreen.y) ? gravityScreen.y : '',
+    screen_gravity_z: Number.isFinite(gravityScreen.z) ? gravityScreen.z : '',
+    screen_orientation_angle: screenOrientationSnapshot?.angle ?? '',
+    screen_orientation_type: screenOrientationSnapshot?.type || '',
+    screen_orientation_source: screenOrientationSnapshot?.source || '',
     gravity_magnitude: Number.isFinite(gravityMagnitude) ? gravityMagnitude : '',
+    sensor_fresh: isSensorFresh(),
+    permission_ready: permissionReady,
+    motion_permission: sensorPermission.motion,
+    orientation_permission: sensorPermission.orientation,
+    readiness_invalid_reason: readinessInvalidReason || '',
+    device_moved_from_rest: readinessChecks.deviceMovedFromRest || '',
+    device_not_upside_down: readinessChecks.deviceNotUpsideDown || '',
+    phone_facing_expected_side: 'unknown',
+    max_angle_from_rest_deg: Number.isFinite(maxAngleFromRest) ? maxAngleFromRest : '',
+    pre_measure_delta_deg: Number.isFinite(currentPreMeasureDelta) ? currentPreMeasureDelta : '',
     base_x: gravityBase && Number.isFinite(gravityBase.x) ? gravityBase.x : '',
     base_y: gravityBase && Number.isFinite(gravityBase.y) ? gravityBase.y : '',
     base_z: gravityBase && Number.isFinite(gravityBase.z) ? gravityBase.z : '',
@@ -1860,6 +1876,26 @@ const PRE_MEASURE_DELAY_MS    = ARM_CFG.preMeasureDelayMs;
 const RETRY_SEC               = ARM_CFG.retrySec;
 const LPF                     = ARM_CFG.lpf;
 
+/* ═══════════════════════════════════════════════════════════════
+   ARM MEASUREMENT READINESS v1
+   - Validation layer only: arm-drift thresholds/scoring stay unchanged.
+   - Top-up and moved-from-rest are collected in shadow mode until the
+     engineering device matrix confirms safe enforcement thresholds.
+   - IMU-only cannot verify the phone side relative to the user's body.
+═══════════════════════════════════════════════════════════════ */
+const ARM_READINESS_INPUT = window.QS_CONFIG?.thresholds?.armReadiness || {};
+const ARM_READINESS_CFG = Object.freeze({
+  version: 'arm-readiness-1.0.0',
+  sampleFreshMs: Math.max(1500, MOTION_FALLBACK_MS * 2),
+  sensorWaitTimeoutMs: 6000,
+  preMeasureMaxDeltaDeg: Math.max(4, STABLE_ANGLE_DEG * 2),
+  movedFromRestMinDeg: 8,
+  enforcePortraitScreen: true,
+  enforceTopUp: false,
+  enforceMovedFromRest: false,
+  ...ARM_READINESS_INPUT
+});
+
 let _speaking = false;
 let _voiceQ = [];
 
@@ -1962,6 +1998,7 @@ let orientationAbsolute = null;
 
 let gravityRaw       = { x:0, y:0, z:1 };
 let gravityFilt      = { x:0, y:0, z:1 };
+let gravityScreen    = { x:0, y:0, z:1 };
 let gravityMagnitude = null;
 let gravitySource    = '';
 let gravityReady     = false;
@@ -1979,11 +2016,41 @@ let failHoldStarted  = null;
 let lastMotionAt     = 0;
 let sensorAttached   = false;
 
+let sensorApiSupported = false;
+let permissionReady = false;
+let sensorPermission = { orientation:'unknown', motion:'unknown' };
+let firstSensorSampleAt = 0;
+let lastSensorSampleAt = 0;
+let validSensorSampleCount = 0;
+let invalidSensorSampleCount = 0;
+let sensorSourceSwitchCount = 0;
+
+let screenOrientationSnapshot = {
+  angle:0, type:'portrait-primary', source:'initial', inferred:true
+};
+let screenOrientationAtBaseline = null;
+let baselineMeta = null;
+let currentPreMeasureDelta = null;
+let restReferenceVector = null;
+let maxAngleFromRest = 0;
+
+let readinessChecks = {};
+let readinessInvalidReason = null;
+let readinessFailedChecks = [];
+let readinessEvents = [];
+let armReadinessAttempts = [];
+let currentReadinessAttempt = null;
+let attemptNoByArm = { left:0, right:0 };
+let pendingRetryReason = null;
+
 let driftValues = { right: null, left: null };
 let armAnalysis = { right:null, left:null };
 let sensorOk = false;
 
 let measureTimer  = null;
+let preMeasureTimer = null;
+let readinessWatchdog = null;
+let sensorWaitStartedAt = 0;
 let mElapsed      = 0;
 let voiced4       = false, voiced7 = false;
 let retryTimer    = null;
@@ -2009,29 +2076,74 @@ function vibe(p) { if (navigator.vibrate) navigator.vibrate(p); }
 
 async function requestSensor(cb) {
   try {
-    let orientationGranted = true;
-    let motionGranted = true;
+    const orientationApi = typeof DeviceOrientationEvent !== 'undefined';
+    const motionApi = typeof DeviceMotionEvent !== 'undefined';
+    sensorApiSupported = orientationApi || motionApi;
 
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
+    if (!sensorApiSupported) {
+      permissionReady = false;
+      sensorPermission = { orientation:'unsupported', motion:'unsupported' };
+      sensorOk = false;
+      phase = 'READINESS_ERROR';
+      showReadinessWarning('sensor_unsupported');
+      $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
+      $('action-btn').className = 'amber';
+      $('action-btn').disabled = false;
+      return;
+    }
+
+    let orientationGranted = !orientationApi;
+    let motionGranted = !motionApi;
+    sensorPermission = {
+      orientation: orientationApi ? 'not_required' : 'unsupported',
+      motion: motionApi ? 'not_required' : 'unsupported'
+    };
+
+    if (orientationApi &&
         typeof DeviceOrientationEvent.requestPermission === 'function') {
       orientationGranted = (await DeviceOrientationEvent.requestPermission()) === 'granted';
+      sensorPermission.orientation = orientationGranted ? 'granted' : 'denied';
+    } else if (orientationApi) {
+      orientationGranted = true;
+      sensorPermission.orientation = 'not_required';
     }
 
-    if (typeof DeviceMotionEvent !== 'undefined' &&
+    if (motionApi &&
         typeof DeviceMotionEvent.requestPermission === 'function') {
       motionGranted = (await DeviceMotionEvent.requestPermission()) === 'granted';
+      sensorPermission.motion = motionGranted ? 'granted' : 'denied';
+    } else if (motionApi) {
+      motionGranted = true;
+      sensorPermission.motion = 'not_required';
     }
 
-    if (!orientationGranted && !motionGranted) {
-      alert(T.sensorDenied);
+    permissionReady = Boolean(orientationGranted || motionGranted);
+
+    if (!permissionReady) {
+      sensorOk = false;
+      phase = 'READINESS_ERROR';
+      readinessInvalidReason = 'permission_denied';
+      showReadinessWarning('permission_denied');
+      $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
+      $('action-btn').className = 'amber';
+      $('action-btn').disabled = false;
       return;
     }
 
     attachSensor();
+    sensorOk = sensorApiSupported && permissionReady;
     cb();
   } catch (err) {
     console.error('Sensor permission error:', err);
-    alert(T.sensorDenied);
+    permissionReady = false;
+    sensorOk = false;
+    sensorPermission = { orientation:'error', motion:'error' };
+    phase = 'READINESS_ERROR';
+    readinessInvalidReason = 'permission_error';
+    showReadinessWarning('permission_error');
+    $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
+    $('action-btn').className = 'amber';
+    $('action-btn').disabled = false;
   }
 }
 
@@ -2039,18 +2151,29 @@ function attachSensor() {
   if (sensorAttached) return;
   sensorAttached = true;
 
-  if ('ondeviceorientation' in window) {
+  const orientationApi = 'ondeviceorientation' in window;
+  const motionApi = 'ondevicemotion' in window;
+  sensorApiSupported = orientationApi || motionApi;
+
+  if (orientationApi) {
     window.addEventListener('deviceorientation', onOrientation, true);
   }
 
-  if ('ondevicemotion' in window) {
+  if (motionApi) {
     window.addEventListener('devicemotion', onMotion, true);
   }
 
-  sensorOk = ('ondeviceorientation' in window) || ('ondevicemotion' in window);
+  if (screen.orientation && typeof screen.orientation.addEventListener === 'function') {
+    screen.orientation.addEventListener('change', onScreenOrientationChange);
+  }
+  window.addEventListener('orientationchange', onScreenOrientationChange, true);
+  document.addEventListener('visibilitychange', onArmVisibilityChange);
 
-  if (!sensorOk) {
-    alert(T.sensorUnsupported);
+  screenOrientationSnapshot = readScreenOrientation();
+  sensorOk = sensorApiSupported && permissionReady;
+
+  if (!sensorApiSupported) {
+    showReadinessWarning('sensor_unsupported');
   }
 }
 
@@ -2083,18 +2206,417 @@ function averageVectors(list) {
   });
 }
 
+function normalizeScreenAngle(value) {
+  if (!Number.isFinite(Number(value))) return null;
+  const normalized = ((Number(value) % 360) + 360) % 360;
+  const candidates = [0, 90, 180, 270];
+  return candidates.reduce((best, candidate) =>
+    Math.abs(candidate - normalized) < Math.abs(best - normalized) ? candidate : best
+  , 0);
+}
+
+function readScreenOrientation() {
+  const apiAngle = normalizeScreenAngle(screen.orientation?.angle);
+  const apiType = screen.orientation?.type;
+
+  if (apiAngle !== null) {
+    return {
+      angle:apiAngle,
+      type:apiType || (window.innerWidth > window.innerHeight ? 'landscape-primary' : 'portrait-primary'),
+      source:'screen.orientation',
+      inferred:false
+    };
+  }
+
+  const legacyAngle = normalizeScreenAngle(window.orientation);
+  if (legacyAngle !== null) {
+    return {
+      angle:legacyAngle,
+      type:window.innerWidth > window.innerHeight ? 'landscape-primary' : 'portrait-primary',
+      source:'window.orientation',
+      inferred:false
+    };
+  }
+
+  return {
+    angle:0,
+    type:window.innerWidth > window.innerHeight ? 'landscape-primary' : 'portrait-primary',
+    source:'viewport-inferred',
+    inferred:true
+  };
+}
+
+function toScreenFrame(vector, angleDeg = 0) {
+  const a = Number(angleDeg || 0) * Math.PI / 180;
+  const cosA = Math.cos(a);
+  const sinA = Math.sin(a);
+
+  return normalizeVector({
+    x: vector.x * cosA + vector.y * sinA,
+    y:-vector.x * sinA + vector.y * cosA,
+    z: vector.z
+  }) || { ...vector };
+}
+
+function isSensorFresh(now = performance.now()) {
+  return gravityReady &&
+    lastSensorSampleAt > 0 &&
+    now - lastSensorSampleAt <= ARM_READINESS_CFG.sampleFreshMs;
+}
+
+function readinessMessage(reason) {
+  const code = currentLangCode();
+  const copy = {
+    th: {
+      permission_denied:['กรุณาอนุญาตการเคลื่อนไหว','จำเป็นสำหรับการตรวจแขน'],
+      permission_error:['เปิดเซนเซอร์ไม่สำเร็จ','ลองกดเริ่มอีกครั้ง'],
+      sensor_unsupported:['อุปกรณ์นี้อ่านการเคลื่อนไหวไม่ได้','กรุณาใช้อุปกรณ์หรือเบราว์เซอร์อื่น'],
+      sensor_no_samples:['ยังอ่านการเคลื่อนไหวไม่ได้','ถือโทรศัพท์ไว้ แล้วลองอีกครั้ง'],
+      sensor_stale:['สัญญาณการเคลื่อนไหวขาดหาย','กลับมาที่หน้านี้แล้วลองอีกครั้ง'],
+      device_landscape:['ถือโทรศัพท์แนวตั้ง','ให้หัวเครื่องอยู่ด้านบน'],
+      device_flat:['ตั้งโทรศัพท์ให้ตรงขึ้น','อย่าวางหน้าจอราบ'],
+      device_not_upright:['ตั้งโทรศัพท์ให้ตรงขึ้น','ถือในแนวตั้งตามภาพ'],
+      device_upside_down:['หมุนโทรศัพท์กลับด้าน','ให้หัวเครื่องอยู่ด้านบน'],
+      device_not_moved_from_rest:['ยังไม่พบการเปลี่ยนท่าถือ','ยกโทรศัพท์ตามภาพแล้วถือนิ่ง'],
+      coordinate_frame_unresolved:['อ่านทิศหน้าจอไม่ได้','ลองล็อกหน้าจอแนวตั้งแล้วเริ่มใหม่'],
+      pose_changed_before_measurement:['ท่าเปลี่ยน กรุณาจัดใหม่','ถือนิ่งจนได้ยินเสียงเริ่ม'],
+      screen_orientation_changed:['อย่าหมุนหน้าจอระหว่างตรวจ','จัดโทรศัพท์แนวตั้งแล้วลองใหม่'],
+      sensor_source_changed:['สัญญาณเซนเซอร์เปลี่ยน','ถือนิ่งเพื่อเก็บค่าใหม่'],
+      page_hidden:['การตรวจถูกพักไว้','กลับมาที่หน้านี้แล้วลองใหม่']
+    },
+    en: {
+      permission_denied:['Allow motion access','It is required for the arm test'],
+      permission_error:['Could not start the sensors','Please try again'],
+      sensor_unsupported:['Motion sensors are unavailable','Use another device or browser'],
+      sensor_no_samples:['No motion data yet','Hold the phone and try again'],
+      sensor_stale:['Motion data was interrupted','Return to this page and try again'],
+      device_landscape:['Hold the phone upright','Keep the top of the phone upward'],
+      device_flat:['Hold the phone more upright','Do not hold the screen flat'],
+      device_not_upright:['Hold the phone upright','Match the position shown'],
+      device_upside_down:['Turn the phone around','Keep the top of the phone upward'],
+      device_not_moved_from_rest:['No position change was detected','Raise the phone as shown, then hold still'],
+      coordinate_frame_unresolved:['Screen direction is unavailable','Lock portrait mode and try again'],
+      pose_changed_before_measurement:['Your position changed','Hold still until the start sound'],
+      screen_orientation_changed:['Do not rotate the screen','Return to portrait and try again'],
+      sensor_source_changed:['Sensor input changed','Hold still while a new baseline is taken'],
+      page_hidden:['The test was paused','Return to this page and try again']
+    },
+    ja: {
+      permission_denied:['モーションアクセスを許可してください','腕の検査に必要です'],
+      permission_error:['センサーを開始できませんでした','もう一度お試しください'],
+      sensor_unsupported:['動きセンサーを利用できません','別の端末またはブラウザーを使用してください'],
+      sensor_no_samples:['動きデータを取得できません','スマートフォンを持って再試行してください'],
+      sensor_stale:['動きデータが中断しました','この画面に戻って再試行してください'],
+      device_landscape:['スマートフォンを縦に持ってください','上側を上にしてください'],
+      device_flat:['スマートフォンを立ててください','画面を水平にしないでください'],
+      device_not_upright:['スマートフォンを縦にしてください','画像と同じ姿勢にしてください'],
+      device_upside_down:['スマートフォンの上下を戻してください','上側を上にしてください'],
+      device_not_moved_from_rest:['持ち上げ動作を確認できません','画像のように持ち上げて静止してください'],
+      coordinate_frame_unresolved:['画面の向きを確認できません','縦向きに固定して再試行してください'],
+      pose_changed_before_measurement:['姿勢が変わりました','開始音まで動かさないでください'],
+      screen_orientation_changed:['検査中に画面を回転しないでください','縦向きに戻して再試行してください'],
+      sensor_source_changed:['センサー入力が変わりました','新しい基準値を取るまで静止してください'],
+      page_hidden:['検査が一時停止しました','この画面に戻って再試行してください']
+    }
+  };
+
+  const lang = copy[code] ? code : 'en';
+  return copy[lang][reason] || [T?.warnFlat || 'Adjust the phone position', T?.warnFlatSub || 'Hold still and try again'];
+}
+
+function recordReadinessEvent(type, details = {}) {
+  const event = {
+    atUtc:new Date().toISOString(),
+    elapsedMs:currentReadinessAttempt
+      ? Math.round(performance.now() - currentReadinessAttempt.startedAtPerf)
+      : null,
+    arm,
+    phase,
+    type,
+    invalidReason:details.invalidReason || null,
+    ...details
+  };
+  readinessEvents.push(event);
+  if (currentReadinessAttempt) currentReadinessAttempt.events.push(event);
+}
+
+function beginReadinessAttempt() {
+  attemptNoByArm[arm] += 1;
+  currentReadinessAttempt = {
+    arm,
+    attemptNo:attemptNoByArm[arm],
+    retryReason:pendingRetryReason,
+    startedAtUtc:new Date().toISOString(),
+    startedAtPerf:performance.now(),
+    readinessVersion:ARM_READINESS_CFG.version,
+    status:'in_progress',
+    invalidReason:null,
+    events:[],
+    sampleCountAtStart:validSensorSampleCount,
+    sourceSwitchCountAtStart:sensorSourceSwitchCount
+  };
+  pendingRetryReason = null;
+  armReadinessAttempts.push(currentReadinessAttempt);
+  recordReadinessEvent('attempt_started');
+}
+
+function finalizeReadinessAttempt(status, invalidReason = null, details = {}) {
+  if (!currentReadinessAttempt || currentReadinessAttempt.status !== 'in_progress') return;
+  currentReadinessAttempt.status = status;
+  currentReadinessAttempt.invalidReason = invalidReason;
+  currentReadinessAttempt.endedAtUtc = new Date().toISOString();
+  currentReadinessAttempt.durationMs = Math.round(performance.now() - currentReadinessAttempt.startedAtPerf);
+  currentReadinessAttempt.sensorSamples = validSensorSampleCount - currentReadinessAttempt.sampleCountAtStart;
+  currentReadinessAttempt.sensorSourceSwitches = sensorSourceSwitchCount - currentReadinessAttempt.sourceSwitchCountAtStart;
+  currentReadinessAttempt.maxAngleFromRestDeg = Number.isFinite(maxAngleFromRest) ? maxAngleFromRest : null;
+  currentReadinessAttempt.deviceMovedFromRest =
+    maxAngleFromRest >= ARM_READINESS_CFG.movedFromRestMinDeg ? 'pass' : 'fail';
+  currentReadinessAttempt.phoneFacingExpectedSide = 'unknown';
+  currentReadinessAttempt.baseline = baselineMeta ? { ...baselineMeta } : null;
+  Object.assign(currentReadinessAttempt, details);
+}
+
+function showReadinessWarning(reason) {
+  const changed = readinessInvalidReason !== reason;
+  readinessInvalidReason = reason;
+  readinessFailedChecks = [reason];
+  const [title, sub] = readinessMessage(reason);
+  warnKey(reason, title, sub, title);
+  if (changed) {
+    recordReadinessEvent('readiness_rejected', { invalidReason:reason });
+  }
+}
+
+function clearReadinessIssue() {
+  if (readinessInvalidReason) {
+    recordReadinessEvent('readiness_corrected', { correctedReason:readinessInvalidReason });
+  }
+  readinessInvalidReason = null;
+  readinessFailedChecks = [];
+  lastWarnKey = '';
+  hideWarn();
+}
+
+function evaluateReadiness() {
+  screenOrientationSnapshot = readScreenOrientation();
+  gravityScreen = toScreenFrame(gravityFilt, screenOrientationSnapshot.angle);
+
+  const fresh = isSensorFresh();
+  const screenLandscape = String(screenOrientationSnapshot.type || '').startsWith('landscape') ||
+    window.innerWidth > window.innerHeight;
+  const phoneFlat = Math.abs(gravityScreen.z) > FLAT_Z_THR;
+  const uprightMagnitudeOk = Math.abs(gravityScreen.y) >= PORTRAIT_Y_MIN;
+  const topUpStatus =
+    gravityScreen.y >= PORTRAIT_Y_MIN ? 'pass' :
+    gravityScreen.y <= -PORTRAIT_Y_MIN ? 'fail' :
+    'unknown';
+  const movedStatus =
+    !restReferenceVector ? 'unknown' :
+    maxAngleFromRest >= ARM_READINESS_CFG.movedFromRestMinDeg ? 'pass' : 'fail';
+
+  readinessChecks = {
+    permissionReady: permissionReady ? 'pass' : 'fail',
+    sensorAvailable: sensorApiSupported && gravityReady ? 'pass' : 'fail',
+    sensorDataFresh: fresh ? 'pass' : 'fail',
+    coordinateFrameResolved: Number.isFinite(screenOrientationSnapshot.angle) ? 'pass' : 'fail',
+    deviceMovedFromRest: movedStatus,
+    grossOrientationAcceptable:
+      !screenLandscape && !phoneFlat && uprightMagnitudeOk ? 'pass' : 'fail',
+    deviceNotUpsideDown: topUpStatus,
+    orientationStable: 'unknown',
+    phoneFacingExpectedSide: 'unknown',
+    baselineQualityAcceptable: baselineMeta ? 'pass' : 'unknown',
+    preMeasurePoseStillValid: currentPreMeasureDelta === null ? 'unknown' : 'pass'
+  };
+
+  let invalidReason = null;
+  if (!permissionReady) invalidReason = 'permission_denied';
+  else if (!sensorApiSupported) invalidReason = 'sensor_unsupported';
+  else if (!gravityReady) invalidReason = 'sensor_no_samples';
+  else if (!fresh) invalidReason = 'sensor_stale';
+  else if (!Number.isFinite(screenOrientationSnapshot.angle)) invalidReason = 'coordinate_frame_unresolved';
+  else if (ARM_READINESS_CFG.enforcePortraitScreen && screenLandscape) invalidReason = 'device_landscape';
+  else if (phoneFlat) invalidReason = 'device_flat';
+  else if (!uprightMagnitudeOk) invalidReason = 'device_not_upright';
+  else if (ARM_READINESS_CFG.enforceTopUp && topUpStatus === 'fail') invalidReason = 'device_upside_down';
+  else if (ARM_READINESS_CFG.enforceMovedFromRest && movedStatus === 'fail') invalidReason = 'device_not_moved_from_rest';
+
+  return {
+    ready:invalidReason === null,
+    invalidReason,
+    checks:{ ...readinessChecks },
+    gravityScreen:{ ...gravityScreen },
+    screen:{ ...screenOrientationSnapshot }
+  };
+}
+
+function stopReadinessWatchdog() {
+  if (readinessWatchdog) {
+    clearInterval(readinessWatchdog);
+    readinessWatchdog = null;
+  }
+}
+
+function startReadinessWatchdog() {
+  stopReadinessWatchdog();
+  readinessWatchdog = setInterval(() => {
+    const now = performance.now();
+
+    if (phase === 'WAIT_SENSOR' &&
+        now - sensorWaitStartedAt >= ARM_READINESS_CFG.sensorWaitTimeoutMs) {
+      phase = 'READINESS_ERROR';
+      showReadinessWarning('sensor_no_samples');
+      $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
+      $('action-btn').className = 'amber';
+      $('action-btn').disabled = false;
+      return;
+    }
+
+    if ((phase === 'CALIB' || phase === 'PRE_MEASURE_RECHECK') &&
+        gravityReady && !isSensorFresh(now)) {
+      resetCalibrationWindow();
+      if (phase === 'PRE_MEASURE_RECHECK') returnToCalibration('sensor_stale');
+      else showReadinessWarning('sensor_stale');
+      return;
+    }
+
+    if (phase === 'MEASURE' && !isSensorFresh(now)) {
+      abortMeasurementForReadiness('sensor_stale');
+    }
+  }, 250);
+}
+
+function returnToCalibration(reason) {
+  if (preMeasureTimer) {
+    clearTimeout(preMeasureTimer);
+    preMeasureTimer = null;
+  }
+  gravityBase = null;
+  baselineMeta = null;
+  currentPreMeasureDelta = null;
+  resetCalibrationWindow();
+  phase = 'CALIB';
+  showReadinessWarning(reason);
+  $('arm-circle').className = 'arm-circle waiting';
+  if ($('pose-guide')) $('pose-guide').style.display = 'block';
+}
+
+function showValidationRetest(reason) {
+  stopReadinessWatchdog();
+  if (measureTimer) {
+    clearInterval(measureTimer);
+    measureTimer = null;
+  }
+  if (preMeasureTimer) {
+    clearTimeout(preMeasureTimer);
+    preMeasureTimer = null;
+  }
+  phase = 'RETRY_ARM';
+  results[arm] = null;
+  driftValues[arm] = null;
+  armAnalysis[arm] = null;
+  finalizeReadinessAttempt('completed_invalid', reason);
+  pendingRetryReason = reason;
+
+  const [title, sub] = readinessMessage(reason);
+  cardState(arm, 'retry', '↻', T?.uncertainLbl || 'Retry');
+  showWarn(title, sub);
+  $('cd-wrap').style.display = 'none';
+  $('drift-wrap').style.display = 'none';
+  $('arm-circle').className = 'arm-circle waiting';
+  $('arm-ring').className = 'arm-ring-outer';
+  $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
+  $('action-btn').className = 'amber';
+  $('action-btn').disabled = false;
+  recordReadinessEvent('measurement_invalidated', { invalidReason:reason });
+  beep(440, 0.25);
+  vibe([120,80,120]);
+  speakNow(title);
+}
+
+function abortMeasurementForReadiness(reason) {
+  if (phase !== 'MEASURE') return;
+  showValidationRetest(reason);
+}
+
+function onScreenOrientationChange() {
+  const previous = screenOrientationSnapshot;
+  const next = readScreenOrientation();
+  screenOrientationSnapshot = next;
+
+  if (previous &&
+      previous.angle === next.angle &&
+      previous.type === next.type) return;
+
+  recordReadinessEvent('screen_orientation_changed', {
+    fromAngle:previous?.angle ?? null,
+    toAngle:next.angle,
+    fromType:previous?.type || null,
+    toType:next.type || null
+  });
+
+  if (phase === 'MEASURE') {
+    abortMeasurementForReadiness('screen_orientation_changed');
+  } else if (phase === 'PRE_MEASURE_RECHECK') {
+    returnToCalibration('screen_orientation_changed');
+  } else if (phase === 'CALIB') {
+    resetCalibrationWindow();
+    showReadinessWarning('screen_orientation_changed');
+  }
+}
+
+function onArmVisibilityChange() {
+  if (!document.hidden) return;
+  if (phase === 'MEASURE') {
+    abortMeasurementForReadiness('page_hidden');
+  } else if (phase === 'PRE_MEASURE_RECHECK') {
+    returnToCalibration('page_hidden');
+  } else if (phase === 'CALIB') {
+    resetCalibrationWindow();
+    showReadinessWarning('page_hidden');
+  }
+}
+
 function setGravityVector(raw, source, magnitude = null) {
   const unit = normalizeVector(raw);
-  if (!unit) return;
+  if (!unit) {
+    invalidSensorSampleCount++;
+    return;
+  }
 
-  if (gravitySource && gravitySource !== source) {
+  const now = performance.now();
+  const previousSource = gravitySource;
+
+  if (previousSource && previousSource !== source) {
     gravityWindow = [];
     stableCount = 0;
+    sensorSourceSwitchCount++;
+    recordReadinessEvent('sensor_source_changed', {
+      fromSource:previousSource,
+      toSource:source
+    });
+
+    if (phase === 'MEASURE') {
+      gravitySource = source;
+      abortMeasurementForReadiness('sensor_source_changed');
+      return;
+    }
+    if (phase === 'PRE_MEASURE_RECHECK') {
+      gravitySource = source;
+      returnToCalibration('sensor_source_changed');
+      return;
+    }
+    if (phase === 'CALIB') {
+      showReadinessWarning('sensor_source_changed');
+    }
   }
 
   gravitySource = source;
   gravityRaw = { ...raw };
   gravityMagnitude = magnitude;
+  lastSensorSampleAt = now;
+  if (!firstSensorSampleAt) firstSensorSampleAt = now;
+  validSensorSampleCount++;
 
   if (!gravityReady) {
     gravityFilt = { ...unit };
@@ -2107,15 +2629,33 @@ function setGravityVector(raw, source, magnitude = null) {
     }) || { ...unit };
   }
 
+  screenOrientationSnapshot = readScreenOrientation();
+  gravityScreen = toScreenFrame(gravityFilt, screenOrientationSnapshot.angle);
+
+  if (!restReferenceVector) {
+    restReferenceVector = { ...gravityFilt };
+  } else {
+    maxAngleFromRest = Math.max(
+      maxAngleFromRest,
+      angleBetweenVectors(restReferenceVector, gravityFilt)
+    );
+  }
+
   handleGravityTick();
 }
 
 function onMotion(e) {
   const a = e.accelerationIncludingGravity;
-  if (!a) return;
+  if (!a) {
+    invalidSensorSampleCount++;
+    return;
+  }
 
   const x = Number(a.x), y = Number(a.y), z = Number(a.z);
-  if (![x,y,z].every(Number.isFinite)) return;
+  if (![x,y,z].every(Number.isFinite)) {
+    invalidSensorSampleCount++;
+    return;
+  }
 
   lastMotionAt = performance.now();
   const magnitude = Math.hypot(x,y,z);
@@ -2147,7 +2687,20 @@ function onOrientation(e) {
 }
 
 function handleGravityTick() {
+  if ((phase === 'WAIT_SENSOR' || phase === 'READINESS_ERROR') && isSensorFresh()) {
+    phase = 'CALIB';
+    clearReadinessIssue();
+    $('action-btn').disabled = true;
+    $('action-btn').className = '';
+    recordReadinessEvent('sensor_samples_ready', {
+      sensorSource:gravitySource,
+      screenAngle:screenOrientationSnapshot.angle,
+      screenType:screenOrientationSnapshot.type
+    });
+  }
+
   if (phase === 'CALIB') tickCalib();
+  if (phase === 'PRE_MEASURE_RECHECK') tickPreMeasureRecheck();
   if (phase === 'MEASURE') tickMeasure();
   updateArmDevHUD();
   recordArmDevSample();
@@ -2162,19 +2715,16 @@ function resetCalibrationWindow() {
 function tickCalib() {
   if (phase !== 'CALIB' || !gravityReady) return;
 
-  // Screen should stay approximately vertical, not flat.
-  const phoneFlat = Math.abs(gravityFilt.z) > FLAT_Z_THR;
+  const readiness = evaluateReadiness();
 
-  // Long edge should be approximately vertical. Sign is intentionally ignored
-  // until real-device logs confirm a safe top-up convention.
-  const phoneNotPortrait = Math.abs(gravityFilt.y) < PORTRAIT_Y_MIN;
-
-  if (phoneFlat || phoneNotPortrait) {
+  if (!readiness.ready) {
     resetCalibrationWindow();
-    warnKey('flat', T.warnFlat, T.warnFlatSub, T.vFlat);
+    showReadinessWarning(readiness.invalidReason);
     $('arm-circle').className = 'arm-circle waiting';
     return;
   }
+
+  if (readinessInvalidReason) clearReadinessIssue();
 
   gravityWindow.push({ ...gravityFilt });
   if (gravityWindow.length > STABLE_WINDOW) gravityWindow.shift();
@@ -2189,6 +2739,8 @@ function tickCalib() {
     Number.isFinite(stableSpread) &&
     stableSpread < STABLE_ANGLE_DEG;
 
+  readinessChecks.orientationStable = isStable ? 'pass' : 'fail';
+
   if (isStable) {
     stableCount++;
     hideWarn();
@@ -2199,11 +2751,41 @@ function tickCalib() {
 
     if (stableCount >= STABLE_HOLD) {
       gravityBase = averageVectors(gravityWindow);
+      if (!gravityBase) {
+        returnToCalibration('sensor_no_samples');
+        return;
+      }
+
+      screenOrientationAtBaseline = { ...screenOrientationSnapshot };
+      baselineMeta = {
+        capturedAtUtc:new Date().toISOString(),
+        source:gravitySource,
+        sampleCount:gravityWindow.length,
+        stableSpreadDeg:Number.isFinite(stableSpread) ? stableSpread : null,
+        stableHoldCount:stableCount,
+        vectorDevice:{ ...gravityBase },
+        vectorScreen:toScreenFrame(gravityBase, screenOrientationSnapshot.angle),
+        screenAngle:screenOrientationSnapshot.angle,
+        screenType:screenOrientationSnapshot.type,
+        screenSource:screenOrientationSnapshot.source,
+        deviceMovedFromRest:
+          maxAngleFromRest >= ARM_READINESS_CFG.movedFromRestMinDeg ? 'pass' : 'fail',
+        phoneFacingExpectedSide:'unknown',
+        deviceNotUpsideDown:readiness.checks.deviceNotUpsideDown
+      };
+      readinessChecks.baselineQualityAcceptable = 'pass';
       currentDrift = 0;
       driftMax = 0;
       failHoldStarted = null;
-      phase = 'PRE_MEASURE';
+      currentPreMeasureDelta = 0;
+      phase = 'PRE_MEASURE_RECHECK';
 
+      recordReadinessEvent('baseline_accepted', {
+        baselineSpreadDeg:baselineMeta.stableSpreadDeg,
+        baselineSamples:baselineMeta.sampleCount,
+        screenAngle:baselineMeta.screenAngle,
+        sensorSource:baselineMeta.source
+      });
       addDevMarker(`BASELINE_${arm.toUpperCase()}`);
 
       if (retryTimer) {
@@ -2211,7 +2793,8 @@ function tickCalib() {
         retryTimer = null;
       }
 
-      setTimeout(startMeasure, PRE_MEASURE_DELAY_MS);
+      if (preMeasureTimer) clearTimeout(preMeasureTimer);
+      preMeasureTimer = setTimeout(startMeasure, PRE_MEASURE_DELAY_MS);
     }
   } else {
     stableCount = 0;
@@ -2220,6 +2803,35 @@ function tickCalib() {
       $('instr').textContent     = T['instrWait_'+arm];
       $('sub-instr').textContent = T['subWait_'+arm];
     }
+  }
+}
+
+function tickPreMeasureRecheck() {
+  if (phase !== 'PRE_MEASURE_RECHECK' || !gravityBase || !gravityReady) return;
+
+  const readiness = evaluateReadiness();
+  if (!readiness.ready) {
+    returnToCalibration(readiness.invalidReason);
+    return;
+  }
+
+  if (gravitySource !== baselineMeta?.source) {
+    returnToCalibration('sensor_source_changed');
+    return;
+  }
+
+  if (screenOrientationAtBaseline &&
+      screenOrientationSnapshot.angle !== screenOrientationAtBaseline.angle) {
+    returnToCalibration('screen_orientation_changed');
+    return;
+  }
+
+  currentPreMeasureDelta = angleBetweenVectors(gravityBase, gravityFilt);
+  readinessChecks.preMeasurePoseStillValid =
+    currentPreMeasureDelta <= ARM_READINESS_CFG.preMeasureMaxDeltaDeg ? 'pass' : 'fail';
+
+  if (currentPreMeasureDelta > ARM_READINESS_CFG.preMeasureMaxDeltaDeg) {
+    returnToCalibration('pose_changed_before_measurement');
   }
 }
 
@@ -2333,9 +2945,16 @@ function removeArmNavOverlays() {
 function startWait() {
   updateArmDevHUD();
   removeFastNavButton();
+  if (preMeasureTimer) {
+    clearTimeout(preMeasureTimer);
+    preMeasureTimer = null;
+  }
   phase = 'WAIT_VOICE';
   resetCalibrationWindow();
   gravityBase = null;
+  baselineMeta = null;
+  screenOrientationAtBaseline = null;
+  currentPreMeasureDelta = null;
   currentDrift = 0;
   driftMax = 0;
   currentDelta = { x:0, y:0, z:0 };
@@ -2343,7 +2962,13 @@ function startWait() {
   peakRatio = 0;
   motionClass = 'pending';
   failHoldStarted = null;
+  readinessInvalidReason = null;
+  readinessFailedChecks = [];
+  restReferenceVector = gravityReady ? { ...gravityFilt } : null;
+  maxAngleFromRest = 0;
+  sensorWaitStartedAt = performance.now();
   lastWarnKey = '';
+  beginReadinessAttempt();
   addDevMarker(`START_${arm.toUpperCase()}_${currentDevProtocol().key.toUpperCase()}`);
 
   setDot(arm==='left'?0:1, 'active');
@@ -2359,15 +2984,33 @@ function startWait() {
   $('instr').textContent     = T['instrWait_'+arm];
   $('sub-instr').textContent = T['subWait_'+arm];
   $('action-btn').disabled   = true;
+  $('action-btn').className  = '';
   updatePoseGuide();
   if ($('pose-guide')) $('pose-guide').style.display = 'block';
+  startReadinessWatchdog();
 
   speakNow(T['vWait_'+arm], () => {
     if (phase === 'WAIT_VOICE') {
-      phase = 'CALIB';
+      phase = isSensorFresh() ? 'CALIB' : 'WAIT_SENSOR';
+      sensorWaitStartedAt = performance.now();
+
+      if (phase === 'CALIB') {
+        recordReadinessEvent('sensor_samples_ready', {
+          sensorSource:gravitySource,
+          screenAngle:screenOrientationSnapshot.angle,
+          screenType:screenOrientationSnapshot.type
+        });
+      }
+
       if (retryTimer) clearInterval(retryTimer);
       retryTimer = setInterval(() => {
-        if (phase !== 'CALIB') { clearInterval(retryTimer); retryTimer = null; return; }
+        if (phase !== 'CALIB') {
+          if (!['WAIT_SENSOR','READINESS_ERROR'].includes(phase)) {
+            clearInterval(retryTimer);
+            retryTimer = null;
+          }
+          return;
+        }
         speak(T.vCalibRetry);
       }, RETRY_SEC * 1000);
     }
@@ -2375,14 +3018,51 @@ function startWait() {
 }
 
 function startMeasure() {
-  if (!gravityBase || !gravityReady) {
-    phase = 'CALIB';
-    resetCalibrationWindow();
+  if (preMeasureTimer) {
+    clearTimeout(preMeasureTimer);
+    preMeasureTimer = null;
+  }
+
+  if (!gravityBase || !gravityReady || !baselineMeta) {
+    returnToCalibration('sensor_no_samples');
     return;
   }
 
-  // Recapture at the actual start so the baseline is not stale after PRE_MEASURE.
-  gravityBase = normalizeVector({ ...gravityFilt }) || gravityBase;
+  const readiness = evaluateReadiness();
+  currentPreMeasureDelta = angleBetweenVectors(gravityBase, gravityFilt);
+
+  if (!readiness.ready) {
+    returnToCalibration(readiness.invalidReason);
+    return;
+  }
+
+  if (gravitySource !== baselineMeta.source) {
+    returnToCalibration('sensor_source_changed');
+    return;
+  }
+
+  if (screenOrientationSnapshot.angle !== baselineMeta.screenAngle) {
+    returnToCalibration('screen_orientation_changed');
+    return;
+  }
+
+  if (currentPreMeasureDelta > ARM_READINESS_CFG.preMeasureMaxDeltaDeg) {
+    returnToCalibration('pose_changed_before_measurement');
+    return;
+  }
+
+  readinessChecks.orientationStable = 'pass';
+  readinessChecks.preMeasurePoseStillValid = 'pass';
+  readinessChecks.baselineQualityAcceptable = 'pass';
+  if (currentReadinessAttempt) {
+    currentReadinessAttempt.readinessCompletedAtUtc = new Date().toISOString();
+    currentReadinessAttempt.readinessChecks = { ...readinessChecks };
+    currentReadinessAttempt.preMeasureAngleDeltaDeg = currentPreMeasureDelta;
+  }
+  recordReadinessEvent('measurement_ready', {
+    preMeasureAngleDeltaDeg:currentPreMeasureDelta,
+    baselineSpreadDeg:baselineMeta.stableSpreadDeg
+  });
 
   updateArmDevHUD();
   removeFastNavButton();
@@ -2405,7 +3085,7 @@ function startMeasure() {
   $('drift-wrap').style.display = 'flex';
   $('cd-num').textContent       = MEASURE_SEC;
   $('cd-prog').style.strokeDashoffset = 0;
-  
+
   hideWarn();
   beep(880, 0.15); vibe(120);
   speak(T.vReady);
@@ -2417,7 +3097,11 @@ function startMeasure() {
     $('cd-prog').style.strokeDashoffset = (circ*mElapsed/MEASURE_SEC).toFixed(2);
     if (mElapsed===4 && !voiced4) { voiced4=true; speak(T.vMid4); }
     if (mElapsed===7 && !voiced7) { voiced7=true; speak(T.vMid7); }
-    if (mElapsed>=MEASURE_SEC)    { clearInterval(measureTimer); finishArm(); }
+    if (mElapsed>=MEASURE_SEC)    {
+      clearInterval(measureTimer);
+      measureTimer = null;
+      finishArm();
+    }
   }, 1000);
 }
 
@@ -2430,9 +3114,15 @@ function armAnalysisLabel(a) {
 }
 
 function showArmRetest(a) {
+  stopReadinessWatchdog();
   phase = 'RETRY_ARM';
   results[arm] = null;
   driftValues[arm] = null;
+  finalizeReadinessAttempt('completed_invalid', a.key, {
+    motionClass:a.key,
+    driftMaxDeg:driftMax
+  });
+  pendingRetryReason = a.key;
 
   const wrist = a.key === 'wrist_movement';
   cardState(arm, 'retry', '↻', wrist ? T.wristLbl : T.uncertainLbl);
@@ -2465,6 +3155,18 @@ function finishArm() {
     showArmRetest(analysis);
     return;
   }
+
+  finalizeReadinessAttempt(
+    analysis.valid ? 'completed_valid' : 'completed_invalid',
+    analysis.valid ? null : analysis.key,
+    {
+      motionClass:analysis.key,
+      driftMaxDeg:driftMax,
+      peakDelta:{ ...peakDelta },
+      ratioZX:analysis.ratio
+    }
+  );
+  stopReadinessWatchdog();
 
   phase = 'BETWEEN';
   const passed = analysis.passed === true;
@@ -2542,6 +3244,30 @@ function showFinal() {
         leftRatioZX: armAnalysis.left?.ratio ?? null,
         rightPeakDelta: armAnalysis.right?.peakDelta || null,
         leftPeakDelta: armAnalysis.left?.peakDelta || null
+      },
+      readiness: {
+        version: ARM_READINESS_CFG.version,
+        config: {
+          sampleFreshMs: ARM_READINESS_CFG.sampleFreshMs,
+          sensorWaitTimeoutMs: ARM_READINESS_CFG.sensorWaitTimeoutMs,
+          preMeasureMaxDeltaDeg: ARM_READINESS_CFG.preMeasureMaxDeltaDeg,
+          movedFromRestMinDeg: ARM_READINESS_CFG.movedFromRestMinDeg,
+          enforcePortraitScreen: ARM_READINESS_CFG.enforcePortraitScreen,
+          enforceTopUp: ARM_READINESS_CFG.enforceTopUp,
+          enforceMovedFromRest: ARM_READINESS_CFG.enforceMovedFromRest
+        },
+        permission: { ...sensorPermission },
+        attempts: armReadinessAttempts.map(attempt => ({
+          ...attempt,
+          startedAtPerf: undefined,
+          events: attempt.events.map(event => ({ ...event }))
+        })),
+        sensorSummary: {
+          validSampleCount: validSensorSampleCount,
+          invalidSampleCount: invalidSensorSampleCount,
+          sourceSwitchCount: sensorSourceSwitchCount,
+          lastSource: gravitySource || null
+        }
       }
     }));
     sessionStorage.setItem('fast_result_source', 'arm');
@@ -2597,6 +3323,19 @@ function handleBtn() {
       beginLeftArm();
     }
 
+  } else if (phase === 'READINESS_ERROR') {
+    const reason = readinessInvalidReason || 'sensor_no_samples';
+    finalizeReadinessAttempt('completed_invalid', reason);
+    pendingRetryReason = reason;
+    $('action-btn').disabled = true;
+
+    if (!permissionReady || !sensorApiSupported) {
+      phase = 'IDLE';
+      requestSensor(() => startWait());
+    } else {
+      startWait();
+    }
+
   } else if (phase === 'BETWEEN' && arm === 'left') {
     arm = 'right';
     $('action-btn').disabled = true;
@@ -2617,6 +3356,7 @@ function handleBtn() {
     }
 
     resetAll();
+    if (!ARM_DEV_MODE) pendingRetryReason = 'full_test_retry';
 
     if (ARM_DEV_MODE) {
       const p = currentDevProtocol();
@@ -2630,7 +3370,9 @@ function handleBtn() {
 /* 🛠️ ฟังก์ชันสำหรับสลับกลับไปหน้าเลือกภาษา (Reset ทั้งหมดพร้อมย้ายหน้าจอ) */
 function navToLangScreen() {
   if (measureTimer) { clearInterval(measureTimer); measureTimer = null; }
+  if (preMeasureTimer) { clearTimeout(preMeasureTimer); preMeasureTimer = null; }
   if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+  stopReadinessWatchdog();
   clearVoiceQueue();
   
   phase = 'IDLE';
@@ -2643,6 +3385,9 @@ function resetAll() {
   removeFastNavButton();
   phase='IDLE'; arm='left'; results={right:null,left:null};
   gravityBase=null;
+  baselineMeta=null;
+  screenOrientationAtBaseline=null;
+  currentPreMeasureDelta=null;
   currentDrift=0;
   driftMax=0;
   currentDelta={x:0,y:0,z:0};
@@ -2654,8 +3399,17 @@ function resetAll() {
   resetCalibrationWindow();
   driftValues={right:null,left:null};
   armAnalysis={right:null,left:null};
+  readinessChecks={};
+  readinessInvalidReason=null;
+  readinessFailedChecks=[];
+  currentReadinessAttempt=null;
+  pendingRetryReason=null;
+  restReferenceVector=gravityReady ? { ...gravityFilt } : null;
+  maxAngleFromRest=0;
   if (measureTimer)  { clearInterval(measureTimer);  measureTimer=null; }
+  if (preMeasureTimer) { clearTimeout(preMeasureTimer); preMeasureTimer=null; }
   if (retryTimer)    { clearInterval(retryTimer);     retryTimer=null; }
+  stopReadinessWatchdog();
   clearVoiceQueue();
   for(let i=0;i<3;i++){ const el=$('d'+i); if(el) el.className='dot'; }
   ['right','left'].forEach(s=>cardState(s,'','—',T.pending));
@@ -2701,7 +3455,9 @@ function warnKey(key, title, sub, voiceTxt) {
 
 function goArmHome(){
   if (measureTimer) { clearInterval(measureTimer); measureTimer = null; }
+  if (preMeasureTimer) { clearTimeout(preMeasureTimer); preMeasureTimer = null; }
   if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
+  stopReadinessWatchdog();
   clearVoiceQueue();
   window.location.href = 'index.html';
 }
@@ -2833,19 +3589,28 @@ function refreshArmLanguageUI(){
     } else if (lastWarnKey === 'wrong') {
       $('warn-title').textContent = T['warnWrong_' + arm];
       $('warn-sub').textContent = T['warnWrongSub_' + arm];
+    } else if (lastWarnKey) {
+      const [title, sub] = readinessMessage(lastWarnKey);
+      $('warn-title').textContent = title;
+      $('warn-sub').textContent = sub;
     }
   }
 
   // Main instruction by current phase
-  if (phase === 'IDLE' || phase === 'WAIT_VOICE') {
+  if (phase === 'IDLE' || phase === 'WAIT_VOICE' || phase === 'WAIT_SENSOR') {
     $('instr').textContent = T['instrWait_' + arm];
     $('sub-instr').textContent = T['subWait_' + arm];
     $('action-btn').textContent = T.btnStart;
-  } else if (phase === 'CALIB' || phase === 'PRE_MEASURE') {
+  } else if (phase === 'CALIB' || phase === 'PRE_MEASURE_RECHECK') {
     if (!isWarnVisible()) {
       $('instr').textContent = T.instrCalib;
       $('sub-instr').textContent = T.subCalib;
     }
+  } else if (phase === 'READINESS_ERROR') {
+    const [title, sub] = readinessMessage(readinessInvalidReason || 'sensor_no_samples');
+    $('warn-title').textContent = title;
+    $('warn-sub').textContent = sub;
+    $('action-btn').textContent = T.btnRetryArm || T.btnRetry;
   } else if (phase === 'MEASURE') {
     $('instr').textContent = T.instrMeasure;
     $('sub-instr').textContent = T.subMeasure;
@@ -2878,7 +3643,7 @@ function refreshArmLanguageUI(){
 
 async function armSwitchLang(code) {
   // ห้ามสลับระหว่างวัดจริง เพื่อไม่ให้เสียง/ตัวจับเวลา/logic เพี้ยน
-  if (phase === 'CALIB' || phase === 'PRE_MEASURE' || phase === 'MEASURE') {
+  if (['WAIT_VOICE','WAIT_SENSOR','CALIB','PRE_MEASURE_RECHECK','MEASURE'].includes(phase)) {
     return;
   }
 
