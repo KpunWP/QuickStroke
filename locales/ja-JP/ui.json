@@ -3,7 +3,7 @@
     "locale": "ja-JP",
     "nativeName": "日本語",
     "direction": "ltr",
-    "packVersion": "0.5.0",
+    "packVersion": "0.6.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -160,7 +160,94 @@
     "vRetryUncertain": "動きが不明確です。この腕を再テストしてください。",
     "vFinalOk": "両腕ともに正常です。",
     "vFinalBad": "ずれが検出されました。早めに医師に相談してください。",
-    "guideNote": "腕を伸ばす · 肘を曲げない · 動かさない"
+    "guideNote": "腕を伸ばす · 肘を曲げない · 動かさない",
+    "readiness": {
+      "generic": {
+        "title": "画像に合わせて持ち直してください",
+        "subtitle": "動かさずに、もう一度お試しください",
+        "voice": "画像に合わせて持ち直し、動かさずにもう一度お試しください。"
+      },
+      "permission_denied": {
+        "title": "モーションアクセスを許可してください",
+        "subtitle": "腕の検査に必要です",
+        "voice": "モーションアクセスを許可してください。腕の検査に必要です。"
+      },
+      "permission_error": {
+        "title": "センサーを開始できませんでした",
+        "subtitle": "もう一度お試しください",
+        "voice": "センサーを開始できませんでした。もう一度お試しください。"
+      },
+      "sensor_unsupported": {
+        "title": "動きセンサーを利用できません",
+        "subtitle": "別の端末またはブラウザーを使用してください",
+        "voice": "動きセンサーを利用できません。別の端末またはブラウザーを使用してください。"
+      },
+      "sensor_no_samples": {
+        "title": "動きデータを取得できません",
+        "subtitle": "スマートフォンを持って再試行してください",
+        "voice": "動きデータを取得できません。スマートフォンを持って再試行してください。"
+      },
+      "sensor_stale": {
+        "title": "動きデータが中断しました",
+        "subtitle": "この画面に戻って再試行してください",
+        "voice": "動きデータが中断しました。この画面に戻って再試行してください。"
+      },
+      "device_landscape": {
+        "title": "スマートフォンを縦に持ってください",
+        "subtitle": "上側を上にしてください",
+        "voice": "スマートフォンを縦に持ち、上側を上にしてください。"
+      },
+      "device_flat": {
+        "title": "スマートフォンを立ててください",
+        "subtitle": "画面を水平にしないでください",
+        "voice": "スマートフォンを立て、画面を水平にしないでください。"
+      },
+      "device_not_upright": {
+        "title": "スマートフォンを縦にしてください",
+        "subtitle": "画像と同じ姿勢にしてください",
+        "voice": "スマートフォンを縦にして、画像と同じ姿勢にしてください。"
+      },
+      "device_upside_down": {
+        "title": "スマートフォンの上下を戻してください",
+        "subtitle": "上側を上にしてください",
+        "voice": "スマートフォンの上下を戻し、上側を上にしてください。"
+      },
+      "device_not_moved_from_rest": {
+        "title": "スマートフォンが上がっていません",
+        "subtitle": "画像のように上げて静止してください",
+        "voice": "画像のようにスマートフォンを上げて静止してください。"
+      },
+      "coordinate_frame_unresolved": {
+        "title": "画面の向きを確認できません",
+        "subtitle": "縦向きに固定して再試行してください",
+        "voice": "画面の向きを確認できません。縦向きに固定して再試行してください。"
+      },
+      "pose_changed_before_measurement": {
+        "title": "姿勢が変わりました",
+        "subtitle": "開始音まで動かさないでください",
+        "voice": "姿勢が変わりました。持ち直して、開始音まで動かさないでください。"
+      },
+      "screen_orientation_changed": {
+        "title": "検査中に画面を回転しないでください",
+        "subtitle": "縦向きに戻して再試行してください",
+        "voice": "検査中に画面を回転しないでください。縦向きに戻して再試行してください。"
+      },
+      "sensor_source_changed": {
+        "title": "センサー入力が変わりました",
+        "subtitle": "新しい基準値を取るまで静止してください",
+        "voice": "センサー入力が変わりました。新しい基準値を取るまで静止してください。"
+      },
+      "page_hidden": {
+        "title": "検査が一時停止しました",
+        "subtitle": "この画面に戻って再試行してください",
+        "voice": "検査が一時停止しました。この画面に戻って再試行してください。"
+      },
+      "orientation_unstable": {
+        "title": "動かさないでください",
+        "subtitle": "自動的に開始します",
+        "voice": "動かさないでください。自動的に開始します。"
+      }
+    }
   },
   "speech": {
     "langCode": "ja-JP",

@@ -275,7 +275,9 @@
       new CustomEvent("quickstroke:localechange", {
         detail: {
           locale: activeLocale,
-          messages: activeMessages
+          messages: activeMessages,
+          meta: activeMessages?.meta || null,
+          packVersion: activeMessages?.meta?.packVersion || null
         }
       })
     );
@@ -311,6 +313,14 @@
 
     getMessages() {
       return activeMessages;
+    },
+
+    getMeta() {
+      return activeMessages?.meta ? { ...activeMessages.meta } : null;
+    },
+
+    getPackVersion() {
+      return activeMessages?.meta?.packVersion || null;
     },
 
     getSupportedLocales() {

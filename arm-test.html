@@ -524,6 +524,7 @@
   }
 
   .arm-dev-small { font-size:14px; }
+  #dev-build{white-space:normal;overflow:visible;text-overflow:clip;word-break:break-word;font-size:11px;line-height:1.25;}
 
   body.dev-mode #arm-dev-panel.visible {
     max-height:58vh;
@@ -1503,6 +1504,7 @@
     <div class="arm-dev-cell"><span class="arm-dev-label">Drift max</span><span class="arm-dev-value" id="dev-drift">0.0°</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Stable spread</span><span class="arm-dev-value" id="dev-stable-spread">—</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Samples</span><span class="arm-dev-value arm-dev-small" id="dev-samples">0</span></div>
+    <div class="arm-dev-cell"><span class="arm-dev-label">Sensor age</span><span class="arm-dev-value arm-dev-small" id="dev-sensor-age">—</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Build</span><span class="arm-dev-value arm-dev-small" id="dev-build">—</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Permission</span><span class="arm-dev-value arm-dev-small" id="dev-permission">—</span></div>
 
@@ -1682,6 +1684,7 @@ function updateArmDevHUD() {
   set('dev-drift', formatDevAngle(driftMax));
   set('dev-stable-spread', formatDevAngle(stableSpread));
   set('dev-samples', String(validSensorSampleCount));
+  set('dev-sensor-age', lastSensorSampleAt > 0 ? `${Math.max(0, Math.round(performance.now() - lastSensorSampleAt))} ms` : '—');
   set('dev-build', ARM_BUILD_ID);
   set('dev-permission', `O:${sensorPermission.orientation} M:${sensorPermission.motion}`);
   set('dev-dx', formatDevNumber(peakDelta.x));
@@ -1949,7 +1952,7 @@ function primeSpeechEngine() {
 }
 
 function speak(txt, onDone) {
-  _voiceQ.push({ txt, onDone });
+  _voiceQ.push({ txt:String(txt || ''), onDone });
   _drainQueue();
 }
 
@@ -1992,6 +1995,7 @@ function speakNow(txt, onDone) {
 
 let T       = null;
 let activeArmLangCode = 'th';
+let activeArmLocaleMeta = null;
 let armLangRequestId = 0;
 let phase   = 'IDLE'; 
 let arm     = 'left';
@@ -2024,7 +2028,7 @@ let sensorApiSupported = false;
 let permissionReady = false;
 let sensorPermission = { orientation:'unknown', motion:'unknown' };
 let sensorPermissionAttempted = false;
-const ARM_BUILD_ID = 'arm-readiness-v1.3-readiness-state-fix';
+const ARM_BUILD_ID = 'arm-readiness-v1.6-i18n-pack';
 window.__ARM_BUILD_ID = ARM_BUILD_ID;
 let firstSensorSampleAt = 0;
 let lastSensorSampleAt = 0;
@@ -2252,69 +2256,58 @@ function toScreenFrame(vector, angleDeg = 0) {
 }
 
 function isSensorFresh(now = performance.now()) {
+  const ageMs = lastSensorSampleAt > 0 ? now - lastSensorSampleAt : Infinity;
   return gravityReady &&
     lastSensorSampleAt > 0 &&
-    now - lastSensorSampleAt <= ARM_READINESS_CFG.sampleFreshMs;
+    Number.isFinite(ageMs) &&
+    ageMs >= -50 &&
+    ageMs <= ARM_READINESS_CFG.sampleFreshMs;
+}
+
+function recoverReadinessFromLiveSample(source = 'sensor_event') {
+  if (phase !== 'WAIT_SENSOR' && phase !== 'READINESS_ERROR') return false;
+
+  phase = 'CALIB';
+  readinessInvalidReason = null;
+  readinessFailedChecks = [];
+  lastWarnKey = '';
+  hideWarn();
+
+  const actionBtn = $('action-btn');
+  if (actionBtn) {
+    actionBtn.disabled = true;
+    actionBtn.className = '';
+  }
+
+  recordReadinessEvent('sensor_samples_ready', {
+    recoverySource:source,
+    sensorSource:gravitySource || null,
+    sampleCount:validSensorSampleCount,
+    sampleAgeMs:lastSensorSampleAt > 0
+      ? Math.max(0, Math.round(performance.now() - lastSensorSampleAt))
+      : null
+  });
+  return true;
 }
 
 function readinessMessage(reason) {
-  const code = currentLangCode();
-  const copy = {
-    th: {
-      permission_denied:['กรุณาอนุญาตการเคลื่อนไหว','จำเป็นสำหรับการตรวจแขน'],
-      permission_error:['เปิดเซนเซอร์ไม่สำเร็จ','ลองกดเริ่มอีกครั้ง'],
-      sensor_unsupported:['อุปกรณ์นี้อ่านการเคลื่อนไหวไม่ได้','กรุณาใช้อุปกรณ์หรือเบราว์เซอร์อื่น'],
-      sensor_no_samples:['ยังอ่านการเคลื่อนไหวไม่ได้','ถือโทรศัพท์ไว้ แล้วลองอีกครั้ง'],
-      sensor_stale:['สัญญาณการเคลื่อนไหวขาดหาย','กลับมาที่หน้านี้แล้วลองอีกครั้ง'],
-      device_landscape:['ถือโทรศัพท์แนวตั้ง','ให้หัวเครื่องอยู่ด้านบน'],
-      device_flat:['ตั้งโทรศัพท์ให้ตรงขึ้น','อย่าวางหน้าจอราบ'],
-      device_not_upright:['ตั้งโทรศัพท์ให้ตรงขึ้น','ถือในแนวตั้งตามภาพ'],
-      device_upside_down:['หมุนโทรศัพท์กลับด้าน','ให้หัวเครื่องอยู่ด้านบน'],
-      device_not_moved_from_rest:['ยังไม่พบการเปลี่ยนท่าถือ','ยกโทรศัพท์ตามภาพแล้วถือนิ่ง'],
-      coordinate_frame_unresolved:['อ่านทิศหน้าจอไม่ได้','ลองล็อกหน้าจอแนวตั้งแล้วเริ่มใหม่'],
-      pose_changed_before_measurement:['ท่าเปลี่ยน กรุณาจัดใหม่','ถือนิ่งจนได้ยินเสียงเริ่ม'],
-      screen_orientation_changed:['อย่าหมุนหน้าจอระหว่างตรวจ','จัดโทรศัพท์แนวตั้งแล้วลองใหม่'],
-      sensor_source_changed:['สัญญาณเซนเซอร์เปลี่ยน','ถือนิ่งเพื่อเก็บค่าใหม่'],
-      page_hidden:['การตรวจถูกพักไว้','กลับมาที่หน้านี้แล้วลองใหม่']
-    },
-    en: {
-      permission_denied:['Allow motion access','It is required for the arm test'],
-      permission_error:['Could not start the sensors','Please try again'],
-      sensor_unsupported:['Motion sensors are unavailable','Use another device or browser'],
-      sensor_no_samples:['No motion data yet','Hold the phone and try again'],
-      sensor_stale:['Motion data was interrupted','Return to this page and try again'],
-      device_landscape:['Hold the phone upright','Keep the top of the phone upward'],
-      device_flat:['Hold the phone more upright','Do not hold the screen flat'],
-      device_not_upright:['Hold the phone upright','Match the position shown'],
-      device_upside_down:['Turn the phone around','Keep the top of the phone upward'],
-      device_not_moved_from_rest:['No position change was detected','Raise the phone as shown, then hold still'],
-      coordinate_frame_unresolved:['Screen direction is unavailable','Lock portrait mode and try again'],
-      pose_changed_before_measurement:['Your position changed','Hold still until the start sound'],
-      screen_orientation_changed:['Do not rotate the screen','Return to portrait and try again'],
-      sensor_source_changed:['Sensor input changed','Hold still while a new baseline is taken'],
-      page_hidden:['The test was paused','Return to this page and try again']
-    },
-    ja: {
-      permission_denied:['モーションアクセスを許可してください','腕の検査に必要です'],
-      permission_error:['センサーを開始できませんでした','もう一度お試しください'],
-      sensor_unsupported:['動きセンサーを利用できません','別の端末またはブラウザーを使用してください'],
-      sensor_no_samples:['動きデータを取得できません','スマートフォンを持って再試行してください'],
-      sensor_stale:['動きデータが中断しました','この画面に戻って再試行してください'],
-      device_landscape:['スマートフォンを縦に持ってください','上側を上にしてください'],
-      device_flat:['スマートフォンを立ててください','画面を水平にしないでください'],
-      device_not_upright:['スマートフォンを縦にしてください','画像と同じ姿勢にしてください'],
-      device_upside_down:['スマートフォンの上下を戻してください','上側を上にしてください'],
-      device_not_moved_from_rest:['持ち上げ動作を確認できません','画像のように持ち上げて静止してください'],
-      coordinate_frame_unresolved:['画面の向きを確認できません','縦向きに固定して再試行してください'],
-      pose_changed_before_measurement:['姿勢が変わりました','開始音まで動かさないでください'],
-      screen_orientation_changed:['検査中に画面を回転しないでください','縦向きに戻して再試行してください'],
-      sensor_source_changed:['センサー入力が変わりました','新しい基準値を取るまで静止してください'],
-      page_hidden:['検査が一時停止しました','この画面に戻って再試行してください']
-    }
-  };
+  const item = T?.readiness?.[reason] || T?.readiness?.generic;
 
-  const lang = copy[code] ? code : 'en';
-  return copy[lang][reason] || [T?.warnFlat || 'Adjust the phone position', T?.warnFlatSub || 'Hold still and try again'];
+  if (item && typeof item === 'object') {
+    return {
+      title:String(item.title || T?.warnFlat || 'Adjust the phone position'),
+      subtitle:String(item.subtitle || T?.warnFlatSub || 'Hold still and try again'),
+      voice:String(item.voice || item.title || T?.warnFlat || 'Adjust the phone position')
+    };
+  }
+
+  console.warn(`[Arm i18n] Missing readiness copy: arm.readiness.${reason}`);
+
+  return {
+    title:T?.warnFlat || 'Adjust the phone position',
+    subtitle:T?.warnFlatSub || 'Hold still and try again',
+    voice:T?.vCalibRetry || T?.warnFlat || 'Hold still and try again'
+  };
 }
 
 function recordReadinessEvent(type, details = {}) {
@@ -2373,8 +2366,8 @@ function showReadinessWarning(reason) {
   const changed = readinessInvalidReason !== reason;
   readinessInvalidReason = reason;
   readinessFailedChecks = [reason];
-  const [title, sub] = readinessMessage(reason);
-  warnKey(reason, title, sub, title);
+  const message = readinessMessage(reason);
+  warnKey(reason, message.title, message.subtitle, message.voice);
   if (changed) {
     recordReadinessEvent('readiness_rejected', { invalidReason:reason });
   }
@@ -2459,15 +2452,7 @@ function startReadinessWatchdog() {
     // This also recovers from a stale READINESS_ERROR that was raised during a race
     // between the voice callback, the first sensor event, and the watchdog timer.
     if ((phase === 'WAIT_SENSOR' || phase === 'READINESS_ERROR') && isSensorFresh(now)) {
-      phase = 'CALIB';
-      clearReadinessIssue();
-      $('action-btn').disabled = true;
-      $('action-btn').className = '';
-      recordReadinessEvent('sensor_samples_ready_watchdog', {
-        sensorSource:gravitySource,
-        screenAngle:screenOrientationSnapshot.angle,
-        screenType:screenOrientationSnapshot.type
-      });
+      recoverReadinessFromLiveSample('watchdog');
       return;
     }
 
@@ -2485,8 +2470,25 @@ function startReadinessWatchdog() {
     if ((phase === 'CALIB' || phase === 'PRE_MEASURE_RECHECK') &&
         gravityReady && !isSensorFresh(now)) {
       resetCalibrationWindow();
-      if (phase === 'PRE_MEASURE_RECHECK') returnToCalibration('sensor_stale');
-      else showReadinessWarning('sensor_stale');
+
+      if (phase === 'PRE_MEASURE_RECHECK') {
+        returnToCalibration('sensor_stale');
+      } else {
+        // During calibration, a short browser/TTS delivery pause only resets the
+        // stability window. Do not alarm the user or speak an error. The next
+        // accepted sensor sample resumes calibration automatically.
+        if (readinessInvalidReason !== 'sensor_stale') {
+          recordReadinessEvent('sensor_gap_during_calibration', {
+            sampleAgeMs:lastSensorSampleAt > 0
+              ? Math.max(0, Math.round(now - lastSensorSampleAt))
+              : null
+          });
+        }
+        readinessInvalidReason = null;
+        readinessFailedChecks = [];
+        lastWarnKey = '';
+        hideWarn();
+      }
       return;
     }
 
@@ -2528,9 +2530,9 @@ function showValidationRetest(reason) {
   finalizeReadinessAttempt('completed_invalid', reason);
   pendingRetryReason = reason;
 
-  const [title, sub] = readinessMessage(reason);
+  const message = readinessMessage(reason);
   cardState(arm, 'retry', '↻', T?.uncertainLbl || 'Retry');
-  showWarn(title, sub);
+  showWarn(message.title, message.subtitle);
   $('cd-wrap').style.display = 'none';
   $('drift-wrap').style.display = 'none';
   $('arm-circle').className = 'arm-circle waiting';
@@ -2541,7 +2543,7 @@ function showValidationRetest(reason) {
   recordReadinessEvent('measurement_invalidated', { invalidReason:reason });
   beep(440, 0.25);
   vibe([120,80,120]);
-  speakNow(title);
+  speakNow(message.voice);
 }
 
 function abortMeasurementForReadiness(reason) {
@@ -2618,6 +2620,18 @@ function setGravityVector(raw, source, magnitude = null) {
   lastSensorSampleAt = now;
   if (!firstSensorSampleAt) firstSensorSampleAt = now;
   validSensorSampleCount++;
+
+  // State recovery must happen immediately after accepting a real sensor sample.
+  // Keep it before orientation transforms or other readiness calculations so a
+  // later error cannot leave the UI stuck in READINESS_ERROR while samples flow.
+  recoverReadinessFromLiveSample('accepted_sensor_sample');
+
+  // A brief iOS delivery pause during speech/UI work must not leave CALIB latched
+  // in sensor_stale after valid samples resume.
+  if (phase === 'CALIB' && readinessInvalidReason === 'sensor_stale') {
+    clearReadinessIssue();
+  }
+
   screenOrientationSnapshot = readScreenOrientation();
   gravityScreen = toScreenFrame(gravityFilt, screenOrientationSnapshot.angle);
 
@@ -2978,10 +2992,11 @@ function startWait() {
       sensorWaitStartedAt = performance.now();
 
       if (phase === 'CALIB') {
+        clearReadinessIssue();
         recordReadinessEvent('sensor_samples_ready', {
+          recoverySource:'voice_complete',
           sensorSource:gravitySource,
-          screenAngle:screenOrientationSnapshot.angle,
-          screenType:screenOrientationSnapshot.type
+          sampleCount:validSensorSampleCount
         });
       }
 
@@ -2994,7 +3009,9 @@ function startWait() {
           }
           return;
         }
-        speak(T.vCalibRetry);
+        if (!isWarnVisible() && !readinessInvalidReason && !_speaking) {
+          speak(T.vCalibRetry);
+        }
       }, RETRY_SEC * 1000);
     }
   });
@@ -3230,6 +3247,8 @@ function showFinal() {
       },
       readiness: {
         version: ARM_READINESS_CFG.version,
+        locale: activeArmLocaleMeta?.locale || T?.code || null,
+        localePackVersion: activeArmLocaleMeta?.packVersion || null,
         config: {
           sampleFreshMs: ARM_READINESS_CFG.sampleFreshMs,
           sensorWaitTimeoutMs: ARM_READINESS_CFG.sensorWaitTimeoutMs,
@@ -3284,12 +3303,16 @@ function handleBtn() {
   initAudio();
 
   if (phase === 'IDLE') {
+    // Prime TTS immediately inside the original user gesture. On iOS, doing this
+    // only after awaiting sensor permission can cause the first spoken prompt to
+    // be dropped until the page is refreshed.
+    const speechReady = primeSpeechEngine();
+
     arm = 'left';
     cardState('left', 'active', '🤚', T.pending);
     $('action-btn').disabled = true;
 
     const beginLeftArm = () => {
-      const speechReady = primeSpeechEngine();
       speechReady.then(() => {
         if (phase === 'IDLE') startWait();
       });
@@ -3426,7 +3449,7 @@ function hideWarn(){
 function isWarnVisible(){ return $('warn-banner').style.display==='flex'; }
 
 function warnKey(key, title, sub, voiceTxt) {
-  showWarn(title, sub);
+  showWarn(message.title, message.subtitle);
   if (lastWarnKey !== key) {
     lastWarnKey = key;
     speak(voiceTxt);  
@@ -3452,7 +3475,7 @@ function currentLangCode(){
 }
 
 async function fetchArmMessages(locale) {
-  let messages = null;
+  let localePack = null;
 
   if (window.QuickStrokeI18n) {
     try {
@@ -3461,30 +3484,34 @@ async function fetchArmMessages(locale) {
         apply: false
       });
 
-      messages = window.QuickStrokeI18n.getMessages()?.arm || null;
+      localePack = window.QuickStrokeI18n.getMessages() || null;
     } catch (error) {
       console.info('[Arm i18n] Shared loader failed.', error?.message || error);
     }
   }
 
   // Recovery for an older service-worker cache or a stale shared-loader result.
-  if (!messages) {
+  if (!localePack?.arm) {
     try {
       const response = await fetch(
-        `./locales/${locale}/ui.json?v=arm-i18n-copy-v1`,
+        `./locales/${locale}/ui.json?v=0.6.0-arm-readiness`,
         { cache: 'reload' }
       );
 
       if (response.ok) {
-        const directPack = await response.json();
-        messages = directPack?.arm || null;
+        localePack = await response.json();
       }
     } catch (error) {
       console.info('[Arm i18n] Direct locale fetch failed.', error?.message || error);
     }
   }
 
-  return messages;
+  if (!localePack?.arm) return null;
+
+  return {
+    arm:localePack.arm,
+    meta:localePack.meta || { locale, packVersion:null }
+  };
 }
 
 function showArmLocaleError() {
@@ -3502,13 +3529,13 @@ async function loadArmMessages(code) {
   const requestedLocale = ARM_LOCALE_MAP[requestedShortLang];
   const requestId = ++armLangRequestId;
 
-  let loadedMessages = await fetchArmMessages(requestedLocale);
+  let loadedPack = await fetchArmMessages(requestedLocale);
   let loadedShortLang = requestedShortLang;
   let loadedLocale = requestedLocale;
 
   // English is the reference-language fallback when the requested pack fails.
-  if (!loadedMessages && requestedShortLang !== 'en') {
-    loadedMessages = await fetchArmMessages(ARM_LOCALE_MAP.en);
+  if (!loadedPack && requestedShortLang !== 'en') {
+    loadedPack = await fetchArmMessages(ARM_LOCALE_MAP.en);
     loadedShortLang = 'en';
     loadedLocale = ARM_LOCALE_MAP.en;
   }
@@ -3516,13 +3543,14 @@ async function loadArmMessages(code) {
   // Ignore an older request if the user switched languages rapidly.
   if (requestId !== armLangRequestId) return false;
 
-  if (!loadedMessages) {
+  if (!loadedPack) {
     console.error(`[Arm i18n] Missing arm translations for ${requestedLocale}`);
     showArmLocaleError();
     return false;
   }
 
-  T = loadedMessages;
+  T = loadedPack.arm;
+  activeArmLocaleMeta = { ...loadedPack.meta };
   activeArmLangCode = loadedShortLang;
   sessionStorage.setItem('fast_lang', loadedShortLang);
   document.documentElement.lang = loadedLocale;
@@ -3570,9 +3598,9 @@ function refreshArmLanguageUI(){
       $('warn-title').textContent = T['warnWrong_' + arm];
       $('warn-sub').textContent = T['warnWrongSub_' + arm];
     } else if (lastWarnKey) {
-      const [title, sub] = readinessMessage(lastWarnKey);
-      $('warn-title').textContent = title;
-      $('warn-sub').textContent = sub;
+      const message = readinessMessage(lastWarnKey);
+      $('warn-title').textContent = message.title;
+      $('warn-sub').textContent = message.subtitle;
     }
   }
 
@@ -3587,9 +3615,9 @@ function refreshArmLanguageUI(){
       $('sub-instr').textContent = T.subCalib;
     }
   } else if (phase === 'READINESS_ERROR') {
-    const [title, sub] = readinessMessage(readinessInvalidReason || 'sensor_no_samples');
-    $('warn-title').textContent = title;
-    $('warn-sub').textContent = sub;
+    const message = readinessMessage(readinessInvalidReason || 'sensor_no_samples');
+    $('warn-title').textContent = message.title;
+    $('warn-sub').textContent = message.subtitle;
     $('action-btn').textContent = T.btnRetryArm || T.btnRetry;
   } else if (phase === 'MEASURE') {
     $('instr').textContent = T.instrMeasure;

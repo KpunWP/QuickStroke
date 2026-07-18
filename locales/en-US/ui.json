@@ -3,7 +3,7 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.5.0",
+    "packVersion": "0.6.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -160,7 +160,94 @@
     "vRetryUncertain": "The movement was unclear. Please repeat this arm.",
     "vFinalOk": "Both arms normal.",
     "vFinalBad": "Drift detected. Please see a doctor soon.",
-    "guideNote": "Arm straight · elbow straight · keep still"
+    "guideNote": "Arm straight · elbow straight · keep still",
+    "readiness": {
+      "generic": {
+        "title": "Adjust the phone position",
+        "subtitle": "Hold still and try again",
+        "voice": "Adjust the phone position, hold still, and try again."
+      },
+      "permission_denied": {
+        "title": "Allow motion access",
+        "subtitle": "It is required for the arm test",
+        "voice": "Please allow motion access. It is required for the arm test."
+      },
+      "permission_error": {
+        "title": "Could not start the sensors",
+        "subtitle": "Try again",
+        "voice": "The sensors could not be started. Please try again."
+      },
+      "sensor_unsupported": {
+        "title": "Motion sensors are unavailable",
+        "subtitle": "Use another device or browser",
+        "voice": "Motion sensors are unavailable. Please use another device or browser."
+      },
+      "sensor_no_samples": {
+        "title": "No motion data yet",
+        "subtitle": "Hold the phone and try again",
+        "voice": "No motion data is available yet. Hold the phone and try again."
+      },
+      "sensor_stale": {
+        "title": "Motion data was interrupted",
+        "subtitle": "Return to this page and try again",
+        "voice": "Motion data was interrupted. Return to this page and try again."
+      },
+      "device_landscape": {
+        "title": "Hold the phone upright",
+        "subtitle": "Keep the top of the phone upward",
+        "voice": "Hold the phone upright, with the top of the phone pointing upward."
+      },
+      "device_flat": {
+        "title": "Hold the phone more upright",
+        "subtitle": "Do not hold the screen flat",
+        "voice": "Hold the phone more upright. Do not hold the screen flat."
+      },
+      "device_not_upright": {
+        "title": "Hold the phone upright",
+        "subtitle": "Match the position shown",
+        "voice": "Hold the phone upright and match the position shown."
+      },
+      "device_upside_down": {
+        "title": "Turn the phone around",
+        "subtitle": "Keep the top of the phone upward",
+        "voice": "Turn the phone around, with the top pointing upward."
+      },
+      "device_not_moved_from_rest": {
+        "title": "The phone has not been raised",
+        "subtitle": "Raise it as shown, then hold still",
+        "voice": "Raise the phone as shown, then hold still."
+      },
+      "coordinate_frame_unresolved": {
+        "title": "Screen direction is unavailable",
+        "subtitle": "Lock portrait mode and try again",
+        "voice": "Screen direction is unavailable. Lock portrait mode and try again."
+      },
+      "pose_changed_before_measurement": {
+        "title": "Your position changed",
+        "subtitle": "Hold still until the start sound",
+        "voice": "Your position changed. Reposition and hold still until the start sound."
+      },
+      "screen_orientation_changed": {
+        "title": "Do not rotate the screen",
+        "subtitle": "Return to portrait and try again",
+        "voice": "Do not rotate the screen during the test. Return to portrait and try again."
+      },
+      "sensor_source_changed": {
+        "title": "Sensor input changed",
+        "subtitle": "Hold still while a new baseline is taken",
+        "voice": "Sensor input changed. Hold still while a new baseline is taken."
+      },
+      "page_hidden": {
+        "title": "The test was paused",
+        "subtitle": "Return to this page and try again",
+        "voice": "The test was paused. Return to this page and try again."
+      },
+      "orientation_unstable": {
+        "title": "Hold still",
+        "subtitle": "The test will start automatically",
+        "voice": "Hold still. The test will start automatically."
+      }
+    }
   },
   "speech": {
     "langCode": "en-US",
