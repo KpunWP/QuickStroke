@@ -1506,6 +1506,8 @@
     <div class="arm-dev-cell"><span class="arm-dev-label">Samples</span><span class="arm-dev-value arm-dev-small" id="dev-samples">0</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Sensor age</span><span class="arm-dev-value arm-dev-small" id="dev-sensor-age">—</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Build</span><span class="arm-dev-value arm-dev-small" id="dev-build">—</span></div>
+    <div class="arm-dev-cell"><span class="arm-dev-label">TTS</span><span class="arm-dev-value arm-dev-small" id="dev-tts">idle</span></div>
+    <div class="arm-dev-cell"><span class="arm-dev-label">Runtime error</span><span class="arm-dev-value arm-dev-small" id="dev-runtime-error">—</span></div>
     <div class="arm-dev-cell"><span class="arm-dev-label">Permission</span><span class="arm-dev-value arm-dev-small" id="dev-permission">—</span></div>
 
     <div class="arm-dev-cell"><span class="arm-dev-label">Peak ΔX</span><span class="arm-dev-value" id="dev-dx">0.000</span></div>
@@ -1611,6 +1613,8 @@ let devLastSampleAt = 0;
 let devPendingMarker = '';
 let devThresholdMarked = false;
 let devProtocolIndex = 0;
+let armTtsStatus = 'idle';
+let armLastRuntimeError = '';
 
 const DEV_PROTOCOLS = [
   {
@@ -1686,6 +1690,8 @@ function updateArmDevHUD() {
   set('dev-samples', String(validSensorSampleCount));
   set('dev-sensor-age', lastSensorSampleAt > 0 ? `${Math.max(0, Math.round(performance.now() - lastSensorSampleAt))} ms` : '—');
   set('dev-build', ARM_BUILD_ID);
+  set('dev-tts', armTtsStatus || 'idle');
+  set('dev-runtime-error', armLastRuntimeError || '—');
   set('dev-permission', `O:${sensorPermission.orientation} M:${sensorPermission.motion}`);
   set('dev-dx', formatDevNumber(peakDelta.x));
   set('dev-dz', formatDevNumber(peakDelta.z));
@@ -1905,19 +1911,33 @@ const ARM_READINESS_CFG = Object.freeze({
 
 let _speaking = false;
 let _voiceQ = [];
-
 let _speechPrimed = false;
+let _speechSequence = 0;
+
+function setArmTtsStatus(status) {
+  armTtsStatus = String(status || 'idle');
+  updateArmDevHUD();
+}
+
+function matchingSpeechVoice(lang) {
+  if (!window.speechSynthesis) return null;
+  const wanted = String(lang || '').toLowerCase();
+  const short = wanted.split('-')[0];
+  const voices = speechSynthesis.getVoices?.() || [];
+  return voices.find(v => String(v.lang || '').toLowerCase() === wanted) ||
+    voices.find(v => String(v.lang || '').toLowerCase().startsWith(short)) ||
+    null;
+}
 
 function primeSpeechEngine() {
   if (!window.speechSynthesis || _speechPrimed) {
     return Promise.resolve();
   }
 
-  speechSynthesis.cancel();
-  speechSynthesis.resume();
-
-  // กระตุ้นให้เบราว์เซอร์โหลดรายการเสียงไว้ล่วงหน้า
-  speechSynthesis.getVoices();
+  const synth = window.speechSynthesis;
+  synth.resume();
+  synth.getVoices?.();
+  setArmTtsStatus('priming');
 
   return new Promise(resolve => {
     const seed =
@@ -1926,71 +1946,163 @@ function primeSpeechEngine() {
       'start';
 
     const u = new SpeechSynthesisUtterance(seed);
-
     u.lang = T?.code || 'th-TH';
-    u.rate = 10;
-    u.volume = 0.02;
+    u.rate = 1;
+    u.volume = 0.01;
+    const voice = matchingSpeechVoice(u.lang);
+    if (voice) u.voice = voice;
 
     let completed = false;
-
     const done = () => {
       if (completed) return;
-
       completed = true;
       _speechPrimed = true;
+      setArmTtsStatus('primed');
       resolve();
     };
 
+    u.onstart = () => setArmTtsStatus('prime-started');
     u.onend = done;
-    u.onerror = done;
+    u.onerror = () => {
+      setArmTtsStatus('prime-error');
+      done();
+    };
 
-    speechSynthesis.speak(u);
+    try {
+      synth.cancel();
+      synth.resume();
+      synth.speak(u);
+    } catch (error) {
+      armLastRuntimeError = `TTS prime: ${error?.message || error}`;
+      done();
+    }
 
-    // ป้องกันบาง browser ไม่เรียก onend
-    setTimeout(done, 800);
+    // Do not let priming block the arm flow if Safari omits onend/onerror.
+    setTimeout(done, 900);
   });
 }
 
 function speak(txt, onDone) {
-  _voiceQ.push({ txt:String(txt || ''), onDone });
+  const value = String(txt || '').trim();
+  if (!value) {
+    onDone && onDone();
+    return;
+  }
+  _voiceQ.push({ txt:value, onDone });
   _drainQueue();
 }
 
 function _drainQueue() {
   if (_speaking || !_voiceQ.length) return;
+
   const { txt, onDone } = _voiceQ.shift();
-  if (!window.speechSynthesis) { onDone && onDone(); _drainQueue(); return; }
+  const synth = window.speechSynthesis;
+  if (!synth) {
+    setArmTtsStatus('unsupported');
+    onDone && onDone();
+    _drainQueue();
+    return;
+  }
+
   _speaking = true;
-  speechSynthesis.cancel();
-  speechSynthesis.resume();
-  const u = new SpeechSynthesisUtterance(txt);
-  u.lang = T.code; u.rate = 0.93;
-  
-  const finish = () => {
+  const sequence = ++_speechSequence;
+  let finished = false;
+  let attempt = 0;
+  let attemptToken = 0;
+  let overallGuard = null;
+
+  const finish = (status = 'done') => {
+    if (finished || sequence !== _speechSequence) return;
+    finished = true;
+    if (overallGuard) clearTimeout(overallGuard);
     _speaking = false;
+    setArmTtsStatus(status);
     onDone && onDone();
     _drainQueue();
   };
-  u.onend   = finish;
-  u.onerror = finish;
-  
-  const guard = setTimeout(finish, Math.max(txt.length * 80, 3000));
-  u.onend = () => { clearTimeout(guard); finish(); };
-  speechSynthesis.speak(u);
+
+  const launch = () => {
+    if (finished || sequence !== _speechSequence) return;
+
+    attempt += 1;
+    const token = ++attemptToken;
+    let started = false;
+    const u = new SpeechSynthesisUtterance(txt);
+    u.lang = T?.code || document.documentElement.lang || 'th-TH';
+    u.rate = 0.93;
+    u.volume = 1;
+    const voice = matchingSpeechVoice(u.lang);
+    if (voice) u.voice = voice;
+
+    u.onstart = () => {
+      if (finished || token !== attemptToken) return;
+      started = true;
+      setArmTtsStatus(`speaking-${attempt}`);
+    };
+
+    u.onend = () => {
+      if (token !== attemptToken) return;
+      finish('done');
+    };
+
+    u.onerror = event => {
+      if (finished || token !== attemptToken) return;
+      const code = event?.error || 'unknown';
+      if (attempt < 2) {
+        setArmTtsStatus(`retry-${code}`);
+        setTimeout(launch, 280);
+      } else {
+        armLastRuntimeError = `TTS: ${code}`;
+        finish(`error-${code}`);
+      }
+    };
+
+    try {
+      synth.resume();
+      synth.speak(u);
+      setArmTtsStatus(`queued-${attempt}`);
+    } catch (error) {
+      armLastRuntimeError = `TTS speak: ${error?.message || error}`;
+      if (attempt < 2) setTimeout(launch, 280);
+      else finish('exception');
+      return;
+    }
+
+    // Safari can silently drop the first utterance. Retry once if onstart never fires.
+    setTimeout(() => {
+      if (finished || token !== attemptToken || started) return;
+      if (attempt < 2) {
+        setArmTtsStatus('retry-no-start');
+        try { synth.cancel(); synth.resume(); } catch (_) {}
+        setTimeout(launch, 280);
+      }
+    }, 900);
+  };
+
+  setArmTtsStatus('preparing');
+  try { synth.cancel(); synth.resume(); } catch (_) {}
+  setTimeout(launch, 240);
+
+  // State flow must continue even if the browser never reports TTS events.
+  overallGuard = setTimeout(
+    () => finish('timeout'),
+    Math.max(txt.length * 110, 4500) + 2200
+  );
 }
 
 function clearVoiceQueue() {
-  _voiceQ    = [];
-  _speaking  = false;
-  if (window.speechSynthesis) speechSynthesis.cancel();
+  _voiceQ = [];
+  _speaking = false;
+  _speechSequence += 1;
+  setArmTtsStatus('idle');
+  if (window.speechSynthesis) {
+    try { speechSynthesis.cancel(); } catch (_) {}
+  }
 }
 
 function speakNow(txt, onDone) {
   clearVoiceQueue();
-
-  setTimeout(() => {
-    speak(txt, onDone);
-  }, 180);
+  setTimeout(() => speak(txt, onDone), 260);
 }
 
 let T       = null;
@@ -2028,7 +2140,7 @@ let sensorApiSupported = false;
 let permissionReady = false;
 let sensorPermission = { orientation:'unknown', motion:'unknown' };
 let sensorPermissionAttempted = false;
-const ARM_BUILD_ID = 'arm-readiness-v1.6-i18n-pack';
+const ARM_BUILD_ID = 'arm-readiness-v1.7-warning-tts-fix';
 window.__ARM_BUILD_ID = ARM_BUILD_ID;
 let firstSensorSampleAt = 0;
 let lastSensorSampleAt = 0;
@@ -3449,10 +3561,10 @@ function hideWarn(){
 function isWarnVisible(){ return $('warn-banner').style.display==='flex'; }
 
 function warnKey(key, title, sub, voiceTxt) {
-  showWarn(message.title, message.subtitle);
+  showWarn(title, sub);
   if (lastWarnKey !== key) {
     lastWarnKey = key;
-    speak(voiceTxt);  
+    speak(voiceTxt);
   }
 }
 
@@ -3729,6 +3841,19 @@ function handleArmFastFlow() {
     dock.classList.add('split');
   }, 700);
 }
+
+window.addEventListener('error', event => {
+  armLastRuntimeError = String(event?.message || 'Unknown runtime error').slice(0, 180);
+  console.error('[Arm runtime]', event?.error || event?.message || event);
+  updateArmDevHUD();
+});
+
+window.addEventListener('unhandledrejection', event => {
+  const reason = event?.reason?.message || event?.reason || 'Unhandled promise rejection';
+  armLastRuntimeError = String(reason).slice(0, 180);
+  console.error('[Arm promise]', event?.reason || event);
+  updateArmDevHUD();
+});
 
 // ── No language landing page: start directly and keep TH/EN/JA at top-right ──
 console.log('[Arm build]', ARM_BUILD_ID);
