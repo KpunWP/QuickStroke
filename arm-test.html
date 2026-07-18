@@ -2024,7 +2024,7 @@ let sensorApiSupported = false;
 let permissionReady = false;
 let sensorPermission = { orientation:'unknown', motion:'unknown' };
 let sensorPermissionAttempted = false;
-const ARM_BUILD_ID = 'arm-readiness-v1.2-sensor-pipeline-restore';
+const ARM_BUILD_ID = 'arm-readiness-v1.3-readiness-state-fix';
 window.__ARM_BUILD_ID = ARM_BUILD_ID;
 let firstSensorSampleAt = 0;
 let lastSensorSampleAt = 0;
@@ -2455,7 +2455,24 @@ function startReadinessWatchdog() {
   readinessWatchdog = setInterval(() => {
     const now = performance.now();
 
+    // A live valid sample always takes precedence over the WAIT_SENSOR timeout.
+    // This also recovers from a stale READINESS_ERROR that was raised during a race
+    // between the voice callback, the first sensor event, and the watchdog timer.
+    if ((phase === 'WAIT_SENSOR' || phase === 'READINESS_ERROR') && isSensorFresh(now)) {
+      phase = 'CALIB';
+      clearReadinessIssue();
+      $('action-btn').disabled = true;
+      $('action-btn').className = '';
+      recordReadinessEvent('sensor_samples_ready_watchdog', {
+        sensorSource:gravitySource,
+        screenAngle:screenOrientationSnapshot.angle,
+        screenType:screenOrientationSnapshot.type
+      });
+      return;
+    }
+
     if (phase === 'WAIT_SENSOR' &&
+        !isSensorFresh(now) &&
         now - sensorWaitStartedAt >= ARM_READINESS_CFG.sensorWaitTimeoutMs) {
       phase = 'READINESS_ERROR';
       showReadinessWarning('sensor_no_samples');
