@@ -1689,7 +1689,9 @@ function updateArmDevHUD() {
   set('dev-stable-spread', formatDevAngle(stableSpread));
   set('dev-samples', String(validSensorSampleCount));
   set('dev-sensor-age', lastSensorSampleAt > 0 ? `${Math.max(0, Math.round(performance.now() - lastSensorSampleAt))} ms` : '—');
+  set('dev-fresh-limit', `${ARM_READINESS_CFG.sampleFreshMs} ms`);
   set('dev-build', ARM_BUILD_ID);
+  set('dev-config', `${window.QS_CONFIG?.version || '—'} / ${ARM_READINESS_CFG.version}`);
   set('dev-tts', armTtsStatus || 'idle');
   set('dev-runtime-error', armLastRuntimeError || '—');
   set('dev-permission', `O:${sensorPermission.orientation} M:${sensorPermission.motion}`);
@@ -1867,27 +1869,63 @@ if (!ARM_CFG) {
   throw new Error('QuickStroke Arm configuration is missing');
 }
 
-const MEASURE_SEC             = ARM_CFG.measureSec;
+function requireFiniteConfigNumber(value, name, options = {}) {
+  const number = Number(value);
+  const { min = -Infinity, max = Infinity, integer = false } = options;
 
-const NORMAL_DRIFT_MAX_DEG    = ARM_CFG.normalDriftMaxDeg;
-const DRIFT_FAIL_DEG          = ARM_CFG.driftFailDeg;
+  if (!Number.isFinite(number) || number < min || number > max) {
+    throw new Error(`Invalid QuickStroke config: ${name}=${String(value)}`);
+  }
 
-const WRIST_RATIO_THR         = ARM_CFG.wristRatioThr;
-const DROP_Z_MIN              = ARM_CFG.dropZMin;
+  return integer ? Math.round(number) : number;
+}
 
-const STABLE_WINDOW           = ARM_CFG.stableWindow;
-const STABLE_ANGLE_DEG        = ARM_CFG.stableAngleDeg;
-const STABLE_HOLD             = ARM_CFG.stableHold;
+function optionalFiniteConfigNumber(value, fallback, name, options = {}) {
+  const number = Number(value);
+  if (Number.isFinite(number)) {
+    return requireFiniteConfigNumber(number, name, options);
+  }
 
-const FLAT_Z_THR              = ARM_CFG.flatZThr;
-const PORTRAIT_Y_MIN          = ARM_CFG.portraitYMin;
+  console.warn(`[Arm config] ${name} is missing or invalid; using ${fallback}`);
+  return requireFiniteConfigNumber(fallback, `${name} fallback`, options);
+}
 
-const THRESHOLD_ALERT_HOLD_MS = ARM_CFG.thresholdAlertHoldMs;
-const MOTION_FALLBACK_MS      = ARM_CFG.motionFallbackMs;
-const PRE_MEASURE_DELAY_MS    = ARM_CFG.preMeasureDelayMs;
+function optionalConfigBoolean(value, fallback) {
+  return typeof value === 'boolean' ? value : fallback;
+}
 
-const RETRY_SEC               = ARM_CFG.retrySec;
-const LPF                     = ARM_CFG.lpf;
+// Clinical/measurement values are required. Missing values stop the page rather
+// than silently changing the existing algorithm or its thresholds.
+const MEASURE_SEC             = requireFiniteConfigNumber(ARM_CFG.measureSec, 'thresholds.arm.measureSec', { min:1, integer:true });
+
+const NORMAL_DRIFT_MAX_DEG    = requireFiniteConfigNumber(ARM_CFG.normalDriftMaxDeg, 'thresholds.arm.normalDriftMaxDeg', { min:0 });
+const DRIFT_FAIL_DEG          = requireFiniteConfigNumber(ARM_CFG.driftFailDeg, 'thresholds.arm.driftFailDeg', { min:NORMAL_DRIFT_MAX_DEG });
+
+const WRIST_RATIO_THR         = requireFiniteConfigNumber(ARM_CFG.wristRatioThr, 'thresholds.arm.wristRatioThr', { min:0 });
+const DROP_Z_MIN              = requireFiniteConfigNumber(ARM_CFG.dropZMin, 'thresholds.arm.dropZMin', { min:0 });
+
+const STABLE_WINDOW           = requireFiniteConfigNumber(ARM_CFG.stableWindow, 'thresholds.arm.stableWindow', { min:1, integer:true });
+const STABLE_ANGLE_DEG        = requireFiniteConfigNumber(ARM_CFG.stableAngleDeg, 'thresholds.arm.stableAngleDeg', { min:0 });
+const STABLE_HOLD             = requireFiniteConfigNumber(ARM_CFG.stableHold, 'thresholds.arm.stableHold', { min:1, integer:true });
+
+const FLAT_Z_THR              = requireFiniteConfigNumber(ARM_CFG.flatZThr, 'thresholds.arm.flatZThr', { min:0, max:1 });
+const PORTRAIT_Y_MIN          = requireFiniteConfigNumber(ARM_CFG.portraitYMin, 'thresholds.arm.portraitYMin', { min:0, max:1 });
+
+// Technical timing fields are not arm-drift/scoring thresholds. Compatibility
+// aliases/defaults prevent undefined values from becoming NaN inside readiness.
+const alertHoldInput = ARM_CFG.thresholdAlertHoldMs ?? ARM_CFG.driftFailHoldMs;
+const THRESHOLD_ALERT_HOLD_MS = optionalFiniteConfigNumber(alertHoldInput, 600, 'thresholds.arm.thresholdAlertHoldMs', { min:0, integer:true });
+const MOTION_FALLBACK_MS      = optionalFiniteConfigNumber(ARM_CFG.motionFallbackMs, 1000, 'thresholds.arm.motionFallbackMs', { min:100, integer:true });
+const PRE_MEASURE_DELAY_MS    = optionalFiniteConfigNumber(ARM_CFG.preMeasureDelayMs, 0, 'thresholds.arm.preMeasureDelayMs', { min:0, integer:true });
+
+const RETRY_SEC               = requireFiniteConfigNumber(ARM_CFG.retrySec, 'thresholds.arm.retrySec', { min:1, integer:true });
+const LPF                     = requireFiniteConfigNumber(ARM_CFG.lpf, 'thresholds.arm.lpf', { min:0.001, max:1 });
+
+if (Number.isFinite(Number(ARM_CFG.thresholdAlertHoldMs)) &&
+    Number.isFinite(Number(ARM_CFG.driftFailHoldMs)) &&
+    Number(ARM_CFG.thresholdAlertHoldMs) !== Number(ARM_CFG.driftFailHoldMs)) {
+  console.warn('[Arm config] thresholdAlertHoldMs and legacy driftFailHoldMs differ; thresholdAlertHoldMs takes precedence');
+}
 
 /* ═══════════════════════════════════════════════════════════════
    ARM MEASUREMENT READINESS v1
@@ -1898,16 +1936,50 @@ const LPF                     = ARM_CFG.lpf;
 ═══════════════════════════════════════════════════════════════ */
 const ARM_READINESS_INPUT = window.QS_CONFIG?.thresholds?.armReadiness || {};
 const ARM_READINESS_CFG = Object.freeze({
-  version: 'arm-readiness-1.0.0',
-  sampleFreshMs: Math.max(1500, MOTION_FALLBACK_MS * 2),
-  sensorWaitTimeoutMs: 6000,
-  preMeasureMaxDeltaDeg: Math.max(4, STABLE_ANGLE_DEG * 2),
-  movedFromRestMinDeg: 8,
-  enforcePortraitScreen: true,
-  enforceTopUp: false,
-  enforceMovedFromRest: false,
-  ...ARM_READINESS_INPUT
+  version: typeof ARM_READINESS_INPUT.version === 'string'
+    ? ARM_READINESS_INPUT.version
+    : 'arm-readiness-1.0.1',
+  sampleFreshMs: optionalFiniteConfigNumber(
+    ARM_READINESS_INPUT.sampleFreshMs,
+    Math.max(1500, MOTION_FALLBACK_MS * 2),
+    'thresholds.armReadiness.sampleFreshMs',
+    { min:250, integer:true }
+  ),
+  sensorWaitTimeoutMs: optionalFiniteConfigNumber(
+    ARM_READINESS_INPUT.sensorWaitTimeoutMs,
+    6000,
+    'thresholds.armReadiness.sensorWaitTimeoutMs',
+    { min:1000, integer:true }
+  ),
+  preMeasureMaxDeltaDeg: optionalFiniteConfigNumber(
+    ARM_READINESS_INPUT.preMeasureMaxDeltaDeg,
+    Math.max(4, STABLE_ANGLE_DEG * 2),
+    'thresholds.armReadiness.preMeasureMaxDeltaDeg',
+    { min:0 }
+  ),
+  movedFromRestMinDeg: optionalFiniteConfigNumber(
+    ARM_READINESS_INPUT.movedFromRestMinDeg,
+    8,
+    'thresholds.armReadiness.movedFromRestMinDeg',
+    { min:0 }
+  ),
+  enforcePortraitScreen: optionalConfigBoolean(ARM_READINESS_INPUT.enforcePortraitScreen, true),
+  enforceTopUp: optionalConfigBoolean(ARM_READINESS_INPUT.enforceTopUp, false),
+  enforceMovedFromRest: optionalConfigBoolean(ARM_READINESS_INPUT.enforceMovedFromRest, false)
 });
+
+window.__ARM_RUNTIME_CONFIG = Object.freeze({
+  appConfigVersion:window.QS_CONFIG?.version || null,
+  readinessVersion:ARM_READINESS_CFG.version,
+  thresholdAlertHoldMs:THRESHOLD_ALERT_HOLD_MS,
+  motionFallbackMs:MOTION_FALLBACK_MS,
+  preMeasureDelayMs:PRE_MEASURE_DELAY_MS,
+  sampleFreshMs:ARM_READINESS_CFG.sampleFreshMs,
+  sensorWaitTimeoutMs:ARM_READINESS_CFG.sensorWaitTimeoutMs,
+  preMeasureMaxDeltaDeg:ARM_READINESS_CFG.preMeasureMaxDeltaDeg
+});
+
+console.log('[Arm config resolved]', window.__ARM_RUNTIME_CONFIG);
 
 let _speaking = false;
 let _voiceQ = [];
@@ -2140,13 +2212,14 @@ let sensorApiSupported = false;
 let permissionReady = false;
 let sensorPermission = { orientation:'unknown', motion:'unknown' };
 let sensorPermissionAttempted = false;
-const ARM_BUILD_ID = 'arm-readiness-v1.7-warning-tts-fix';
+const ARM_BUILD_ID = 'arm-readiness-v1.9-config-contract-fix';
 window.__ARM_BUILD_ID = ARM_BUILD_ID;
 let firstSensorSampleAt = 0;
 let lastSensorSampleAt = 0;
 let validSensorSampleCount = 0;
 let invalidSensorSampleCount = 0;
 let sensorSourceSwitchCount = 0;
+let preMeasureWaitingForFreshSample = false;
 
 let screenOrientationSnapshot = {
   angle:0, type:'portrait-primary', source:'initial', inferred:true
@@ -2559,6 +2632,8 @@ function startReadinessWatchdog() {
   stopReadinessWatchdog();
   readinessWatchdog = setInterval(() => {
     const now = performance.now();
+    // Keep Sensor age truthful even while events are paused.
+    updateArmDevHUD();
 
     // A live valid sample always takes precedence over the WAIT_SENSOR timeout.
     // This also recovers from a stale READINESS_ERROR that was raised during a race
@@ -2579,28 +2654,30 @@ function startReadinessWatchdog() {
       return;
     }
 
-    if ((phase === 'CALIB' || phase === 'PRE_MEASURE_RECHECK') &&
-        gravityReady && !isSensorFresh(now)) {
+    if (phase === 'CALIB' && gravityReady && !isSensorFresh(now)) {
+      // Calibration is sample-driven. A short iOS/Safari delivery pause, often
+      // seen while speech synthesis is active, only resets the stability window.
       resetCalibrationWindow();
+      if (readinessInvalidReason) clearReadinessIssue();
+      return;
+    }
 
-      if (phase === 'PRE_MEASURE_RECHECK') {
-        returnToCalibration('sensor_stale');
-      } else {
-        // During calibration, a short browser/TTS delivery pause only resets the
-        // stability window. Do not alarm the user or speak an error. The next
-        // accepted sensor sample resumes calibration automatically.
-        if (readinessInvalidReason !== 'sensor_stale') {
-          recordReadinessEvent('sensor_gap_during_calibration', {
-            sampleAgeMs:lastSensorSampleAt > 0
-              ? Math.max(0, Math.round(now - lastSensorSampleAt))
-              : null
-          });
-        }
-        readinessInvalidReason = null;
-        readinessFailedChecks = [];
-        lastWarnKey = '';
-        hideWarn();
+    if (phase === 'PRE_MEASURE_RECHECK' && gravityReady && !isSensorFresh(now)) {
+      // Preserve the accepted baseline and wait for a live sample. Do not turn a
+      // temporary Safari/TTS delivery pause into a user-facing sensor failure.
+      if (preMeasureTimer) {
+        clearTimeout(preMeasureTimer);
+        preMeasureTimer = null;
       }
+      if (!preMeasureWaitingForFreshSample) {
+        preMeasureWaitingForFreshSample = true;
+        recordReadinessEvent('waiting_for_fresh_sample_before_measurement', {
+          sampleAgeMs:lastSensorSampleAt > 0
+            ? Math.max(0, Math.round(now - lastSensorSampleAt))
+            : null
+        });
+      }
+      if (readinessInvalidReason) clearReadinessIssue();
       return;
     }
 
@@ -2618,6 +2695,7 @@ function returnToCalibration(reason) {
   gravityBase = null;
   baselineMeta = null;
   currentPreMeasureDelta = null;
+  preMeasureWaitingForFreshSample = false;
   resetCalibrationWindow();
   phase = 'CALIB';
   showReadinessWarning(reason);
@@ -2742,6 +2820,17 @@ function setGravityVector(raw, source, magnitude = null) {
   // in sensor_stale after valid samples resume.
   if (phase === 'CALIB' && readinessInvalidReason === 'sensor_stale') {
     clearReadinessIssue();
+  }
+
+  if (phase === 'PRE_MEASURE_RECHECK' && preMeasureWaitingForFreshSample) {
+    preMeasureWaitingForFreshSample = false;
+    recordReadinessEvent('fresh_sample_resumed_before_measurement', {
+      sensorSource:gravitySource,
+      sampleAgeMs:0
+    });
+    if (!preMeasureTimer) {
+      preMeasureTimer = setTimeout(startMeasure, 300);
+    }
   }
 
   screenOrientationSnapshot = readScreenOrientation();
@@ -2887,7 +2976,12 @@ function tickCalib() {
       driftMax = 0;
       failHoldStarted = null;
       currentPreMeasureDelta = 0;
+      preMeasureWaitingForFreshSample = false;
       phase = 'PRE_MEASURE_RECHECK';
+
+      // Stop a repeating “hold still” utterance before the protected pre-measure
+      // window. iOS may briefly pause DeviceMotion while speech synthesis plays.
+      clearVoiceQueue();
 
       recordReadinessEvent('baseline_accepted', {
         baselineSpreadDeg:baselineMeta.stableSpreadDeg,
@@ -3064,6 +3158,7 @@ function startWait() {
   baselineMeta = null;
   screenOrientationAtBaseline = null;
   currentPreMeasureDelta = null;
+  preMeasureWaitingForFreshSample = false;
   currentDrift = 0;
   driftMax = 0;
   currentDelta = { x:0, y:0, z:0 };
@@ -3139,6 +3234,23 @@ function startMeasure() {
     returnToCalibration('sensor_no_samples');
     return;
   }
+
+  // A temporary iOS/TTS sensor pause is not a failed pose. Keep the baseline and
+  // wait for the next live sample instead of showing sensor_stale.
+  if (!isSensorFresh()) {
+    if (!preMeasureWaitingForFreshSample) {
+      preMeasureWaitingForFreshSample = true;
+      recordReadinessEvent('waiting_for_fresh_sample_before_measurement', {
+        source:'startMeasure',
+        sampleAgeMs:lastSensorSampleAt > 0
+          ? Math.max(0, Math.round(performance.now() - lastSensorSampleAt))
+          : null
+      });
+    }
+    updateArmDevHUD();
+    return;
+  }
+  preMeasureWaitingForFreshSample = false;
 
   const readiness = evaluateReadiness();
   currentPreMeasureDelta = angleBetweenVectors(gravityBase, gravityFilt);

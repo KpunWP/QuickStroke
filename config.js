@@ -1,6 +1,6 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.0",
+  version: "1.0.1",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
@@ -80,13 +80,38 @@ window.QS_CONFIG = {
       portraitYMin: 0.55,
     
       // ต้องเกิน threshold ต่อเนื่องกี่มิลลิวินาที
+      // thresholdAlertHoldMs เป็นชื่อหลักที่ arm-test ใช้
+      thresholdAlertHoldMs: 600,
+      // Legacy alias สำหรับไฟล์รุ่นเก่า ต้องให้ค่าเท่ากัน
       driftFailHoldMs: 600,
+
+      // Technical sensor timing — ไม่ใช่ arm-drift/scoring threshold
+      // ถ้าไม่มี DeviceMotion เกินช่วงนี้ จึงใช้ DeviceOrientation fallback
+      motionFallbackMs: 1000,
+      // คงพฤติกรรมเดิม: เริ่ม pre-measure recheck ทันทีหลัง baseline
+      preMeasureDelayMs: 0,
     
       // เวลารอก่อนเริ่มทดสอบใหม่
       retrySec: 6,
     
       // Low-pass filter สำหรับลด sensor noise
       lpf: 0.15
+    },
+
+    // Readiness/configuration layer แยกจาก arm-drift algorithm เดิม
+    armReadiness: {
+      version: "arm-readiness-1.0.1",
+      sampleFreshMs: 2000,
+      sensorWaitTimeoutMs: 6000,
+      preMeasureMaxDeltaDeg: 5,
+      movedFromRestMinDeg: 8,
+
+      // Hard gates ที่ใช้ในรอบนี้
+      enforcePortraitScreen: true,
+
+      // Shadow mode: เก็บค่าและ log แต่ยังไม่ปฏิเสธ measurement
+      enforceTopUp: false,
+      enforceMovedFromRest: false
     },
 
     speech: {
