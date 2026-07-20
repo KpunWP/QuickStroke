@@ -1,9 +1,14 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.1",
+  version: "1.0.3",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
+
+  assetVersions: {
+    localePack: "20260720-face-review-v2",
+    languageRegistry: "20260720-language-registry-v1"
+  },
 
   emergency: {
     th: "1669",
@@ -20,11 +25,22 @@ window.QS_CONFIG = {
 
   thresholds: {
     face: {
+      // Version identifiers are stored with every Face result for reproducibility.
+      version: "face-prepilot-1.2.0",
+      algorithmVersion: "face-asymmetry-1.0.0",
+      resultSchemaVersion: "face-result-1.0.1",
+
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
       retryDelayMs: 2500,
-      weakSideRatioBad: 0.30,
+
+      // Active pre-pilot threshold. A higher value is more sensitive because
+      // weakRatio < threshold is classified as abnormal.
+      weakSideRatioBad: 0.45,
+
+      // Research-only shadow comparison. This value never changes the result.
+      weakSideRatioShadow: 0.30,
 
       smileDetectMin: 0.030,
       smileDetectSide: 0.045,
@@ -42,17 +58,29 @@ window.QS_CONFIG = {
       handMouthOverlapMin: 0.08,
 
       maxWaitForSmileMs: 14000,
+      baselineAlignmentTimeoutMs: 30000,
       smileLostGraceMs: 1400,
       smileOcclusionResetMs: 120,
       minValidSmileRatio: 0.05,
 
       smileAsymWarn: 0.22,
       smileAsymBad: 0.32,
-      weakSideRatioBad: 0.45,
+      restAsymCritical: 0.30,
+      criticalNoticeMs: 2000,
 
       maxAllowedYaw: 28,
       maxAllowedPitch: 24,
-      maxAllowedRoll: 20
+      maxAllowedRoll: 20,
+      poseBadTripFrames: 3,
+      poseGoodResumeFrames: 8,
+
+      // During normal-volunteer pre-pilot, continue in degraded mode if the
+      // hand model is unavailable and record HAND_MODEL_UNAVAILABLE.
+      // Revisit enforceHandModel=true before testing with real patients.
+      enforceHandModel: false,
+
+      // Compact research telemetry. No image or video is stored.
+      researchSampleIntervalMs: 100
     },
 
     arm: {

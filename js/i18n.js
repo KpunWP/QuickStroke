@@ -69,15 +69,24 @@
    * โหลดไฟล์ JSON ของภาษาที่เลือก
    */
   async function fetchLocalePack(locale) {
-    const path = `./locales/${locale}/ui.json`;
+    const localeUrl = new URL(
+      `./locales/${locale}/ui.json`,
+      document.baseURI
+    );
+    const assetVersion =
+      window.QS_CONFIG?.assetVersions?.localePack;
 
-    const response = await fetch(path, {
+    if (assetVersion) {
+      localeUrl.searchParams.set("v", assetVersion);
+    }
+
+    const response = await fetch(localeUrl, {
       cache: "no-cache"
     });
 
     if (!response.ok) {
       throw new Error(
-        `Unable to load locale "${locale}" from ${path} (${response.status})`
+        `Unable to load locale "${locale}" from ${localeUrl.pathname} (${response.status})`
       );
     }
 

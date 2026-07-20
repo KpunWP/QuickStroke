@@ -3,7 +3,7 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.6.0",
+    "packVersion": "0.6.1",
     "status": "developer-reference-language"
   },
   "index": {
@@ -365,7 +365,16 @@
     "moduleScore": "{module} score",
     "internalWeightedScore": "Internal weighted score",
     "basedOn": "based on {n}/3 checks",
-    "languageUnavailable": "Language unavailable"
+    "languageUnavailable": "Language unavailable",
+    "moduleValidity": "{module} · Result validity",
+    "moduleTechnicalValidity": "{module} · Technical quality",
+    "validityValid": "Usable",
+    "validityInvalid": "Unable to assess",
+    "technicalFull": "Full",
+    "technicalDegraded": "Degraded",
+    "technicalError": "Error",
+    "invalidReason": "Invalid reason",
+    "qualityFlags": "Quality flags"
   },
   "permissions": {
     "checking": "Checking permissions...",

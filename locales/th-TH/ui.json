@@ -3,7 +3,7 @@
     "locale": "th-TH",
     "nativeName": "ภาษาไทย",
     "direction": "ltr",
-    "packVersion": "0.6.0",
+    "packVersion": "0.6.1",
     "status": "primary-research-language"
   },
   "index": {
@@ -364,7 +364,16 @@
     "moduleScore": "คะแนน{module}",
     "internalWeightedScore": "คะแนนรวมภายใน",
     "basedOn": "จาก {n}/3 รายการ",
-    "languageUnavailable": "ไม่สามารถโหลดภาษาได้"
+    "languageUnavailable": "ไม่สามารถโหลดภาษาได้",
+    "moduleValidity": "{module} · ความใช้ได้ของผล",
+    "moduleTechnicalValidity": "{module} · คุณภาพทางเทคนิค",
+    "validityValid": "ใช้คำนวณได้",
+    "validityInvalid": "ประเมินไม่ได้",
+    "technicalFull": "ครบถ้วน",
+    "technicalDegraded": "ลดระดับ",
+    "technicalError": "ผิดพลาด",
+    "invalidReason": "เหตุผลที่ประเมินไม่ได้",
+    "qualityFlags": "ธงคุณภาพ"
   },
   "permissions": {
     "checking": "กำลังตรวจสอบสิทธิ์...",

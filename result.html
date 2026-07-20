@@ -872,7 +872,16 @@
      'moduleScore',
      'internalWeightedScore',
      'basedOn',
-     'languageUnavailable'
+     'languageUnavailable',
+     'moduleValidity',
+     'moduleTechnicalValidity',
+     'validityValid',
+     'validityInvalid',
+     'technicalFull',
+     'technicalDegraded',
+     'technicalError',
+     'invalidReason',
+     'qualityFlags'
    ]);
    const ICONS = Object.freeze({
      face: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>',
@@ -957,7 +966,13 @@
      } catch (e) {
        console.warn(e);
        return {
-         riskLevel: 'invalid'
+         module: name,
+         validityStatus: 'error',
+         clinicalResult: null,
+         clinicalScore: null,
+         scoreUsable: false,
+         riskLevel: 'invalid',
+         invalidReasonCode: 'RESULT_DATA_PARSE_ERROR'
        }
      }
    }
@@ -968,10 +983,32 @@
      return 'bad'
    }
 
+   function moduleScore(d) {
+     if (!d || typeof d !== 'object') return null;
+     const raw = d.clinicalScore ?? d.score;
+     const value = Number(raw);
+     return Number.isFinite(value) ? value : null
+   }
+
+   function moduleIsUsable(d) {
+     if (!d || typeof d !== 'object') return false;
+     if (typeof d.validityStatus === 'string' && d.validityStatus !== 'valid') return false;
+     if (d.scoreUsable === false) return false;
+     if (d.riskLevel === 'invalid') return false;
+     return moduleScore(d) !== null
+   }
+
    function moduleClass(d) {
-     if (!d || d.riskLevel === 'invalid' || d.score === undefined || d.score === null) return 'na';
+     if (!moduleIsUsable(d)) return 'na';
+
+     const clinicalMap = {
+       normal: 'ok',
+       warning: 'warn',
+       abnormal: 'bad'
+     };
+     if (clinicalMap[d.clinicalResult]) return clinicalMap[d.clinicalResult];
      if (['ok', 'warn', 'bad'].includes(d.riskLevel)) return d.riskLevel;
-     return riskClass(Number(d.score))
+     return riskClass(moduleScore(d))
    }
 
    function requestedResultSource(data) {
@@ -1001,8 +1038,9 @@
      const data = Object.fromEntries(
        MODULES.map(name => [name, readModule(name)])
      );
-     const valid = MODULES.filter(name => moduleClass(data[name]) !== 'na');
-     const invalid = MODULES.filter(name => data[name]?.riskLevel === 'invalid');
+     const attempted = MODULES.filter(name => !!data[name]);
+     const valid = MODULES.filter(name => moduleIsUsable(data[name]));
+     const invalid = MODULES.filter(name => !!data[name] && !moduleIsUsable(data[name]));
      const missing = MODULES.filter(name => !data[name]);
      const bad = valid.filter(name => moduleClass(data[name]) === 'bad');
      const warn = valid.filter(name => moduleClass(data[name]) === 'warn');
@@ -1012,7 +1050,7 @@
 
      valid.forEach(name => {
        totalWeight += WEIGHTS[name];
-       weightedSum += Number(data[name].score) * WEIGHTS[name];
+       weightedSum += moduleScore(data[name]) * WEIGHTS[name];
      });
 
      const weighted = totalWeight > 0
@@ -1044,7 +1082,7 @@
        }
      } else if (SINGLE_POSITIVE_OVERRIDE && bad.length) {
        state = 'urgent';
-     } else if (!valid.length) {
+     } else if (!attempted.length) {
        state = 'noData';
      } else if (valid.length < 3) {
        state = 'incomplete';
@@ -1058,6 +1096,7 @@
 
      return {
        data,
+       attempted,
        valid,
        invalid,
        missing,
@@ -1073,8 +1112,14 @@
    }
 
    function emergencyPhone() {
-     const configured = window.QS_CONFIG?.emergency?.phone || window.QS_CONFIG?.emergencyPhone;
-     if (configured) return String(configured).replace(/[^+\d]/g, '');
+     const emergencyConfig = window.QS_CONFIG?.emergency;
+     const configured = emergencyConfig?.phone ||
+       emergencyConfig?.[LANG] ||
+       window.QS_CONFIG?.emergencyPhone;
+     if (configured) {
+       const number = String(configured).replace(/[^+\d]/g, '');
+       if (number) return number
+     }
      return LANG === 'th' ? '1669' : ''
    }
 
@@ -1203,7 +1248,7 @@
        action: T.startModule,
        actionable: true
      };
-     if (d.riskLevel === 'invalid' || d.score === undefined || d.score === null) return {
+     if (!moduleIsUsable(d)) return {
        cls: 'na',
        text: T.invalidStatus,
        action: T.retryModule,
@@ -1296,6 +1341,21 @@
      }
    }
 
+   function appendTechnicalRow(grid, label, value) {
+     const dt = document.createElement('dt');
+     const dd = document.createElement('dd');
+     dt.textContent = label;
+     dd.textContent = value;
+     grid.append(dt, dd)
+   }
+
+   function technicalValidityText(d) {
+     if (!d) return '—';
+     if (d.technicalValidity === 'degraded') return T.technicalDegraded;
+     if (d.technicalValidity === 'error') return T.technicalError;
+     return T.technicalFull
+   }
+
    function renderResearch(r) {
      const panel = document.getElementById('research-panel');
      panel.hidden = !RESEARCH_MODE;
@@ -1304,21 +1364,55 @@
      document.getElementById('technical-disclaimer').textContent = T.technicalDisclaimer;
      const grid = document.getElementById('technical-grid');
      grid.innerHTML = '';
+
      MODULES.forEach(name => {
-       const d = r.data[name],
-         valid = moduleClass(d) !== 'na',
-         dt = document.createElement('dt'),
-         dd = document.createElement('dd');
-       dt.textContent = T.moduleScore.replace('{module}', T[name]);
-       dd.textContent = valid ? String(d.score) : '—';
-       grid.append(dt, dd)
+       const d = r.data[name];
+       const usable = moduleIsUsable(d);
+       appendTechnicalRow(
+         grid,
+         T.moduleScore.replace('{module}', T[name]),
+         usable ? String(moduleScore(d)) : '—'
+       );
+       appendTechnicalRow(
+         grid,
+         T.moduleValidity.replace('{module}', T[name]),
+         d ? (usable ? T.validityValid : T.validityInvalid) : '—'
+       );
+
+       if (d) {
+         appendTechnicalRow(
+           grid,
+           T.moduleTechnicalValidity.replace('{module}', T[name]),
+           technicalValidityText(d)
+         );
+
+         if (!usable && d.invalidReasonCode) {
+           appendTechnicalRow(
+             grid,
+             `${T[name]} · ${T.invalidReason}`,
+             String(d.invalidReasonCode)
+           )
+         }
+
+         const flags = Array.isArray(d.runtime?.qualityFlags)
+           ? d.runtime.qualityFlags
+           : [];
+         if (flags.length) {
+           appendTechnicalRow(
+             grid,
+             `${T[name]} · ${T.qualityFlags}`,
+             flags.join(', ')
+           )
+         }
+       }
      });
-     const dt = document.createElement('dt'),
-       dd = document.createElement('dd');
-     dt.textContent = T.internalWeightedScore;
-     dd.textContent = r.weighted === null ? '—' :
-       `${r.weighted} · ${T.basedOn.replace('{n}',r.valid.length)}`;
-     grid.append(dt, dd)
+
+     appendTechnicalRow(
+       grid,
+       T.internalWeightedScore,
+       r.weighted === null ? '—' :
+         `${r.weighted} · ${T.basedOn.replace('{n}',r.valid.length)}`
+     )
    }
 
    function action(button, label, handler, hidden = false) {

@@ -1,4 +1,4 @@
-/* QuickStroke Service Worker — Offline-Ready Face Edition (v13)
+/* QuickStroke Service Worker — Offline-Ready Face Edition (v15)
  *
  * กลยุทธ์:
  * - HTML: network-first พร้อม timeout 3 วินาที
@@ -7,7 +7,7 @@
  * - JS / JSON / รูปภาพ: stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v13";
+const CACHE_NAME = "quickstroke-pwa-v15";
 const CACHE_PREFIX = "quickstroke-pwa-";
 
 const CORE_SHELL = [
@@ -20,6 +20,7 @@ const CORE_SHELL = [
   "/config.js",
 
   "/js/i18n.js",
+  "/js/languages.js",
   "/locales/th-TH/ui.json",
   "/locales/en-US/ui.json",
   "/locales/ja-JP/ui.json",
@@ -247,21 +248,15 @@ self.addEventListener("fetch", (event) => {
    */
   event.respondWith(
     caches.open(CACHE_NAME).then(async (cache) => {
-      const cached = await cache.match(
-        event.request,
-        {
-          ignoreSearch: true
-        }
-      );
+      // Keep the query string in the cache key. A URL such as ui.json?v=BUILD
+      // must not be satisfied by an older unversioned locale pack.
+      const cachedExact = await cache.match(event.request);
 
       const refresh = fetch(event.request)
         .then((response) => {
           if (response && response.ok) {
             return cache
-              .put(
-                url.pathname,
-                response.clone()
-              )
+              .put(event.request, response.clone())
               .then(() => response);
           }
 
@@ -272,9 +267,17 @@ self.addEventListener("fetch", (event) => {
         refresh.catch(() => undefined)
       );
 
-      if (cached) return cached;
+      if (cachedExact) return cachedExact;
 
-      return refresh;
+      try {
+        return await refresh;
+      } catch (error) {
+        // Offline fallback for a first request with a new version query:
+        // use the precached unversioned shell asset if available.
+        const cachedUnversioned = await cache.match(url.pathname);
+        if (cachedUnversioned) return cachedUnversioned;
+        throw error;
+      }
     })
   );
 });

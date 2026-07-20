@@ -3,7 +3,7 @@
     "locale": "ja-JP",
     "nativeName": "日本語",
     "direction": "ltr",
-    "packVersion": "0.6.0",
+    "packVersion": "0.6.1",
     "status": "developer-reference-language"
   },
   "index": {
@@ -367,7 +367,16 @@
     "moduleScore": "{module}スコア",
     "internalWeightedScore": "内部加重スコア",
     "basedOn": "{n}/3項目に基づく",
-    "languageUnavailable": "言語を読み込めません"
+    "languageUnavailable": "言語を読み込めません",
+    "moduleValidity": "{module}・結果の有効性",
+    "moduleTechnicalValidity": "{module}・技術品質",
+    "validityValid": "計算可能",
+    "validityInvalid": "判定不可",
+    "technicalFull": "完全",
+    "technicalDegraded": "低下",
+    "technicalError": "エラー",
+    "invalidReason": "判定不可の理由",
+    "qualityFlags": "品質フラグ"
   },
   "permissions": {
     "checking": "権限を確認しています...",

@@ -1565,8 +1565,8 @@
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
-<script src="./js/languages.js?v=20260717-lang-v1"></script>
-<script src="./js/i18n.js?v=face-i18n-v1"></script>
+<script src="./js/languages.js?v=20260720-language-registry-v1"></script>
+<script src="./js/i18n.js?v=20260720-face-review-v1"></script>
 </head>
 <body>
 
@@ -1691,12 +1691,26 @@ const FACE_LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze(
 
 let FL = null;
 let activeFaceLang = null;
+let activeLocalePackVersion = null;
 let faceLocaleRequestId = 0;
 let phase = 'BEFORE_START';
 
+function getPreferredFaceLang() {
+  const saved =
+    sessionStorage.getItem("fast_lang") ||
+    localStorage.getItem("fast_lang") ||
+    localStorage.getItem("quickstroke_locale") ||
+    navigator.language ||
+    "th";
+
+  return window.QuickStrokeLanguages?.normalise(saved, "th") ||
+    String(saved).split("-")[0].toLowerCase() ||
+    "th";
+}
+
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'smooth-v2 / 2026-07-04';
-console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (throttled idle loop + pose hysteresis + memoized UI)',
+const FACE_TEST_BUILD = 'face-prepilot-1.1.0 / 2026-07-20';
+console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
 
@@ -1798,12 +1812,35 @@ let mouthCtx = null;
 
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
+const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.2.0";
+const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.0.0";
+const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.0.1";
+
+function stableStringify(value) {
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+  if (value && typeof value === "object") {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value);
+}
+
+function fnv1aHash(text) {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+const FACE_CONFIG_HASH = `fnv1a-${fnv1aHash(stableStringify(FACE_CFG))}`;
 
 const CALIBRATION_SECONDS = FACE_CFG.calibrationSeconds ?? 3;       // short "get ready" before smiling
 const ACTION_DURATION_MS = FACE_CFG.actionDurationMs ?? 4000;       // length of the smile-recording window
 const MAX_ASSESS_ATTEMPTS = FACE_CFG.maxAssessAttempts ?? 3;        // auto-retry "unable to assess"
 const RETRY_DELAY_MS = FACE_CFG.retryDelayMs ?? 2500;               // pause before each auto-retry
-const WEAK_SIDE_RATIO_BAD = FACE_CFG.weakSideRatioBad ?? 0.30;      // weak/strong rise below this → abnormal
+const WEAK_SIDE_RATIO_BAD = FACE_CFG.weakSideRatioBad ?? 0.45;      // active result threshold
+const WEAK_SIDE_RATIO_SHADOW = FACE_CFG.weakSideRatioShadow ?? 0.30; // research-only; never changes result
 
 const SMILE_DETECT_MIN = FACE_CFG.smileDetectMin ?? 0.045;
 const SMILE_DETECT_SIDE = FACE_CFG.smileDetectSide ?? 0.07;
@@ -1821,6 +1858,7 @@ const MIN_MOUTH_LINE_SCORE = FACE_CFG.minMouthLineScore ?? 0.010;
 const HAND_MOUTH_OVERLAP_MIN = FACE_CFG.handMouthOverlapMin ?? 0.08;
 
 const MAX_WAIT_FOR_SMILE_MS = FACE_CFG.maxWaitForSmileMs ?? 14000;
+const BASELINE_ALIGNMENT_TIMEOUT_MS = FACE_CFG.baselineAlignmentTimeoutMs ?? 30000;
 const SMILE_LOST_GRACE_MS = FACE_CFG.smileLostGraceMs ?? 1400;
 const SMILE_OCCLUSION_RESET_MS = FACE_CFG.smileOcclusionResetMs ?? 120;
 const MIN_VALID_SMILE_RATIO = FACE_CFG.minValidSmileRatio ?? 0.08;
@@ -1828,12 +1866,15 @@ const MIN_VALID_SMILE_RATIO = FACE_CFG.minValidSmileRatio ?? 0.08;
 const SMILE_ASYM_WARN = FACE_CFG.smileAsymWarn ?? 0.26;
 const SMILE_ASYM_BAD = FACE_CFG.smileAsymBad ?? 0.40;
 const REST_ASYM_CRITICAL = FACE_CFG.restAsymCritical ?? 0.30;
+const CRITICAL_NOTICE_MS = FACE_CFG.criticalNoticeMs ?? 2000;
 
 const MAX_ALLOWED_YAW = FACE_CFG.maxAllowedYaw ?? 28;
 const MAX_ALLOWED_PITCH = FACE_CFG.maxAllowedPitch ?? 24;
 const MAX_ALLOWED_ROLL = FACE_CFG.maxAllowedRoll ?? 20;
 const POSE_BAD_TRIP_FRAMES = FACE_CFG.poseBadTripFrames ?? 3;      // หลุดกรอบติดกันกี่เฟรมถึงเตือน
 const POSE_GOOD_RESUME_FRAMES = FACE_CFG.poseGoodResumeFrames ?? 8; // นิ่งติดกันกี่เฟรมถึงไปต่อ
+const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
+const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
 
 const IDX_L_EYE = 133, IDX_R_EYE = 362;
 const IDX_NOSE = 4, IDX_FOREHEAD = 10, IDX_CHIN = 152;
@@ -1882,6 +1923,23 @@ let assessAttempts = 0;
 let retryTimer = null;
 let poseInterruptedSmile = false;   // true เมื่อ pose/no-face ขัดจังหวะช่วงยิ้ม → ต้องเริ่ม smile window ใหม่
 
+let screeningStartedAtMs = null;
+let baselineWaitStartMs = null;
+let attemptStartedAtMs = null;
+let attemptRecords = [];
+let researchFrames = [];
+let lastResearchFrameAtMs = 0;
+let criticalRestAsym = null;
+let criticalNoticeUntilMs = 0;
+let lastInvalidReasonCode = null;
+let faceDelegateUsed = null;
+let handDelegateUsed = null;
+let cameraRuntime = {};
+let permissionRuntime = {};
+let faceDetectErrorCount = 0;
+let handDetectErrorCount = 0;
+const runtimeQualityFlags = new Set();
+
 let pitchNeutralRatio = null;
 
 // Centralized visual/audio notice state: prevents stacked boxes and repeated voice prompts.
@@ -1907,7 +1965,7 @@ function primeSpeech(){
     // ใช้เสียงสั้นมากและเบามากใน user gesture เพื่อให้ prompt แรกหลังจากนั้นพูดได้จริง
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance('เริ่ม');
-    const code = sessionStorage.getItem('fast_lang') || 'th';
+    const code = getPreferredFaceLang();
     u.lang = SPEAK_LANG[code] || 'th-TH';
     u.volume = 0.01;
     u.rate = 1.2;
@@ -1930,7 +1988,7 @@ function speakFace(txt, opts={}){
   try {
     speechSynthesis.cancel();
     const ut = new SpeechSynthesisUtterance(txt);
-    const code = sessionStorage.getItem('fast_lang') || 'th';
+    const code = getPreferredFaceLang();
     ut.lang = SPEAK_LANG[code] || 'th-TH';
     if (cachedVoices.length === 0) cachedVoices = speechSynthesis.getVoices() || [];
     const regional = cachedVoices.filter(v => v.lang.toLowerCase().replace('_','-').startsWith(ut.lang.toLowerCase().slice(0,2)));
@@ -1952,6 +2010,132 @@ function showCenterCountdown(v){
 }
 function hideCenterCountdown(){ __lastCountdownShown = null; centerCD.style.display = 'none'; }
 function average(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
+function roundMetric(value, digits=4){
+  return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
+}
+function currentAttemptNo(){ return Math.max(1, assessAttempts + 1); }
+function recordResearchFrame(data={}){
+  if (!screeningStartedAtMs) return;
+  const now = Date.now();
+  if (now - lastResearchFrameAtMs < RESEARCH_SAMPLE_INTERVAL_MS) return;
+  lastResearchFrameAtMs = now;
+  researchFrames.push({
+    tMs: now - screeningStartedAtMs,
+    attemptNo: currentAttemptNo(),
+    phase,
+    ...data
+  });
+}
+function getAttemptFrames(attemptNo){
+  return researchFrames.filter((frame) => frame.attemptNo === attemptNo && String(frame.phase).startsWith('ACTION'));
+}
+function captureAttempt(outcome, invalidReasonCode=null, extra={}){
+  const attemptNo = currentAttemptNo();
+  const frames = getAttemptFrames(attemptNo);
+  const count = (predicate) => frames.filter(predicate).length;
+  const record = {
+    attemptNo,
+    startedAt: attemptStartedAtMs ? new Date(attemptStartedAtMs).toISOString() : null,
+    completedAt: new Date().toISOString(),
+    durationMs: attemptStartedAtMs ? Date.now() - attemptStartedAtMs : null,
+    outcome,
+    invalidReasonCode,
+    quality: {
+      sampledFrames: frames.length,
+      faceDetectedRatio: frames.length ? count((f) => f.faceDetected === true) / frames.length : null,
+      poseValidRatio: frames.length ? count((f) => f.poseValid === true) / frames.length : null,
+      mouthAssessableRatio: frames.length ? count((f) => f.mouthAssessable === true) / frames.length : null,
+      handOverlapRatio: frames.length ? count((f) => f.handMouthOverlap === true) / frames.length : null
+    },
+    metrics: {
+      validSmileFrames,
+      smileFrameCount,
+      validSmileRatio: validSmileFrames / Math.max(1, smileFrameCount),
+      visibleMouthFrames,
+      lastMouthVisibilityScore: roundMetric(lastMouthVisibilityScore),
+      lastMouthDarkRatio: roundMetric(lastMouthDarkRatio),
+      smileEverDetected
+    },
+    ...extra
+  };
+  attemptRecords.push(record);
+  return record;
+}
+function resultRuntimeMetadata(){
+  return {
+    userAgent: navigator.userAgent,
+    platform: navigator.userAgentData?.platform || navigator.platform || null,
+    language: navigator.language || null,
+    camera: cameraRuntime,
+    permission: permissionRuntime,
+    faceDelegate: faceDelegateUsed,
+    handDelegate: handDelegateUsed,
+    handModelAvailable: !!handLandmarker,
+    degradedMode: handLandmarker ? null : 'VISUAL_MOUTH_GATE_ONLY',
+    qualityFlags: [...runtimeQualityFlags],
+    faceDetectErrorCount,
+    handDetectErrorCount
+  };
+}
+function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, passed, invalidReasonCode=null, breakdown={}}){
+  const completedAtMs = Date.now();
+  return {
+    schemaVersion: FACE_RESULT_SCHEMA_VERSION,
+    module: 'face',
+    validityStatus,
+    clinicalResult,
+    technicalValidity: validityStatus === 'error'
+      ? 'error'
+      : (runtimeQualityFlags.size ? 'degraded' : 'full'),
+    clinicalScore: validityStatus === 'valid' ? score : null,
+    scoreUsable: validityStatus === 'valid',
+
+    // Legacy fields retained until result.html is reviewed.
+    score: validityStatus === 'valid' ? score : 0,
+    riskLevel,
+    passed,
+
+    invalidReasonCode,
+    startedAt: screeningStartedAtMs ? new Date(screeningStartedAtMs).toISOString() : null,
+    completedAt: new Date(completedAtMs).toISOString(),
+    durationMs: screeningStartedAtMs ? completedAtMs - screeningStartedAtMs : null,
+    localeUsed: FACE_LOCALE_MAP[activeFaceLang] || document.documentElement.lang || null,
+    versions: {
+      appVersion: window.QS_CONFIG?.version || null,
+      faceModuleVersion: FACE_MODULE_VERSION,
+      algorithmVersion: FACE_ALGORITHM_VERSION,
+      configHash: FACE_CONFIG_HASH,
+      localePackVersion: activeLocalePackVersion,
+      faceModelAsset: '/models/face_landmarker.task',
+      handModelAsset: '/models/hand_landmarker.task'
+    },
+    thresholds: {
+      weakSideRatioBad: WEAK_SIDE_RATIO_BAD,
+      weakSideRatioShadow: WEAK_SIDE_RATIO_SHADOW,
+      smileAsymWarn: SMILE_ASYM_WARN,
+      smileAsymBad: SMILE_ASYM_BAD,
+      restAsymCritical: REST_ASYM_CRITICAL
+    },
+    runtime: resultRuntimeMetadata(),
+    baseline: {
+      sampleCount: restCornerL.length,
+      baseLeft: roundMetric(baseL),
+      baseRight: roundMetric(baseR),
+      baseEyeWidth: roundMetric(baseEyeW),
+      restAsymMean: roundMetric(average(restCornerAsymSamples)),
+      restAsymMax: roundMetric(restCornerAsymSamples.length ? Math.max(...restCornerAsymSamples) : null),
+      criticalTriggered: criticalFired,
+      criticalRestAsym: roundMetric(criticalRestAsym)
+    },
+    attempts: [...attemptRecords],
+    research: {
+      sampleIntervalMs: RESEARCH_SAMPLE_INTERVAL_MS,
+      storesImagesOrVideo: false,
+      frames: researchFrames
+    },
+    breakdown
+  };
+}
 function clearBottomPanels(){
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
@@ -2044,7 +2228,7 @@ function applyFaceLang(){
 }
 
 
-const FACE_LOCALE_ASSET_VERSION = "20260717-face-copy-v1";
+const FACE_LOCALE_ASSET_VERSION = window.QS_CONFIG?.assetVersions?.localePack || "20260720-face-review-v1";
 
 async function fetchFaceMessagesDirect(locale) {
   const localeUrl = new URL(`./locales/${locale}/ui.json`, document.baseURI);
@@ -2062,7 +2246,7 @@ async function fetchFaceMessagesDirect(locale) {
     throw new Error(`Missing face translations for ${locale}`);
   }
 
-  return pack.face;
+  return pack;
 }
 
 async function loadFaceMessages(locale) {
@@ -2079,7 +2263,7 @@ async function loadFaceMessages(locale) {
       const messages = window.QuickStrokeI18n.getMessages();
 
       if (messages && messages.face) {
-        return messages.face;
+        return messages;
       }
 
       sharedLoaderError = new Error(`Shared locale pack has no face section for ${locale}`);
@@ -2113,10 +2297,10 @@ async function switchFaceLang(code) {
   const previousLang = activeFaceLang;
   let resolvedLang = shortLang;
   let resolvedLocale = requestedLocale;
-  let nextFL;
+  let nextPack;
 
   try {
-    nextFL = await loadFaceMessages(requestedLocale);
+    nextPack = await loadFaceMessages(requestedLocale);
   } catch (error) {
     if (requestId !== faceLocaleRequestId) return false;
 
@@ -2134,7 +2318,7 @@ async function switchFaceLang(code) {
       try {
         resolvedLang = "en";
         resolvedLocale = "en-US";
-        nextFL = await loadFaceMessages(resolvedLocale);
+        nextPack = await loadFaceMessages(resolvedLocale);
         console.warn(`Using ${resolvedLocale} as the face locale fallback.`);
       } catch (fallbackError) {
         console.error("Could not load the English face locale fallback.", fallbackError);
@@ -2148,11 +2332,19 @@ async function switchFaceLang(code) {
   // Ignore an older request that finished after a newer language selection.
   if (requestId !== faceLocaleRequestId) return false;
 
-  FL = nextFL;
+  if (!nextPack || !nextPack.face) {
+    console.error(`Locale pack has no face section: ${resolvedLocale}`);
+    return false;
+  }
+
+  FL = nextPack.face;
   activeFaceLang = resolvedLang;
+  activeLocalePackVersion = nextPack.meta?.packVersion || null;
 
   document.documentElement.lang = resolvedLocale;
   sessionStorage.setItem("fast_lang", resolvedLang);
+  localStorage.setItem("fast_lang", resolvedLang);
+  localStorage.setItem("quickstroke_locale", resolvedLocale);
 
   applyFaceLang();
 
@@ -2486,7 +2678,7 @@ let __lastUISig = '';
 function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showReset=false,showHud=false,pulse=false}){
   // ⚡ onResults เรียก setUI ได้ "ทุกเฟรม" (เช่นช่วง pose เพี้ยน / ปากถูกบัง)
   //    ถ้า state เหมือนเดิมทุกอย่าง → ข้ามการเขียน DOM ทั้งหมด ลด reflow/jank ชัดเจน
-  const __lang = sessionStorage.getItem('fast_lang') || 'th';
+  const __lang = getPreferredFaceLang();
   const __sig = [glassColor,msg,poseWarn,showScore,showStart,showReset,showHud,pulse,phase,__lang,debugVisible].join('¦');
   if (__sig === __lastUISig) return;
   __lastUISig = __sig;
@@ -2528,6 +2720,16 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
 
 /* ───────────── calibration / phase control ───────────── */
 function startScreening(){
+  sessionStorage.removeItem('fast_face');
+  screeningStartedAtMs=Date.now();
+  baselineWaitStartMs=screeningStartedAtMs;
+  attemptStartedAtMs=null;
+  attemptRecords=[];
+  researchFrames=[];
+  lastResearchFrameAtMs=0;
+  lastInvalidReasonCode=null;
+  criticalRestAsym=null;
+  criticalNoticeUntilMs=0;
   restCornerAsymSamples=[]; restCornerL=[]; restCornerR=[]; restEyeW=[];
   baseL=null; baseR=null; baseEyeW=null;
   criticalFired=false; noFaceCount=0; poseBadFrames=0; poseGoodFrames=0;
@@ -2557,14 +2759,23 @@ function calibrationTick(){
   if (countdownPaused) return;
   countdownVal--;
   if (countdownVal > 0){ showCenterCountdown(countdownVal); return; }
-  clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
 
+  // The 3-second countdown is the minimum neutral collection period, not the
+  // maximum alignment wait. Keep waiting for enough baseline samples up to the
+  // configured 30-second readiness timeout.
   if (restCornerL.length < 5){
-    phase='BEFORE_START';
-    // เดิมซ่อนปุ่มเริ่มไว้ ผู้ใช้ค้างอยู่กับปุ่ม ↺ อย่างเดียว → โชว์ปุ่มเริ่มด้วยให้ไปต่อได้ง่าย
-    setUI({glassColor:'var(--col-red-glass)', msg:FL.noFaceBaseline, showStart:true, showReset:true});
+    const elapsed = baselineWaitStartMs ? Date.now() - baselineWaitStartMs : 0;
+    if (elapsed < BASELINE_ALIGNMENT_TIMEOUT_MS){
+      countdownVal = 1;
+      showCenterCountdown(countdownVal);
+      return;
+    }
+    clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
+    finishInvalid('BASELINE_INSUFFICIENT', {allowAutoRetry:false, detail:{baselineSamples:restCornerL.length}});
     return;
   }
+
+  clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
   baseL = average(restCornerL);
   baseR = average(restCornerR);
   baseEyeW = average(restEyeW) || 0.1;
@@ -2573,6 +2784,7 @@ function calibrationTick(){
 
 function startActionPhase(){
   phase='ACTION_PHASE';
+  attemptStartedAtMs=Date.now();
   poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
@@ -2609,7 +2821,7 @@ function resetSmileAttemptAfterPose(){
   lastMouthDarkRatio=0;
   lastMouthVisible=false;
   lastHandMouthOverlap=false; lastHandCount=0;
-  actionWaitStartMs=Date.now();
+  // Keep the original actionWaitStartMs so no-face/pose/occlusion cannot loop forever.
   lastSmileVoiceMs=Date.now();
   hideCenterCountdown();
   poseWarnMsg.style.display='none';
@@ -2660,6 +2872,7 @@ function onResults(results, handResults=null){
   if (!lmArr || lmArr.length === 0){
     if (typeof drawFaceMesh==='function') drawFaceMesh(null);  // เคลียร์ mesh
     noFaceCount++;
+    recordResearchFrame({faceDetected:false, poseValid:false, mouthAssessable:false, handMouthOverlap:false});
     poseGoodFrames = 0;   // หน้าหาย = ยังไม่นิ่ง → เริ่มนับ debounce ใหม่ตอนหน้ากลับมา
     const __testing = ['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE'].includes(phase);
     if (noFaceCount > 12 && __testing){
@@ -2672,6 +2885,12 @@ function onResults(results, handResults=null){
     }
     // แสดง banner เฉพาะตอนที่มีความหมาย — ไม่ให้เด้งทับหน้าจอผลลัพธ์
     noFaceBanner.style.display = (__testing || phase==='BEFORE_START') ? 'block' : 'none';
+    const now = Date.now();
+    if (phase==='RESTING_PHASE' && baselineWaitStartMs && now - baselineWaitStartMs >= BASELINE_ALIGNMENT_TIMEOUT_MS){
+      finishInvalid('NO_FACE_TIMEOUT', {allowAutoRetry:false});
+    } else if ((phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE') && actionWaitStartMs && now - actionWaitStartMs >= MAX_WAIT_FOR_SMILE_MS){
+      finishInvalid('NO_FACE_TIMEOUT');
+    }
     return;
   }
   noFaceCount=0; noFaceBanner.style.display='none';
@@ -2711,6 +2930,25 @@ function onResults(results, handResults=null){
   lastMouthVisibilityScore = mouthVis.score;
   lastMouthDarkRatio = mouthVis.darkRatio;
   lastMouthVisible = mouthVis.visible && !lastHandMouthOverlap;
+
+  const sampledPoseValid = Math.abs(yawDeg) <= MAX_ALLOWED_YAW && Math.abs(pitchDeg) <= MAX_ALLOWED_PITCH && Math.abs(rollDeg) <= MAX_ALLOWED_ROLL;
+  recordResearchFrame({
+    faceDetected:true,
+    poseValid:sampledPoseValid,
+    yawDeg:roundMetric(yawDeg,2),
+    pitchDeg:roundMetric(pitchDeg,2),
+    rollDeg:roundMetric(rollDeg,2),
+    smileLeft:roundMetric(smileL),
+    smileRight:roundMetric(smileR),
+    riseLeft:roundMetric(riseLn),
+    riseRight:roundMetric(riseRn),
+    mouthVisibilityScore:roundMetric(mouthVis.score),
+    mouthDarkRatio:roundMetric(mouthVis.darkRatio),
+    mouthCentralDarkRatio:roundMetric(mouthVis.centralDarkRatio),
+    mouthLineScore:roundMetric(mouthVis.mouthLineScore),
+    mouthAssessable:inActionPhase ? isMouthAssessable(mouthVis) : null,
+    handMouthOverlap:lastHandMouthOverlap
+  });
 
   // debug — เขียน DOM เฉพาะตอนเปิด panel เท่านั้น (เดิมยิง getElementById ~16 ครั้ง/เฟรมตลอดเวลา)
   if (debugVisible){
@@ -2752,6 +2990,12 @@ function onResults(results, handResults=null){
     else if (absYaw>MAX_ALLOWED_YAW) t = yawDeg>0?FL.turnRight:FL.turnLeft;
     else t = pitchDeg>0?FL.lookUp:FL.lookDown;
     setUI({glassColor:'var(--col-orange-glass)', msg:'', poseWarn:t, showReset:true, showHud:true});
+    const now = Date.now();
+    if (phase==='RESTING_PHASE' && baselineWaitStartMs && now - baselineWaitStartMs >= BASELINE_ALIGNMENT_TIMEOUT_MS){
+      finishInvalid('POSE_ALIGNMENT_TIMEOUT', {allowAutoRetry:false, detail:{yawDeg, pitchDeg, rollDeg}});
+    } else if ((phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE') && actionWaitStartMs && now - actionWaitStartMs >= MAX_WAIT_FOR_SMILE_MS){
+      finishInvalid('POSE_ALIGNMENT_TIMEOUT', {detail:{yawDeg, pitchDeg, rollDeg}});
+    }
     return;
   }
   if (countdownPaused){
@@ -2777,16 +3021,16 @@ function onResults(results, handResults=null){
     if (restCornerAsymSamples.length >= 8){
       const avg = average(restCornerAsymSamples);
       if (avg > REST_ASYM_CRITICAL && !criticalFired && absRoll < 12){
+        // Option B: retain the safety flag but continue to the smile action so the
+        // pre-pilot dataset contains both resting and smile measurements.
         criticalFired = true;
-        if (countdownTimer){ clearInterval(countdownTimer); countdownTimer=null; }
-        hideCenterCountdown();
-        phase='CRITICAL_ASYMMETRY';
-        setUI({glassColor:'var(--col-red-glass)', msg:FL.critical, showReset:true, pulse:true});
-        finishCritical();
-        return;
+        criticalRestAsym = avg;
+        criticalNoticeUntilMs = Date.now() + CRITICAL_NOTICE_MS;
+        setUI({glassColor:'var(--col-red-glass)', msg:FL.critical, showReset:true, showHud:true, pulse:true});
       }
     }
-    if (activeNoticeKind !== 'status' || activeNoticeText !== FL.step1) showStatusPanel(FL.step1);
+    if (criticalFired && Date.now() < criticalNoticeUntilMs) showStatusPanel(FL.critical);
+    else if (activeNoticeKind !== 'status' || activeNoticeText !== FL.step1) showStatusPanel(FL.step1);
     const db=document.getElementById('dashboard'); if(db) db.style.background='var(--col-orange-glass)';
     return;
   }
@@ -2812,7 +3056,7 @@ function onResults(results, handResults=null){
         speakFace(FL.mouthNotAssessable, {minGap:5200, sameTextGap:10000});
         lastSmileVoiceMs = now;
       }
-      if (now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){ finishInvalid(); }
+      if (now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){ finishInvalid(lastHandMouthOverlap ? 'HAND_OCCLUSION' : 'MOUTH_NOT_VISIBLE'); }
       return;
     }
 
@@ -2838,7 +3082,7 @@ function onResults(results, handResults=null){
       lastSmileVoiceMs = now;
       showSmilePrompt(FL.noSmileWarn);
     }
-    if (now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){ finishInvalid(); }
+    if (now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){ finishInvalid('NO_SMILE_DETECTED'); }
     return;
   }
 
@@ -2846,6 +3090,10 @@ function onResults(results, handResults=null){
   if (phase==='ACTION_WAIT_SMILE'){
     const db=document.getElementById('dashboard'); if(db) db.style.background='var(--col-green-glass)';
     const now = Date.now();
+    if (actionWaitStartMs && now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){
+      finishInvalid(lastHandMouthOverlap ? 'HAND_OCCLUSION' : (lastMouthVisible ? 'INSUFFICIENT_VALID_FRAMES' : 'MOUTH_NOT_VISIBLE'));
+      return;
+    }
 
     const mouthAssessable = isMouthAssessable(mouthVis);
 
@@ -2918,11 +3166,11 @@ function onResults(results, handResults=null){
       const avgMouthVisibility = average(mouthVisibilityScores) || 0;
       const validSmileRatio = validSmileFrames / Math.max(1, smileFrameCount);
       if (visibleMouthFrames < MIN_VISIBLE_MOUTH_FRAMES || avgMouthVisibility < MIN_MOUTH_VISIBILITY_SCORE){
-        finishInvalid();
+        finishInvalid(lastHandMouthOverlap ? 'HAND_OCCLUSION' : 'MOUTH_NOT_VISIBLE');
         return;
       }
       if (validSmileFrames < MIN_VALID_SMILE_FRAMES || validSmileRatio < MIN_VALID_SMILE_RATIO){
-        finishInvalid();
+        finishInvalid('INSUFFICIENT_VALID_FRAMES');
         return;
       }
       finishFace();
@@ -2938,7 +3186,6 @@ function asymToScore(asym){
 }
 
 function finishFace(){
-  phase='FACE_DONE';
 
   // Gate 1: the stronger side must have produced a REAL smile, otherwise we never
   // truly saw the person smile (weak attempt / occlusion) → unable to assess.
@@ -2950,15 +3197,15 @@ function finishFace(){
   const avgMouthVisibility = average(mouthVisibilityScores) || 0;
   const validSmileRatio = validSmileFrames / Math.max(1, smileFrameCount);
   if (visibleMouthFrames < MIN_VISIBLE_MOUTH_FRAMES || avgMouthVisibility < MIN_MOUTH_VISIBILITY_SCORE){
-    finishInvalid();
+    finishInvalid(lastHandMouthOverlap ? 'HAND_OCCLUSION' : 'MOUTH_NOT_VISIBLE');
     return;
   }
   if (validSmileFrames < MIN_VALID_SMILE_FRAMES || validSmileRatio < MIN_VALID_SMILE_RATIO){
-    finishInvalid();
+    finishInvalid('INSUFFICIENT_VALID_FRAMES');
     return;
   }
   if (strongSide < SMILE_REAL_MIN){
-    finishInvalid();
+    finishInvalid('SMILE_TOO_WEAK');
     return;
   }
 
@@ -2978,7 +3225,7 @@ function finishFace(){
   let riskLevel;
 
   if (weakRatio < WEAK_SIDE_RATIO_BAD){
-    // weak side moved < 30% of the strong side → clearly one-sided → abnormal
+    // weak side moved below the configured active ratio → abnormal
     riskLevel = 'bad';
     rep = Math.max(rep, 0.55);
   } else {
@@ -2990,26 +3237,105 @@ function finishFace(){
   if (criticalFired) riskLevel = 'bad';
   const score = criticalFired ? Math.min(asymToScore(rep), 30) : asymToScore(rep);
 
+  captureAttempt('valid', null, {weakRatio:roundMetric(weakRatio), representativeAsym:roundMetric(rep)});
   saveAndShow(score, riskLevel, {
     representativeAsym: rep, blendAsym, riseAsym, weakRatio,
+    activeWeakSideRatioBad: WEAK_SIDE_RATIO_BAD,
+    shadowWeakSideRatioBad: WEAK_SIDE_RATIO_SHADOW,
+    shadowWouldFlagWeakSide: weakRatio < WEAK_SIDE_RATIO_SHADOW,
+    restingCriticalTriggered: criticalFired,
+    restAsym: criticalRestAsym,
     peakSmileL, peakSmileR, peakRiseL, peakRiseR,
     validSmileFrames, smileFrameCount, validSmileRatio, visibleMouthFrames, avgMouthVisibility,
     method: 'continuous_smile_hold_with_hand_occlusion_reset'
   });
 }
 
-function finishCritical(){
-  saveAndShow(20, 'bad', { method:'resting_asymmetry', restAsym:average(restCornerAsymSamples) });
+function invalidDisplayText(reasonCode){
+  switch (reasonCode) {
+    case 'NO_FACE_TIMEOUT':
+    case 'BASELINE_INSUFFICIENT':
+      return FL.noFaceBaseline || FL.faceUnableAssess;
+    case 'POSE_ALIGNMENT_TIMEOUT':
+      return FL.faceUnableAssess;
+    case 'HAND_OCCLUSION':
+    case 'MOUTH_NOT_VISIBLE':
+      return FL.mouthNotAssessable;
+    case 'NO_SMILE_DETECTED':
+    case 'SMILE_TOO_WEAK':
+    case 'INSUFFICIENT_VALID_FRAMES':
+      return FL.noSmileWarn || FL.faceUnableAssess;
+    default:
+      return FL.faceUnableAssess || FL.invalidHelp;
+  }
 }
 
-function finishInvalid(){
+function finalizeInvalidResult(reasonCode, detail={}){
   hideCenterCountdown();
   hideSmilePrompt();
-  assessAttempts++;
+  phase='FACE_DONE';
+  lastInvalidReasonCode = reasonCode;
 
-  // Auto-retry the smile step (baseline is kept) so an elderly user isn't left
-  // stuck not knowing to tap. Capped — and NEVER silently becomes "normal".
-  if (assessAttempts < MAX_ASSESS_ATTEMPTS){
+  const payload = makeResultPayload({
+    validityStatus:'invalid',
+    clinicalResult:null,
+    score:null,
+    riskLevel:'invalid',
+    passed:false,
+    invalidReasonCode:reasonCode,
+    breakdown:{
+      reasonCode,
+      attempts:assessAttempts,
+      validSmileFrames,
+      smileFrameCount,
+      validSmileRatio:(validSmileFrames/Math.max(1,smileFrameCount)),
+      visibleMouthFrames,
+      lastMouthVisibilityScore,
+      lastMouthDarkRatio,
+      lastHandMouthOverlap,
+      smileEverDetected,
+      method:'unable_to_assess',
+      ...detail
+    }
+  });
+
+  sessionStorage.setItem('fast_face', JSON.stringify(payload));
+  sessionStorage.setItem('fast_result_source', 'face');
+  const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
+  const reasonText = invalidDisplayText(reasonCode);
+  setUI({glassColor:'var(--col-orange-glass)', msg:FL.invalidHelp, showReset:true, showScore:true});
+  speakFace(reasonText, {force:true});
+  scoreNum.textContent = FL.resultInvalid; scoreNum.style.color='#fff';
+  const sl=document.getElementById('score-label');
+  if(sl){ sl.textContent=FL.resultInvalid; sl.style.background='rgba(232,155,60,0.4)'; sl.style.color='#FFD479'; sl.style.borderColor='#E89B3C'; }
+  const invalidThresholdEl=document.getElementById('score-threshold');
+  if (invalidThresholdEl){
+    invalidThresholdEl.textContent=reasonText;
+    invalidThresholdEl.style.whiteSpace='pre-line';
+    invalidThresholdEl.style.color='#FFD479';
+  }
+  addNavButton();
+}
+
+function finishInvalid(reasonCode='UNABLE_TO_ASSESS', options={}){
+  if (phase==='FACE_DONE') return;
+  const allowAutoRetry = options.allowAutoRetry !== false &&
+    (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE' || phase==='RETRYING');
+  const detail = options.detail || {};
+
+  hideCenterCountdown();
+  hideSmilePrompt();
+  lastInvalidReasonCode = reasonCode;
+
+  const hadActionAttempt = !!attemptStartedAtMs || allowAutoRetry;
+  if (hadActionAttempt){
+    captureAttempt('invalid', reasonCode, detail);
+    assessAttempts++;
+  }
+
+  // Baseline/alignment timeout is a final invalid result. Smile validity failures
+  // retain the existing capped automatic retry behavior.
+  if (allowAutoRetry && assessAttempts < MAX_ASSESS_ATTEMPTS){
     phase = 'RETRYING';
     setUI({
       glassColor:'var(--col-orange-glass)',
@@ -3022,22 +3348,20 @@ function finishInvalid(){
     return;
   }
 
-  // Limit reached → stop clearly. Save as "invalid" (never "normal") and let the
-  // operator retry or, in a full FAST run, continue to the next step.
-  phase='FACE_DONE';
-  sessionStorage.setItem('fast_face', JSON.stringify({
-    score:0, riskLevel:'invalid', passed:false,
-    breakdown:{ reason:FL.mouthNotAssessable, attempts:assessAttempts, validSmileFrames, smileFrameCount, validSmileRatio:(validSmileFrames/Math.max(1,smileFrameCount)), visibleMouthFrames, lastMouthVisibilityScore, lastMouthDarkRatio, smileEverDetected, method:'unable_to_assess' }
-  }));
-  sessionStorage.setItem('fast_result_source', 'face');
-  const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
-  setUI({glassColor:'var(--col-orange-glass)', msg:FL.invalidHelp, showReset:true, showScore:true});
-  speakFace(FL.mouthNotAssessable, {force:true});
-  scoreNum.textContent = FL.resultInvalid; scoreNum.style.color='#fff';
-  const sl=document.getElementById('score-label');
-  if(sl){ sl.textContent=FL.resultInvalid; sl.style.background='rgba(232,155,60,0.4)'; sl.style.color='#FFD479'; sl.style.borderColor='#E89B3C'; }
-  document.getElementById('score-threshold').textContent='';
-  addNavButton();   // in "full" mode still let them continue to arm/speech
+  if (criticalFired) {
+    runtimeQualityFlags.add('SMILE_ACTION_UNASSESSABLE');
+    saveAndShow(20, 'bad', {
+      method:'resting_asymmetry_with_unassessable_smile',
+      restingCriticalTriggered:true,
+      restAsym:criticalRestAsym,
+      actionValidityStatus:'invalid',
+      smileInvalidReasonCode:reasonCode,
+      ...detail
+    });
+    return;
+  }
+
+  finalizeInvalidResult(reasonCode, detail);
 }
 
 function addNavButton(){
@@ -3064,19 +3388,23 @@ function addNavButton(){
 
 function saveAndShow(score, riskLevel, breakdown){
   phase='FACE_DONE';
-  sessionStorage.setItem('fast_face', JSON.stringify({
+  const clinicalResult = riskLevel === 'ok' ? 'normal' : (riskLevel === 'warn' ? 'warning' : 'abnormal');
+  const payload = makeResultPayload({
+    validityStatus:'valid',
+    clinicalResult,
     score,
     riskLevel,
-    passed: riskLevel === 'ok',
+    passed:riskLevel === 'ok',
     breakdown
-  }));
+  });
+  sessionStorage.setItem('fast_face', JSON.stringify(payload));
   sessionStorage.setItem('fast_result_source', 'face');
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
 
   const ok = riskLevel==='ok';
   setUI({
     glassColor: ok?'var(--col-green-glass)':(riskLevel==='warn'?'var(--col-orange-glass)':'var(--col-red-glass)'),
-    msg: ok?FL.faceDone:FL.faceAbnormal, showReset:true, showScore:true,
+    msg: criticalFired ? FL.critical : (ok?FL.faceDone:FL.faceAbnormal), showReset:true, showScore:true,
     pulse: riskLevel==='bad'
   });
   scoreNum.textContent = score + ' ' + FL.resultScore; scoreNum.style.color='#fff';
@@ -3087,7 +3415,12 @@ function saveAndShow(score, riskLevel, breakdown){
     sl.style.color = ok?'#A8F5C3':(riskLevel==='warn'?'#FFD479':'#FF6B6B');
     sl.style.borderColor = ok?'#1FA98F':(riskLevel==='warn'?'#E89B3C':'#E5544E');
   }
-  document.getElementById('score-threshold').textContent='';
+  const thresholdEl=document.getElementById('score-threshold');
+  if (thresholdEl){
+    thresholdEl.textContent = criticalFired ? FL.critical : '';
+    thresholdEl.style.whiteSpace = 'pre-line';
+    thresholdEl.style.color = criticalFired ? '#FFD7D7' : 'rgba(255,255,255,0.45)';
+  }
   addNavButton();
 }
 
@@ -3121,16 +3454,112 @@ function detectLoop(){
       // HandLandmarker มีไว้กันมือบังปาก "ช่วงยิ้ม" เท่านั้น — ไม่จำเป็นใน phase อื่น
       if (handLandmarker && (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE')) {
         try { handRes = handLandmarker.detectForVideo(videoEl, ts); }
-        catch(e){ handRes = null; }
+        catch(e){ handDetectErrorCount++; handRes = null; }
       }
       onResults(res, handRes);
-    } catch(err){ console.error('detect error', err); }
+    } catch(err){ faceDetectErrorCount++; console.error('detect error', err); }
   }
   requestAnimationFrame(detectLoop);
 }
 
+function saveTechnicalInvalid(reasonCode, message, detail={}){
+  if (!screeningStartedAtMs) screeningStartedAtMs = Date.now();
+  runtimeQualityFlags.add(reasonCode);
+  const payload = makeResultPayload({
+    validityStatus:'error',
+    clinicalResult:null,
+    score:null,
+    riskLevel:'invalid',
+    passed:false,
+    invalidReasonCode:reasonCode,
+    breakdown:{reasonCode, method:'technical_error', detail}
+  });
+  sessionStorage.setItem('fast_face', JSON.stringify(payload));
+  sessionStorage.setItem('fast_result_source', 'face');
+  phase='FACE_DONE';
+  if (FL) {
+    setUI({glassColor:'var(--col-orange-glass)', msg:message, showStart:true, showReset:false, showScore:true});
+    scoreNum.textContent = FL.resultInvalid;
+    const sl=document.getElementById('score-label');
+    if(sl) sl.textContent=FL.resultInvalid;
+    const thresholdEl=document.getElementById('score-threshold');
+    if (thresholdEl){
+      thresholdEl.textContent=message;
+      thresholdEl.style.whiteSpace='pre-line';
+      thresholdEl.style.color='#FFD479';
+    }
+    addNavButton();
+  }
+}
+
+function capturePermissionRuntime(result){
+  if (!result || typeof result !== 'object') return;
+  permissionRuntime = {
+    helperVersion: result.helperVersion || window.FastPermissions?.version || null,
+    kind: result.kind || 'camera',
+    platform: result.platform || null,
+    permissionStateBefore: result.permissionStateBefore || null,
+    requestedAt: result.requestedAt || null,
+    completedAt: result.completedAt || null,
+    errorType: result.errorType || null,
+    reasonCode: result.reasonCode || null
+  };
+}
+
+function cameraReasonFromError(error){
+  switch (error?.name) {
+    case 'NotAllowedError':
+    case 'SecurityError':
+      return 'CAMERA_PERMISSION_DENIED';
+    case 'NotFoundError':
+    case 'DevicesNotFoundError':
+      return 'CAMERA_NOT_AVAILABLE';
+    case 'NotReadableError':
+    case 'TrackStartError':
+      return 'CAMERA_IN_USE';
+    default:
+      return !window.isSecureContext && location.hostname !== 'localhost'
+        ? 'INSECURE_CONTEXT'
+        : 'CAMERA_STREAM_FAILED';
+  }
+}
+
+function clearRecoveredCameraInvalid(){
+  try {
+    const stored = JSON.parse(sessionStorage.getItem('fast_face') || 'null');
+    const code = stored?.invalidReasonCode || '';
+    if (
+      stored?.validityStatus === 'error' &&
+      (/^CAMERA_/.test(code) || code === 'INSECURE_CONTEXT')
+    ) {
+      sessionStorage.removeItem('fast_face');
+    }
+  } catch (error) {
+    console.warn('Unable to clear recovered camera error', error);
+  }
+}
+
 function initCamera(stream){
+  clearRecoveredCameraInvalid();
+  runtimeQualityFlags.delete('CAMERA_PERMISSION_DENIED');
+  runtimeQualityFlags.delete('CAMERA_NOT_AVAILABLE');
+  runtimeQualityFlags.delete('CAMERA_STREAM_FAILED');
+  runtimeQualityFlags.delete('CAMERA_IN_USE');
+  runtimeQualityFlags.delete('INSECURE_CONTEXT');
+  runtimeQualityFlags.delete('I18N_LOAD_FAILED');
+  const staleNav = document.getElementById('fast-nav-btn');
+  if (staleNav) staleNav.remove();
   videoEl.srcObject = stream;
+  try {
+    const track = stream.getVideoTracks?.()[0];
+    const settings = track?.getSettings?.() || {};
+    cameraRuntime = {
+      width: settings.width || null,
+      height: settings.height || null,
+      frameRate: settings.frameRate || null,
+      facingMode: settings.facingMode || 'user'
+    };
+  } catch(e) { cameraRuntime = {}; }
   // มี listener 'loadedmetadata' ผูกไว้ตอนประกาศ videoEl แล้ว — เดิม add ซ้ำอีกอัน ทำ play() ถูกเรียกสองรอบ
   videoEl.play().catch(()=>{});
   isCameraRunning = true;
@@ -3149,17 +3578,80 @@ function initCamera(stream){
 }
 
 async function startCamera(){
-  const permLang = sessionStorage.getItem('fast_lang') || 'th';
+  const permLang = getPreferredFaceLang();
   if (typeof FastPermissions === 'undefined'){
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video:{ facingMode:'user' }, audio:false });
+      permissionRuntime = {
+        helperVersion: null,
+        kind: 'camera',
+        platform: null,
+        permissionStateBefore: null,
+        requestedAt: null,
+        completedAt: new Date().toISOString(),
+        errorType: null,
+        reasonCode: null
+      };
       initCamera(stream);
-    } catch(e){ statusMsg.textContent = FL.cameraErr; }
+    } catch(e){
+      const reason = cameraReasonFromError(e);
+      permissionRuntime = {
+        helperVersion: null,
+        kind: 'camera',
+        platform: null,
+        permissionStateBefore: null,
+        requestedAt: null,
+        completedAt: new Date().toISOString(),
+        errorType: e?.name || null,
+        reasonCode: reason
+      };
+      saveTechnicalInvalid(reason, FL.cameraErr, {permission:permissionRuntime});
+    }
     return;
   }
-  const perm = await FastPermissions.request('camera', permLang);
-  if (perm.ok) initCamera(perm.stream);
-  else FastPermissions.requestWithUI('camera', permLang, (stream)=>{ stream ? initCamera(stream) : (statusMsg.textContent = FL.cameraErr); });
+  try {
+    const perm = await FastPermissions.request('camera', permLang);
+    capturePermissionRuntime(perm);
+    if (perm.ok) {
+      initCamera(perm.stream);
+      return;
+    }
+
+    const initialReason = perm.reasonCode || cameraReasonFromError(perm.raw);
+    saveTechnicalInvalid(initialReason, perm.message || FL.cameraErr, {
+      permission: permissionRuntime
+    });
+
+    FastPermissions.requestWithUI(
+      'camera',
+      permLang,
+      (stream, successResult)=>{
+        capturePermissionRuntime(successResult);
+        if (stream) initCamera(stream);
+      },
+      (failureResult)=>{
+        capturePermissionRuntime(failureResult);
+        saveTechnicalInvalid(
+          failureResult?.reasonCode || cameraReasonFromError(failureResult?.raw),
+          failureResult?.message || FL.cameraErr,
+          {permission: permissionRuntime}
+        );
+      }
+    );
+  } catch (error) {
+    const reason = cameraReasonFromError(error);
+    permissionRuntime = {
+      helperVersion: window.FastPermissions?.version || null,
+      kind: 'camera',
+      platform: window.FastPermissions?.detectPlatform?.() || null,
+      permissionStateBefore: null,
+      requestedAt: null,
+      completedAt: new Date().toISOString(),
+      errorType: error?.name || null,
+      reasonCode: reason
+    };
+    saveTechnicalInvalid(reason, FL.cameraErr, {permission:permissionRuntime});
+  }
 }
 
 async function loadModel() {
@@ -3194,6 +3686,8 @@ async function loadModel() {
 
     try {
       faceLandmarker = await make("GPU");
+      faceDelegateUsed = "GPU";
+      runtimeQualityFlags.delete('MODEL_LOAD_FAILED');
     } catch (error) {
       console.warn(
         "GPU delegate failed, falling back to CPU",
@@ -3201,6 +3695,8 @@ async function loadModel() {
       );
 
       faceLandmarker = await make("CPU");
+      faceDelegateUsed = "CPU";
+      runtimeQualityFlags.delete('MODEL_LOAD_FAILED');
     }
 
     const makeHand = (delegate) =>
@@ -3219,9 +3715,13 @@ async function loadModel() {
 
     try {
       handLandmarker = await makeHand("GPU");
+      handDelegateUsed = "GPU";
+      runtimeQualityFlags.delete('HAND_MODEL_UNAVAILABLE');
     } catch (gpuError) {
       try {
         handLandmarker = await makeHand("CPU");
+        handDelegateUsed = "CPU";
+        runtimeQualityFlags.delete('HAND_MODEL_UNAVAILABLE');
       } catch (cpuError) {
         console.warn(
           "HandLandmarker unavailable; falling back to visual mouth gate only",
@@ -3229,6 +3729,12 @@ async function loadModel() {
         );
 
         handLandmarker = null;
+        handDelegateUsed = null;
+        runtimeQualityFlags.add('HAND_MODEL_UNAVAILABLE');
+        if (ENFORCE_HAND_MODEL) {
+          saveTechnicalInvalid('HAND_MODEL_UNAVAILABLE', FL?.modelErr || 'Hand model unavailable');
+          return;
+        }
       }
     }
 
@@ -3245,7 +3751,7 @@ async function loadModel() {
     }
   } catch (error) {
     console.error("model load failed", error);
-    statusMsg.textContent = FL.modelErr;
+    saveTechnicalInvalid('MODEL_LOAD_FAILED', FL.modelErr);
     startBtn.classList.add("hidden");
   }
 }
@@ -3255,9 +3761,17 @@ startBtn.addEventListener('click', ()=>{
   // กันกดรัว/กดซ้ำระหว่างทดสอบ: เสียง prompt จะไม่พูดทับกัน และ state ไม่ถูกรีเซ็ตกลางคัน
   if (['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(phase)) return;
   primeSpeech();
+  if (!isCameraRunning) {
+    document.body.classList.remove('result-visible');
+    setUI({glassColor:'var(--col-blue-glass)', msg:FL.loading, showStart:false, showReset:false, showHud:false});
+    startCamera();
+    return;
+  }
   if (!modelReady) {
+    document.body.classList.remove('result-visible');
     showStatusPanel(FL.loadingModel);
     startBtn.classList.add('hidden');
+    loadModel();
     return;
   }
   document.body.classList.remove('result-visible');
@@ -3284,7 +3798,7 @@ window.addEventListener('beforeunload', ()=>{
 
 // Load the locale pack first. Camera and ML startup still run in parallel afterward.
 async function bootstrapFaceTest() {
-  const initialLang = sessionStorage.getItem("fast_lang") || "th";
+  const initialLang = getPreferredFaceLang();
   const languageReady = await switchFaceLang(initialLang);
 
   if (!languageReady || !FL) {

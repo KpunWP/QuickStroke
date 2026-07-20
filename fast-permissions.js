@@ -10,6 +10,8 @@
 (function (global) {
   'use strict';
 
+  const VERSION = 'fast-permissions-1.1.0';
+
   const LOCALE_MAP = Object.freeze({
     th: 'th-TH', 'th-TH': 'th-TH',
     en: 'en-US', 'en-US': 'en-US',
@@ -26,8 +28,21 @@
 
   const packCache = new Map();
 
+  function readSavedLocale() {
+    try {
+      return (
+        localStorage.getItem('quickstroke_locale') ||
+        sessionStorage.getItem('fast_lang') ||
+        localStorage.getItem('fast_lang') ||
+        'th'
+      );
+    } catch (error) {
+      return 'th';
+    }
+  }
+
   function normalizeLocale(lang) {
-    const value = String(lang || sessionStorage.getItem('fast_lang') || 'th');
+    const value = String(lang || readSavedLocale() || 'th');
     return LOCALE_MAP[value] || LOCALE_MAP[value.split('-')[0]] || 'th-TH';
   }
 
@@ -103,17 +118,56 @@
     return 'desktop';
   }
 
+  function permissionQueryName(kind) {
+    return kind === 'mic' ? 'microphone' : kind;
+  }
+
   async function checkState(type) {
     if (!navigator.permissions || !navigator.permissions.query) return 'unknown';
     try {
-      const status = await navigator.permissions.query({ name: type });
+      const status = await navigator.permissions.query({
+        name: permissionQueryName(type)
+      });
       return status.state;
     } catch (error) {
       return 'unknown';
     }
   }
 
+  function reasonCodeFor(kind, errorType) {
+    const prefix = kind === 'camera' ? 'CAMERA' : 'MICROPHONE';
+
+    switch (errorType) {
+      case 'i18n':
+        return 'I18N_LOAD_FAILED';
+      case 'insecure':
+        return 'INSECURE_CONTEXT';
+      case 'blocked':
+        return `${prefix}_PERMISSION_DENIED`;
+      case 'notfound':
+        return `${prefix}_NOT_AVAILABLE`;
+      case 'inuse':
+        return `${prefix}_IN_USE`;
+      case 'generic':
+      default:
+        return `${prefix}_STREAM_FAILED`;
+    }
+  }
+
+  function resultMetadata(kind, startedAt, permissionStateBefore) {
+    return {
+      helperVersion: VERSION,
+      kind,
+      platform: detectPlatform(),
+      permissionStateBefore,
+      requestedAt: new Date(startedAt).toISOString(),
+      completedAt: new Date().toISOString()
+    };
+  }
+
   async function request(kind, lang = 'th') {
+    const startedAt = Date.now();
+    const permissionStateBefore = await checkState(kind);
     let S;
     try {
       S = await getStrings(lang);
@@ -121,21 +175,41 @@
       return {
         ok: false,
         errorType: 'i18n',
+        reasonCode: reasonCodeFor(kind, 'i18n'),
         message: 'Unable to load language resources.',
-        raw: error
+        raw: error,
+        ...resultMetadata(kind, startedAt, permissionStateBefore)
       };
     }
 
     if (!['camera', 'mic'].includes(kind)) {
-      return { ok: false, errorType: 'generic', message: S.generic };
+      return {
+        ok: false,
+        errorType: 'generic',
+        reasonCode: 'INVALID_PERMISSION_KIND',
+        message: S.generic,
+        ...resultMetadata(kind, startedAt, permissionStateBefore)
+      };
     }
 
     if (!window.isSecureContext && location.hostname !== 'localhost') {
-      return { ok: false, errorType: 'insecure', message: S.insecure };
+      return {
+        ok: false,
+        errorType: 'insecure',
+        reasonCode: reasonCodeFor(kind, 'insecure'),
+        message: S.insecure,
+        ...resultMetadata(kind, startedAt, permissionStateBefore)
+      };
     }
 
     if (!navigator.mediaDevices?.getUserMedia) {
-      return { ok: false, errorType: 'generic', message: S.generic };
+      return {
+        ok: false,
+        errorType: 'generic',
+        reasonCode: reasonCodeFor(kind, 'generic'),
+        message: S.generic,
+        ...resultMetadata(kind, startedAt, permissionStateBefore)
+      };
     }
 
     const constraints = kind === 'camera'
@@ -144,7 +218,12 @@
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      return { ok: true, stream };
+      return {
+        ok: true,
+        stream,
+        reasonCode: null,
+        ...resultMetadata(kind, startedAt, permissionStateBefore)
+      };
     } catch (err) {
       let errorType;
       let message;
@@ -168,7 +247,14 @@
           errorType = 'generic';
           message = `${S.generic} (${err.name || 'UnknownError'})`;
       }
-      return { ok: false, errorType, message, raw: err };
+      return {
+        ok: false,
+        errorType,
+        reasonCode: reasonCodeFor(kind, errorType),
+        message,
+        raw: err,
+        ...resultMetadata(kind, startedAt, permissionStateBefore)
+      };
     }
   }
 
@@ -189,14 +275,14 @@
     document.body.appendChild(overlay);
   }
 
-  function requestWithUI(kind, lang, onSuccess) {
-    openPermissionUI(kind, lang, onSuccess).catch((error) => {
+  function requestWithUI(kind, lang, onSuccess, onFailure) {
+    openPermissionUI(kind, lang, onSuccess, onFailure).catch((error) => {
       console.error('FastPermissions UI failed', error);
       createLoadErrorOverlay('Unable to load language resources. Please reload the page.');
     });
   }
 
-  async function openPermissionUI(kind, lang, onSuccess) {
+  async function openPermissionUI(kind, lang, onSuccess, onFailure) {
     const S = await getStrings(lang);
     const platform = detectPlatform();
 
@@ -244,8 +330,16 @@
 
       if (result.ok) {
         overlay.remove();
-        if (typeof onSuccess === 'function') onSuccess(result.stream);
+        if (typeof onSuccess === 'function') onSuccess(result.stream, result);
         return;
+      }
+
+      if (typeof onFailure === 'function') {
+        try {
+          onFailure(result);
+        } catch (callbackError) {
+          console.error('FastPermissions failure callback failed', callbackError);
+        }
       }
 
       allowBtn.style.display = 'none';
@@ -294,10 +388,12 @@
   }
 
   global.FastPermissions = {
+    version: VERSION,
     request,
     requestWithUI,
     checkState,
     detectPlatform,
-    getStrings
+    getStrings,
+    reasonCodeFor
   };
 })(window);
