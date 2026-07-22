@@ -3,7 +3,7 @@
     "locale": "th-TH",
     "nativeName": "ภาษาไทย",
     "direction": "ltr",
-    "packVersion": "0.6.1",
+    "packVersion": "0.7.0",
     "status": "primary-research-language"
   },
   "index": {
@@ -256,8 +256,7 @@
     "rateUnit": "syl/s",
     "keywords": [
       "วันนี้ท้องฟ้าแจ่มใส",
-      "ท้องฟ้าแจ่มใส",
-      "วันนี้"
+      "ท้องฟ้าแจ่มใส"
     ],
     "hint": "รอสัญญาณ แล้วพูดประโยคนี้",
     "btnStart": "เริ่มพูด",
@@ -305,7 +304,12 @@
     "speechApiUnavailable": "[ไม่พบ Speech API]",
     "insufficientData": "ข้อมูลน้อยเกินไป",
     "scoreLabel": "คะแนน",
-    "languageUnavailable": "ไม่สามารถโหลดภาษาได้"
+    "languageUnavailable": "ไม่สามารถโหลดภาษาได้",
+    "resultInvalid": "ประเมินไม่ได้",
+    "subInvalid": "ยังประเมินการพูดไม่ได้ กรุณาลองใหม่",
+    "retryingNoVoice": "ยังไม่พบเสียงพูด กำลังลองใหม่ให้อีก 1 ครั้ง…",
+    "retryingNoText": "พบเสียงพูด แต่ยังจำคำไม่ได้ กำลังลองใหม่ให้อีก 1 ครั้ง…",
+    "micSessionReset": "กำลังรีเซ็ตไมโครโฟนสำหรับรอบใหม่…"
   },
   "result": {
     "pageTitle": "QuickStroke · ผลการคัดกรอง",
@@ -409,6 +413,8 @@
       "โหลดหน้าใหม่"
     ],
     "reloadBtn": "โหลดหน้าใหม่",
-    "loadError": "โหลดข้อมูลภาษาไม่สำเร็จ กรุณาโหลดหน้าใหม่"
+    "loadError": "โหลดข้อมูลภาษาไม่สำเร็จ กรุณาโหลดหน้าใหม่",
+    "privacyCameraNote": "ภาพจากกล้องประมวลผลบนอุปกรณ์นี้ และ QuickStroke ไม่อัปโหลดภาพดังกล่าว",
+    "privacyMicNote": "QuickStroke ไม่เก็บไฟล์เสียงดิบ การรู้จำคำพูดทำโดยเบราว์เซอร์หรือระบบปฏิบัติการ และอาจใช้บริการภายนอก"
   }
 }

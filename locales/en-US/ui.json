@@ -3,7 +3,7 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.6.1",
+    "packVersion": "0.7.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -306,7 +306,12 @@
     "speechApiUnavailable": "[Speech API unavailable]",
     "insufficientData": "Insufficient data",
     "scoreLabel": "score",
-    "languageUnavailable": "Language unavailable"
+    "languageUnavailable": "Language unavailable",
+    "resultInvalid": "Unable to assess",
+    "subInvalid": "The speech check could not be completed. Please try again.",
+    "retryingNoVoice": "No voice was detected. Retrying once…",
+    "retryingNoText": "Speech was detected, but the words were not recognized. Retrying once…",
+    "micSessionReset": "Resetting the microphone for a new attempt…"
   },
   "result": {
     "pageTitle": "QuickStroke · Screening Result",
@@ -410,6 +415,8 @@
       "Reload the page."
     ],
     "reloadBtn": "Reload Page",
-    "loadError": "Unable to load language resources. Please reload the page."
+    "loadError": "Unable to load language resources. Please reload the page.",
+    "privacyCameraNote": "Camera frames are processed on this device and are not uploaded by QuickStroke.",
+    "privacyMicNote": "QuickStroke does not store raw audio. Speech recognition is provided by the browser or operating system and may use an external service."
   }
 }

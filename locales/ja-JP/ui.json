@@ -3,7 +3,7 @@
     "locale": "ja-JP",
     "nativeName": "日本語",
     "direction": "ltr",
-    "packVersion": "0.6.1",
+    "packVersion": "0.7.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -308,7 +308,12 @@
     "speechApiUnavailable": "[Speech APIを利用できません]",
     "insufficientData": "データ不足",
     "scoreLabel": "スコア",
-    "languageUnavailable": "言語データを読み込めません"
+    "languageUnavailable": "言語データを読み込めません",
+    "resultInvalid": "判定できません",
+    "subInvalid": "発話の判定を完了できませんでした。もう一度お試しください。",
+    "retryingNoVoice": "音声を検出できませんでした。1回だけ自動で再試行します…",
+    "retryingNoText": "音声は検出しましたが、言葉を認識できませんでした。1回だけ自動で再試行します…",
+    "micSessionReset": "新しい試行のためマイクを再設定しています…"
   },
   "result": {
     "pageTitle": "QuickStroke · チェック結果",
@@ -412,6 +417,8 @@
       "ページを再読み込みします。"
     ],
     "reloadBtn": "ページを再読み込み",
-    "loadError": "言語データを読み込めませんでした。ページを再読み込みしてください。"
+    "loadError": "言語データを読み込めませんでした。ページを再読み込みしてください。",
+    "privacyCameraNote": "カメラ映像はこの端末内で処理され、QuickStrokeがアップロードすることはありません。",
+    "privacyMicNote": "QuickStrokeは音声データを保存しません。音声認識はブラウザまたはOSによって行われ、外部サービスが使用される場合があります。"
   }
 }

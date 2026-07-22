@@ -843,7 +843,8 @@ const SPEECH_REQUIRED_KEYS = Object.freeze([
   'issueWord', 'issueSlow', 'issueUnstable',
   'deadMicFailed', 'micReconnecting', 'micAccessError',
   'manualStop', 'speechApiUnavailable', 'insufficientData',
-  'scoreLabel', 'languageUnavailable'
+  'resultInvalid', 'subInvalid', 'retryingNoVoice', 'retryingNoText',
+  'micSessionReset', 'scoreLabel', 'languageUnavailable'
 ]);
 
 let speechLocaleRequestId = 0;
@@ -934,9 +935,22 @@ const NOISE_FLOOR_CAP  = SPEECH_CFG.noiseFloorCap ?? 0.08;      // จำกั�
 const NORMAL_MIN       = SPEECH_CFG.normalMin ?? 2.5;           // เกณฑ์ความเร็วขั้นต่ำ
 const NORMAL_MAX       = SPEECH_CFG.normalMax ?? 7.0;           // เกณฑ์ความเร็วสูงสุด
 
-// SNR gate: คำนวณหลังพูดเสร็จเท่านั้น เพราะต้องมีทั้งเสียงพูดจริงและ noise floor
+// SNR ต่ำเป็น quality warning เท่านั้นใน pre-pilot: ยังใช้คะแนนต่อและไม่บังคับ retry
 const SNR_WARN_DB      = SPEECH_CFG.minSnrDb ?? SPEECH_CFG.snrWarnDb ?? 10;
 const FLATNESS_MAX     = SPEECH_CFG.flatnessMax ?? SPEECH_CFG.maxNoiseFlatness ?? 0.78;
+const MIN_SPEECH_DURATION_SEC = SPEECH_CFG.minSpeechDurationSec ?? 1.2;
+const MIN_ENERGY_FRAMES = SPEECH_CFG.minEnergyFrames ?? 10;
+const AUTO_VALIDITY_RETRY_COUNT = SPEECH_CFG.autoValidityRetryCount ?? 1;
+const AUTO_VALIDITY_RETRY_DELAY_MS = SPEECH_CFG.autoValidityRetryDelayMs ?? 1500;
+const REUSE_HEALTH_PROBE_MS = SPEECH_CFG.reuseHealthProbeMs ?? 450;
+const REUSE_ENERGY_MIN = SPEECH_CFG.reuseEnergyMin ?? 0.00001;
+const RETRY_FULL_RELEASE_WAIT_MS = SPEECH_CFG.retryFullReleaseWaitMs ?? 1200;
+const RESULT_KEEP_ALIVE_MS = SPEECH_CFG.resultKeepAliveMs ?? 20000;
+const RECOGNITION_SAFETY_MS = SPEECH_CFG.recognitionSafetyMs ?? 8000;
+const TRAILING_GAP_MS = SPEECH_CFG.trailingGapMs ?? 800;
+const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.3.0';
+const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.0.0';
+const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.0.0';
 
 let noisyAck = false; // คงไว้เพื่อ compatibility กับ overlay เดิม แต่ไม่ใช้เตือนก่อนพูดแล้ว
 
@@ -945,7 +959,7 @@ let noisyAck = false; // คงไว้เพื่อ compatibility กับ 
 // ═══════════════════════════════════════════════════
 const $ = id => document.getElementById(id);
 const rateUnitLabel = () => (T && T.rateUnit) ? T.rateUnit : 'syl/s';
-function goSpeechHome(){ stopAll(); window.location.href = 'index.html'; }
+function goSpeechHome(){ audioStartToken++; stopAll(true); window.location.href = 'index.html'; }
 function setSpeechCard(key, state, main, sub, icon){
   const card = $('speech-card-' + key);
   if (!card) return;
@@ -974,8 +988,16 @@ function updateSpeechLabels() {
   if ($('lbl-volume-stability')) $('lbl-volume-stability').textContent = L.volumeStability;
 }
 let T = null;
-let phase = 'IDLE'; // IDLE | CALIBRATING | RECORDING | DONE
+let phase = 'IDLE'; // IDLE | CALIBRATING | RECORDING | RETRYING | DONE
 let retryStarting = false; // กันการกดทดสอบซ้ำซ้อนระหว่างขอไมค์ใหม่
+let automaticValidityRetries = 0;
+let speechAttemptNo = 0;
+let speechAttemptHistory = [];
+let currentAttemptStartedAt = null;
+let audioStartToken = 0; // invalidate async work/events from an older attempt
+let resultReleaseTimer = null;
+let lastAsrErrorCode = null;
+let confidenceWasImputed = false;
 
 // Web Audio
 let audioCtx = null, analyser = null, source = null, streamRef = null;
@@ -987,9 +1009,9 @@ let animationFrameId = null;
 let pipelineReadyMs = 0;     // เวลาที่ audio pipeline พร้อม (ไว้จับ timeout เงียบ)
 let sawRealSignal  = false;  // เคยเห็นสัญญาณจริงในรอบนี้หรือยัง
 let deadMicAttempt = 0;      // จำนวนครั้งที่กู้คืนไมค์ตายติดต่อกัน
-const DEAD_MIC_SILENCE_MS  = 2000;    // เงียบสนิทเกิน 2 วิ = stream ตาย
-const DEAD_MIC_ENERGY_MIN  = 0.00001; // จับเฉพาะ digital silence (ศูนย์เป๊ะ) — ไมค์จริงแม้ห้องเงียบก็มี noise เกินนี้เสมอ
-const DEAD_MIC_MAX_ATTEMPT = 4;
+const DEAD_MIC_SILENCE_MS  = SPEECH_CFG.deadMicSilenceMs ?? 2000;
+const DEAD_MIC_ENERGY_MIN  = SPEECH_CFG.deadMicEnergyMin ?? 0.00001;
+const DEAD_MIC_MAX_ATTEMPT = SPEECH_CFG.deadMicMaxAttempts ?? 4;
 
 async function recoverDeadMic() {
   deadMicAttempt++;
@@ -999,11 +1021,10 @@ async function recoverDeadMic() {
   if (deadMicAttempt > DEAD_MIC_MAX_ATTEMPT) {
     deadMicAttempt = 0;
     await stopAll(true);
-    $('transcript-box').style.display = 'block';
-    $('transcript-box').textContent = T.deadMicFailed;
-    $('action-btn').disabled = false;
-    $('action-btn').textContent = T.btnStart;
-    $('action-btn').className = '';
+    finishSpeechInvalid('DEAD_MIC_RECOVERY_FAILED', {
+      attempts: DEAD_MIC_MAX_ATTEMPT,
+      message: T.deadMicFailed
+    });
     return;
   }
 
@@ -1038,7 +1059,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'PRODUCTION v1 (iOS keep-alive) — 2026-07-07';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.3.0 — health-checked retry';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -1231,14 +1252,15 @@ async function selectLang(requestedCode) {
 
 async function speechSwitchLang(code) {
   // ห้ามสลับระหว่างวัดจริง เพื่อไม่ให้ ASR, timer และ audio pipeline เพี้ยน
-  if (phase === 'CALIBRATING' || phase === 'RECORDING') return;
+  if (phase === 'CALIBRATING' || phase === 'RECORDING' || phase === 'RETRYING') return;
   if (!SPEECH_LOCALE_MAP[String(code || '').split('-')[0].toLowerCase()]) return;
 
   await selectLang(code);
 }
 
 function goBack() {
-  stopAll();
+  audioStartToken++;
+  stopAll(true);
   phase = 'IDLE';
   $('test-screen').style.display = 'none';
   $('lang-screen').style.display = 'flex';
@@ -1284,7 +1306,18 @@ async function handleAction() {
   if (retryStarting) return;
 
   if (phase === 'IDLE') {
-    await startRecording(false);
+    retryStarting = true;
+    const actionBtn = $('action-btn');
+    actionBtn.disabled = true;
+    automaticValidityRetries = 0;
+    speechAttemptNo = 0;
+    speechAttemptHistory = [];
+    try {
+      await startRecording(false);
+    } finally {
+      retryStarting = false;
+      actionBtn.disabled = false;
+    }
   }
   else if (phase === 'RECORDING') {
     // ผู้ใช้กดปุ่มหยุดบันทึกด้วยตัวเองแมนนวล
@@ -1292,9 +1325,12 @@ async function handleAction() {
     evaluateSpeech('__manual__', 0);
   }
   else if (phase === 'DONE') {
-    // รอบทดสอบซ้ำต้องขอ MediaStream ใหม่โดยตรง
-    // ไม่ผ่าน FastPermissions เพราะ helper บาง browser คืน stream เก่าที่ถูก stop แล้ว
+    // User-requested retry starts a new logical session. On iOS the existing
+    // pipeline may be reused only after a real signal health check.
     retryStarting = true;
+    automaticValidityRetries = 0;
+    speechAttemptNo = 0;
+    speechAttemptHistory = [];
 
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
@@ -1381,6 +1417,65 @@ async function waitForMicTrackReady(stream, timeoutMs = 1500) {
   return track.readyState === 'live' && !track.muted;
 }
 
+function clearResultReleaseTimer() {
+  if (resultReleaseTimer) {
+    clearTimeout(resultReleaseTimer);
+    resultReleaseTimer = null;
+  }
+}
+
+function scheduleResultMicRelease() {
+  clearResultReleaseTimer();
+  if (!KEEP_MIC_ALIVE || RESULT_KEEP_ALIVE_MS <= 0) return;
+  resultReleaseTimer = setTimeout(() => {
+    resultReleaseTimer = null;
+    if (phase === 'DONE') {
+      DBG('MIC AUTO RELEASE', `result idle ${RESULT_KEEP_ALIVE_MS}ms`);
+      stopAll(true);
+    }
+  }, RESULT_KEEP_ALIVE_MS);
+}
+
+async function probeExistingAudioPipeline(durationMs = REUSE_HEALTH_PROBE_MS) {
+  if (!audioCtx || audioCtx.state === 'closed' || !analyser || !hasLiveAudioTrack(streamRef)) {
+    return false;
+  }
+
+  if (audioCtx.state === 'suspended') {
+    try { await audioCtx.resume(); } catch (error) {}
+  }
+  if (audioCtx.state !== 'running') return false;
+
+  const samples = new Uint8Array(analyser.fftSize || 1024);
+  const until = performance.now() + Math.max(150, durationMs);
+  let peakDeviation = 0;
+
+  while (performance.now() < until) {
+    analyser.getByteTimeDomainData(samples);
+    let sum = 0;
+    for (let i = 0; i < samples.length; i++) {
+      sum += Math.abs(samples[i] - 128) / 128;
+    }
+    peakDeviation = Math.max(peakDeviation, sum / samples.length);
+    if (peakDeviation > REUSE_ENERGY_MIN) return true;
+    await sleep(45);
+  }
+
+  DBG('PIPELINE HEALTH FAIL', `deviation=${peakDeviation.toFixed(8)}`);
+  return false;
+}
+
+function mapMicErrorReason(error) {
+  const name = error?.name || error?.permissionResult?.raw?.name || '';
+  const helperReason = error?.permissionResult?.reasonCode;
+  if (helperReason) return helperReason;
+  if (name === 'NotAllowedError' || name === 'SecurityError') return 'MICROPHONE_PERMISSION_DENIED';
+  if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return 'MICROPHONE_NOT_FOUND';
+  if (name === 'NotReadableError' || name === 'TrackStartError') return 'MICROPHONE_IN_USE';
+  if (String(error?.message || '').includes('Web Audio')) return 'WEB_AUDIO_UNAVAILABLE';
+  return 'MICROPHONE_START_FAILED';
+}
+
 async function acquireFreshMicStream(permLang) {
   let permissionResult = null;
 
@@ -1400,13 +1495,18 @@ async function acquireFreshMicStream(permLang) {
   // บาง implementation cache MediaStream เดิมไว้ แม้ track ถูก stop ไปแล้ว
   // จึงขอสตรีมใหม่จาก browser โดยตรงสำหรับรอบทดสอบซ้ำ
   if (navigator.mediaDevices?.getUserMedia) {
-    return await navigator.mediaDevices.getUserMedia({
-      audio: {
-        echoCancellation: true,
-        noiseSuppression: false,
-        autoGainControl: false
-      }
-    });
+    try {
+      return await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: false
+        }
+      });
+    } catch (error) {
+      error.permissionResult = permissionResult;
+      throw error;
+    }
   }
 
   const err = new Error('Microphone API is not available');
@@ -1415,12 +1515,22 @@ async function acquireFreshMicStream(permLang) {
 }
 
 async function startRecording(forceDirectMic = false) {
+  const startToken = ++audioStartToken;
+  clearResultReleaseTimer();
   DBG_T0 = performance.now();
-  DBG('START', `forceDirectMic=${forceDirectMic} phase=${phase}`);
-  // รอให้ ASR, MediaStream และ AudioContext รอบก่อนปล่อย resource จริงก่อน
-  await stopAll();
-  DBG('CLEANUP DONE', 'resource รอบก่อนถูกปล่อยแล้ว');
+  DBG('START', `forceDirectMic=${forceDirectMic} phase=${phase} token=${startToken}`);
+
+  // On iOS keep the old pipeline temporarily so it can be health-checked.
+  // Other platforms fully release before every new attempt.
+  await stopAll(KEEP_MIC_ALIVE ? false : true);
+  if (startToken !== audioStartToken) return;
+  DBG('CLEANUP DONE', 'previous ASR/session cleanup completed');
+
   resetMeasurementState();
+  speechAttemptNo++;
+  currentAttemptStartedAt = new Date().toISOString();
+  lastAsrErrorCode = null;
+  confidenceWasImputed = false;
 
   if ($('test-screen')) $('test-screen').classList.remove('done');
 
@@ -1448,22 +1558,41 @@ async function startRecording(forceDirectMic = false) {
   try {
     const permLang = sessionStorage.getItem('fast_lang') || 'th';
 
-    // ═══ KEEP-ALIVE REUSE: ถ้า pipeline รอบก่อนยังมีชีวิต ใช้ต่อเลย ไม่ขอไมค์ใหม่ ═══
-    // (iOS: การขอไมค์ใหม่หลังปิดคือต้นเหตุ stream ตาย — ใช้ตัวเดิมจึงไม่มีวันเจอ)
-    const canReuse = KEEP_MIC_ALIVE &&
+    // iOS keep-alive is reused only when it produces a real non-zero signal.
+    // A live/unmuted track alone is not sufficient; stale sessions can report
+    // live while delivering digital silence.
+    const canProbeReuse = KEEP_MIC_ALIVE &&
       audioCtx && audioCtx.state !== 'closed' &&
       analyser && source && hasLiveAudioTrack(streamRef);
 
-    if (canReuse) {
-      if (audioCtx.state === 'suspended') {
-        try { await audioCtx.resume(); } catch (error) {}
+    if (canProbeReuse) {
+      const healthyReuse = await probeExistingAudioPipeline();
+      if (startToken !== audioStartToken) return;
+
+      if (healthyReuse) {
+        DBG('♻️ REUSE PIPELINE', `health check passed (audioCtx=${audioCtx.state})`);
+        pipelineReadyMs = performance.now();
+        sawRealSignal   = false;
+        calibStartMs    = performance.now();
+        runLoop();
+        return;
       }
-      DBG('♻️ REUSE PIPELINE', `ใช้ mic+AudioContext เดิม (audioCtx=${audioCtx.state}) → เริ่ม calibration`);
-      pipelineReadyMs = performance.now();
-      sawRealSignal   = false;
-      calibStartMs    = performance.now();
-      runLoop();
-      return;
+
+      DBG('♻️ REUSE REJECTED', 'old session is live but not delivering signal');
+      $('transcript-box').textContent = T.micSessionReset;
+      await stopAll(true);
+      if (startToken !== audioStartToken) return;
+      await sleep(RETRY_FULL_RELEASE_WAIT_MS);
+      if (startToken !== audioStartToken) return;
+    }
+
+    // An incomplete old pipeline cannot be probed safely. Release it before
+    // creating a new AudioContext/MediaStream pair.
+    if (KEEP_MIC_ALIVE && (audioCtx || streamRef || source || analyser)) {
+      await stopAll(true);
+      if (startToken !== audioStartToken) return;
+      await sleep(RETRY_FULL_RELEASE_WAIT_MS);
+      if (startToken !== audioStartToken) return;
     }
 
     /*
@@ -1496,6 +1625,11 @@ async function startRecording(forceDirectMic = false) {
       });
     } else {
       streamRef = await acquireFreshMicStream(permLang);
+    }
+
+    if (startToken !== audioStartToken) {
+      try { streamRef?.getTracks?.().forEach(track => track.stop()); } catch (error) {}
+      return;
     }
 
     if (!hasLiveAudioTrack(streamRef)) {
@@ -1531,6 +1665,11 @@ async function startRecording(forceDirectMic = false) {
       DBG('MIC READY?', micReady);
     }
 
+    if (startToken !== audioStartToken) {
+      try { streamRef?.getTracks?.().forEach(track => track.stop()); } catch (error) {}
+      return;
+    }
+
     if (!streamRef || !hasLiveAudioTrack(streamRef)) {
       throw new Error('Microphone stream is not active');
     }
@@ -1556,17 +1695,20 @@ async function startRecording(forceDirectMic = false) {
     runLoop();
   } catch (err) {
     DBG('❌ START ERROR', err.name, err.message);
-    stopAll();
-    phase = 'IDLE';
+    if (startToken !== audioStartToken) return;
+    await stopAll(true);
+    if (startToken !== audioStartToken) return;
 
-    $('transcript-box').style.display = 'block';
-    $('transcript-box').textContent = T.micAccessError + err.message;
-    $('action-btn').disabled = false;
-    $('action-btn').textContent = T.btnStart;
-    $('action-btn').className = '';
+    const reasonCode = mapMicErrorReason(err);
+    finishSpeechInvalid(reasonCode, {
+      message: err?.message || String(err),
+      errorName: err?.name || null,
+      attemptNo: speechAttemptNo
+    });
 
-    // แสดง permission UI เฉพาะการเริ่มครั้งแรก ไม่เรียกซ้ำใน Retry
-    // เพราะ Retry ต้องไม่ย้อนกลับไปใช้ MediaStream cache เดิม
+    // Show the permission guidance only on the initial attempt. A successful
+    // permission retry starts a completely new logical session and overwrites
+    // the saved invalid result.
     if (!forceDirectMic) {
       const permLang = sessionStorage.getItem('fast_lang') || 'th';
       if (window.FastPermissions && typeof FastPermissions.requestWithUI === 'function') {
@@ -1574,7 +1716,10 @@ async function startRecording(forceDirectMic = false) {
           FastPermissions.requestWithUI('mic', permLang, (stream) => {
             if (hasLiveAudioTrack(stream)) {
               stream.getTracks().forEach(track => track.stop());
-              startRecording(false);
+              automaticValidityRetries = 0;
+              speechAttemptNo = 0;
+              speechAttemptHistory = [];
+              startRecording(true);
             }
           });
         } catch (uiError) {}
@@ -1614,6 +1759,7 @@ async function beginSpeechRecognition() {
     let gotResult = false;
     let bestTranscript = '';
     let bestConfidence = 0;
+    const recognitionSegments = new Map();
 
     const isCurrentRun = () => runId === recognitionRunId && phase === 'RECORDING';
 
@@ -1632,44 +1778,64 @@ async function beginSpeechRecognition() {
       gotResult = true;
       speechEndMs = getLastSpeechSegmentEnd();
 
-      let bestLocalText = '';
-      let bestLocalConf = 0;
-      for (let i = 0; i < e.results.length; i++) {
+      const startIndex = Number.isInteger(e.resultIndex) ? e.resultIndex : 0;
+      for (let i = startIndex; i < e.results.length; i++) {
         const res = e.results[i];
+        let chosenText = '';
+        let chosenConfidence = null;
+
         for (let j = 0; j < res.length; j++) {
           const alt = res[j];
           const tx = (alt.transcript || '').trim();
-          const cf = Number.isFinite(alt.confidence) && alt.confidence > 0 ? alt.confidence : 0.75;
-          if (tx && (cf > bestLocalConf || !bestLocalText)) {
-            bestLocalText = tx;
-            bestLocalConf = cf;
+          if (!tx) continue;
+          const reported = Number.isFinite(alt.confidence) && alt.confidence > 0
+            ? alt.confidence
+            : null;
+          if (!chosenText || (reported !== null && (chosenConfidence === null || reported > chosenConfidence))) {
+            chosenText = tx;
+            chosenConfidence = reported;
           }
+        }
+
+        if (chosenText) {
+          recognitionSegments.set(i, {
+            text: chosenText,
+            confidence: chosenConfidence,
+            isFinal: !!res.isFinal
+          });
         }
       }
 
-      if (bestLocalText) {
-        bestTranscript = bestLocalText;
-        bestConfidence = Math.max(bestConfidence, bestLocalConf);
+      const ordered = [...recognitionSegments.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, value]) => value);
+      bestTranscript = ordered.map(item => item.text).join(' ').trim();
+      const reportedConfidences = ordered
+        .map(item => item.confidence)
+        .filter(value => Number.isFinite(value));
+      confidenceWasImputed = reportedConfidences.length === 0;
+      bestConfidence = reportedConfidences.length
+        ? reportedConfidences.reduce((a, b) => a + b, 0) / reportedConfidences.length
+        : 0.75; // legacy scoring fallback, explicitly recorded as imputed
+
+      if (bestTranscript) {
         $('transcript-box').textContent = `"${bestTranscript}"`;
       }
 
-      // final result จะจบทันที, interim ให้รออีกนิด
-      let hasFinal = false;
-      for (let i = 0; i < e.results.length; i++) {
-        if (e.results[i].isFinal) hasFinal = true;
-      }
+      const hasFinal = ordered.some(item => item.isFinal);
       if (recognitionFinalTimer) clearTimeout(recognitionFinalTimer);
       recognitionFinalTimer = setTimeout(() => {
-        if (isCurrentRun() && bestTranscript) finishWith(bestTranscript, bestConfidence || 0.75);
+        if (isCurrentRun() && bestTranscript) finishWith(bestTranscript, bestConfidence);
       }, hasFinal ? 450 : 1400);
     };
 
     recognition.onerror = (e) => {
+      lastAsrErrorCode = e.error || 'unknown';
       DBG('ASR ❌ onerror', `error="${e.error}" gotResult=${gotResult} isCurrentRun=${isCurrentRun()}`);
       if (!isCurrentRun()) return;
 
-      // no-speech / network / audio-capture: อย่าตัดสินทันที ถ้ายังไม่มีเสียงจาก VAD
-      // ให้ VAD มีเวลาตรวจเสียงก่อน แล้วค่อย fallback เป็น voice-but-no-text/no voice
+      // Give VAD time to distinguish no voice from voice that ASR could not
+      // transcribe. Low SNR does not force a retry or invalidate the result.
       if (!gotResult) {
         if (recognitionSafetyTimer) clearTimeout(recognitionSafetyTimer);
         recognitionSafetyTimer = setTimeout(() => {
@@ -1718,14 +1884,14 @@ async function beginSpeechRecognition() {
     // กันกรณี engine ไม่คืน event เลย: ให้จบหลัง 8 วิ แต่ใช้ VAD duration ได้
     recognitionSafetyTimer = setTimeout(() => {
       if (isCurrentRun()) finishWith(bestTranscript || '', bestConfidence || 0);
-    }, 8000);
+    }, RECOGNITION_SAFETY_MS);
   } else {
     recognitionSafetyTimer = setTimeout(() => {
       if (phase !== 'DONE') {
         speechEndMs = getLastSpeechSegmentEnd();
         evaluateSpeech('__no_api__', 1.0);
       }
-    }, 8000);
+    }, RECOGNITION_SAFETY_MS);
   }
 }
 
@@ -1736,7 +1902,7 @@ async function beginSpeechRecognition() {
 // เปิดครั้งเดียวใช้ซ้ำทุกรอบ ปิดเฉพาะ ASR ระหว่างรอบ
 const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const KEEP_MIC_ALIVE = IS_IOS;
+const KEEP_MIC_ALIVE = IS_IOS && (SPEECH_CFG.keepMicAliveOnIOS ?? true);
 
 async function releaseCurrentAudioResources(fullRelease = !KEEP_MIC_ALIVE) {
   const hadResources = !!(
@@ -1805,8 +1971,20 @@ function stopAll(fullRelease) {
 
 // ปล่อยไมค์จริงเมื่อออกจากหน้า (keep-alive ค้างไว้เฉพาะระหว่างอยู่ในหน้าทดสอบ)
 window.addEventListener('pagehide', () => {
+  audioStartToken++;
+  clearResultReleaseTimer();
   try { streamRef?.getTracks().forEach(t => t.stop()); } catch (e) {}
   try { if (audioCtx && audioCtx.state !== 'closed') audioCtx.close(); } catch (e) {}
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && phase === 'RECORDING') {
+    audioStartToken++;
+    finishSpeechInvalid('PAGE_HIDDEN', {
+      durationSec: speechStartMs && lastVoiceMs ? (lastVoiceMs - speechStartMs) / 1000 : 0,
+      energyFrames: vowelEnergyBuf.length
+    });
+  }
 });
 
 // ═══════════════════════════════════════════════════
@@ -1818,6 +1996,17 @@ function runLoop() {
   const N       = analyser.frequencyBinCount;
   const freqArr = new Uint8Array(N);
   analyser.getByteFrequencyData(freqArr);
+
+  // Time-domain deviation detects whether the hardware pipeline is producing
+  // real samples. This remains non-zero in a quiet room, while a dead/stale
+  // iOS stream returns digital silence (all values exactly 128).
+  const timeArr = new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(timeArr);
+  let timeDeviationSum = 0;
+  for (let i = 0; i < timeArr.length; i++) {
+    timeDeviationSum += Math.abs(timeArr[i] - 128) / 128;
+  }
+  const micSignalEnergy = timeDeviationSum / timeArr.length;
 
   const sr     = audioCtx.sampleRate;
   const binHz  = sr / analyser.fftSize;
@@ -1847,11 +2036,11 @@ function runLoop() {
   const nowMs = performance.now();
 
   // ═══ iOS DEAD-MIC DETECTION ═══
-  if (vEnergy > DEAD_MIC_ENERGY_MIN) {
+  if (micSignalEnergy > DEAD_MIC_ENERGY_MIN) {
     if (!sawRealSignal) {
       sawRealSignal = true;
       deadMicAttempt = 0; // ไมค์ฟื้นแล้ว reset ตัวนับกู้คืน
-      DBG('✅ MIC ALIVE', `สัญญาณมาแล้วที่ ${((nowMs - pipelineReadyMs)/1000).toFixed(2)}s หลัง pipeline พร้อม`);
+      DBG('✅ MIC ALIVE', `time-domain signal=${micSignalEnergy.toFixed(8)} after ${((nowMs - pipelineReadyMs)/1000).toFixed(2)}s`);
     }
   } else if (!sawRealSignal && pipelineReadyMs && (nowMs - pipelineReadyMs) > DEAD_MIC_SILENCE_MS) {
     // เงียบสนิท (ศูนย์ล้วน) เกิน 2 วิหลัง pipeline พร้อม = iOS คืน stream ตาย
@@ -1862,7 +2051,7 @@ function runLoop() {
   // ═══ DEBUG: log พลังงานไมค์ทุก ~1 วินาที เพื่อดูว่าไมค์มีสัญญาณจริง ═══
   window.__dbgFrameCount = (window.__dbgFrameCount || 0) + 1;
   if (window.__dbgFrameCount % 60 === 0) {
-    DBG('VAD', `phase=${phase} vEnergy=${vEnergy.toFixed(5)} ${vEnergy < 0.0005 ? '⚠️ เงียบสนิท (ไมค์อาจตาย)' : '✓ มีสัญญาณ'}`);
+    DBG('VAD', `phase=${phase} vEnergy=${vEnergy.toFixed(5)} micSignal=${micSignalEnergy.toFixed(8)} ${micSignalEnergy <= DEAD_MIC_ENERGY_MIN ? '⚠️ digital silence' : '✓ pipeline alive'}`);
   }
 
   // ── PHASE 1: Noise Calibration ─────────────────────
@@ -1891,7 +2080,9 @@ function runLoop() {
       $('mic-icon').textContent       = '👄';
       $('action-btn').textContent     = T.btnStop || '⏹ หยุด';
       $('action-btn').className       = 'red';
+      $('action-btn').disabled        = false;
       $('transcript-box').textContent = T.listening || '... กำลังฟัง ...';
+      try { navigator.vibrate?.(60); } catch (error) {}
       // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
       window.MEASURED_NOISY = false;
       void beginSpeechRecognition();
@@ -1973,8 +2164,8 @@ function runLoop() {
 function getLastSpeechSegmentEnd() {
   if (voiceHistory.length === 0) return lastVoiceMs || performance.now();
 
-  // GAP_MS = 800ms เผื่อผู้ป่วยเว้นวรรคระหว่างคำ
-  const GAP_MS = 800;
+  // Allow brief pauses between words; value is versioned in config.
+  const GAP_MS = TRAILING_GAP_MS;
 
   // วิ่งจากท้าย→หน้า: หา gap แรกที่เจอแล้ว return ทันที
   // แก้ overwrite bug — ambient noise ช่วงท้ายจะไม่ทับค่าที่ถูกต้อง
@@ -2056,16 +2247,8 @@ function drawWave(freqArr, N) {
 // ═══════════════════════════════════════════════════
 // METRICS EVALUATION
 // ═══════════════════════════════════════════════════
-function evaluateSpeech(text, confidence) {
-  stopAll();
-  phase = 'DONE';
-  if ($('test-screen')) $('test-screen').classList.add('done');
-  $('mic-circle').className   = 'mic-circle';
-  $('mic-icon').textContent   = '📊';
-  $('action-btn').textContent = T.btnRetry;
-  $('action-btn').className   = 'green';
-
-  const normalizeSpeechText = (v) => String(v || '')
+function normalizeSpeechText(value) {
+  return String(value || '')
     .toLowerCase()
     .replace(/[’']/g, '')
     .replace(/[.,!?。、「」"\s]/g, '')
@@ -2073,157 +2256,415 @@ function evaluateSpeech(text, confidence) {
     .replace(/よい/g, 'いい')
     .replace(/綺麗/g, 'きれい')
     .replace(/きょう/g, '今日');
+}
 
-  const cleanText = normalizeSpeechText(text);
-  const wordMatched = cleanText ? T.keywords.some(k => {
-    const kk = normalizeSpeechText(k);
-    return cleanText.includes(kk) || kk.includes(cleanText);
-  }) : false;
+function levenshteinDistance(a, b) {
+  const left = Array.from(a || '');
+  const right = Array.from(b || '');
+  const prev = Array.from({ length: right.length + 1 }, (_, i) => i);
+  const curr = new Array(right.length + 1);
 
-  // VAD กับ ASR ต้องแยกกัน: ASR ไม่มี transcript ไม่ได้แปลว่าไม่มีเสียงพูด
+  for (let i = 1; i <= left.length; i++) {
+    curr[0] = i;
+    for (let j = 1; j <= right.length; j++) {
+      const cost = left[i - 1] === right[j - 1] ? 0 : 1;
+      curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
+    }
+    for (let j = 0; j <= right.length; j++) prev[j] = curr[j];
+  }
+  return prev[right.length];
+}
+
+function speechTextSimilarity(text, variants) {
+  if (!text) return 0;
+  let best = 0;
+  for (const variant of variants) {
+    const maxLen = Math.max(Array.from(text).length, Array.from(variant).length, 1);
+    best = Math.max(best, 1 - levenshteinDistance(text, variant) / maxLen);
+  }
+  return Math.max(0, Math.min(1, best));
+}
+
+function currentSpeechVersions() {
+  return {
+    appVersion: window.QS_CONFIG?.version || null,
+    moduleVersion: SPEECH_VERSION,
+    algorithmVersion: SPEECH_ALGORITHM_VERSION,
+    schemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
+    localePackVersion: window.QuickStrokeI18n?.getMessages?.()?.meta?.packVersion || null
+  };
+}
+
+function speechRuntimeInfo() {
+  return {
+    recognitionMode: 'browser_default',
+    speechRecognitionAvailable: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
+    audioContextState: audioCtx?.state || null,
+    isIOS: IS_IOS,
+    keepMicAlive: KEEP_MIC_ALIVE,
+    userAgent: navigator.userAgent,
+    language: T?.langCode || document.documentElement.lang || null
+  };
+}
+
+function saveSpeechResult(result) {
+  sessionStorage.setItem('fast_speech', JSON.stringify(result));
+  sessionStorage.setItem('fast_result_source', 'speech');
+  window.SPEECH_RESULT = result;
+}
+
+function invalidReasonMessage(reasonCode) {
+  const map = {
+    NO_VOICE: T.noVoice,
+    VOICE_NOT_RECOGNIZED: T.voiceButNoText,
+    USER_STOPPED_EARLY: T.manualStop,
+    SPEECH_RECOGNITION_UNAVAILABLE: T.speechApiUnavailable,
+    INSUFFICIENT_SPEECH_DURATION: T.insufficientData,
+    INSUFFICIENT_ENERGY_FRAMES: T.insufficientData,
+    MICROPHONE_PERMISSION_DENIED: T.micAccessError,
+    MICROPHONE_NOT_FOUND: T.micAccessError,
+    MICROPHONE_NOT_AVAILABLE: T.micAccessError,
+    MICROPHONE_IN_USE: T.micAccessError,
+    MICROPHONE_STREAM_FAILED: T.micAccessError,
+    INSECURE_CONTEXT: T.micAccessError,
+    I18N_LOAD_FAILED: T.micAccessError,
+    WEB_AUDIO_UNAVAILABLE: T.micAccessError,
+    MICROPHONE_START_FAILED: T.micAccessError,
+    DEAD_MIC_RECOVERY_FAILED: T.deadMicFailed,
+    PAGE_HIDDEN: T.subInvalid
+  };
+  return map[reasonCode] || T.subInvalid;
+}
+
+function appendSpeechAttempt(outcome, details = {}) {
+  speechAttemptHistory.push({
+    attemptNo: speechAttemptNo,
+    startedAt: currentAttemptStartedAt,
+    completedAt: new Date().toISOString(),
+    outcome,
+    ...details
+  });
+}
+
+function scheduleAutomaticValidityRetry(reasonCode, details = {}) {
+  const retryable = reasonCode === 'NO_VOICE' || reasonCode === 'VOICE_NOT_RECOGNIZED';
+  if (!retryable || automaticValidityRetries >= AUTO_VALIDITY_RETRY_COUNT) return false;
+
+  appendSpeechAttempt('invalid_retry', { invalidReasonCode: reasonCode, ...details });
+  automaticValidityRetries++;
+  phase = 'RETRYING';
+  recognitionRunId++;
+  clearRecognitionTimers();
+
+  $('mic-circle').className = 'mic-circle calibrating';
+  $('mic-icon').textContent = '🔄';
+  $('action-btn').disabled = true;
+  $('action-btn').className = '';
+  $('action-btn').textContent = T.calibrating;
+  $('transcript-box').style.display = 'block';
+  $('transcript-box').textContent = reasonCode === 'NO_VOICE'
+    ? T.retryingNoVoice
+    : T.retryingNoText;
+  setSpeechCard('word', 'warn', T.accuracy, T.pending, '🔄');
+  setSpeechCard('rate', '', T.rate, T.pending, '⏱️');
+
+  stopAll(KEEP_MIC_ALIVE ? false : true).finally(() => {
+    setTimeout(() => {
+      if (phase !== 'RETRYING') return;
+      phase = 'IDLE';
+      startRecording(true);
+    }, AUTO_VALIDITY_RETRY_DELAY_MS);
+  });
+  return true;
+}
+
+function finishSpeechInvalid(reasonCode, details = {}) {
+  recognitionRunId++;
+  clearRecognitionTimers();
+  phase = 'DONE';
+  if ($('test-screen')) $('test-screen').classList.add('done');
+
+  const alreadyRecorded = speechAttemptHistory.some(item =>
+    item.attemptNo === speechAttemptNo && item.outcome === 'invalid'
+  );
+  if (!alreadyRecorded) {
+    appendSpeechAttempt('invalid', { invalidReasonCode: reasonCode, ...details });
+  }
+
+  $('mic-circle').className = 'mic-circle';
+  $('mic-icon').textContent = '⚠️';
+  $('action-btn').disabled = false;
+  $('action-btn').textContent = T.btnRetry;
+  $('action-btn').className = '';
+  $('metrics-box').style.display = 'flex';
+  $('transcript-box').style.display = 'block';
+  $('transcript-box').textContent = `[${invalidReasonMessage(reasonCode)}]`;
+
+  ['word', 'rate', 'stab'].forEach(key => {
+    $('bar-' + key).style.width = '0%';
+    $('bar-' + key).style.background = 'var(--muted2)';
+    $('val-' + key).textContent = '—';
+    const scoreEl = $('score-' + key);
+    if (scoreEl) scoreEl.textContent = '';
+  });
+  setSpeechCard('word', 'warn', T.accuracy, T.resultInvalid, '⚠️');
+  setSpeechCard('rate', 'warn', T.rate, T.resultInvalid, '⚠️');
+
+  const rb = $('result-banner');
+  rb.className = 'result-banner warn';
+  rb.style.display = 'flex';
+  $('rb-title').textContent = T.resultInvalid;
+  $('rb-title').style.color = 'var(--amber)';
+  $('rb-score').textContent = '—';
+  $('rb-score').style.color = 'var(--amber)';
+  $('rb-sub').textContent = `${T.subInvalid} · ${invalidReasonMessage(reasonCode)}`;
+
+  const result = {
+    module: 'speech',
+    schemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
+    validityStatus: 'invalid',
+    clinicalResult: null,
+    clinicalScore: null,
+    scoreUsable: false,
+    invalidReasonCode: reasonCode,
+    technicalValidity: 'invalid',
+    qualityFlags: [],
+    score: null,
+    riskLevel: 'invalid',
+    passed: false,
+    attempts: [...speechAttemptHistory],
+    versions: currentSpeechVersions(),
+    runtime: speechRuntimeInfo(),
+    raw: {
+      transcript: details.transcript || '',
+      durationSec: details.durationSec ?? null,
+      energyFrames: details.energyFrames ?? vowelEnergyBuf.length,
+      asrErrorCode: lastAsrErrorCode,
+      rawAudioStored: false
+    }
+  };
+
+  saveSpeechResult(result);
+  handleFastFlow('invalid');
+  const mustReleaseImmediately = [
+    'PAGE_HIDDEN',
+    'MICROPHONE_PERMISSION_DENIED',
+    'MICROPHONE_NOT_FOUND',
+    'MICROPHONE_NOT_AVAILABLE',
+    'MICROPHONE_IN_USE',
+    'MICROPHONE_STREAM_FAILED',
+    'MICROPHONE_START_FAILED',
+    'WEB_AUDIO_UNAVAILABLE',
+    'DEAD_MIC_RECOVERY_FAILED'
+  ].includes(reasonCode);
+  stopAll(mustReleaseImmediately ? true : (KEEP_MIC_ALIVE ? false : true));
+  if (!mustReleaseImmediately) scheduleResultMicRelease();
+}
+
+function evaluateSpeech(text, confidence) {
+  const normalizedText = normalizeSpeechText(text);
+  const normalizedKeywords = (T.keywords || [])
+    .map(normalizeSpeechText)
+    .filter(Boolean);
+  const wordMatched = !!normalizedText && normalizedKeywords.includes(normalizedText);
+  const textSimilarityShadow = speechTextSimilarity(normalizedText, normalizedKeywords);
+
+  // VAD and ASR are independent. No transcript does not mean no voice.
   const hasVoice =
-    vowelEnergyBuf.length >= 10 ||
+    vowelEnergyBuf.length >= MIN_ENERGY_FRAMES ||
     voiceHistory.length >= 3 ||
     (speechStartMs && lastVoiceMs && lastVoiceMs > speechStartMs);
   if (hasVoice && (!speechEndMs || speechEndMs < speechStartMs)) {
     speechEndMs = getLastSpeechSegmentEnd();
   }
 
-  // 1. คะแนน Word Accuracy (40%)
-  let wordScore = 0, wordLabel = '—';
-  const isManual = text === '__manual__' || text === '__no_api__';
-  
-  if (isManual) {
-    wordScore = 50; wordLabel = 'N/A';
-    $('transcript-box').textContent = text === '__manual__' ? T.manualStop : T.speechApiUnavailable;
-  } else if (text === '') {
-    wordScore = 0;
-    if (hasVoice) {
-      wordLabel = T.wordMismatch;
-      $('transcript-box').textContent = '[' + (T.voiceButNoText || T.wordMismatch) + ']';
-    } else {
-      wordLabel = T.noVoice;
-      $('transcript-box').textContent = '[' + T.noVoice + ']';
-    }
-  } else {
-    wordScore = wordMatched ? Math.round(70 + confidence * 30) : Math.round(confidence * 30);
-    wordLabel = wordMatched ? `✓ ${(confidence*100).toFixed(0)}%` : `✗ ${(confidence*100).toFixed(0)}%`;
-    $('transcript-box').textContent = `"${text}"`;
-  }
-
-  // 2. คะแนน Speech Rate (40%) - สกัดระยะเวลาบริสุทธิ์แบบไร้เสียง Noise แทรก
-  let rateScore = 0, rateLabel = '—', syllPerSec = 0, durSec = 0;
-
+  let durSec = 0;
   if (speechStartMs && speechEndMs && speechEndMs >= speechStartMs) {
     durSec = (speechEndMs - speechStartMs) / 1000;
-    if (durSec < 0.2) durSec = 0.4; // กันตัวหารเออเร่อ
-
-    if (wordMatched || isManual) {
-      syllPerSec = T.syllables / durSec;
-      rateScore  = rateToScore(syllPerSec);
-      rateLabel  = `${syllPerSec.toFixed(1)} ${rateUnitLabel()}`;
-      if (isManual) rateScore = Math.round(rateScore * 0.7);
-    } else {
-      rateScore = 0;
-      rateLabel = (text === '' && hasVoice) ? (T.voiceButNoText || T.wordMismatch) : T.wordMismatch;
-    }
-  } else {
-    rateLabel = hasVoice ? (T.voiceButNoText || T.wordMismatch) : T.noSpeechSegment;
   }
 
-  // 3. คะแนน Volume Stability (20%)
-  const stabScore = calcStab(vowelEnergyBuf);
-  const stabLabel = vowelEnergyBuf.length >= 10 ? `${stabScore}%` : T.insufficientData;
+  const isManual = text === '__manual__';
+  const noSpeechApi = text === '__no_api__';
+  let invalidReasonCode = null;
+  if (isManual) invalidReasonCode = 'USER_STOPPED_EARLY';
+  else if (noSpeechApi) invalidReasonCode = 'SPEECH_RECOGNITION_UNAVAILABLE';
+  else if (!hasVoice) invalidReasonCode = 'NO_VOICE';
+  else if (!normalizedText) invalidReasonCode = 'VOICE_NOT_RECOGNIZED';
+  else if (durSec < MIN_SPEECH_DURATION_SEC) invalidReasonCode = 'INSUFFICIENT_SPEECH_DURATION';
+  else if (vowelEnergyBuf.length < MIN_ENERGY_FRAMES) invalidReasonCode = 'INSUFFICIENT_ENERGY_FRAMES';
 
-  // 4. SNR หลังพูดเสร็จ: speechEnergy เทียบกับ noiseFloor จริง
+  const invalidDetails = {
+    transcript: (isManual || noSpeechApi) ? '' : String(text || ''),
+    durationSec: durSec,
+    energyFrames: vowelEnergyBuf.length,
+    hasVoice,
+    asrErrorCode: lastAsrErrorCode
+  };
+
+  if (invalidReasonCode) {
+    if (scheduleAutomaticValidityRetry(invalidReasonCode, invalidDetails)) return;
+    finishSpeechInvalid(invalidReasonCode, invalidDetails);
+    return;
+  }
+
+  recognitionRunId++;
+  clearRecognitionTimers();
+  phase = 'DONE';
+  if ($('test-screen')) $('test-screen').classList.add('done');
+  $('mic-circle').className = 'mic-circle';
+  $('mic-icon').textContent = '📊';
+  $('action-btn').textContent = T.btnRetry;
+  $('action-btn').className = 'green';
+
+  const usableConfidence = Number.isFinite(confidence) && confidence > 0 ? confidence : 0.75;
+  if (!(Number.isFinite(confidence) && confidence > 0)) confidenceWasImputed = true;
+
+  // 1. Word Accuracy (40%) — legacy score formula retained. Matching now
+  // requires an exact accepted full/near-full phrase variant; substrings do not pass.
+  const wordScore = wordMatched
+    ? Math.round(70 + usableConfidence * 30)
+    : Math.round(usableConfidence * 30);
+  const wordLabel = wordMatched
+    ? `✓ ${(usableConfidence * 100).toFixed(0)}%`
+    : `✗ ${(usableConfidence * 100).toFixed(0)}%`;
+  $('transcript-box').style.display = 'block';
+  $('transcript-box').textContent = `"${text}"`;
+
+  // 2. Speech Rate (40%) — legacy scoring retained.
+  let rateScore = 0;
+  let rateLabel = T.wordMismatch;
+  let syllPerSec = 0;
+  if (wordMatched) {
+    syllPerSec = T.syllables / Math.max(durSec, 0.2);
+    rateScore = rateToScore(syllPerSec);
+    rateLabel = `${syllPerSec.toFixed(1)} ${rateUnitLabel()}`;
+  }
+
+  // 3. Volume Stability (20%). Validity gates above prevent an imputed 50
+  // from being used when there are too few frames.
+  const stabScore = calcStab(vowelEnergyBuf);
+  const stabLabel = `${stabScore}%`;
+
+  // 4. SNR is a quality flag only. It never causes invalid/retry in pre-pilot.
   const speechEnergy = calcSpeechEnergy(vowelEnergyBuf);
   const snrDb = calcSnrDb(speechEnergy, noiseFloor);
   const snrLow = snrDb !== null && snrDb < SNR_WARN_DB;
   window.MEASURED_NOISY = snrLow;
 
-  // คะแนนรวมถ่วงน้ำหนักรวม
-  const speechScore = Math.round(wordScore*0.40 + rateScore*0.40 + stabScore*0.20);
-
+  const speechScore = Math.round(wordScore * 0.40 + rateScore * 0.40 + stabScore * 0.20);
   setBar('word', wordScore, wordLabel);
   setBar('rate', rateScore, rateLabel);
   setBar('stab', stabScore, stabLabel);
 
-  const cv = vowelEnergyBuf.length > 10 ? (() => {
-    const avg = vowelEnergyBuf.reduce((a,b)=>a+b,0)/vowelEnergyBuf.length;
-    if (avg === 0) return '0.0000';
-    const std = Math.sqrt(vowelEnergyBuf.reduce((a,b)=>a+(b-avg)**2,0)/vowelEnergyBuf.length);
-    return (std/avg).toFixed(4);
-  })() : '—';
+  const avg = vowelEnergyBuf.reduce((a, b) => a + b, 0) / vowelEnergyBuf.length;
+  const std = Math.sqrt(vowelEnergyBuf.reduce((a, b) => a + (b - avg) ** 2, 0) / vowelEnergyBuf.length);
+  const cvValue = avg > 0 ? std / avg : 0;
 
-  // แสดงผลประวัติบันทึกสถิติสรุปส่งท้าย
-  $('debug-box').innerHTML =
-    `── Final (V3 Trailing) ──<br>` +
-    `noiseFloor:&nbsp;&nbsp; ${noiseFloor.toFixed(5)}<br>` +
-    `speechEnergy: ${speechEnergy.toFixed(5)}<br>` +
-    `SNR:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${snrDb !== null ? snrDb.toFixed(1) + ' dB' : '—'}<br>` +
-    `dynThreshold: ${dynThreshold.toFixed(5)}<br>` +
-    `transcript:&nbsp;&nbsp; "${text}"<br>` +
-    `duration:&nbsp;&nbsp;&nbsp;&nbsp; ${durSec.toFixed(2)}s (Pure Word)<br>` +
-    `syllPerSec:&nbsp;&nbsp; ${syllPerSec.toFixed(2)}<br>` +
-    `CV:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${cv}<br>` +
-    `energyFrames: ${vowelEnergyBuf.length}<br>` +
-    `<b>TOTAL:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${speechScore}</b>`;
-
-  // บรรยายผลลัพธ์แบนเนอร์ประเมินความเสี่ยงทางการแพทย์
   let cls, title, sub;
-  if      (speechScore >= 70) { cls='ok';   title=T.resultOk;   sub=T.subOk; }
-  else if (speechScore >= 45) { cls='warn'; title=T.resultWarn; sub=T.subWarn; }
-  else                        { cls='bad';  title=T.resultBad;  sub=T.subBad; }
+  if (speechScore >= 70) { cls = 'ok'; title = T.resultOk; sub = T.subOk; }
+  else if (speechScore >= 45) { cls = 'warn'; title = T.resultWarn; sub = T.subWarn; }
+  else { cls = 'bad'; title = T.resultBad; sub = T.subBad; }
 
   const issues = [];
   if (wordScore < 50) issues.push(T.issueWord);
   if (rateScore < 40) issues.push(`${T.issueSlow} (${syllPerSec.toFixed(1)} ${rateUnitLabel()})`);
   if (stabScore < 40) issues.push(T.issueUnstable);
-  if (issues.length)  sub = issues.join(' · ');
+  if (issues.length) sub = issues.join(' · ');
 
-  const col = {ok:'var(--green)',warn:'var(--amber)',bad:'var(--red)'}[cls];
-  const rb  = $('result-banner');
+  const col = { ok: 'var(--green)', warn: 'var(--amber)', bad: 'var(--red)' }[cls];
+  const rb = $('result-banner');
   rb.className = 'result-banner ' + cls;
   rb.style.display = 'flex';
-  $('rb-title').textContent = title; $('rb-title').style.color = col;
-  $('rb-score').textContent = speechScore + ' / 100'; $('rb-score').style.color = col;
-  // ติดป้ายเตือนถ้าวัดในที่มีเสียงรบกวน
-  $('rb-sub').textContent   = window.MEASURED_NOISY ? (sub + ` · ${T.noisyTag} (${snrDb.toFixed(1)} dB)`) : sub;
+  $('rb-title').textContent = title;
+  $('rb-title').style.color = col;
+  $('rb-score').textContent = speechScore + ' / 100';
+  $('rb-score').style.color = col;
+  $('rb-sub').textContent = snrLow && snrDb !== null
+    ? `${sub} · ${T.noisyTag} (${snrDb.toFixed(1)} dB)`
+    : sub;
 
-  // ── บันทึกผลลง sessionStorage สำหรับ FAST integration ──
+  const qualityFlags = [];
+  if (snrLow) qualityFlags.push('LOW_SNR');
+  if (confidenceWasImputed) qualityFlags.push('ASR_CONFIDENCE_IMPUTED');
+  if (lastAsrErrorCode) qualityFlags.push(`ASR_ERROR_${String(lastAsrErrorCode).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`);
+
+  appendSpeechAttempt('valid', {
+    clinicalResult: cls === 'ok' ? 'normal' : cls === 'warn' ? 'warning' : 'abnormal',
+    clinicalScore: speechScore,
+    qualityFlags,
+    durationSec: durSec,
+    energyFrames: vowelEnergyBuf.length
+  });
+
   const result = {
+    module: 'speech',
+    schemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
+    validityStatus: 'valid',
+    clinicalResult: cls === 'ok' ? 'normal' : cls === 'warn' ? 'warning' : 'abnormal',
+    clinicalScore: speechScore,
+    scoreUsable: true,
+    invalidReasonCode: null,
+    technicalValidity: qualityFlags.length ? 'degraded' : 'full',
+    qualityFlags,
     score: speechScore,
     riskLevel: cls,
+    passed: cls === 'ok',
     breakdown: { wordScore, rateScore, stabScore },
-    raw: { transcript: text, syllablesPerSec: syllPerSec, speechUnitsPerSec: syllPerSec, rateUnit: rateUnitLabel(), durationSec: durSec, noiseFloor, speechEnergy, snrDb },
-    measuredNoisy: !!window.MEASURED_NOISY
+    raw: {
+      transcript: String(text || ''),
+      normalizedTranscript: normalizedText,
+      acceptedVariantMatched: wordMatched,
+      textSimilarityShadow,
+      confidence: usableConfidence,
+      confidenceImputed: confidenceWasImputed,
+      syllablesPerSec: syllPerSec,
+      speechUnitsPerSec: syllPerSec,
+      rateUnit: rateUnitLabel(),
+      durationSec: durSec,
+      noiseFloor,
+      speechEnergy,
+      snrDb,
+      energyFrames: vowelEnergyBuf.length,
+      coefficientOfVariation: cvValue,
+      asrErrorCode: lastAsrErrorCode,
+      rawAudioStored: false
+    },
+    measuredNoisy: snrLow,
+    attempts: [...speechAttemptHistory],
+    versions: currentSpeechVersions(),
+    runtime: { ...speechRuntimeInfo(), qualityFlags },
+    policy: {
+      lowSnr: 'quality_flag_only',
+      recognition: 'browser_default',
+      rawAudioStored: false
+    }
   };
-  sessionStorage.setItem('fast_speech', JSON.stringify(result));
-  sessionStorage.setItem('fast_result_source', 'speech');
-  window.SPEECH_RESULT = result;
 
-  // แสดงปุ่มนำทางทันทีหลังบันทึกผล เพื่อไม่ให้ diagnostic error ขัด flow
+  saveSpeechResult(result);
   handleFastFlow(cls);
 
-  // diagnostic ค้างไว้ให้ดูหลังพูดจบ
   $('debug-box').style.display = 'none';
-  $('debug-box').innerHTML =
-    `[ผลวินิจฉัย VAD]<br>` +
-    `duration: ${durSec.toFixed(2)}s<br>` +
-    `SNR: ${snrDb !== null ? snrDb.toFixed(1) + ' dB' : '—'}<br>` +
-    `flatness ตอนเสียงดัง:<br>&nbsp;&nbsp;min ${flatMin.toFixed(3)} / max ${flatMax.toFixed(3)}<br>` +
-    `frames ดัง: ${loudCount}<br>` +
-    `frames tonal(พูดจริง): ${tonerCount}<br>` +
-    `tonal ratio: ${loudCount>0?(tonerCount/loudCount*100).toFixed(0):0}%<br>` +
-    `FLATNESS_MAX ปัจจุบัน: ${FLATNESS_MAX}`;
+  $('debug-box').textContent = [
+    'Speech diagnostics',
+    `duration: ${durSec.toFixed(2)}s`,
+    `SNR: ${snrDb !== null ? snrDb.toFixed(1) + ' dB' : '—'}`,
+    `flatness min/max: ${flatMin.toFixed(3)} / ${flatMax.toFixed(3)}`,
+    `loud frames: ${loudCount}`,
+    `tonal frames: ${tonerCount}`,
+    `text similarity shadow: ${(textSimilarityShadow * 100).toFixed(1)}%`,
+    `quality flags: ${qualityFlags.join(', ') || 'none'}`
+  ].join('\n');
 
-  // เลื่อนเฉพาะพื้นที่ผลลัพธ์หลังปุ่มถูกแสดงแล้ว
+  stopAll(KEEP_MIC_ALIVE ? false : true);
+  scheduleResultMicRelease();
+
   requestAnimationFrame(() => {
     if (rb && typeof rb.scrollIntoView === 'function') {
       rb.scrollIntoView({ behavior: 'auto', block: 'nearest' });
     }
   });
 }
+
 
 // ═══════════════════════════════════════════════════
 // FAST FLOW — จัดการ navigation หลังจบ Speech
@@ -2252,13 +2693,13 @@ function handleFastFlow(riskLevel) {
   btn.setAttribute('aria-hidden', 'false');
 
   btn.onclick = () => {
-    stopAll();
+    stopAll(true);
     window.location.href = 'result.html';
   };
 
   // Only Full mode needs an incomplete-flow note here. Individual mode opens
   // the module-specific result page by design.
-  if (mode === 'full' && !allDone && riskLevel !== 'ok') {
+  if (mode === 'full' && !allDone && (riskLevel === 'warn' || riskLevel === 'bad')) {
     const resultSub = document.getElementById('rb-sub');
     if (resultSub && !resultSub.textContent.includes(L.fastIncomplete)) {
       resultSub.textContent += ` · ${L.fastIncomplete}`;

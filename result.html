@@ -1353,6 +1353,7 @@
      if (!d) return '—';
      if (d.technicalValidity === 'degraded') return T.technicalDegraded;
      if (d.technicalValidity === 'error') return T.technicalError;
+     if (d.technicalValidity === 'invalid') return T.validityInvalid;
      return T.technicalFull
    }
 
@@ -1394,9 +1395,9 @@
            )
          }
 
-         const flags = Array.isArray(d.runtime?.qualityFlags)
-           ? d.runtime.qualityFlags
-           : [];
+         const flags = Array.isArray(d.qualityFlags)
+           ? d.qualityFlags
+           : (Array.isArray(d.runtime?.qualityFlags) ? d.runtime.qualityFlags : []);
          if (flags.length) {
            appendTechnicalRow(
              grid,

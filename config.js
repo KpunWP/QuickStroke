@@ -1,12 +1,12 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.3",
+  version: "1.0.4",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20260720-face-review-v2",
+    localePack: "20260721-speech-review-v1",
     languageRegistry: "20260720-language-registry-v1"
   },
 
@@ -143,6 +143,11 @@ window.QS_CONFIG = {
     },
 
     speech: {
+      // Version identifiers stored with every Speech result.
+      version: "speech-prepilot-1.3.0",
+      algorithmVersion: "speech-browser-asr-1.0.0",
+      resultSchemaVersion: "speech-result-1.0.0",
+
       calibrationMs: 300,
       noiseMultiplier: 2.5,
       noiseFloorCap: 0.08,
@@ -150,13 +155,38 @@ window.QS_CONFIG = {
       normalMin: 2.5,
       normalMax: 6.0,
       
+      // Pre-pilot policy: low SNR remains score-usable and is recorded as
+      // a quality warning. It must not force a retry or become invalid.
       minSnrDb: 10,
       snrWarnDb: 10,
+      lowSnrPolicy: "quality_flag_only",
       
       flatnessMax: 0.78,
       maxNoiseFlatness: 0.78,
       
-      minSpeechDurationSec: 1.2
+      minSpeechDurationSec: 1.2,
+      minEnergyFrames: 10,
+
+      // One automatic retry is allowed for no voice / voice not recognized.
+      // Low SNR never triggers this retry.
+      autoValidityRetryCount: 1,
+      autoValidityRetryDelayMs: 1500,
+
+      // Retry/session lifecycle. Reuse the iOS pipeline only after a real
+      // signal health check; otherwise fully release and create a new session.
+      keepMicAliveOnIOS: true,
+      reuseHealthProbeMs: 450,
+      reuseEnergyMin: 0.00001,
+      retryFullReleaseWaitMs: 1200,
+      resultKeepAliveMs: 20000,
+
+      // Existing operational timings moved from the page without changing values.
+      deadMicSilenceMs: 2000,
+      deadMicEnergyMin: 0.00001,
+      deadMicMaxAttempts: 4,
+      recognitionSafetyMs: 8000,
+      trailingGapMs: 800,
+      researchSampleIntervalMs: 100
     }
   }
 };

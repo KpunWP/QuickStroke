@@ -300,6 +300,9 @@
     const icon = kind === 'camera' ? '📷' : '🎤';
     const needMsg = kind === 'camera' ? S.needCamera : S.needMic;
     const title = kind === 'camera' ? S.cameraTitle : S.micTitle;
+    const privacyNote = kind === 'camera'
+      ? (S.privacyCameraNote || S.privacyNote)
+      : (S.privacyMicNote || S.privacyNote);
 
     overlay.innerHTML = `
       <div style="width:100%;max-width:360px;background:#FFFFFF;border:1px solid #E5E7EB;
@@ -311,7 +314,7 @@
         </div>
         <div style="font-size:20px;font-weight:800;letter-spacing:-0.2px;color:#0F172A;margin-bottom:8px">${title}</div>
         <p style="font-size:15px;line-height:1.65;max-width:300px;margin:0 auto;color:#475569">${needMsg}</p>
-        <p style="font-size:12px;line-height:1.5;margin:10px auto 20px;color:#64748B">${S.privacyNote}</p>
+        <p style="font-size:12px;line-height:1.5;margin:10px auto 20px;color:#64748B">${privacyNote}</p>
         <button id="fast-perm-allow" type="button" style="width:100%;background:linear-gradient(180deg,#2B7DE9,#155FC3);color:#fff;border:none;
           border-radius:18px;padding:15px 22px;font-size:16px;font-weight:800;
           cursor:pointer;font-family:inherit;box-shadow:0 12px 28px rgba(43,125,233,0.28)">${S.allowBtn}</button>
