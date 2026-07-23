@@ -61,6 +61,21 @@
   .rb-sub{font-size:11px;color:var(--muted);line-height:1.5}
 
   #debug-box{display:none;width:calc(100% - 44px);margin:0 22px 10px;background:#1B2A3A;border-radius:10px;padding:12px 14px;font-family:monospace;font-size:12px;color:#A8F5C3;line-height:2;flex-shrink:0}
+  #dev-log-tools{display:none;width:100%;max-width:280px;flex-direction:column;gap:7px;flex-shrink:0}
+  #dev-log-tools.show{display:flex}
+  #dev-copy-log{width:100%;min-height:48px;border:1.5px solid rgba(43,125,233,.34);border-radius:15px;background:#EAF2FD;color:#0D58B8;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer}
+  #dev-copy-log:active{transform:scale(.98)}
+  #dev-copy-log:disabled{opacity:.65;cursor:default}
+  #dev-log-status{min-height:18px;color:var(--muted);font-size:12px;font-weight:650;line-height:1.35;text-align:center}
+  #manual-copy-overlay{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(15,23,42,.72);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+  #manual-copy-card{width:min(560px,100%);max-height:88dvh;display:flex;flex-direction:column;gap:12px;padding:18px;background:#fff;border-radius:22px;box-shadow:0 24px 70px rgba(0,0,0,.30)}
+  #manual-copy-card h2{font-size:18px;line-height:1.3}
+  #manual-copy-card p{font-size:13px;color:#5A6B7B;line-height:1.5}
+  #manual-copy-text{width:100%;min-height:260px;max-height:52dvh;resize:none;border:1px solid #D4DEE8;border-radius:14px;padding:12px;font-family:monospace;font-size:11px;line-height:1.45;color:#1B2A3A;background:#F8FAFC}
+  #manual-copy-actions{display:flex;gap:10px}
+  #manual-copy-actions button{flex:1;min-height:46px;border-radius:14px;font-family:inherit;font-weight:800;cursor:pointer}
+  #manual-select-btn{border:0;background:#2B7DE9;color:#fff}
+  #manual-close-btn{border:1px solid #D4DEE8;background:#fff;color:#5A6B7B}
 
   #action-btn{width:calc(100% - 44px);margin:0 22px 28px;min-height:60px;border-radius:15px;border:none;font-family:'IBM Plex Sans Thai';font-size:17px;font-weight:600;cursor:pointer;color:#fff;background:var(--blue);flex-shrink:0;box-shadow:0 6px 18px rgba(43,125,233,0.28);transition:transform 0.12s}
   #action-btn:active{transform:scale(0.97)}
@@ -228,6 +243,10 @@
   #test-screen.done #debug-toggle,
   #test-screen.done #debug-box{
     display:none !important;
+  }
+
+  #test-screen.done #dev-log-tools.show{
+    display:flex !important;
   }
 
   #test-screen.done .rb-score{
@@ -811,6 +830,10 @@
       <div class="rb-score" id="rb-score"></div>
       <div class="rb-sub"  id="rb-sub"></div>
     </div>
+    <div id="dev-log-tools" aria-live="polite">
+      <button id="dev-copy-log" type="button" onclick="copySpeechResearchLog()">📋 Copy Log</button>
+      <div id="dev-log-status"></div>
+    </div>
   </div>
   <button id="debug-toggle" onclick="const d=document.getElementById('debug-box');d.style.display=d.style.display==='block'?'none':'block'" style="display:none;width:calc(100% - 44px);margin:0 22px 8px;padding:8px;background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:inherit;font-size:12px;font-weight:600;cursor:pointer">🔬 Debug</button>
   <div id="debug-box"></div>
@@ -948,7 +971,7 @@ const RETRY_FULL_RELEASE_WAIT_MS = SPEECH_CFG.retryFullReleaseWaitMs ?? 1200;
 const RESULT_KEEP_ALIVE_MS = SPEECH_CFG.resultKeepAliveMs ?? 20000;
 const RECOGNITION_SAFETY_MS = SPEECH_CFG.recognitionSafetyMs ?? 8000;
 const TRAILING_GAP_MS = SPEECH_CFG.trailingGapMs ?? 800;
-const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.3.0';
+const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.4.1';
 const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.0.0';
 const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.1.0';
 const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.1.0';
@@ -1086,7 +1109,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.4.0 — attempt history + research payload';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.4.1 — copyable research log';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -1518,6 +1541,7 @@ function persistSpeechPayload(payload, { writeLegacyResult = true } = {}) {
   }
   window.SPEECH_RESULT = payload;
   window.SPEECH_RESEARCH_RESULT = payload;
+  setTimeout(updateDevLogTools, 0);
   return payload;
 }
 
@@ -1530,6 +1554,155 @@ function latestSpeechResearchPayload() {
     return null;
   }
 }
+
+function speechResearchHistory() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem('fast_speech_research_history') || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.warn('Unable to read Speech research history', error);
+    return [];
+  }
+}
+
+function buildSpeechResearchLogBundle() {
+  const latest = latestSpeechResearchPayload();
+  const history = speechResearchHistory();
+  const testAttempts = history.length ? history : (latest ? [latest] : []);
+  if (testAttempts.length === 0) return null;
+
+  const latestStored = latest || testAttempts[testAttempts.length - 1];
+  const internalAttemptCount = testAttempts.reduce((sum, payload) => {
+    return sum + (Array.isArray(payload?.attempts) ? payload.attempts.length : 0);
+  }, 0);
+
+  return {
+    exportSchemaVersion: 'quickstroke-speech-log-0.1.0',
+    exportedAt: new Date().toISOString(),
+    source: 'speech-test-dev-copy-log',
+    debugBuild: DEBUG_BUILD,
+    screeningSessionId: latestStored?.screeningSessionId || null,
+    latestTestAttemptId: latestStored?.testAttemptId || null,
+    testAttempts,
+    debugTrace: DBG_LINES.slice(),
+    storageSummary: {
+      testAttemptCount: testAttempts.length,
+      internalAttemptCount,
+      debugLineCount: DBG_LINES.length,
+      rawAudioStored: false,
+      recognitionMode: 'browser_default'
+    }
+  };
+}
+
+function setDevLogStatus(message, kind = '') {
+  const status = $('dev-log-status');
+  if (!status) return;
+  status.textContent = message || '';
+  status.dataset.kind = kind;
+}
+
+function updateDevLogTools() {
+  const tools = $('dev-log-tools');
+  if (!tools) return;
+  const available = DEBUG_ON && phase === 'DONE' && Boolean(buildSpeechResearchLogBundle());
+  tools.classList.toggle('show', available);
+  if (!available) setDevLogStatus('');
+}
+
+function showManualCopyOverlay(json) {
+  document.getElementById('manual-copy-overlay')?.remove();
+  const overlay = document.createElement('div');
+  overlay.id = 'manual-copy-overlay';
+  overlay.innerHTML = `
+    <div id="manual-copy-card" role="dialog" aria-modal="true" aria-labelledby="manual-copy-title">
+      <h2 id="manual-copy-title">คัดลอก Log ด้วยตนเอง</h2>
+      <p>เบราว์เซอร์ไม่อนุญาตให้คัดลอกอัตโนมัติ กด “เลือกทั้งหมด” แล้วเลือก Copy จากเมนูของเครื่อง</p>
+      <textarea id="manual-copy-text" readonly spellcheck="false"></textarea>
+      <div id="manual-copy-actions">
+        <button id="manual-select-btn" type="button">เลือกทั้งหมด</button>
+        <button id="manual-close-btn" type="button">ปิด</button>
+      </div>
+    </div>`;
+  const area = overlay.querySelector('#manual-copy-text');
+  area.value = json;
+  const selectAll = () => {
+    area.focus();
+    area.select();
+    area.setSelectionRange(0, area.value.length);
+  };
+  overlay.querySelector('#manual-select-btn').onclick = selectAll;
+  overlay.querySelector('#manual-close-btn').onclick = () => overlay.remove();
+  overlay.addEventListener('click', event => {
+    if (event.target === overlay) overlay.remove();
+  });
+  document.body.appendChild(overlay);
+  setTimeout(selectAll, 0);
+}
+
+async function writeSpeechLogToClipboard(json) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(json);
+    return true;
+  }
+
+  const area = document.createElement('textarea');
+  area.value = json;
+  area.setAttribute('readonly', '');
+  area.style.position = 'fixed';
+  area.style.left = '-9999px';
+  area.style.top = '0';
+  document.body.appendChild(area);
+  area.focus();
+  area.select();
+  area.setSelectionRange(0, area.value.length);
+  let copied = false;
+  try {
+    copied = document.execCommand('copy');
+  } finally {
+    area.remove();
+  }
+  return copied;
+}
+
+async function copySpeechResearchLog() {
+  if (!DEBUG_ON) return;
+  const bundle = buildSpeechResearchLogBundle();
+  if (!bundle) {
+    setDevLogStatus('ยังไม่มี Log — กรุณาทดสอบให้จบก่อน', 'error');
+    return;
+  }
+
+  const button = $('dev-copy-log');
+  const originalText = button?.textContent || '📋 Copy Log';
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'กำลังคัดลอก…';
+  }
+
+  const json = JSON.stringify(bundle, null, 2);
+  try {
+    const copied = await writeSpeechLogToClipboard(json);
+    if (!copied) throw new Error('Clipboard copy returned false');
+    if (button) button.textContent = '✓ Copied';
+    setDevLogStatus(`คัดลอกแล้ว ${bundle.testAttempts.length} test attempt — วางส่งในแชตได้เลย`, 'success');
+  } catch (error) {
+    console.warn('Automatic Speech log copy failed', error);
+    if (button) button.textContent = 'เลือก Log เพื่อ Copy';
+    setDevLogStatus('คัดลอกอัตโนมัติไม่ได้ — เปิดกล่องให้เลือกทั้งหมดแล้ว', 'warning');
+    showManualCopyOverlay(json);
+  } finally {
+    setTimeout(() => {
+      if (button) {
+        button.disabled = false;
+        button.textContent = originalText;
+      }
+    }, 2200);
+  }
+}
+
+window.copySpeechResearchLog = copySpeechResearchLog;
+window.buildSpeechResearchLogBundle = buildSpeechResearchLogBundle;
 
 function downloadSpeechResearchJson() {
   if (!DEBUG_ON) return;
@@ -1672,6 +1845,8 @@ function resetUI() {
   $('result-banner').style.display = 'none';
   $('debug-box').style.display     = 'none';
   $('debug-toggle').style.display  = 'none';
+  $('dev-log-tools')?.classList.remove('show');
+  setDevLogStatus('');
   $('action-btn').className        = '';
   $('action-btn').disabled         = false;
   $('action-btn').textContent      = T ? T.btnStart : '';
@@ -2998,6 +3173,7 @@ function finishSpeechInvalid(reasonCode, details = {}) {
   clearRecognitionTimers();
   phase = 'DONE';
   if ($('test-screen')) $('test-screen').classList.add('done');
+  setTimeout(updateDevLogTools, 0);
 
   const activeAttemptNo = Math.max(1, speechAttemptNo);
   const alreadyRecorded = speechAttemptHistory.some(item =>
@@ -3146,6 +3322,7 @@ function evaluateSpeech(text, confidence) {
   clearRecognitionTimers();
   phase = 'DONE';
   if ($('test-screen')) $('test-screen').classList.add('done');
+  setTimeout(updateDevLogTools, 0);
   $('mic-circle').className = 'mic-circle';
   $('mic-icon').textContent = '📊';
   $('action-btn').textContent = T.btnRetry;
