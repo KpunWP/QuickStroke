@@ -26,10 +26,10 @@ window.QS_CONFIG = {
   thresholds: {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
-      version: "face-prepilot-1.2.1",
+      version: "face-prepilot-1.2.2",
       algorithmVersion: "face-asymmetry-1.0.0",
       resultSchemaVersion: "face-result-1.1.0",
-      researchPayloadVersion: "face-research-0.1.0",
+      researchPayloadVersion: "face-research-0.1.1",
       researchHistoryLimit: 8,
 
       calibrationSeconds: 3,

@@ -1562,8 +1562,27 @@
     #face-home-btn{left:12px!important;right:auto!important;}
     #top-bar{left:68px!important;right:12px!important;width:auto!important;}
   }
+
+
+  /* QUICKSTROKE FACE ICON-ONLY STATUS CARDS — data capture v0.1.1
+     Status is communicated by the icon and card state; secondary copy is hidden. */
+  .s-card{
+    grid-template-columns:34px minmax(0,1fr)!important;
+    grid-template-rows:1fr!important;
+    align-items:center!important;
+  }
+  .s-card-icon{grid-row:1!important}
+  .s-card-main{align-self:center!important}
+  .s-card-sub{display:none!important}
+  .s-card.active .s-card-icon{
+    animation:face-status-icon-pulse 1.15s ease-in-out infinite;
+  }
+  @keyframes face-status-icon-pulse{
+    0%,100%{transform:scale(1);}
+    50%{transform:scale(1.08);}
+  }
 </style>
-<script src="config.js?v=20260723-face-data-capture-v1"></script>
+<script src="config.js?v=20260723-face-data-capture-v011"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1587,8 +1606,8 @@
   <canvas id="canvas"></canvas>
 
   <div id="face-status-row" aria-label="Face test status">
-    <div class="s-card active" id="face-card-face"><span class="s-card-icon" id="face-ico-face">🙂</span><span class="s-card-main" id="face-main-face">ใบหน้า</span><span class="s-card-sub" id="face-sub-face">รอ</span></div>
-    <div class="s-card" id="face-card-smile"><span class="s-card-icon" id="face-ico-smile">😄</span><span class="s-card-main" id="face-main-smile">ยิ้ม</span><span class="s-card-sub" id="face-sub-smile">รอ</span></div>
+    <div class="s-card active" id="face-card-face"><span class="s-card-icon" id="face-ico-face" aria-hidden="true">🙂</span><span class="s-card-main" id="face-main-face">ใบหน้า</span><span class="s-card-sub" id="face-sub-face"></span></div>
+    <div class="s-card" id="face-card-smile"><span class="s-card-icon" id="face-ico-smile" aria-hidden="true">⏳</span><span class="s-card-main" id="face-main-smile">ยิ้ม</span><span class="s-card-sub" id="face-sub-smile"></span></div>
   </div>
 
   <div id="progress-dots">
@@ -1715,7 +1734,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.2.1-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.2.2-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -2170,6 +2189,10 @@ async function copyFaceResearchJson(){
 function currentAttemptNo(){ return Math.max(1, assessAttempts + 1); }
 function recordResearchFrame(data={}){
   if (!screeningStartedAtMs) return;
+  // Telemetry belongs only to the active measurement lifecycle. Once a terminal
+  // state is reached, the result payload must remain unchanged even if the camera
+  // preview and low-rate detection loop continue running behind the result UI.
+  if (['FACE_DONE','CRITICAL_ASYMMETRY','ABORTED'].includes(phase)) return;
   const now = Date.now();
   if (now - lastResearchFrameAtMs < RESEARCH_SAMPLE_INTERVAL_MS) return;
   lastResearchFrameAtMs = now;
@@ -2235,6 +2258,14 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
   const completedAtMs = Date.now();
   ensureFaceTestAttemptIdentity();
   const qualityFlags = [...runtimeQualityFlags];
+  // Snapshot mutable arrays before exposing the payload through window/sessionStorage.
+  // This prevents post-result camera frames from changing JSON copied later in dev mode.
+  const attemptSnapshot = attemptRecords.map((record) => ({
+    ...record,
+    quality: record.quality ? { ...record.quality } : record.quality,
+    metrics: record.metrics ? { ...record.metrics } : record.metrics
+  }));
+  const frameSnapshot = researchFrames.map((frame) => ({ ...frame }));
   return {
     schemaVersion: FACE_RESULT_SCHEMA_VERSION,
     researchPayloadVersion: FACE_RESEARCH_PAYLOAD_VERSION,
@@ -2293,11 +2324,11 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       criticalTriggered: criticalFired,
       criticalRestAsym: roundMetric(criticalRestAsym)
     },
-    attempts: [...attemptRecords],
+    attempts: attemptSnapshot,
     research: {
       sampleIntervalMs: RESEARCH_SAMPLE_INTERVAL_MS,
       storesImagesOrVideo: false,
-      frames: researchFrames
+      frames: frameSnapshot
     },
     breakdown
   };
@@ -2546,47 +2577,92 @@ function setFaceCard(key, state, main, sub, icon){
   if(iconEl && icon!==undefined) iconEl.textContent=icon;
 }
 function updateFaceStatusCards(){
+  const blank = '';
+
   if(phase==='BEFORE_START'){
-    setFaceCard('face','active',FL.cardFace,FL.cardReady,'🙂');
-    setFaceCard('smile','',FL.cardSmile,FL.cardPending,'😄');
+    // Before start, the cards carry the status visually. No duplicate “press start”
+    // instruction is needed above the single primary Start button.
+    setFaceCard('face','active',FL.cardFace,blank,'🙂');
+    setFaceCard('smile','',FL.cardSmile,blank,'⏳');
+    return;
+  }
 
-  } else if(phase==='RESTING_PHASE'){
-    setFaceCard('face','active',FL.cardFace,FL.cardAligning,'🙂');
-    setFaceCard('smile','',FL.cardSmile,FL.cardPending,'😄');
+  if(phase==='RESTING_PHASE'){
+    setFaceCard('face','active',FL.cardFace,blank,'🙂');
+    setFaceCard('smile','',FL.cardSmile,blank,'⏳');
+    return;
+  }
 
-  } else if(phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE'){
-    setFaceCard('face','pass',FL.cardFace,FL.cardAligned,'✅');
-    setFaceCard('smile','active',FL.cardSmile,FL.cardTesting,'😄');
+  if(phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE'){
+    setFaceCard('face','pass',FL.cardFace,blank,'✅');
+    setFaceCard('smile','active',FL.cardSmile,blank,'😄');
+    return;
+  }
 
-  } else if(phase==='FACE_DONE'){
-    let risk='ok';
-    try{
-      risk = (JSON.parse(sessionStorage.getItem('fast_face') || '{}').riskLevel) || 'ok';
-    }catch(e){}
+  if(phase==='RETRYING'){
+    setFaceCard('face','pass',FL.cardFace,blank,'✅');
+    setFaceCard('smile','warn',FL.cardSmile,blank,'⏳');
+    return;
+  }
 
-    const state = risk==='bad'
-      ? 'fail'
-      : (risk==='warn' || risk==='invalid' ? 'warn' : 'pass');
+  if(phase==='CRITICAL_ASYMMETRY'){
+    setFaceCard('face','fail',FL.cardFace,blank,'🚨');
+    setFaceCard('smile','',FL.cardSmile,blank,'—');
+    return;
+  }
 
-    setFaceCard(
-      'face',
-      state,
-      FL.cardFace,
-      risk==='ok' ? FL.cardPassed : (risk==='invalid' ? FL.cardUnable : FL.cardCheck),
-      risk==='bad' ? '⚠️' : '✅'
-    );
+  if(phase==='FACE_DONE'){
+    let saved = {};
+    try{ saved = JSON.parse(sessionStorage.getItem('fast_face') || '{}'); }catch(e){}
 
-    setFaceCard(
-      'smile',
-      state,
-      FL.cardSmile,
-      risk==='ok' ? FL.cardNormal : (risk==='invalid' ? FL.cardUnable : FL.cardAbnormal),
-      risk==='bad' ? '🚨' : '😄'
-    );
+    const risk = saved.riskLevel || 'invalid';
+    const reasonCode = saved.invalidReasonCode || saved.breakdown?.reasonCode || null;
+    const method = saved.breakdown?.method || '';
+    const baselineFailureCodes = new Set([
+      'NO_FACE_TIMEOUT',
+      'BASELINE_INSUFFICIENT',
+      'POSE_ALIGNMENT_TIMEOUT',
+      'CAMERA_PERMISSION_DENIED',
+      'CAMERA_NOT_AVAILABLE',
+      'CAMERA_STREAM_FAILED',
+      'CAMERA_IN_USE',
+      'INSECURE_CONTEXT',
+      'MODEL_LOAD_FAILED',
+      'FACE_MODEL_LOAD_FAILED'
+    ]);
 
-  } else if(phase==='CRITICAL_ASYMMETRY'){
-    setFaceCard('face','fail',FL.cardFace,FL.cardUrgent,'🚨');
-    setFaceCard('smile','fail',FL.cardSmile,FL.cardAbnormal,'⚠️');
+    if(risk==='ok'){
+      setFaceCard('face','pass',FL.cardFace,blank,'✅');
+      setFaceCard('smile','pass',FL.cardSmile,blank,'✅');
+      return;
+    }
+
+    if(risk==='warn'){
+      setFaceCard('face','pass',FL.cardFace,blank,'✅');
+      setFaceCard('smile','warn',FL.cardSmile,blank,'⚠️');
+      return;
+    }
+
+    if(risk==='bad'){
+      if(String(method).startsWith('resting_asymmetry')){
+        setFaceCard('face','fail',FL.cardFace,blank,'🚨');
+        setFaceCard('smile','',FL.cardSmile,blank,'—');
+      } else {
+        setFaceCard('face','pass',FL.cardFace,blank,'✅');
+        setFaceCard('smile','fail',FL.cardSmile,blank,'🚨');
+      }
+      return;
+    }
+
+    // Invalid/technical outcomes: identify whether the failure happened before the
+    // smile stage, otherwise keep Face completed and flag the Smile card.
+    if(baselineFailureCodes.has(reasonCode)){
+      setFaceCard('face','warn',FL.cardFace,blank,'⚠️');
+      setFaceCard('smile','',FL.cardSmile,blank,'—');
+    } else {
+      setFaceCard('face','pass',FL.cardFace,blank,'✅');
+      setFaceCard('smile','warn',FL.cardSmile,blank,'⚠️');
+    }
   }
 }
 
@@ -2855,10 +2931,14 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
   document.body.classList.toggle('result-visible', !!showScore);
   document.body.classList.toggle('pose-warning-visible', !!poseWarn && !showScore);
 
+  const hideRedundantStartStatus = phase==='BEFORE_START' && showStart && !showScore;
   if(showScore){
     clearBottomPanels();
   } else if(poseWarn){
     showPosePanel(poseWarn);
+  } else if(hideRedundantStartStatus){
+    // The Start button is self-explanatory; avoid a second “press start” box.
+    clearBottomPanels();
   } else if(msg){
     showStatusPanel(msg);
   } else {
