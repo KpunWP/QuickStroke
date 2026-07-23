@@ -1644,7 +1644,7 @@
   }
 
 </style>
-<script src="config.js?v=20260723-face-data-capture-v018"></script>
+<script src="config.js?v=20260723-face-data-capture-v019"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1796,7 +1796,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.3.1-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.4.0-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -1899,9 +1899,9 @@ let mouthCtx = null;
 
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
-const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.3.1";
-const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.1.0";
-const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.2.1";
+const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.4.0";
+const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.2.0";
+const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.3.0";
 
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -1967,7 +1967,7 @@ const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
 const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
 const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioMin ?? 0.25;
 const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
-const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.2.1';
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.3.0';
 const FACE_RESEARCH_HISTORY_LIMIT = Math.max(1, FACE_CFG.researchHistoryLimit ?? 8);
 
 // Stable eye-corner pairs from MediaPipe Face Landmarker.
@@ -2016,8 +2016,10 @@ let actionWaitStartMs = null;
 let lastSmileVoiceMs = 0;
 let smileNudgeUntilMs = 0;
 let lastRepAsym = 0;
-// per-side PEAK activation during the smile window (the core stroke signal)
+// Blendshape peaks remain diagnostic. Geometry scoring now uses robust
+// aggregation of signed displacement across valid smile frames.
 let peakSmileL = 0, peakSmileR = 0, peakRiseL = 0, peakRiseR = 0;
+let validSignedRiseL = [], validSignedRiseR = [];
 let visibleMouthFrames = 0;
 let mouthVisibilityScores = [];
 let lastMouthVisibilityScore = 0;
@@ -2118,6 +2120,14 @@ function showCenterCountdown(v){
 }
 function hideCenterCountdown(){ __lastCountdownShown = null; centerCD.style.display = 'none'; }
 function average(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
+function median(values){
+  const finite = values.filter((value) => Number.isFinite(value)).sort((a,b)=>a-b);
+  if (!finite.length) return null;
+  const middle = Math.floor(finite.length / 2);
+  return finite.length % 2
+    ? finite[middle]
+    : (finite[middle - 1] + finite[middle]) / 2;
+}
 function roundMetric(value, digits=4){
   return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
 }
@@ -2312,6 +2322,33 @@ function recordResearchFrame(data={}){
 function getAttemptFrames(attemptNo){
   return researchFrames.filter((frame) => frame.attemptNo === attemptNo && String(frame.phase).startsWith('ACTION'));
 }
+function currentGeometryRiseAggregation(){
+  const aggregatedSignedRiseLeft = median(validSignedRiseL) ?? 0;
+  const aggregatedSignedRiseRight = median(validSignedRiseR) ?? 0;
+
+  // Downward movement remains available in the signed values. It becomes zero
+  // only here, after robust aggregation, when deriving the clinical rise metric.
+  const effectiveRiseLeft = Math.max(0, aggregatedSignedRiseLeft);
+  const effectiveRiseRight = Math.max(0, aggregatedSignedRiseRight);
+  const strongEffectiveRise = Math.max(effectiveRiseLeft, effectiveRiseRight);
+  const weakEffectiveRise = Math.min(effectiveRiseLeft, effectiveRiseRight);
+  const geometryRiseSum = effectiveRiseLeft + effectiveRiseRight;
+  const geometryRiseUsable = geometryRiseSum > 0.05;
+
+  return {
+    aggregationMethod:'median-signed-valid-smile-frames',
+    frameCount:Math.min(validSignedRiseL.length, validSignedRiseR.length),
+    aggregatedSignedRiseLeft,
+    aggregatedSignedRiseRight,
+    effectiveRiseLeft,
+    effectiveRiseRight,
+    strongEffectiveRise,
+    weakEffectiveRise,
+    geometryRiseSum,
+    geometryRiseUsable
+  };
+}
+
 function summarizeAttemptFrames(frames){
   const total = frames.length;
   const count = (predicate) => frames.filter(predicate).length;
@@ -2345,60 +2382,120 @@ function summarizeAttemptFrames(frames){
     geometrySmileEvidenceFrameCount
   };
 }
-function summarizeCompensationFrames(frames){
+function summarizeSignedCompensationGroup(frames){
   const usable = frames.filter((frame) =>
+    frame.poseValid === true &&
     Number.isFinite(Number(frame.rollDeg)) &&
-    Number.isFinite(Number(frame.rawRiseLeft)) &&
-    Number.isFinite(Number(frame.rawRiseRight)) &&
-    Number.isFinite(Number(frame.normalizedRiseLeft)) &&
-    Number.isFinite(Number(frame.normalizedRiseRight))
+    Number.isFinite(Number(frame.eyeDistanceRatioFromBaseline)) &&
+    Number.isFinite(Number(frame.rawSignedDisplacementLeft)) &&
+    Number.isFinite(Number(frame.rawSignedDisplacementRight)) &&
+    Number.isFinite(Number(frame.normalizedSignedDisplacementLeft)) &&
+    Number.isFinite(Number(frame.normalizedSignedDisplacementRight))
   );
-  const values = (key) => usable
-    .map((frame) => Number(frame[key]))
+
+  const values = (accessor) => usable
+    .map(accessor)
+    .map(Number)
     .filter((value) => Number.isFinite(value));
-  const rawMeanRise = usable.map((frame) =>
-    (Number(frame.rawRiseLeft) + Number(frame.rawRiseRight)) / 2
+
+  const rawSideDifference = values((frame) =>
+    Number(frame.rawSignedDisplacementLeft) - Number(frame.rawSignedDisplacementRight)
   );
-  const normalizedMeanRise = usable.map((frame) =>
-    (Number(frame.normalizedRiseLeft) + Number(frame.normalizedRiseRight)) / 2
+  const normalizedSideDifference = values((frame) =>
+    Number(frame.normalizedSignedDisplacementLeft) - Number(frame.normalizedSignedDisplacementRight)
   );
-  const rawAsymmetry = values('rawGeometryAsymmetry');
-  const normalizedAsymmetry = values('normalizedGeometryAsymmetry');
-  const rolls = values('rollDeg');
-  const eyeRatios = values('eyeDistanceRatioFromBaseline');
+  const rawMeanDisplacement = values((frame) =>
+    (Number(frame.rawSignedDisplacementLeft) + Number(frame.rawSignedDisplacementRight)) / 2
+  );
+  const normalizedMeanDisplacement = values((frame) =>
+    (Number(frame.normalizedSignedDisplacementLeft) + Number(frame.normalizedSignedDisplacementRight)) / 2
+  );
+  const rolls = values((frame) => Number(frame.rollDeg));
+  const eyeRatios = values((frame) => Number(frame.eyeDistanceRatioFromBaseline));
 
   return {
-    frameCount: usable.length,
-    rollDegMin: rolls.length ? Math.min(...rolls) : null,
-    rollDegMax: rolls.length ? Math.max(...rolls) : null,
-    meanAbsRollDeg: rolls.length ? average(rolls.map(Math.abs)) : null,
-    eyeDistanceRatioMin: eyeRatios.length ? Math.min(...eyeRatios) : null,
-    eyeDistanceRatioMax: eyeRatios.length ? Math.max(...eyeRatios) : null,
+    frameCount:usable.length,
+    rollDegMin:rolls.length ? Math.min(...rolls) : null,
+    rollDegMax:rolls.length ? Math.max(...rolls) : null,
+    meanAbsRollDeg:rolls.length ? average(rolls.map(Math.abs)) : null,
+    eyeDistanceRatioMin:eyeRatios.length ? Math.min(...eyeRatios) : null,
+    eyeDistanceRatioMax:eyeRatios.length ? Math.max(...eyeRatios) : null,
 
-    rawMeanRiseStd: standardDeviation(rawMeanRise),
-    normalizedMeanRiseStd: standardDeviation(normalizedMeanRise),
-    rawAsymmetryStd: standardDeviation(rawAsymmetry),
-    normalizedAsymmetryStd: standardDeviation(normalizedAsymmetry),
+    rawSideDifferenceStd:standardDeviation(rawSideDifference),
+    normalizedSideDifferenceStd:standardDeviation(normalizedSideDifference),
+    rawMeanDisplacementStd:standardDeviation(rawMeanDisplacement),
+    normalizedMeanDisplacementStd:standardDeviation(normalizedMeanDisplacement),
 
-    absRollVsRawRiseCorrelation: pearsonCorrelationFromFrames(
+    rollVsRawSideDifferenceCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.rollDeg),
+      (frame) => Number(frame.rawSignedDisplacementLeft) - Number(frame.rawSignedDisplacementRight)
+    ),
+    rollVsNormalizedSideDifferenceCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.rollDeg),
+      (frame) => Number(frame.normalizedSignedDisplacementLeft) - Number(frame.normalizedSignedDisplacementRight)
+    ),
+    absRollVsAbsRawSideDifferenceCorrelation:pearsonCorrelationFromFrames(
       usable,
       (frame) => Math.abs(Number(frame.rollDeg)),
-      (frame) => (Number(frame.rawRiseLeft) + Number(frame.rawRiseRight)) / 2
+      (frame) => Math.abs(
+        Number(frame.rawSignedDisplacementLeft) - Number(frame.rawSignedDisplacementRight)
+      )
     ),
-    absRollVsNormalizedRiseCorrelation: pearsonCorrelationFromFrames(
+    absRollVsAbsNormalizedSideDifferenceCorrelation:pearsonCorrelationFromFrames(
       usable,
       (frame) => Math.abs(Number(frame.rollDeg)),
-      (frame) => (Number(frame.normalizedRiseLeft) + Number(frame.normalizedRiseRight)) / 2
+      (frame) => Math.abs(
+        Number(frame.normalizedSignedDisplacementLeft) - Number(frame.normalizedSignedDisplacementRight)
+      )
     ),
-    eyeDistanceRatioVsRawRiseCorrelation: pearsonCorrelationFromFrames(
+
+    eyeDistanceRatioVsRawMeanDisplacementCorrelation:pearsonCorrelationFromFrames(
       usable,
       (frame) => Number(frame.eyeDistanceRatioFromBaseline),
-      (frame) => (Number(frame.rawRiseLeft) + Number(frame.rawRiseRight)) / 2
+      (frame) => (
+        Number(frame.rawSignedDisplacementLeft) +
+        Number(frame.rawSignedDisplacementRight)
+      ) / 2
     ),
-    eyeDistanceRatioVsNormalizedRiseCorrelation: pearsonCorrelationFromFrames(
+    eyeDistanceRatioVsNormalizedMeanDisplacementCorrelation:pearsonCorrelationFromFrames(
       usable,
       (frame) => Number(frame.eyeDistanceRatioFromBaseline),
-      (frame) => (Number(frame.normalizedRiseLeft) + Number(frame.normalizedRiseRight)) / 2
+      (frame) => (
+        Number(frame.normalizedSignedDisplacementLeft) +
+        Number(frame.normalizedSignedDisplacementRight)
+      ) / 2
+    ),
+    eyeCenterYVsRawMeanDisplacementCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.rawEyeCenterY),
+      (frame) => (
+        Number(frame.rawSignedDisplacementLeft) +
+        Number(frame.rawSignedDisplacementRight)
+      ) / 2
+    ),
+    eyeCenterYVsNormalizedMeanDisplacementCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.rawEyeCenterY),
+      (frame) => (
+        Number(frame.normalizedSignedDisplacementLeft) +
+        Number(frame.normalizedSignedDisplacementRight)
+      ) / 2
+    )
+  };
+}
+
+function summarizeCompensationFrames(frames){
+  const actionPoseValid = frames.filter((frame) => frame.poseValid === true);
+  return {
+    method:'signed-direction-preserving-comparison',
+    allActionFrames:summarizeSignedCompensationGroup(actionPoseValid),
+    noSmileEvidenceFrames:summarizeSignedCompensationGroup(
+      actionPoseValid.filter((frame) => frame.blendSmileEvidence !== true)
+    ),
+    smileEvidenceFrames:summarizeSignedCompensationGroup(
+      actionPoseValid.filter((frame) => frame.blendSmileEvidence === true)
     )
   };
 }
@@ -2441,6 +2538,7 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
   const frames = getAttemptFrames(attemptNo);
   const summary = summarizeAttemptFrames(frames);
   const compensation = summarizeCompensationFrames(frames);
+  const riseAggregation = currentGeometryRiseAggregation();
   const invalidReasonCode = outcome === 'invalid'
     ? resolveAttemptInvalidReason(requestedInvalidReasonCode, summary)
     : null;
@@ -2462,22 +2560,9 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
       minEyeDistanceRatioFromBaseline: roundMetric(summary.minEyeDistanceRatioFromBaseline),
       maxEyeDistanceRatioFromBaseline: roundMetric(summary.maxEyeDistanceRatioFromBaseline)
     },
-    compensationAnalysis: {
-      frameCount: compensation.frameCount,
-      rollDegMin: roundMetric(compensation.rollDegMin,2),
-      rollDegMax: roundMetric(compensation.rollDegMax,2),
-      meanAbsRollDeg: roundMetric(compensation.meanAbsRollDeg,2),
-      eyeDistanceRatioMin: roundMetric(compensation.eyeDistanceRatioMin),
-      eyeDistanceRatioMax: roundMetric(compensation.eyeDistanceRatioMax),
-      rawMeanRiseStd: roundMetric(compensation.rawMeanRiseStd),
-      normalizedMeanRiseStd: roundMetric(compensation.normalizedMeanRiseStd),
-      rawAsymmetryStd: roundMetric(compensation.rawAsymmetryStd),
-      normalizedAsymmetryStd: roundMetric(compensation.normalizedAsymmetryStd),
-      absRollVsRawRiseCorrelation: roundMetric(compensation.absRollVsRawRiseCorrelation),
-      absRollVsNormalizedRiseCorrelation: roundMetric(compensation.absRollVsNormalizedRiseCorrelation),
-      eyeDistanceRatioVsRawRiseCorrelation: roundMetric(compensation.eyeDistanceRatioVsRawRiseCorrelation),
-      eyeDistanceRatioVsNormalizedRiseCorrelation: roundMetric(compensation.eyeDistanceRatioVsNormalizedRiseCorrelation)
-    },
+    compensationAnalysis: JSON.parse(JSON.stringify(compensation, (key,value) =>
+      Number.isFinite(value) ? roundMetric(value) : value
+    )),
     metrics: {
       validSmileFrames,
       smileFrameCount,
@@ -2491,7 +2576,13 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
       peakSmileLeft: roundMetric(peakSmileL),
       peakSmileRight: roundMetric(peakSmileR),
       peakNormalizedRiseLeft: roundMetric(peakRiseL),
-      peakNormalizedRiseRight: roundMetric(peakRiseR)
+      peakNormalizedRiseRight: roundMetric(peakRiseR),
+      riseAggregationMethod: riseAggregation.aggregationMethod,
+      aggregatedSignedRiseLeft: roundMetric(riseAggregation.aggregatedSignedRiseLeft),
+      aggregatedSignedRiseRight: roundMetric(riseAggregation.aggregatedSignedRiseRight),
+      effectiveRiseLeft: roundMetric(riseAggregation.effectiveRiseLeft),
+      effectiveRiseRight: roundMetric(riseAggregation.effectiveRiseRight),
+      geometryRiseUsable: riseAggregation.geometryRiseUsable
     },
     ...extra
   };
@@ -2523,7 +2614,9 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
   const attemptSnapshot = attemptRecords.map((record) => ({
     ...record,
     quality: record.quality ? { ...record.quality } : record.quality,
-    compensationAnalysis: record.compensationAnalysis ? { ...record.compensationAnalysis } : record.compensationAnalysis,
+    compensationAnalysis: record.compensationAnalysis
+      ? JSON.parse(JSON.stringify(record.compensationAnalysis))
+      : record.compensationAnalysis,
     metrics: record.metrics ? { ...record.metrics } : record.metrics
   }));
   const frameSnapshot = researchFrames.map((frame) => ({ ...frame }));
@@ -2578,6 +2671,10 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       smileValidStrength: SMILE_VALID_STRENGTH,
       smileRealMin: SMILE_REAL_MIN,
       closedSmileRiseMin: CLOSED_SMILE_RISE_MIN,
+      geometryFrameDisplacement: FACE_CFG.geometryFrameDisplacement || 'signed-baseline-minus-current',
+      geometryRiseAggregation: FACE_CFG.geometryRiseAggregation || 'median-of-valid-smile-frames',
+      geometryEffectiveRisePolicy: FACE_CFG.geometryEffectiveRisePolicy || 'max-zero-after-aggregation',
+      geometryPerFrameClamp: FACE_CFG.geometryPerFrameClamp ?? false,
       attemptMouthAssessableRatioMin: ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN,
       attemptHandOverlapRatioMin: ATTEMPT_HAND_OVERLAP_RATIO_MIN
     },
@@ -2588,6 +2685,16 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       telemetryComparisonMethod: 'legacy-image-frame-vs-normalized-eye-frame',
       rawCoordinateFrame: 'mediapipe-image-normalized-xy',
       rawRiseScaling: 'divide-by-baseline-eye-distance-for-comparison-only',
+      signedDisplacementSemantics: 'baseline-minus-current-positive-is-upward',
+      perFrameClampApplied: false,
+      riseAggregation: 'median-of-valid-smile-frames',
+      effectiveRisePolicy: 'max-zero-after-aggregation',
+      deprecatedPositiveAliases: [
+        'rawRiseLeft',
+        'rawRiseRight',
+        'normalizedRiseLeft',
+        'normalizedRiseRight'
+      ],
       leftEyeCornerLandmarks: [IDX_L_EYE_OUTER, IDX_L_EYE_INNER],
       rightEyeCornerLandmarks: [IDX_R_EYE_INNER, IDX_R_EYE_OUTER],
       usesLandmarkZ: false,
@@ -3444,7 +3551,7 @@ function startScreening(){
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   actionWaitStartMs=null; lastSmileVoiceMs=0; smileNudgeUntilMs=0; lastRepAsym=0;
-  peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
+  peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0; validSignedRiseL=[]; validSignedRiseR=[];
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   lastHandMouthOverlap=false; lastHandCount=0;
   assessAttempts=0;
@@ -3500,7 +3607,7 @@ function startActionPhase(){
   attemptStartedAtMs=Date.now();
   poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
-  peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
+  peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0; validSignedRiseL=[]; validSignedRiseR=[];
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now(); smileNudgeUntilMs=0;
   setUI({glassColor:'var(--col-green-glass)', msg:'', showReset:true, showHud:true});
@@ -3528,6 +3635,8 @@ function resetSmileAttemptAfterPose(){
   peakSmileR=0;
   peakRiseL=0;
   peakRiseR=0;
+  validSignedRiseL=[];
+  validSignedRiseR=[];
   visibleMouthFrames=0;
   mouthVisibilityScores=[];
   lastMouthVisibilityScore=0;
@@ -3556,6 +3665,8 @@ function clearSmileCaptureWindow(){
   peakSmileR = 0;
   peakRiseL = 0;
   peakRiseR = 0;
+  validSignedRiseL = [];
+  validSignedRiseR = [];
   visibleMouthFrames = 0;
   mouthVisibilityScores = [];
   lastRepAsym = 0;
@@ -3637,35 +3748,40 @@ function onResults(results, handResults=null){
   const smileStrength = smileTotal / 2;
   const smileAsym = smileTotal > 0.05 ? Math.abs(smileL - smileR) / smileTotal : 0;
 
-  // Normalized geometry used by the algorithm.
-  let geomAsym = 0, riseLn = 0, riseRn = 0;
+  // Preserve direction on every frame:
+  // positive = mouth corner rose; negative = mouth corner moved downward.
+  // No per-frame clamping is allowed in the clinical geometry path.
+  let signedRiseLn = 0, signedRiseRn = 0;
   if (baseL !== null && baseR !== null){
-    riseLn = Math.max(0, baseL - mLy);
-    riseRn = Math.max(0, baseR - mRy);
-    const riseSum = riseLn + riseRn;
-    if (riseSum > 0.05) geomAsym = Math.abs(riseLn - riseRn) / riseSum;
+    signedRiseLn = baseL - mLy;
+    signedRiseRn = baseR - mRy;
   }
 
-  // Pilot-only comparison: reproduce the former image-frame rise before
-  // translation/roll/scale compensation. Scaling by baseline eye distance makes
-  // it dimensionless and easier to compare with normalized rise. It is never scored.
-  let rawRiseLn = 0, rawRiseRn = 0, rawGeomAsym = 0;
+  // Pilot comparison in the former image coordinate frame, also signed.
+  // It is never used for scoring.
+  let rawSignedRiseLn = 0, rawSignedRiseRn = 0;
   if (baseRawMouthLeftY !== null && baseRawMouthRightY !== null && baseEyeW){
-    rawRiseLn = Math.max(0, baseRawMouthLeftY - rawMouthLeftY) / baseEyeW;
-    rawRiseRn = Math.max(0, baseRawMouthRightY - rawMouthRightY) / baseEyeW;
-    const rawRiseSum = rawRiseLn + rawRiseRn;
-    if (rawRiseSum > 0.05) rawGeomAsym = Math.abs(rawRiseLn - rawRiseRn) / rawRiseSum;
+    rawSignedRiseLn = (baseRawMouthLeftY - rawMouthLeftY) / baseEyeW;
+    rawSignedRiseRn = (baseRawMouthRightY - rawMouthRightY) / baseEyeW;
   }
 
-  const frameAsym = Math.max(smileAsym, geomAsym);
+  const normalizedSideDifference = signedRiseLn - signedRiseRn;
+  const normalizedMeanDisplacement = (signedRiseLn + signedRiseRn) / 2;
+  const rawSideDifference = rawSignedRiseLn - rawSignedRiseRn;
+  const rawMeanDisplacement = (rawSignedRiseLn + rawSignedRiseRn) / 2;
+
+  // Per-frame clinical asymmetry is deliberately not derived from clipped rise.
+  // Final geometry asymmetry is calculated after robust smile-window aggregation.
+  const geomAsym = 0;
+  const frameAsym = smileAsym;
 
   const inActionPhase = (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE');
   const eyeDistanceRatioFromBaseline = baseEyeW ? eyeW / baseEyeW : null;
   const smileEvidence = evaluateSmileEvidence(
     smileL,
     smileR,
-    riseLn,
-    riseRn,
+    signedRiseLn,
+    signedRiseRn,
     phase === 'ACTION_PHASE' ? 'start' : 'valid'
   );
 
@@ -3713,17 +3829,28 @@ function onResults(results, handResults=null){
     normalizedMouthRightX:roundMetric(normalizedMouthRightX),
     normalizedMouthRightY:roundMetric(normalizedMouthRightY),
 
-    rawRiseLeft:roundMetric(rawRiseLn),
-    rawRiseRight:roundMetric(rawRiseRn),
-    normalizedRiseLeft:roundMetric(riseLn),
-    normalizedRiseRight:roundMetric(riseRn),
-    rawGeometryAsymmetry:roundMetric(rawGeomAsym),
-    normalizedGeometryAsymmetry:roundMetric(geomAsym),
+    rawSignedDisplacementLeft:roundMetric(rawSignedRiseLn),
+    rawSignedDisplacementRight:roundMetric(rawSignedRiseRn),
+    normalizedSignedDisplacementLeft:roundMetric(signedRiseLn),
+    normalizedSignedDisplacementRight:roundMetric(signedRiseRn),
+    rawSideDifference:roundMetric(rawSideDifference),
+    normalizedSideDifference:roundMetric(normalizedSideDifference),
+    rawMeanDisplacement:roundMetric(rawMeanDisplacement),
+    normalizedMeanDisplacement:roundMetric(normalizedMeanDisplacement),
+
+    // Deprecated positive-only aliases retained for temporary log compatibility.
+    // They are not used by scoring or compensation analysis.
+    rawRiseLeft:roundMetric(Math.max(0, rawSignedRiseLn)),
+    rawRiseRight:roundMetric(Math.max(0, rawSignedRiseRn)),
+    normalizedRiseLeft:roundMetric(Math.max(0, signedRiseLn)),
+    normalizedRiseRight:roundMetric(Math.max(0, signedRiseRn)),
+    rawGeometryAsymmetry:null,
+    normalizedGeometryAsymmetry:null,
 
     smileLeft:roundMetric(smileL),
     smileRight:roundMetric(smileR),
-    riseLeft:roundMetric(riseLn),
-    riseRight:roundMetric(riseRn),
+    riseLeft:roundMetric(signedRiseLn),
+    riseRight:roundMetric(signedRiseRn),
     blendSmileEvidence:inActionPhase ? smileEvidence.blendSmileEvidence : null,
     geometrySmileEvidence:inActionPhase ? smileEvidence.geometrySmileEvidence : null,
     mouthVisibilityScore:roundMetric(mouthVis.score),
@@ -3739,7 +3866,7 @@ function onResults(results, handResults=null){
     const setDbg=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
     setDbg('dbg-sml', smileL.toFixed(2)); setDbg('dbg-smr', smileR.toFixed(2));
     setDbg('dbg-smstr', smileStrength.toFixed(2)); setDbg('dbg-smasym', smileAsym.toFixed(2));
-    setDbg('dbg-geomasym', geomAsym.toFixed(2)); setDbg('dbg-frasym', frameAsym.toFixed(2));
+    setDbg('dbg-geomasym', normalizedSideDifference.toFixed(2)); setDbg('dbg-frasym', frameAsym.toFixed(2));
     setDbg('dbg-pkl', peakSmileL.toFixed(2)); setDbg('dbg-pkr', peakSmileR.toFixed(2));
     setDbg('dbg-roll', rollDeg.toFixed(1)+'°'); setDbg('dbg-yaw', yawDeg.toFixed(1)+'°'); setDbg('dbg-pitch', pitchDeg.toFixed(1)+'°');
     setDbg('dbg-vf', validSmileFrames); setDbg('dbg-rep', lastRepAsym.toFixed(2)); setDbg('dbg-phase', phase);
@@ -3862,7 +3989,7 @@ function onResults(results, handResults=null){
 
     // Blendshape is required to confirm that a smile began. Normalized geometry
     // may support a closed-mouth smile, but geometry alone can never open the window.
-    const startEvidence = evaluateSmileEvidence(smileL, smileR, riseLn, riseRn, 'start');
+    const startEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, 'start');
     if (startEvidence.confirmed){
       clearSmileCaptureWindow();
       smileEverDetected = true;
@@ -3898,7 +4025,7 @@ function onResults(results, handResults=null){
 
     // ใช้ "ข้างที่ขยับมากที่สุด" เป็นตัวตรวจว่ามีความพยายามยิ้ม
     // เพราะ stroke-like smile อาจขยับชัดแค่ข้างเดียว
-    const validEvidence = evaluateSmileEvidence(smileL, smileR, riseLn, riseRn, 'valid');
+    const validEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, 'valid');
     const validSmileNow = validEvidence.confirmed && mouthAssessable;
 
     // If a hand covers the mouth or the mouth becomes unassessable after the
@@ -3924,10 +4051,13 @@ function onResults(results, handResults=null){
       smileLostSinceMs = null;
       validSmileFrames++;
       frameAsymScores.push(frameAsym);
+      validSignedRiseL.push(signedRiseLn);
+      validSignedRiseR.push(signedRiseRn);
       peakSmileL = Math.max(peakSmileL, smileL);
       peakSmileR = Math.max(peakSmileR, smileR);
-      peakRiseL  = Math.max(peakRiseL, riseLn);
-      peakRiseR  = Math.max(peakRiseR, riseRn);
+      // Diagnostic peak only; clinical geometry uses the median aggregation.
+      peakRiseL  = Math.max(peakRiseL, signedRiseLn);
+      peakRiseR  = Math.max(peakRiseR, signedRiseRn);
     } else if (mouthAssessable) {
       if (smileLostSinceMs === null) smileLostSinceMs = now;
       if (now - smileLostSinceMs >= SMILE_LOST_GRACE_MS){
@@ -3970,7 +4100,12 @@ function finishFace(){
   // Gate 1: the stronger side must have produced a REAL smile, otherwise we never
   // truly saw the person smile (weak attempt / occlusion) → unable to assess.
   const strongBlend = Math.max(peakSmileL, peakSmileR);
-  const strongRise = Math.max(peakRiseL, peakRiseR);
+  const riseAggregation = currentGeometryRiseAggregation();
+  const aggregatedSignedRiseL = riseAggregation.aggregatedSignedRiseLeft;
+  const aggregatedSignedRiseR = riseAggregation.aggregatedSignedRiseRight;
+  const effectiveRiseL = riseAggregation.effectiveRiseLeft;
+  const effectiveRiseR = riseAggregation.effectiveRiseRight;
+  const strongRise = riseAggregation.strongEffectiveRise;
   // Geometry alone cannot prove that a smile occurred. Closed-mouth smiles remain
   // supported through the earlier blend-supported-geometry path, but final validity
   // still requires the existing minimum blendshape evidence.
@@ -3992,24 +4127,28 @@ function finishFace(){
   // Asymmetry magnitudes (continuous, 0 = symmetric, 1 = fully one-sided).
   const blendAsym = (peakSmileL + peakSmileR) > 0.05
     ? Math.abs(peakSmileL - peakSmileR) / (peakSmileL + peakSmileR) : 0;
-  const riseAsym = (peakRiseL + peakRiseR) > 0.05
-    ? Math.abs(peakRiseL - peakRiseR) / (peakRiseL + peakRiseR) : 0;
+  const riseAsym = riseAggregation.geometryRiseUsable
+    ? Math.abs(effectiveRiseL - effectiveRiseR) /
+      (effectiveRiseL + effectiveRiseR)
+    : 0;
 
-  // How much did the WEAKER side move compared with the stronger side?
-  // This is the clinical "one side isn't working" signal — but as a smooth ratio,
-  // not a brittle on/off threshold, so a slightly uneven normal smile isn't flagged.
-  const weakRise   = Math.min(peakRiseL, peakRiseR);
-  const weakRatio  = strongRise > 0 ? weakRise / strongRise : 0;
+  // Weak-side ratio is derived only after robust aggregation. If total geometry
+  // movement is too small for the existing 0.05 usability rule, do not manufacture
+  // a weak-side failure from near-zero landmark noise; rely on blendshape asymmetry.
+  const weakRise = riseAggregation.weakEffectiveRise;
+  const weakRatio = riseAggregation.geometryRiseUsable && strongRise > 0
+    ? weakRise / strongRise
+    : null;
 
   let rep = Math.max(blendAsym, riseAsym);
   let riskLevel;
 
-  if (weakRatio < WEAK_SIDE_RATIO_BAD){
-    // weak side moved below the configured active ratio → abnormal
+  if (riseAggregation.geometryRiseUsable &&
+      weakRatio !== null &&
+      weakRatio < WEAK_SIDE_RATIO_BAD){
     riskLevel = 'bad';
     rep = Math.max(rep, 0.55);
   } else {
-    // both sides moved meaningfully → grade by how uneven the smile was
     riskLevel = rep >= SMILE_ASYM_BAD ? 'bad' : rep >= SMILE_ASYM_WARN ? 'warn' : 'ok';
   }
 
@@ -4017,9 +4156,19 @@ function finishFace(){
   if (criticalFired) riskLevel = 'bad';
   const score = criticalFired ? Math.min(asymToScore(rep), 30) : asymToScore(rep);
 
-  captureAttempt('valid', null, {weakRatio:roundMetric(weakRatio), representativeAsym:roundMetric(rep)});
+  captureAttempt('valid', null, {
+    weakRatio:roundMetric(weakRatio),
+    representativeAsym:roundMetric(rep),
+    geometryRiseUsable:riseAggregation.geometryRiseUsable
+  });
   saveAndShow(score, riskLevel, {
     representativeAsym: rep, blendAsym, riseAsym, weakRatio,
+    geometryRiseUsable:riseAggregation.geometryRiseUsable,
+    riseAggregationMethod:riseAggregation.aggregationMethod,
+    aggregatedSignedRiseLeft:aggregatedSignedRiseL,
+    aggregatedSignedRiseRight:aggregatedSignedRiseR,
+    effectiveRiseLeft:effectiveRiseL,
+    effectiveRiseRight:effectiveRiseR,
     activeWeakSideRatioBad: WEAK_SIDE_RATIO_BAD,
     shadowWeakSideRatioBad: WEAK_SIDE_RATIO_SHADOW,
     shadowWouldFlagWeakSide: weakRatio < WEAK_SIDE_RATIO_SHADOW,
@@ -4028,9 +4177,13 @@ function finishFace(){
     peakSmileL, peakSmileR, peakRiseL, peakRiseR,
     validSmileFrames, smileFrameCount, validSmileRatio, smileWindowVisibleMouthFrames:visibleMouthFrames, visibleMouthFrames, avgMouthVisibility,
     geometryNormalization: 'eye-centered-2d-roll-scale',
+    geometryFrameDisplacement: 'signed-baseline-minus-current',
+    geometryRiseAggregation: 'median-of-valid-smile-frames',
+    geometryEffectiveRisePolicy: 'max-zero-after-aggregation',
+    geometryPerFrameClamp: false,
     usesLandmarkZ: false,
     smileConfirmation: 'blendshape_required_geometry_support_allowed',
-    method: 'continuous_blend_confirmed_smile_with_2d_eye_frame_geometry'
+    method: 'continuous_blend_confirmed_smile_with_signed_median_2d_geometry'
   });
 }
 
