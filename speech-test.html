@@ -950,7 +950,10 @@ const RECOGNITION_SAFETY_MS = SPEECH_CFG.recognitionSafetyMs ?? 8000;
 const TRAILING_GAP_MS = SPEECH_CFG.trailingGapMs ?? 800;
 const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.3.0';
 const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.0.0';
-const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.0.0';
+const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.1.0';
+const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.1.0';
+const SPEECH_RESEARCH_HISTORY_LIMIT = Math.max(1, SPEECH_CFG.researchHistoryLimit ?? 8);
+const RESEARCH_SAMPLE_INTERVAL_MS = Math.max(50, SPEECH_CFG.researchSampleIntervalMs ?? 100);
 
 let noisyAck = false; // คงไว้เพื่อ compatibility กับ overlay เดิม แต่ไม่ใช้เตือนก่อนพูดแล้ว
 
@@ -994,6 +997,24 @@ let automaticValidityRetries = 0;
 let speechAttemptNo = 0;
 let speechAttemptHistory = [];
 let currentAttemptStartedAt = null;
+let currentAttemptStartedAtMs = null;
+let currentAttemptPerformanceStartedAt = null;
+
+// Module-level test_attempt identity. User-triggered retry creates a new identity;
+// automatic validity retry remains an internal attempt in attempts[].
+let speechTestAttemptId = null;
+let speechAttemptSequenceNo = null;
+let speechModuleStartedAtMs = null;
+let speechAttemptTrigger = 'initial_start';
+let speechResearchFrames = [];
+let lastSpeechResearchFrameAtMs = 0;
+let asrObservationEvents = [];
+let permissionRuntime = {};
+let microphoneRuntime = {};
+let micDisclosureAcknowledged = false;
+let micDisclosureShownAt = null;
+let micDisclosureAcknowledgedAt = null;
+
 let audioStartToken = 0; // invalidate async work/events from an older attempt
 let resultReleaseTimer = null;
 let lastAsrErrorCode = null;
@@ -1028,6 +1049,12 @@ async function recoverDeadMic() {
     return;
   }
 
+  appendSpeechAttempt('technical_retry', {
+    invalidReasonCode: 'DEAD_MIC_DETECTED',
+    message: 'Digital silence detected; rebuilding microphone pipeline',
+    qualityFlags: ['DEAD_MIC_DETECTED']
+  });
+
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent = T.micReconnecting
     .replace('{attempt}', String(deadMicAttempt))
@@ -1059,7 +1086,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.3.0 — health-checked retry';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.4.0 — attempt history + research payload';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -1210,6 +1237,373 @@ function resetMeasurementState() {
   window.MEASURED_NOISY = false;
 }
 
+
+function roundSpeechMetric(value, digits = 5) {
+  return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
+}
+
+function createSpeechResearchId(prefix = 'speech-attempt') {
+  try {
+    if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
+    if (window.crypto?.getRandomValues) {
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      const token = Array.from(bytes, value => value.toString(16).padStart(2, '0')).join('');
+      return `${prefix}-${token}`;
+    }
+  } catch (error) {
+    console.warn('Unable to create cryptographic Speech research id; using fallback', error);
+  }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+function nextSpeechAttemptSequence() {
+  const key = 'fast_speech_attempt_sequence';
+  try {
+    const current = Number.parseInt(sessionStorage.getItem(key) || '0', 10);
+    const next = Number.isFinite(current) ? current + 1 : 1;
+    sessionStorage.setItem(key, String(next));
+    return next;
+  } catch (error) {
+    console.warn('Unable to update Speech attempt sequence', error);
+    return null;
+  }
+}
+
+function prepareSpeechModuleAttempt(trigger = 'initial_start') {
+  speechTestAttemptId = createSpeechResearchId('speech-attempt');
+  speechAttemptSequenceNo = nextSpeechAttemptSequence();
+  speechModuleStartedAtMs = Date.now();
+  speechAttemptTrigger = trigger;
+  automaticValidityRetries = 0;
+  speechAttemptNo = 0;
+  speechAttemptHistory = [];
+  currentAttemptStartedAt = null;
+  currentAttemptStartedAtMs = null;
+  currentAttemptPerformanceStartedAt = null;
+  speechResearchFrames = [];
+  lastSpeechResearchFrameAtMs = 0;
+  asrObservationEvents = [];
+  permissionRuntime = {};
+  microphoneRuntime = {};
+  try { sessionStorage.removeItem('fast_speech'); } catch (error) {}
+  return speechTestAttemptId;
+}
+
+function ensureSpeechModuleAttempt(trigger = 'initial_start') {
+  if (!speechTestAttemptId || !speechModuleStartedAtMs) {
+    prepareSpeechModuleAttempt(trigger);
+  }
+  return speechTestAttemptId;
+}
+
+function getSpeechScreeningContext() {
+  let participantId = null;
+  let screeningSessionId = null;
+  let screeningSessionStartedAt = null;
+  let sessionMode = null;
+  try {
+    participantId = sessionStorage.getItem('fast_participant_id');
+    screeningSessionId = sessionStorage.getItem('fast_assessment_id');
+    screeningSessionStartedAt = sessionStorage.getItem('fast_started_at');
+    sessionMode = sessionStorage.getItem('fast_mode');
+  } catch (error) {
+    console.warn('Unable to read common screening context', error);
+  }
+  return {
+    participantId,
+    screeningSessionId,
+    screeningSessionStartedAt,
+    sessionMode,
+    identificationMode: participantId ? 'legacy_browser_session' : 'unidentified'
+  };
+}
+
+function speechAttemptStatus(validityStatus) {
+  if (validityStatus === 'valid') return 'completed_valid';
+  if (validityStatus === 'invalid') return 'completed_invalid';
+  if (validityStatus === 'error') return 'technical_error';
+  if (validityStatus === 'aborted') return 'aborted';
+  return 'unknown';
+}
+
+function speechQualityStatus(validityStatus, flags = []) {
+  if (validityStatus !== 'valid') return 'invalid';
+  return flags.length ? 'warning' : 'acceptable';
+}
+
+function captureSpeechPermissionRuntime(result, sourceName = 'fast_permissions') {
+  if (!result || typeof result !== 'object') return;
+  permissionRuntime = {
+    source: sourceName,
+    helperVersion: result.helperVersion || window.FastPermissions?.version || null,
+    kind: result.kind || 'mic',
+    platform: result.platform || window.FastPermissions?.detectPlatform?.() || null,
+    permissionStateBefore: result.permissionStateBefore || null,
+    requestedAt: result.requestedAt || null,
+    completedAt: result.completedAt || null,
+    ok: result.ok === true,
+    errorType: result.errorType || null,
+    reasonCode: result.reasonCode || null
+  };
+}
+
+function captureSpeechMicrophoneRuntime(stream, acquisitionMode) {
+  try {
+    const track = stream?.getAudioTracks?.()[0];
+    const settings = track?.getSettings?.() || {};
+    const constraints = track?.getConstraints?.() || {};
+    microphoneRuntime = {
+      acquisitionMode: acquisitionMode || null,
+      label: track?.label || null,
+      readyState: track?.readyState || null,
+      muted: track?.muted ?? null,
+      enabled: track?.enabled ?? null,
+      settings: {
+        sampleRate: settings.sampleRate || null,
+        sampleSize: settings.sampleSize || null,
+        channelCount: settings.channelCount || null,
+        echoCancellation: settings.echoCancellation ?? null,
+        noiseSuppression: settings.noiseSuppression ?? null,
+        autoGainControl: settings.autoGainControl ?? null,
+        deviceId: settings.deviceId || null,
+        groupId: settings.groupId || null
+      },
+      constraints
+    };
+  } catch (error) {
+    microphoneRuntime = { acquisitionMode: acquisitionMode || null, captureError: String(error?.message || error) };
+  }
+}
+
+function recordSpeechResearchFrame(data = {}) {
+  if (!speechModuleStartedAtMs || phase === 'DONE') return;
+  const now = Date.now();
+  if (now - lastSpeechResearchFrameAtMs < RESEARCH_SAMPLE_INTERVAL_MS) return;
+  lastSpeechResearchFrameAtMs = now;
+  speechResearchFrames.push({
+    tMs: now - speechModuleStartedAtMs,
+    attemptNo: Math.max(1, speechAttemptNo),
+    phase,
+    ...data
+  });
+}
+
+function appendAsrObservation(type, detail = {}) {
+  if (!speechModuleStartedAtMs) return;
+  asrObservationEvents.push({
+    tMs: Date.now() - speechModuleStartedAtMs,
+    attemptNo: Math.max(1, speechAttemptNo),
+    type,
+    ...detail
+  });
+  if (asrObservationEvents.length > 160) {
+    asrObservationEvents = asrObservationEvents.slice(-160);
+  }
+}
+
+function currentSpeechDurationSec() {
+  if (speechStartMs && speechEndMs && speechEndMs >= speechStartMs) {
+    return (speechEndMs - speechStartMs) / 1000;
+  }
+  if (speechStartMs && lastVoiceMs && lastVoiceMs >= speechStartMs) {
+    return (lastVoiceMs - speechStartMs) / 1000;
+  }
+  return 0;
+}
+
+function currentSpeechEnergySummary() {
+  const speechEnergy = calcSpeechEnergy(vowelEnergyBuf);
+  const snrDb = calcSnrDb(speechEnergy, noiseFloor);
+  let coefficientOfVariation = null;
+  if (vowelEnergyBuf.length) {
+    const avg = vowelEnergyBuf.reduce((a, b) => a + b, 0) / vowelEnergyBuf.length;
+    const std = Math.sqrt(vowelEnergyBuf.reduce((sum, value) => sum + (value - avg) ** 2, 0) / vowelEnergyBuf.length);
+    coefficientOfVariation = avg > 0 ? std / avg : 0;
+  }
+  return { speechEnergy, snrDb, coefficientOfVariation };
+}
+
+function currentSpeechQualityFlags({ confidenceImputed = confidenceWasImputed } = {}) {
+  const flags = [];
+  const { snrDb } = currentSpeechEnergySummary();
+  if (snrDb !== null && snrDb < SNR_WARN_DB) flags.push('LOW_SNR');
+  if (confidenceImputed) flags.push('ASR_CONFIDENCE_IMPUTED');
+  if (lastAsrErrorCode) {
+    flags.push(`ASR_ERROR_${String(lastAsrErrorCode).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`);
+  }
+  return [...new Set(flags)];
+}
+
+function speechRawObservations(details = {}) {
+  const reportedConfidence = Number.isFinite(details.reportedConfidence) && details.reportedConfidence > 0
+    ? details.reportedConfidence
+    : null;
+  const speechStartOffsetMs = speechStartMs && currentAttemptPerformanceStartedAt
+    ? Math.max(0, speechStartMs - currentAttemptPerformanceStartedAt)
+    : null;
+  const speechEndOffsetMs = speechEndMs && currentAttemptPerformanceStartedAt
+    ? Math.max(0, speechEndMs - currentAttemptPerformanceStartedAt)
+    : null;
+  return {
+    transcript: String(details.transcript || ''),
+    asrConfidenceReported: reportedConfidence,
+    asrErrorCode: details.asrErrorCode || lastAsrErrorCode || null,
+    asrEvents: asrObservationEvents
+      .filter(event => event.attemptNo === speechAttemptNo)
+      .map(event => ({ ...event })),
+    calibrationSpeechBandEnergy: noiseFrames.map(value => roundSpeechMetric(value, 6)),
+    speechBandEnergySamples: vowelEnergyBuf.map(value => roundSpeechMetric(value, 6)),
+    speechStartOffsetMs: roundSpeechMetric(speechStartOffsetMs, 1),
+    speechEndOffsetMs: roundSpeechMetric(speechEndOffsetMs, 1),
+    energyFrameCount: vowelEnergyBuf.length,
+    tonalVoiceEventCount: voiceHistory.length,
+    loudFrameCount: loudCount,
+    tonalFrameCount: tonerCount,
+    flatnessMin: Number.isFinite(flatMin) && flatMin < 1 ? roundSpeechMetric(flatMin, 4) : null,
+    flatnessMax: Number.isFinite(flatMax) && flatMax > 0 ? roundSpeechMetric(flatMax, 4) : null,
+    rawAudioStored: false
+  };
+}
+
+function speechDerivedMetrics(details = {}) {
+  const energy = currentSpeechEnergySummary();
+  const durationSec = details.durationSec ?? currentSpeechDurationSec();
+  return {
+    normalizedTranscript: details.normalizedTranscript ?? null,
+    acceptedVariantMatched: details.acceptedVariantMatched ?? null,
+    textSimilarityShadow: roundSpeechMetric(details.textSimilarityShadow, 5),
+    confidenceUsedForScoring: roundSpeechMetric(details.confidenceUsedForScoring, 5),
+    confidenceImputed: details.confidenceImputed ?? confidenceWasImputed,
+    durationSec: roundSpeechMetric(durationSec, 4),
+    speechUnitsPerSec: roundSpeechMetric(details.speechUnitsPerSec, 4),
+    rateUnit: details.rateUnit || rateUnitLabel(),
+    noiseFloor: roundSpeechMetric(noiseFloor, 6),
+    dynamicThreshold: roundSpeechMetric(dynThreshold, 6),
+    speechEnergy: roundSpeechMetric(energy.speechEnergy, 6),
+    snrDb: roundSpeechMetric(energy.snrDb, 3),
+    coefficientOfVariation: roundSpeechMetric(energy.coefficientOfVariation, 5),
+    energyFrameCount: vowelEnergyBuf.length,
+    wordScore: Number.isFinite(details.wordScore) ? details.wordScore : null,
+    rateScore: Number.isFinite(details.rateScore) ? details.rateScore : null,
+    stabilityScore: Number.isFinite(details.stabilityScore) ? details.stabilityScore : null,
+    totalSpeechScore: Number.isFinite(details.totalSpeechScore) ? details.totalSpeechScore : null
+  };
+}
+
+function persistSpeechPayload(payload, { writeLegacyResult = true } = {}) {
+  if (!payload || typeof payload !== 'object') return payload;
+  const json = JSON.stringify(payload);
+  try {
+    if (writeLegacyResult) sessionStorage.setItem('fast_speech', json);
+    sessionStorage.setItem('fast_speech_research_latest', json);
+    sessionStorage.setItem('fast_result_source', 'speech');
+
+    let history = [];
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem('fast_speech_research_history') || '[]');
+      if (Array.isArray(parsed)) history = parsed;
+    } catch (error) {
+      console.warn('Unable to parse Speech research history; starting a new history', error);
+    }
+    const duplicateIndex = history.findIndex(item => item?.testAttemptId === payload.testAttemptId);
+    if (duplicateIndex >= 0) history.splice(duplicateIndex, 1);
+    history.push(payload);
+    if (history.length > SPEECH_RESEARCH_HISTORY_LIMIT) {
+      history = history.slice(history.length - SPEECH_RESEARCH_HISTORY_LIMIT);
+    }
+    sessionStorage.setItem('fast_speech_research_history', JSON.stringify(history));
+  } catch (error) {
+    console.warn('Unable to persist Speech research payload', error);
+  }
+  window.SPEECH_RESULT = payload;
+  window.SPEECH_RESEARCH_RESULT = payload;
+  return payload;
+}
+
+function latestSpeechResearchPayload() {
+  if (window.SPEECH_RESEARCH_RESULT) return window.SPEECH_RESEARCH_RESULT;
+  try {
+    return JSON.parse(sessionStorage.getItem('fast_speech_research_latest') || 'null');
+  } catch (error) {
+    console.warn('Unable to read latest Speech research payload', error);
+    return null;
+  }
+}
+
+function downloadSpeechResearchJson() {
+  if (!DEBUG_ON) return;
+  const payload = latestSpeechResearchPayload();
+  if (!payload) return alert('No Speech research payload is available yet.');
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeId = String(payload.testAttemptId || 'latest').replace(/[^a-zA-Z0-9_-]/g, '_');
+  link.href = url;
+  link.download = `quickstroke-speech-${safeId}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function copySpeechResearchJson() {
+  if (!DEBUG_ON) return;
+  const payload = latestSpeechResearchPayload();
+  if (!payload) return alert('No Speech research payload is available yet.');
+  const json = JSON.stringify(payload, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    alert('Speech research JSON copied.');
+  } catch (error) {
+    const area = document.createElement('textarea');
+    area.value = json;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand('copy');
+    area.remove();
+    alert(copied ? 'Speech research JSON copied.' : 'Unable to copy JSON.');
+  }
+}
+
+window.downloadSpeechResearchJson = downloadSpeechResearchJson;
+window.copySpeechResearchJson = copySpeechResearchJson;
+
+async function ensureMicDisclosureBeforeFirstUse() {
+  if (micDisclosureAcknowledged) return true;
+  if (!window.FastPermissions?.getStrings) {
+    throw new Error('Microphone privacy disclosure resources are unavailable');
+  }
+  const permLang = sessionStorage.getItem('fast_lang') || 'th';
+  const S = await FastPermissions.getStrings(permLang);
+  micDisclosureShownAt = new Date().toISOString();
+
+  return new Promise(resolve => {
+    document.getElementById('speech-mic-disclosure-overlay')?.remove();
+    const overlay = document.createElement('div');
+    overlay.id = 'speech-mic-disclosure-overlay';
+    overlay.style.cssText = 'position:fixed;inset:0;z-index:9998;background:#F8FAFC;display:flex;align-items:center;justify-content:center;padding:28px 22px;font-family:inherit;color:#0F172A;text-align:center';
+    const privacyNote = S.privacyMicNote || S.privacyNote;
+    overlay.innerHTML = `
+      <div style="width:100%;max-width:360px;background:#fff;border:1px solid #E5E7EB;border-radius:28px;padding:28px 22px 24px;box-shadow:0 24px 60px rgba(15,23,42,.14)">
+        <div style="font-size:38px;margin-bottom:12px">🎤</div>
+        <div style="font-size:20px;font-weight:800;margin-bottom:8px">${S.micTitle}</div>
+        <p style="font-size:15px;line-height:1.65;margin:0;color:#475569">${S.needMic}</p>
+        <p style="font-size:12px;line-height:1.55;margin:10px auto 20px;color:#64748B">${privacyNote}</p>
+        <button type="button" style="width:100%;background:linear-gradient(180deg,#2B7DE9,#155FC3);color:#fff;border:none;border-radius:18px;padding:15px 22px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer">${S.allowBtn}</button>
+      </div>`;
+    overlay.querySelector('button').onclick = () => {
+      micDisclosureAcknowledged = true;
+      micDisclosureAcknowledgedAt = new Date().toISOString();
+      overlay.remove();
+      resolve(true);
+    };
+    document.body.appendChild(overlay);
+  });
+}
+
 // ═══════════════════════════════════════════════════
 // UI CONTROL
 // ═══════════════════════════════════════════════════
@@ -1309,11 +1703,17 @@ async function handleAction() {
     retryStarting = true;
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
-    automaticValidityRetries = 0;
-    speechAttemptNo = 0;
-    speechAttemptHistory = [];
+    prepareSpeechModuleAttempt('initial_start');
     try {
+      await ensureMicDisclosureBeforeFirstUse();
       await startRecording(false);
+    } catch (error) {
+      if (phase !== 'DONE') {
+        finishSpeechInvalid('I18N_LOAD_FAILED', {
+          message: error?.message || String(error),
+          errorName: error?.name || null
+        });
+      }
     } finally {
       retryStarting = false;
       actionBtn.disabled = false;
@@ -1325,13 +1725,9 @@ async function handleAction() {
     evaluateSpeech('__manual__', 0);
   }
   else if (phase === 'DONE') {
-    // User-requested retry starts a new logical session. On iOS the existing
-    // pipeline may be reused only after a real signal health check.
+    // User-requested module retry creates a new test_attempt in the same
+    // screening_session. The previous payload remains in research history.
     retryStarting = true;
-    automaticValidityRetries = 0;
-    speechAttemptNo = 0;
-    speechAttemptHistory = [];
-
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
     actionBtn.textContent = T.calibrating;
@@ -1339,9 +1735,9 @@ async function handleAction() {
     try {
       phase = 'IDLE';
       resetUI();
+      prepareSpeechModuleAttempt('user_retry');
       actionBtn.disabled = true;
       actionBtn.textContent = T.calibrating;
-
       await startRecording(true);
     } finally {
       retryStarting = false;
@@ -1479,30 +1875,40 @@ function mapMicErrorReason(error) {
 async function acquireFreshMicStream(permLang) {
   let permissionResult = null;
 
-  // ใช้ permission helper เดิมก่อน เพื่อรักษา UX/ข้อความแจ้งเตือนของแอป
+  // Use the shared helper for the browser permission request. The separate
+  // privacy disclosure has already been shown before the first microphone use.
   if (window.FastPermissions && typeof FastPermissions.request === 'function') {
     try {
       permissionResult = await FastPermissions.request('mic', permLang);
+      captureSpeechPermissionRuntime(permissionResult, 'fast_permissions_request');
     } catch (error) {
       permissionResult = null;
     }
   }
 
   if (permissionResult?.ok && hasLiveAudioTrack(permissionResult.stream)) {
+    captureSpeechMicrophoneRuntime(permissionResult.stream, 'fast_permissions_stream');
     return permissionResult.stream;
   }
 
-  // บาง implementation cache MediaStream เดิมไว้ แม้ track ถูก stop ไปแล้ว
-  // จึงขอสตรีมใหม่จาก browser โดยตรงสำหรับรอบทดสอบซ้ำ
+  // Some helper implementations may return a cached stopped stream. Request a
+  // fresh browser stream while retaining the helper failure metadata.
   if (navigator.mediaDevices?.getUserMedia) {
     try {
-      return await navigator.mediaDevices.getUserMedia({
+      const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: false,
           autoGainControl: false
         }
       });
+      permissionRuntime = {
+        ...permissionRuntime,
+        effectiveOutcome: 'stream_acquired_by_direct_fallback',
+        directFallbackSucceeded: true
+      };
+      captureSpeechMicrophoneRuntime(stream, 'direct_get_user_media_fallback');
+      return stream;
     } catch (error) {
       error.permissionResult = permissionResult;
       throw error;
@@ -1526,9 +1932,12 @@ async function startRecording(forceDirectMic = false) {
   if (startToken !== audioStartToken) return;
   DBG('CLEANUP DONE', 'previous ASR/session cleanup completed');
 
+  ensureSpeechModuleAttempt(forceDirectMic ? 'retry' : 'initial_start');
   resetMeasurementState();
   speechAttemptNo++;
-  currentAttemptStartedAt = new Date().toISOString();
+  currentAttemptStartedAtMs = Date.now();
+  currentAttemptStartedAt = new Date(currentAttemptStartedAtMs).toISOString();
+  currentAttemptPerformanceStartedAt = performance.now();
   lastAsrErrorCode = null;
   confidenceWasImputed = false;
 
@@ -1623,6 +2032,7 @@ async function startRecording(forceDirectMic = false) {
           autoGainControl: false
         }
       });
+      captureSpeechMicrophoneRuntime(streamRef, 'direct_get_user_media');
     } else {
       streamRef = await acquireFreshMicStream(permLang);
     }
@@ -1658,6 +2068,7 @@ async function startRecording(forceDirectMic = false) {
           autoGainControl: false
         }
       });
+      captureSpeechMicrophoneRuntime(streamRef, `direct_get_user_media_track_retry_${retry + 1}`);
       DBG_TRACK(`STREAM retry ${retry + 1}`, streamRef);
 
       if (!hasLiveAudioTrack(streamRef)) continue;
@@ -1699,6 +2110,9 @@ async function startRecording(forceDirectMic = false) {
     await stopAll(true);
     if (startToken !== audioStartToken) return;
 
+    if (err?.permissionResult) {
+      captureSpeechPermissionRuntime(err.permissionResult, 'fast_permissions_request');
+    }
     const reasonCode = mapMicErrorReason(err);
     finishSpeechInvalid(reasonCode, {
       message: err?.message || String(err),
@@ -1706,23 +2120,35 @@ async function startRecording(forceDirectMic = false) {
       attemptNo: speechAttemptNo
     });
 
-    // Show the permission guidance only on the initial attempt. A successful
-    // permission retry starts a completely new logical session and overwrites
-    // the saved invalid result.
+    // Permission recovery is a new module-level test_attempt. The technical
+    // invalid payload above remains in fast_speech_research_history.
     if (!forceDirectMic) {
       const permLang = sessionStorage.getItem('fast_lang') || 'th';
       if (window.FastPermissions && typeof FastPermissions.requestWithUI === 'function') {
         try {
-          FastPermissions.requestWithUI('mic', permLang, (stream) => {
-            if (hasLiveAudioTrack(stream)) {
+          FastPermissions.requestWithUI(
+            'mic',
+            permLang,
+            async (stream, result) => {
+              if (!hasLiveAudioTrack(stream)) return;
               stream.getTracks().forEach(track => track.stop());
-              automaticValidityRetries = 0;
-              speechAttemptNo = 0;
-              speechAttemptHistory = [];
-              startRecording(true);
-            }
-          });
-        } catch (uiError) {}
+              retryStarting = true;
+              try {
+                phase = 'IDLE';
+                resetUI();
+                prepareSpeechModuleAttempt('permission_recovery');
+                captureSpeechPermissionRuntime(result, 'fast_permissions_ui');
+                await startRecording(true);
+              } finally {
+                retryStarting = false;
+                if ($('action-btn')) $('action-btn').disabled = false;
+              }
+            },
+            (result) => captureSpeechPermissionRuntime(result, 'fast_permissions_ui')
+          );
+        } catch (uiError) {
+          console.warn('Unable to show microphone permission recovery UI', uiError);
+        }
       }
     }
 
@@ -1749,12 +2175,30 @@ async function beginSpeechRecognition() {
     DBG('ASR created', `lang=${T.langCode}`);
 
     // ═══ DEBUG: event ที่บอกว่า ASR "ได้ยิน" อะไรบ้าง ═══
-    recognition.onstart      = () => DBG('ASR onstart', 'engine เริ่มทำงานแล้ว');
-    recognition.onaudiostart = () => DBG('ASR onaudiostart', '🎤 engine เริ่มรับ audio แล้ว');
-    recognition.onaudioend   = () => DBG('ASR onaudioend', 'engine หยุดรับ audio');
-    recognition.onsoundstart = () => DBG('ASR onsoundstart', '🔉 ตรวจพบเสียง');
-    recognition.onspeechstart= () => DBG('ASR onspeechstart', '🗣️ ตรวจพบเสียงพูด');
-    recognition.onspeechend  = () => DBG('ASR onspeechend');
+    recognition.onstart = () => {
+      DBG('ASR onstart', 'engine เริ่มทำงานแล้ว');
+      appendAsrObservation('start');
+    };
+    recognition.onaudiostart = () => {
+      DBG('ASR onaudiostart', '🎤 engine เริ่มรับ audio แล้ว');
+      appendAsrObservation('audio_start');
+    };
+    recognition.onaudioend = () => {
+      DBG('ASR onaudioend', 'engine หยุดรับ audio');
+      appendAsrObservation('audio_end');
+    };
+    recognition.onsoundstart = () => {
+      DBG('ASR onsoundstart', '🔉 ตรวจพบเสียง');
+      appendAsrObservation('sound_start');
+    };
+    recognition.onspeechstart = () => {
+      DBG('ASR onspeechstart', '🗣️ ตรวจพบเสียงพูด');
+      appendAsrObservation('speech_start');
+    };
+    recognition.onspeechend = () => {
+      DBG('ASR onspeechend');
+      appendAsrObservation('speech_end');
+    };
 
     let gotResult = false;
     let bestTranscript = '';
@@ -1823,6 +2267,17 @@ async function beginSpeechRecognition() {
       }
 
       const hasFinal = ordered.some(item => item.isFinal);
+      appendAsrObservation('result', {
+        resultIndex: startIndex,
+        transcript: bestTranscript,
+        confidenceReported: confidenceWasImputed ? null : roundSpeechMetric(bestConfidence, 5),
+        hasFinal,
+        segments: ordered.map(item => ({
+          text: item.text,
+          confidenceReported: Number.isFinite(item.confidence) ? roundSpeechMetric(item.confidence, 5) : null,
+          isFinal: item.isFinal
+        }))
+      });
       if (recognitionFinalTimer) clearTimeout(recognitionFinalTimer);
       recognitionFinalTimer = setTimeout(() => {
         if (isCurrentRun() && bestTranscript) finishWith(bestTranscript, bestConfidence);
@@ -1831,6 +2286,7 @@ async function beginSpeechRecognition() {
 
     recognition.onerror = (e) => {
       lastAsrErrorCode = e.error || 'unknown';
+      appendAsrObservation('error', { errorCode: lastAsrErrorCode, gotResult });
       DBG('ASR ❌ onerror', `error="${e.error}" gotResult=${gotResult} isCurrentRun=${isCurrentRun()}`);
       if (!isCurrentRun()) return;
 
@@ -1845,6 +2301,7 @@ async function beginSpeechRecognition() {
     };
 
     recognition.onend = () => {
+      appendAsrObservation('end', { transcript: bestTranscript || '' });
       DBG('ASR onend', `bestTranscript="${bestTranscript}" isCurrentRun=${isCurrentRun()}`);
       if (!isCurrentRun()) return;
 
@@ -1886,6 +2343,7 @@ async function beginSpeechRecognition() {
       if (isCurrentRun()) finishWith(bestTranscript || '', bestConfidence || 0);
     }, RECOGNITION_SAFETY_MS);
   } else {
+    appendAsrObservation('unavailable');
     recognitionSafetyTimer = setTimeout(() => {
       if (phase !== 'DONE') {
         speechEndMs = getLastSpeechSegmentEnd();
@@ -2063,6 +2521,16 @@ function runLoop() {
       calibStartMs = nowMs;
     }
     noiseFrames.push(vEnergy);
+    recordSpeechResearchFrame({
+      speechBandEnergy: roundSpeechMetric(vEnergy, 6),
+      micSignalEnergy: roundSpeechMetric(micSignalEnergy, 8),
+      spectralFlatness: roundSpeechMetric(flatness, 4),
+      noiseFloor: null,
+      dynamicThreshold: null,
+      isLoud: false,
+      isTonal: false,
+      isVoice: false
+    });
     const elapsed = nowMs - calibStartMs;
 
     $('debug-box').innerHTML = `calibrating noise... ${Math.round(elapsed)}ms<br>vEnergy: ${vEnergy.toFixed(5)}`;
@@ -2096,10 +2564,21 @@ function runLoop() {
   // ── PHASE 2: Recording & Stream Tracking ───────────
   // isVoice ใช้ energy เป็นหลัก (จับเสียงพูดให้ได้แน่นอน)
   // flatness ใช้แยกว่า frame นี้เป็น "เสียงพูดจริง" (tonal) หรือ "noise" (flat)
-  // FLATNESS_MAX = 0.88: จากการวัดจริง เสียงพูด flatness 0.48-0.85, noise 0.9-1.0
+  // FLATNESS_MAX is versioned in config (currently 0.78); it is not changed by this data-instrumentation update.
   const isLoud  = vEnergy > dynThreshold;
   const isToner = flatness < FLATNESS_MAX;
   const isVoice = isLoud; // เริ่ม/จับเสียงด้วย energy
+
+  recordSpeechResearchFrame({
+    speechBandEnergy: roundSpeechMetric(vEnergy, 6),
+    micSignalEnergy: roundSpeechMetric(micSignalEnergy, 8),
+    spectralFlatness: roundSpeechMetric(flatness, 4),
+    noiseFloor: roundSpeechMetric(noiseFloor, 6),
+    dynamicThreshold: roundSpeechMetric(dynThreshold, 6),
+    isLoud,
+    isTonal: isToner,
+    isVoice
+  });
 
   // diagnostic: เก็บช่วง flatness ตอนเสียงดัง (เพื่อดูว่าเสียงพูด flatness เท่าไหร่)
   if (isLoud) {
@@ -2291,6 +2770,8 @@ function currentSpeechVersions() {
     moduleVersion: SPEECH_VERSION,
     algorithmVersion: SPEECH_ALGORITHM_VERSION,
     schemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
+    resultSchemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
+    researchPayloadVersion: SPEECH_RESEARCH_PAYLOAD_VERSION,
     localePackVersion: window.QuickStrokeI18n?.getMessages?.()?.meta?.packVersion || null
   };
 }
@@ -2300,17 +2781,117 @@ function speechRuntimeInfo() {
     recognitionMode: 'browser_default',
     speechRecognitionAvailable: !!(window.SpeechRecognition || window.webkitSpeechRecognition),
     audioContextState: audioCtx?.state || null,
+    audioContextSampleRate: audioCtx?.sampleRate || null,
     isIOS: IS_IOS,
     keepMicAlive: KEEP_MIC_ALIVE,
     userAgent: navigator.userAgent,
-    language: T?.langCode || document.documentElement.lang || null
+    platform: navigator.userAgentData?.platform || navigator.platform || null,
+    browserLanguage: navigator.language || null,
+    language: T?.langCode || document.documentElement.lang || null,
+    permission: { ...permissionRuntime },
+    microphone: JSON.parse(JSON.stringify(microphoneRuntime || {})),
+    disclosure: {
+      shownAt: micDisclosureShownAt,
+      acknowledgedAt: micDisclosureAcknowledgedAt,
+      acknowledged: micDisclosureAcknowledged
+    }
   };
 }
 
-function saveSpeechResult(result) {
-  sessionStorage.setItem('fast_speech', JSON.stringify(result));
-  sessionStorage.setItem('fast_result_source', 'speech');
-  window.SPEECH_RESULT = result;
+function makeSpeechResultPayload({
+  validityStatus,
+  clinicalResult,
+  clinicalScore,
+  invalidReasonCode = null,
+  technicalValidity,
+  qualityFlags = [],
+  riskLevel,
+  passed,
+  breakdown = {},
+  rawObservations = {},
+  derivedMetrics = {},
+  legacyRaw = {},
+  measuredNoisy = false
+}) {
+  ensureSpeechModuleAttempt();
+  const completedAtMs = Date.now();
+  const attemptSnapshot = speechAttemptHistory.map(record => JSON.parse(JSON.stringify(record)));
+  const researchFrameSnapshot = speechResearchFrames.map(frame => ({ ...frame }));
+  const qualityFlagSnapshot = [...new Set(qualityFlags)];
+  return {
+    schemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
+    researchPayloadVersion: SPEECH_RESEARCH_PAYLOAD_VERSION,
+    module: 'speech',
+    speechBuildMarker: DEBUG_BUILD,
+    testAttemptId: speechTestAttemptId,
+    attemptSequenceNo: speechAttemptSequenceNo,
+    attemptTrigger: speechAttemptTrigger,
+    attemptStatus: speechAttemptStatus(validityStatus),
+    qualityStatus: speechQualityStatus(validityStatus, qualityFlagSnapshot),
+    qualityFlags: qualityFlagSnapshot,
+    screeningContext: getSpeechScreeningContext(),
+
+    validityStatus,
+    clinicalResult,
+    clinicalScore: validityStatus === 'valid' ? clinicalScore : null,
+    scoreUsable: validityStatus === 'valid',
+    invalidReasonCode,
+    technicalValidity,
+
+    // Legacy fields retained until index/result consumers are fully migrated.
+    score: validityStatus === 'valid' ? clinicalScore : null,
+    riskLevel,
+    passed,
+    measuredNoisy,
+    raw: legacyRaw,
+
+    startedAt: speechModuleStartedAtMs ? new Date(speechModuleStartedAtMs).toISOString() : null,
+    completedAt: new Date(completedAtMs).toISOString(),
+    durationMs: speechModuleStartedAtMs ? completedAtMs - speechModuleStartedAtMs : null,
+    localeUsed: T?.langCode || document.documentElement.lang || null,
+
+    stimulus: {
+      targetPhrase: T?.target || null,
+      acceptedVariants: Array.isArray(T?.keywords) ? [...T.keywords] : [],
+      speechUnitCount: Number.isFinite(T?.syllables) ? T.syllables : null,
+      speechUnitType: 'locale_defined_speech_unit',
+      rateUnit: rateUnitLabel()
+    },
+
+    versions: currentSpeechVersions(),
+    thresholds: {
+      calibrationMs: CALIBRATION_MS,
+      noiseMultiplier: NOISE_MULTIPLIER,
+      noiseFloorCap: NOISE_FLOOR_CAP,
+      normalMin: NORMAL_MIN,
+      normalMax: NORMAL_MAX,
+      snrWarnDb: SNR_WARN_DB,
+      lowSnrPolicy: 'quality_flag_only',
+      flatnessMax: FLATNESS_MAX,
+      minSpeechDurationSec: MIN_SPEECH_DURATION_SEC,
+      minEnergyFrames: MIN_ENERGY_FRAMES,
+      autoValidityRetryCount: AUTO_VALIDITY_RETRY_COUNT,
+      autoValidityRetryDelayMs: AUTO_VALIDITY_RETRY_DELAY_MS,
+      recognitionSafetyMs: RECOGNITION_SAFETY_MS,
+      trailingGapMs: TRAILING_GAP_MS
+    },
+    runtime: { ...speechRuntimeInfo(), qualityFlags: qualityFlagSnapshot },
+    policy: {
+      lowSnr: 'quality_flag_only',
+      recognition: 'browser_default',
+      microphoneSpeechProcessingClaim: 'not_fully_on_device',
+      rawAudioStored: false
+    },
+    rawObservations,
+    derivedMetrics,
+    attempts: attemptSnapshot,
+    research: {
+      sampleIntervalMs: RESEARCH_SAMPLE_INTERVAL_MS,
+      storesRawAudio: false,
+      frames: researchFrameSnapshot
+    },
+    breakdown
+  };
 }
 
 function invalidReasonMessage(reasonCode) {
@@ -2337,13 +2918,47 @@ function invalidReasonMessage(reasonCode) {
 }
 
 function appendSpeechAttempt(outcome, details = {}) {
-  speechAttemptHistory.push({
-    attemptNo: speechAttemptNo,
-    startedAt: currentAttemptStartedAt,
-    completedAt: new Date().toISOString(),
-    outcome,
-    ...details
+  const qualityFlags = Array.isArray(details.qualityFlags)
+    ? [...new Set(details.qualityFlags)]
+    : currentSpeechQualityFlags({ confidenceImputed: details.confidenceImputed });
+  const rawObservations = details.rawObservations || speechRawObservations({
+    transcript: details.transcript || '',
+    reportedConfidence: details.reportedConfidence,
+    asrErrorCode: details.asrErrorCode || lastAsrErrorCode
   });
+  const derivedMetrics = details.derivedMetrics || speechDerivedMetrics({
+    durationSec: details.durationSec,
+    normalizedTranscript: details.normalizedTranscript,
+    acceptedVariantMatched: details.acceptedVariantMatched,
+    textSimilarityShadow: details.textSimilarityShadow,
+    confidenceUsedForScoring: details.confidenceUsedForScoring,
+    confidenceImputed: details.confidenceImputed,
+    speechUnitsPerSec: details.speechUnitsPerSec,
+    rateUnit: details.rateUnit,
+    wordScore: details.wordScore,
+    rateScore: details.rateScore,
+    stabilityScore: details.stabilityScore,
+    totalSpeechScore: details.totalSpeechScore
+  });
+  const completedAtMs = Date.now();
+  const activeAttemptNo = Math.max(1, speechAttemptNo);
+  const record = {
+    attemptNo: activeAttemptNo,
+    startedAt: currentAttemptStartedAt || (speechModuleStartedAtMs ? new Date(speechModuleStartedAtMs).toISOString() : null),
+    completedAt: new Date(completedAtMs).toISOString(),
+    durationMs: currentAttemptStartedAtMs ? completedAtMs - currentAttemptStartedAtMs : null,
+    outcome,
+    invalidReasonCode: details.invalidReasonCode || null,
+    clinicalResult: details.clinicalResult || null,
+    clinicalScore: Number.isFinite(details.clinicalScore) ? details.clinicalScore : null,
+    qualityFlags,
+    rawObservations,
+    derivedMetrics
+  };
+  if (details.message) record.message = details.message;
+  if (details.errorName) record.errorName = details.errorName;
+  speechAttemptHistory.push(record);
+  return record;
 }
 
 function scheduleAutomaticValidityRetry(reasonCode, details = {}) {
@@ -2384,8 +2999,9 @@ function finishSpeechInvalid(reasonCode, details = {}) {
   phase = 'DONE';
   if ($('test-screen')) $('test-screen').classList.add('done');
 
+  const activeAttemptNo = Math.max(1, speechAttemptNo);
   const alreadyRecorded = speechAttemptHistory.some(item =>
-    item.attemptNo === speechAttemptNo && item.outcome === 'invalid'
+    item.attemptNo === activeAttemptNo && item.outcome === 'invalid'
   );
   if (!alreadyRecorded) {
     appendSpeechAttempt('invalid', { invalidReasonCode: reasonCode, ...details });
@@ -2419,32 +3035,51 @@ function finishSpeechInvalid(reasonCode, details = {}) {
   $('rb-score').style.color = 'var(--amber)';
   $('rb-sub').textContent = `${T.subInvalid} · ${invalidReasonMessage(reasonCode)}`;
 
-  const result = {
-    module: 'speech',
-    schemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
+  const finalAttemptRecord = speechAttemptHistory
+    .slice()
+    .reverse()
+    .find(item => item.attemptNo === activeAttemptNo && item.outcome === 'invalid');
+  const qualityFlags = finalAttemptRecord?.qualityFlags || currentSpeechQualityFlags();
+  const rawObservations = finalAttemptRecord?.rawObservations || speechRawObservations({
+    transcript: details.transcript || '',
+    asrErrorCode: lastAsrErrorCode
+  });
+  const derivedMetrics = finalAttemptRecord?.derivedMetrics || speechDerivedMetrics({
+    durationSec: details.durationSec
+  });
+  const legacyRaw = {
+    transcript: details.transcript || '',
+    durationSec: details.durationSec ?? null,
+    energyFrames: details.energyFrames ?? vowelEnergyBuf.length,
+    noiseFloor: derivedMetrics.noiseFloor,
+    speechEnergy: derivedMetrics.speechEnergy,
+    snrDb: derivedMetrics.snrDb,
+    coefficientOfVariation: derivedMetrics.coefficientOfVariation,
+    asrErrorCode: lastAsrErrorCode,
+    rawAudioStored: false
+  };
+  const result = makeSpeechResultPayload({
     validityStatus: 'invalid',
     clinicalResult: null,
     clinicalScore: null,
-    scoreUsable: false,
     invalidReasonCode: reasonCode,
     technicalValidity: 'invalid',
-    qualityFlags: [],
-    score: null,
+    qualityFlags,
     riskLevel: 'invalid',
     passed: false,
-    attempts: [...speechAttemptHistory],
-    versions: currentSpeechVersions(),
-    runtime: speechRuntimeInfo(),
-    raw: {
-      transcript: details.transcript || '',
-      durationSec: details.durationSec ?? null,
-      energyFrames: details.energyFrames ?? vowelEnergyBuf.length,
-      asrErrorCode: lastAsrErrorCode,
-      rawAudioStored: false
-    }
-  };
+    breakdown: {
+      reasonCode,
+      hasVoice: details.hasVoice ?? null,
+      message: details.message || null,
+      errorName: details.errorName || null
+    },
+    rawObservations,
+    derivedMetrics,
+    legacyRaw,
+    measuredNoisy: qualityFlags.includes('LOW_SNR')
+  });
 
-  saveSpeechResult(result);
+  persistSpeechPayload(result);
   handleFastFlow('invalid');
   const mustReleaseImmediately = [
     'PAGE_HIDDEN',
@@ -2588,59 +3223,64 @@ function evaluateSpeech(text, confidence) {
   if (confidenceWasImputed) qualityFlags.push('ASR_CONFIDENCE_IMPUTED');
   if (lastAsrErrorCode) qualityFlags.push(`ASR_ERROR_${String(lastAsrErrorCode).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`);
 
-  appendSpeechAttempt('valid', {
-    clinicalResult: cls === 'ok' ? 'normal' : cls === 'warn' ? 'warning' : 'abnormal',
+  const clinicalResult = cls === 'ok' ? 'normal' : cls === 'warn' ? 'warning' : 'abnormal';
+  const reportedConfidence = confidenceWasImputed ? null : confidence;
+  const validAttemptRecord = appendSpeechAttempt('valid', {
+    clinicalResult,
     clinicalScore: speechScore,
     qualityFlags,
+    transcript: String(text || ''),
+    reportedConfidence,
+    normalizedTranscript: normalizedText,
+    acceptedVariantMatched: wordMatched,
+    textSimilarityShadow,
+    confidenceUsedForScoring: usableConfidence,
+    confidenceImputed: confidenceWasImputed,
+    speechUnitsPerSec: syllPerSec,
+    rateUnit: rateUnitLabel(),
     durationSec: durSec,
-    energyFrames: vowelEnergyBuf.length
+    wordScore,
+    rateScore,
+    stabilityScore: stabScore,
+    totalSpeechScore: speechScore
   });
 
-  const result = {
-    module: 'speech',
-    schemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
+  const legacyRaw = {
+    transcript: String(text || ''),
+    normalizedTranscript: normalizedText,
+    acceptedVariantMatched: wordMatched,
+    textSimilarityShadow,
+    confidence: usableConfidence,
+    confidenceImputed: confidenceWasImputed,
+    syllablesPerSec: syllPerSec,
+    speechUnitsPerSec: syllPerSec,
+    rateUnit: rateUnitLabel(),
+    durationSec: durSec,
+    noiseFloor,
+    speechEnergy,
+    snrDb,
+    energyFrames: vowelEnergyBuf.length,
+    coefficientOfVariation: cvValue,
+    asrErrorCode: lastAsrErrorCode,
+    rawAudioStored: false
+  };
+  const result = makeSpeechResultPayload({
     validityStatus: 'valid',
-    clinicalResult: cls === 'ok' ? 'normal' : cls === 'warn' ? 'warning' : 'abnormal',
+    clinicalResult,
     clinicalScore: speechScore,
-    scoreUsable: true,
     invalidReasonCode: null,
     technicalValidity: qualityFlags.length ? 'degraded' : 'full',
     qualityFlags,
-    score: speechScore,
     riskLevel: cls,
     passed: cls === 'ok',
     breakdown: { wordScore, rateScore, stabScore },
-    raw: {
-      transcript: String(text || ''),
-      normalizedTranscript: normalizedText,
-      acceptedVariantMatched: wordMatched,
-      textSimilarityShadow,
-      confidence: usableConfidence,
-      confidenceImputed: confidenceWasImputed,
-      syllablesPerSec: syllPerSec,
-      speechUnitsPerSec: syllPerSec,
-      rateUnit: rateUnitLabel(),
-      durationSec: durSec,
-      noiseFloor,
-      speechEnergy,
-      snrDb,
-      energyFrames: vowelEnergyBuf.length,
-      coefficientOfVariation: cvValue,
-      asrErrorCode: lastAsrErrorCode,
-      rawAudioStored: false
-    },
-    measuredNoisy: snrLow,
-    attempts: [...speechAttemptHistory],
-    versions: currentSpeechVersions(),
-    runtime: { ...speechRuntimeInfo(), qualityFlags },
-    policy: {
-      lowSnr: 'quality_flag_only',
-      recognition: 'browser_default',
-      rawAudioStored: false
-    }
-  };
+    rawObservations: validAttemptRecord.rawObservations,
+    derivedMetrics: validAttemptRecord.derivedMetrics,
+    legacyRaw,
+    measuredNoisy: snrLow
+  });
 
-  saveSpeechResult(result);
+  persistSpeechPayload(result);
   handleFastFlow(cls);
 
   $('debug-box').style.display = 'none';
