@@ -1605,7 +1605,7 @@
     50%{transform:scale(1.08);}
   }
 </style>
-<script src="config.js?v=20260723-face-data-capture-v012"></script>
+<script src="config.js?v=20260723-face-data-capture-v013"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1757,7 +1757,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.2.3-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.2.4-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -1923,6 +1923,8 @@ const POSE_BAD_TRIP_FRAMES = FACE_CFG.poseBadTripFrames ?? 3;      // หลุ�
 const POSE_GOOD_RESUME_FRAMES = FACE_CFG.poseGoodResumeFrames ?? 8; // นิ่งติดกันกี่เฟรมถึงไปต่อ
 const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
 const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
+const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioMin ?? 0.25;
+const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
 const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.1.0';
 const FACE_RESEARCH_HISTORY_LIMIT = Math.max(1, FACE_CFG.researchHistoryLimit ?? 8);
 
@@ -2229,10 +2231,59 @@ function recordResearchFrame(data={}){
 function getAttemptFrames(attemptNo){
   return researchFrames.filter((frame) => frame.attemptNo === attemptNo && String(frame.phase).startsWith('ACTION'));
 }
-function captureAttempt(outcome, invalidReasonCode=null, extra={}){
+function summarizeAttemptFrames(frames){
+  const total = frames.length;
+  const count = (predicate) => frames.filter(predicate).length;
+  const ratio = (n) => total ? n / total : null;
+  const mouthAssessableFrameCount = count((f) => f.mouthAssessable === true);
+  const handOverlapFrameCount = count((f) => f.handMouthOverlap === true);
+  const mouthVisibilityScores = frames
+    .map((f) => Number(f.mouthVisibilityScore))
+    .filter((value) => Number.isFinite(value));
+  return {
+    sampledFrames: total,
+    faceDetectedRatio: ratio(count((f) => f.faceDetected === true)),
+    poseValidRatio: ratio(count((f) => f.poseValid === true)),
+    mouthAssessableFrameCount,
+    mouthAssessableRatio: ratio(mouthAssessableFrameCount),
+    handOverlapFrameCount,
+    handOverlapRatio: ratio(handOverlapFrameCount),
+    avgMouthVisibilityScore: mouthVisibilityScores.length ? average(mouthVisibilityScores) : null
+  };
+}
+function resolveAttemptInvalidReason(requestedReasonCode, summary){
+  if (!requestedReasonCode) return null;
+  const reasonCanUseAttemptSummary = [
+    'HAND_OCCLUSION',
+    'MOUTH_NOT_VISIBLE',
+    'NO_SMILE_DETECTED',
+    'INSUFFICIENT_VALID_FRAMES'
+  ].includes(requestedReasonCode);
+  if (!reasonCanUseAttemptSummary) return requestedReasonCode;
+
+  // A single final frame must not decide the entire attempt. Use sustained hand
+  // overlap and the full attempt's mouth signal instead.
+  const sustainedHandOverlap = summary.handOverlapRatio !== null &&
+    summary.handOverlapRatio >= ATTEMPT_HAND_OVERLAP_RATIO_MIN;
+  if (sustainedHandOverlap) return 'HAND_OCCLUSION';
+
+  const mouthSignalPresent = summary.avgMouthVisibilityScore !== null &&
+    summary.avgMouthVisibilityScore >= MIN_MOUTH_VISIBILITY_SCORE &&
+    summary.mouthAssessableRatio !== null &&
+    summary.mouthAssessableRatio >= ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN;
+
+  if ((requestedReasonCode === 'MOUTH_NOT_VISIBLE' || requestedReasonCode === 'HAND_OCCLUSION') && mouthSignalPresent){
+    return smileEverDetected ? 'INSUFFICIENT_VALID_FRAMES' : 'NO_SMILE_DETECTED';
+  }
+  return requestedReasonCode;
+}
+function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
   const attemptNo = currentAttemptNo();
   const frames = getAttemptFrames(attemptNo);
-  const count = (predicate) => frames.filter(predicate).length;
+  const summary = summarizeAttemptFrames(frames);
+  const invalidReasonCode = outcome === 'invalid'
+    ? resolveAttemptInvalidReason(requestedInvalidReasonCode, summary)
+    : null;
   const record = {
     attemptNo,
     startedAt: attemptStartedAtMs ? new Date(attemptStartedAtMs).toISOString() : null,
@@ -2240,17 +2291,20 @@ function captureAttempt(outcome, invalidReasonCode=null, extra={}){
     durationMs: attemptStartedAtMs ? Date.now() - attemptStartedAtMs : null,
     outcome,
     invalidReasonCode,
+    requestedInvalidReasonCode: outcome === 'invalid' ? requestedInvalidReasonCode : null,
+    reasonResolution: outcome === 'invalid' && invalidReasonCode !== requestedInvalidReasonCode
+      ? 'attempt_summary_normalized'
+      : 'direct',
     quality: {
-      sampledFrames: frames.length,
-      faceDetectedRatio: frames.length ? count((f) => f.faceDetected === true) / frames.length : null,
-      poseValidRatio: frames.length ? count((f) => f.poseValid === true) / frames.length : null,
-      mouthAssessableRatio: frames.length ? count((f) => f.mouthAssessable === true) / frames.length : null,
-      handOverlapRatio: frames.length ? count((f) => f.handMouthOverlap === true) / frames.length : null
+      ...summary,
+      avgMouthVisibilityScore: roundMetric(summary.avgMouthVisibilityScore)
     },
     metrics: {
       validSmileFrames,
       smileFrameCount,
       validSmileRatio: validSmileFrames / Math.max(1, smileFrameCount),
+      smileWindowVisibleMouthFrames: visibleMouthFrames,
+      // Deprecated alias retained temporarily so existing result/debug code does not break.
       visibleMouthFrames,
       lastMouthVisibilityScore: roundMetric(lastMouthVisibilityScore),
       lastMouthDarkRatio: roundMetric(lastMouthDarkRatio),
@@ -2334,7 +2388,9 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       weakSideRatioShadow: WEAK_SIDE_RATIO_SHADOW,
       smileAsymWarn: SMILE_ASYM_WARN,
       smileAsymBad: SMILE_ASYM_BAD,
-      restAsymCritical: REST_ASYM_CRITICAL
+      restAsymCritical: REST_ASYM_CRITICAL,
+      attemptMouthAssessableRatioMin: ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN,
+      attemptHandOverlapRatioMin: ATTEMPT_HAND_OVERLAP_RATIO_MIN
     },
     runtime: resultRuntimeMetadata(),
     baseline: {
@@ -3523,7 +3579,7 @@ function finishFace(){
     restingCriticalTriggered: criticalFired,
     restAsym: criticalRestAsym,
     peakSmileL, peakSmileR, peakRiseL, peakRiseR,
-    validSmileFrames, smileFrameCount, validSmileRatio, visibleMouthFrames, avgMouthVisibility,
+    validSmileFrames, smileFrameCount, validSmileRatio, smileWindowVisibleMouthFrames:visibleMouthFrames, visibleMouthFrames, avgMouthVisibility,
     method: 'continuous_smile_hold_with_hand_occlusion_reset'
   });
 }
@@ -3566,6 +3622,7 @@ function finalizeInvalidResult(reasonCode, detail={}){
       validSmileFrames,
       smileFrameCount,
       validSmileRatio:(validSmileFrames/Math.max(1,smileFrameCount)),
+      smileWindowVisibleMouthFrames:visibleMouthFrames,
       visibleMouthFrames,
       lastMouthVisibilityScore,
       lastMouthDarkRatio,
@@ -3606,7 +3663,8 @@ function finishInvalid(reasonCode='UNABLE_TO_ASSESS', options={}){
 
   const hadActionAttempt = !!attemptStartedAtMs || allowAutoRetry;
   if (hadActionAttempt){
-    captureAttempt('invalid', reasonCode, detail);
+    const attemptRecord = captureAttempt('invalid', reasonCode, detail);
+    reasonCode = attemptRecord.invalidReasonCode || reasonCode;
     assessAttempts++;
   }
 
