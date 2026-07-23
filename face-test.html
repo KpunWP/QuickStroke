@@ -1644,7 +1644,7 @@
   }
 
 </style>
-<script src="config.js?v=20260723-face-data-capture-v014"></script>
+<script src="config.js?v=20260723-face-data-capture-v015"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1796,7 +1796,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.2.5-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.2.6-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -1926,6 +1926,7 @@ const CALIBRATION_SECONDS = FACE_CFG.calibrationSeconds ?? 3;       // short "ge
 const ACTION_DURATION_MS = FACE_CFG.actionDurationMs ?? 4000;       // length of the smile-recording window
 const MAX_ASSESS_ATTEMPTS = FACE_CFG.maxAssessAttempts ?? 3;        // auto-retry "unable to assess"
 const RETRY_DELAY_MS = FACE_CFG.retryDelayMs ?? 2500;               // pause before each auto-retry
+const SMILE_NUDGE_MIN_MS = FACE_CFG.smileNudgeMinMs ?? 2500;      // keep “smile wider” visible long enough to read
 const WEAK_SIDE_RATIO_BAD = FACE_CFG.weakSideRatioBad ?? 0.45;      // active result threshold
 const WEAK_SIDE_RATIO_SHADOW = FACE_CFG.weakSideRatioShadow ?? 0.30; // research-only; never changes result
 
@@ -2000,6 +2001,7 @@ let mouthBlockedSinceMs = null;
 let smileEverDetected = false;
 let actionWaitStartMs = null;
 let lastSmileVoiceMs = 0;
+let smileNudgeUntilMs = 0;
 let lastRepAsym = 0;
 // per-side PEAK activation during the smile window (the core stroke signal)
 let peakSmileL = 0, peakSmileR = 0, peakRiseL = 0, peakRiseR = 0;
@@ -3157,7 +3159,7 @@ function startScreening(){
   criticalFired=false; noFaceCount=0; poseBadFrames=0; poseGoodFrames=0;
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
-  actionWaitStartMs=null; lastSmileVoiceMs=0; lastRepAsym=0;
+  actionWaitStartMs=null; lastSmileVoiceMs=0; smileNudgeUntilMs=0; lastRepAsym=0;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   lastHandMouthOverlap=false; lastHandCount=0;
@@ -3211,7 +3213,7 @@ function startActionPhase(){
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
-  actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now();
+  actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now(); smileNudgeUntilMs=0;
   setUI({glassColor:'var(--col-green-glass)', msg:'', showReset:true, showHud:true});
   showSmilePrompt(FL.smilePrompt);
   speakFace(FL.smileVoice, {force:true});
@@ -3245,6 +3247,7 @@ function resetSmileAttemptAfterPose(){
   lastHandMouthOverlap=false; lastHandCount=0;
   // Keep the original actionWaitStartMs so no-face/pose/occlusion cannot loop forever.
   lastSmileVoiceMs=Date.now();
+  smileNudgeUntilMs=0;
   hideCenterCountdown();
   poseWarnMsg.style.display='none';
   statusMsg.style.display='none';
@@ -3278,7 +3281,11 @@ function resetSmileWindowToAction(reasonText, voiceText, opts={}){
   smileEverDetected = false;
   hideCenterCountdown();
   hideSmilePrompt();
-  setUI({glassColor:'var(--col-orange-glass)', msg: reasonText || FL.noSmileWarn, showReset:true, showHud:true});
+  const resolvedReasonText = reasonText || FL.noSmileWarn;
+  setUI({glassColor:'var(--col-orange-glass)', msg: resolvedReasonText, showReset:true, showHud:true});
+  if (resolvedReasonText === FL.noSmileWarn) {
+    smileNudgeUntilMs = now + SMILE_NUDGE_MIN_MS;
+  }
   if (voiceText) speakFace(voiceText, {minGap:6500, sameTextGap:12000});
   lastSmileVoiceMs = now;
   // Do NOT reset actionWaitStartMs here. Repeated quick smiles / covering the
@@ -3482,8 +3489,16 @@ function onResults(results, handResults=null){
       return;
     }
 
-    // Keep only the smile prompt visible while waiting for a smile.
-    if (activeNoticeKind !== 'smile' || activeNoticeText !== FL.smilePrompt) showSmilePrompt(FL.smilePrompt);
+    // Keep the stronger “smile wider” nudge visible for a readable minimum
+    // duration. Detection continues normally; only the text is held.
+    const smileNudgeActive =
+      now < smileNudgeUntilMs &&
+      activeNoticeText === FL.noSmileWarn;
+
+    if (!smileNudgeActive &&
+        (activeNoticeKind !== 'smile' || activeNoticeText !== FL.smilePrompt)) {
+      showSmilePrompt(FL.smilePrompt);
+    }
 
     // A smile has begun if blendshape rises OR mouth corners rise from baseline.
     // The geometry path is what lets closed-mouth smiles be measured without teeth.
@@ -3495,6 +3510,7 @@ function onResults(results, handResults=null){
       smileLostSinceMs = null;
       mouthBlockedSinceMs = null;
       phase = 'ACTION_WAIT_SMILE';
+      smileNudgeUntilMs = 0;
       hideSmilePrompt();
       return;
     }
@@ -3502,6 +3518,7 @@ function onResults(results, handResults=null){
     if (now - lastSmileVoiceMs > 7000){
       speakFace(FL.noSmileWarn, {minGap:6500, sameTextGap:12000});
       lastSmileVoiceMs = now;
+      smileNudgeUntilMs = now + SMILE_NUDGE_MIN_MS;
       showSmilePrompt(FL.noSmileWarn);
     }
     if (now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){ finishInvalid('NO_SMILE_DETECTED'); }

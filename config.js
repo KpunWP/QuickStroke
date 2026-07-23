@@ -26,7 +26,7 @@ window.QS_CONFIG = {
   thresholds: {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
-      version: "face-prepilot-1.2.5",
+      version: "face-prepilot-1.2.6",
       algorithmVersion: "face-asymmetry-1.0.0",
       resultSchemaVersion: "face-result-1.1.1",
       researchPayloadVersion: "face-research-0.1.2",
@@ -36,6 +36,7 @@ window.QS_CONFIG = {
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
       retryDelayMs: 2500,
+      smileNudgeMinMs: 2500,
 
       // Active pre-pilot threshold. A higher value is more sensitive because
       // weakRatio < threshold is classified as abnormal.
