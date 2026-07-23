@@ -3,7 +3,7 @@
     "locale": "th-TH",
     "nativeName": "ภาษาไทย",
     "direction": "ltr",
-    "packVersion": "0.7.0",
+    "packVersion": "0.8.0",
     "status": "primary-research-language"
   },
   "index": {
@@ -273,11 +273,11 @@
     "noiseGo": "ทำต่อ",
     "noisyTag": "⚠ SNR ต่ำกว่า 10 dB ผลอาจคลาดเคลื่อนจากเสียงรบกวน",
     "topTitle": "FAST · การพูด",
-    "accuracy": "คำพูด",
+    "accuracy": "ความตรง",
     "ready": "พร้อม",
     "rate": "ความเร็ว",
     "pending": "รอ",
-    "wordAccuracy": "คำที่พูดถูก",
+    "wordAccuracy": "คำพูดตรงตามประโยค",
     "speechRate": "ความเร็ว",
     "volumeStability": "เสียงสม่ำเสมอ",
     "noiseMetric": "เสียงรบกวน",
@@ -293,8 +293,8 @@
     "noVoice": "ไม่มีเสียง",
     "voiceButNoText": "มีเสียงพูด แต่ระบบจำคำตามภาษาที่เลือกไม่ได้",
     "noSpeechSegment": "ไม่พบช่วงสัญญาณเสียง",
-    "wordMismatch": "คำไม่ตรงประโยค",
-    "issueWord": "คำไม่ตรง",
+    "wordMismatch": "คำพูดไม่ตรงตามประโยค",
+    "issueWord": "คำพูดไม่ตรงตามประโยค",
     "issueSlow": "พูดช้า",
     "issueUnstable": "เสียงไม่คงที่",
     "deadMicFailed": "⚠️ ไมค์ไม่ตอบสนอง กรุณารอสักครู่แล้วกดเริ่มใหม่",
@@ -309,7 +309,10 @@
     "subInvalid": "ยังประเมินการพูดไม่ได้ กรุณาลองใหม่",
     "retryingNoVoice": "ยังไม่พบเสียงพูด กำลังลองใหม่ให้อีก 1 ครั้ง…",
     "retryingNoText": "พบเสียงพูด แต่ยังจำคำไม่ได้ กำลังลองใหม่ให้อีก 1 ครั้ง…",
-    "micSessionReset": "กำลังรีเซ็ตไมโครโฟนสำหรับรอบใหม่…"
+    "micSessionReset": "กำลังรีเซ็ตไมโครโฟนสำหรับรอบใหม่…",
+    "phraseExact": "✓ ตรง",
+    "phraseSimilarity": "ใกล้เคียง {{percent}}%",
+    "phraseNoMatch": "✗ ไม่ตรง"
   },
   "result": {
     "pageTitle": "QuickStroke · ผลการคัดกรอง",

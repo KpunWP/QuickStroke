@@ -3,7 +3,7 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.7.0",
+    "packVersion": "0.8.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -275,11 +275,11 @@
     "noiseGo": "Continue",
     "noisyTag": "⚠ SNR below 10 dB; background noise may affect the result",
     "topTitle": "FAST · Speech",
-    "accuracy": "Words",
+    "accuracy": "Phrase match",
     "ready": "Ready",
     "rate": "Speed",
     "pending": "Waiting",
-    "wordAccuracy": "Correct words",
+    "wordAccuracy": "Matches the sentence",
     "speechRate": "Speed",
     "volumeStability": "Voice consistency",
     "noiseMetric": "Noise",
@@ -295,8 +295,8 @@
     "noVoice": "No voice",
     "voiceButNoText": "Voice detected, but not recognized in the selected language",
     "noSpeechSegment": "No speech segment detected",
-    "wordMismatch": "Sentence mismatch",
-    "issueWord": "words do not match",
+    "wordMismatch": "Phrase does not match",
+    "issueWord": "phrase does not match",
     "issueSlow": "slow speech",
     "issueUnstable": "uneven voice",
     "deadMicFailed": "⚠️ Microphone is not responding. Please wait a moment and start again.",
@@ -311,7 +311,10 @@
     "subInvalid": "The speech check could not be completed. Please try again.",
     "retryingNoVoice": "No voice was detected. Retrying once…",
     "retryingNoText": "Speech was detected, but the words were not recognized. Retrying once…",
-    "micSessionReset": "Resetting the microphone for a new attempt…"
+    "micSessionReset": "Resetting the microphone for a new attempt…",
+    "phraseExact": "✓ Match",
+    "phraseSimilarity": "{{percent}}% match",
+    "phraseNoMatch": "✗ No match"
   },
   "result": {
     "pageTitle": "QuickStroke · Screening Result",

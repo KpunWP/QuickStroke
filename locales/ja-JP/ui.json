@@ -3,7 +3,7 @@
     "locale": "ja-JP",
     "nativeName": "日本語",
     "direction": "ltr",
-    "packVersion": "0.7.0",
+    "packVersion": "0.8.0",
     "status": "developer-reference-language"
   },
   "index": {
@@ -277,11 +277,11 @@
     "noiseGo": "続ける",
     "noisyTag": "⚠ SNRが10 dB未満のため、騒音で結果が不正確な可能性があります",
     "topTitle": "FAST · 発話",
-    "accuracy": "言葉",
+    "accuracy": "文の一致",
     "ready": "準備完了",
     "rate": "速さ",
     "pending": "待機",
-    "wordAccuracy": "正しい言葉",
+    "wordAccuracy": "文と一致",
     "speechRate": "話す速さ",
     "volumeStability": "声の安定",
     "noiseMetric": "騒音",
@@ -298,7 +298,7 @@
     "voiceButNoText": "音声は検出されましたが、選択した言語として認識できません",
     "noSpeechSegment": "音声区間が検出されません",
     "wordMismatch": "文が一致しません",
-    "issueWord": "言葉が不一致",
+    "issueWord": "文が一致しません",
     "issueSlow": "発話が遅い",
     "issueUnstable": "声が不安定",
     "deadMicFailed": "⚠️ マイクが応答していません。少し待ってからもう一度開始してください。",
@@ -313,7 +313,10 @@
     "subInvalid": "発話の判定を完了できませんでした。もう一度お試しください。",
     "retryingNoVoice": "音声を検出できませんでした。1回だけ自動で再試行します…",
     "retryingNoText": "音声は検出しましたが、言葉を認識できませんでした。1回だけ自動で再試行します…",
-    "micSessionReset": "新しい試行のためマイクを再設定しています…"
+    "micSessionReset": "新しい試行のためマイクを再設定しています…",
+    "phraseExact": "✓ 一致",
+    "phraseSimilarity": "{{percent}}% 一致",
+    "phraseNoMatch": "✗ 不一致"
   },
   "result": {
     "pageTitle": "QuickStroke · チェック結果",

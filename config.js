@@ -6,7 +6,7 @@ window.QS_CONFIG = {
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20260721-speech-review-v1",
+    localePack: "20260723-speech-transcript-score-v1",
     languageRegistry: "20260720-language-registry-v1"
   },
 
@@ -168,11 +168,18 @@ window.QS_CONFIG = {
 
     speech: {
       // Version identifiers stored with every Speech result.
-      version: "speech-prepilot-1.4.2",
-      algorithmVersion: "speech-browser-asr-1.0.0",
-      resultSchemaVersion: "speech-result-1.1.0",
-      researchPayloadVersion: "speech-research-0.1.0",
+      version: "speech-prepilot-1.5.0",
+      algorithmVersion: "speech-browser-asr-1.1.0",
+      resultSchemaVersion: "speech-result-1.2.0",
+      researchPayloadVersion: "speech-research-0.2.0",
       researchHistoryLimit: 8,
+
+      // Speech phrase scoring v1.1:
+      // - browser ASR confidence is stored as a raw observation only
+      // - phrase score comes from normalized transcript similarity against accepted variants
+      // - an exact accepted variant receives 100
+      phraseScoringPolicy: "normalized_levenshtein_similarity",
+      asrConfidencePolicy: "raw_observation_only",
 
       calibrationMs: 300,
       noiseMultiplier: 2.5,

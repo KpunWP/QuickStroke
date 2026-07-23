@@ -916,7 +916,8 @@ const SPEECH_REQUIRED_KEYS = Object.freeze([
   'deadMicFailed', 'micReconnecting', 'micAccessError',
   'manualStop', 'speechApiUnavailable', 'insufficientData',
   'resultInvalid', 'subInvalid', 'retryingNoVoice', 'retryingNoText',
-  'micSessionReset', 'scoreLabel', 'languageUnavailable'
+  'micSessionReset', 'scoreLabel', 'languageUnavailable',
+  'phraseExact', 'phraseSimilarity', 'phraseNoMatch'
 ]);
 
 let speechLocaleRequestId = 0;
@@ -1020,10 +1021,10 @@ const RETRY_FULL_RELEASE_WAIT_MS = SPEECH_CFG.retryFullReleaseWaitMs ?? 1200;
 const RESULT_KEEP_ALIVE_MS = SPEECH_CFG.resultKeepAliveMs ?? 20000;
 const RECOGNITION_SAFETY_MS = SPEECH_CFG.recognitionSafetyMs ?? 8000;
 const TRAILING_GAP_MS = SPEECH_CFG.trailingGapMs ?? 800;
-const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.4.2';
-const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.0.0';
-const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.1.0';
-const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.1.0';
+const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.5.0';
+const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.1.0';
+const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.2.0';
+const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.2.0';
 const SPEECH_RESEARCH_HISTORY_LIMIT = Math.max(1, SPEECH_CFG.researchHistoryLimit ?? 8);
 const RESEARCH_SAMPLE_INTERVAL_MS = Math.max(50, SPEECH_CFG.researchSampleIntervalMs ?? 100);
 
@@ -1090,7 +1091,8 @@ let micDisclosureAcknowledgedAt = null;
 let audioStartToken = 0; // invalidate async work/events from an older attempt
 let resultReleaseTimer = null;
 let lastAsrErrorCode = null;
-let confidenceWasImputed = false;
+let confidenceWasImputed = false; // raw ASR metadata only; never used for scoring
+let asrFinalReceived = false;
 
 // Web Audio
 let audioCtx = null, analyser = null, source = null, streamRef = null;
@@ -1158,7 +1160,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.4.2 — fixed visible Copy Log';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.5.0 — transcript-similarity scoring';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -1496,11 +1498,14 @@ function currentSpeechEnergySummary() {
   return { speechEnergy, snrDb, coefficientOfVariation };
 }
 
-function currentSpeechQualityFlags({ confidenceImputed = confidenceWasImputed } = {}) {
+function currentSpeechQualityFlags() {
   const flags = [];
   const { snrDb } = currentSpeechEnergySummary();
   if (snrDb !== null && snrDb < SNR_WARN_DB) flags.push('LOW_SNR');
-  if (confidenceImputed) flags.push('ASR_CONFIDENCE_IMPUTED');
+  const hasAsrResult = asrObservationEvents.some(event =>
+    event.attemptNo === Math.max(1, speechAttemptNo) && event.type === 'result'
+  );
+  if (hasAsrResult && !asrFinalReceived) flags.push('ASR_INTERIM_ONLY');
   if (lastAsrErrorCode) {
     flags.push(`ASR_ERROR_${String(lastAsrErrorCode).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`);
   }
@@ -1520,6 +1525,8 @@ function speechRawObservations(details = {}) {
   return {
     transcript: String(details.transcript || ''),
     asrConfidenceReported: reportedConfidence,
+    asrFinalReceived,
+    asrConfidenceUsedForScoring: false,
     asrErrorCode: details.asrErrorCode || lastAsrErrorCode || null,
     asrEvents: asrObservationEvents
       .filter(event => event.attemptNo === speechAttemptNo)
@@ -1544,9 +1551,13 @@ function speechDerivedMetrics(details = {}) {
   return {
     normalizedTranscript: details.normalizedTranscript ?? null,
     acceptedVariantMatched: details.acceptedVariantMatched ?? null,
-    textSimilarityShadow: roundSpeechMetric(details.textSimilarityShadow, 5),
-    confidenceUsedForScoring: roundSpeechMetric(details.confidenceUsedForScoring, 5),
-    confidenceImputed: details.confidenceImputed ?? confidenceWasImputed,
+    phraseSimilarity: roundSpeechMetric(details.phraseSimilarity, 5),
+    phraseMatchScore: Number.isFinite(details.phraseMatchScore) ? details.phraseMatchScore : null,
+    // Deprecated compatibility aliases. Confidence is no longer used clinically.
+    textSimilarityShadow: roundSpeechMetric(details.phraseSimilarity, 5),
+    confidenceUsedForScoring: null,
+    confidenceImputed: false,
+    asrConfidenceUsedForScoring: false,
     durationSec: roundSpeechMetric(durationSec, 4),
     speechUnitsPerSec: roundSpeechMetric(details.speechUnitsPerSec, 4),
     rateUnit: details.rateUnit || rateUnitLabel(),
@@ -1618,10 +1629,22 @@ function speechResearchHistory() {
   }
 }
 
+function sanitizeSpeechLogValue(value) {
+  if (Array.isArray(value)) return value.map(sanitizeSpeechLogValue);
+  if (!value || typeof value !== 'object') return value;
+  const output = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (key === 'deviceId' || key === 'groupId') continue;
+    output[key] = sanitizeSpeechLogValue(item);
+  }
+  return output;
+}
+
 function buildSpeechResearchLogBundle() {
   const latest = latestSpeechResearchPayload();
   const history = speechResearchHistory();
-  const testAttempts = history.length ? history : (latest ? [latest] : []);
+  const testAttemptsRaw = history.length ? history : (latest ? [latest] : []);
+  const testAttempts = sanitizeSpeechLogValue(testAttemptsRaw);
   if (testAttempts.length === 0) return null;
 
   const latestStored = latest || testAttempts[testAttempts.length - 1];
@@ -1630,11 +1653,11 @@ function buildSpeechResearchLogBundle() {
   }, 0);
 
   return {
-    exportSchemaVersion: 'quickstroke-speech-log-0.1.0',
+    exportSchemaVersion: 'quickstroke-speech-log-0.2.0',
     exportedAt: new Date().toISOString(),
     source: 'speech-test-dev-copy-log',
     debugBuild: DEBUG_BUILD,
-    screeningSessionId: latestStored?.screeningSessionId || null,
+    screeningSessionId: latestStored?.screeningContext?.screeningSessionId || latestStored?.screeningSessionId || null,
     latestTestAttemptId: latestStored?.testAttemptId || null,
     testAttempts,
     debugTrace: DBG_LINES.slice(),
@@ -2017,7 +2040,7 @@ function setBar(key, pct, label) {
   $('val-'+key).textContent      = label;
   const scoreEl = $('score-'+key);
   if (scoreEl) scoreEl.textContent = pct > 0 ? `${T.scoreLabel}: ${Math.round(p)}` : '';
-  if (key === 'word') setSpeechCard('word', p >= 65 ? 'pass' : p >= 35 ? 'active' : 'fail', T.accuracy, Math.round(p) + '%', p >= 65 ? '✅' : p >= 35 ? '⚠️' : '❌');
+  if (key === 'word') setSpeechCard('word', p >= 65 ? 'pass' : p >= 35 ? 'active' : 'fail', T.accuracy, label, p >= 65 ? '✅' : p >= 35 ? '⚠️' : '❌');
   if (key === 'rate') setSpeechCard('rate', p >= 65 ? 'pass' : p >= 35 ? 'active' : 'fail', T.rate, Math.round(p) + '%', p >= 65 ? '✅' : p >= 35 ? '⚠️' : '❌');
 }
 
@@ -2170,6 +2193,7 @@ async function startRecording(forceDirectMic = false) {
   currentAttemptPerformanceStartedAt = performance.now();
   lastAsrErrorCode = null;
   confidenceWasImputed = false;
+  asrFinalReceived = false;
 
   if ($('test-screen')) $('test-screen').classList.remove('done');
 
@@ -2457,6 +2481,10 @@ async function beginSpeechRecognition() {
         const res = e.results[i];
         let chosenText = '';
         let chosenConfidence = null;
+        let chosenSimilarity = -1;
+        const acceptedVariantsForSelection = (T.keywords || [])
+          .map(normalizeSpeechText)
+          .filter(Boolean);
 
         for (let j = 0; j < res.length; j++) {
           const alt = res[j];
@@ -2465,9 +2493,20 @@ async function beginSpeechRecognition() {
           const reported = Number.isFinite(alt.confidence) && alt.confidence > 0
             ? alt.confidence
             : null;
-          if (!chosenText || (reported !== null && (chosenConfidence === null || reported > chosenConfidence))) {
+          const similarity = speechTextSimilarity(
+            normalizeSpeechText(tx),
+            acceptedVariantsForSelection
+          );
+          // Clinical transcript selection is based on target-phrase similarity.
+          // Browser confidence is retained only as raw metadata.
+          if (
+            !chosenText ||
+            similarity > chosenSimilarity ||
+            (similarity === chosenSimilarity && normalizeSpeechText(tx).length > normalizeSpeechText(chosenText).length)
+          ) {
             chosenText = tx;
             chosenConfidence = reported;
+            chosenSimilarity = similarity;
           }
         }
 
@@ -2490,13 +2529,14 @@ async function beginSpeechRecognition() {
       confidenceWasImputed = reportedConfidences.length === 0;
       bestConfidence = reportedConfidences.length
         ? reportedConfidences.reduce((a, b) => a + b, 0) / reportedConfidences.length
-        : 0.75; // legacy scoring fallback, explicitly recorded as imputed
+        : null; // raw metadata only; never imputed for scoring
 
       if (bestTranscript) {
         $('transcript-box').textContent = `"${bestTranscript}"`;
       }
 
       const hasFinal = ordered.some(item => item.isFinal);
+      if (hasFinal) asrFinalReceived = true;
       appendAsrObservation('result', {
         resultIndex: startIndex,
         transcript: bestTranscript,
@@ -2541,7 +2581,7 @@ async function beginSpeechRecognition() {
         startRecognitionSafely(0);
         return;
       }
-      finishWith(bestTranscript, bestConfidence || 0.75);
+      finishWith(bestTranscript, bestConfidence);
     };
 
     function startRecognitionSafely(attempt) {
@@ -2570,7 +2610,7 @@ async function beginSpeechRecognition() {
 
     // กันกรณี engine ไม่คืน event เลย: ให้จบหลัง 8 วิ แต่ใช้ VAD duration ได้
     recognitionSafetyTimer = setTimeout(() => {
-      if (isCurrentRun()) finishWith(bestTranscript || '', bestConfidence || 0);
+      if (isCurrentRun()) finishWith(bestTranscript || '', bestConfidence);
     }, RECOGNITION_SAFETY_MS);
   } else {
     appendAsrObservation('unavailable');
@@ -3095,6 +3135,8 @@ function makeSpeechResultPayload({
       noiseFloorCap: NOISE_FLOOR_CAP,
       normalMin: NORMAL_MIN,
       normalMax: NORMAL_MAX,
+      phraseScoringPolicy: SPEECH_CFG.phraseScoringPolicy || 'normalized_levenshtein_similarity',
+      asrConfidencePolicy: SPEECH_CFG.asrConfidencePolicy || 'raw_observation_only',
       snrWarnDb: SNR_WARN_DB,
       lowSnrPolicy: 'quality_flag_only',
       flatnessMax: FLATNESS_MAX,
@@ -3109,6 +3151,8 @@ function makeSpeechResultPayload({
     policy: {
       lowSnr: 'quality_flag_only',
       recognition: 'browser_default',
+      phraseScoring: 'normalized_levenshtein_similarity',
+      asrConfidenceUse: 'raw_observation_only',
       microphoneSpeechProcessingClaim: 'not_fully_on_device',
       rawAudioStored: false
     },
@@ -3150,7 +3194,7 @@ function invalidReasonMessage(reasonCode) {
 function appendSpeechAttempt(outcome, details = {}) {
   const qualityFlags = Array.isArray(details.qualityFlags)
     ? [...new Set(details.qualityFlags)]
-    : currentSpeechQualityFlags({ confidenceImputed: details.confidenceImputed });
+    : currentSpeechQualityFlags();
   const rawObservations = details.rawObservations || speechRawObservations({
     transcript: details.transcript || '',
     reportedConfidence: details.reportedConfidence,
@@ -3160,9 +3204,8 @@ function appendSpeechAttempt(outcome, details = {}) {
     durationSec: details.durationSec,
     normalizedTranscript: details.normalizedTranscript,
     acceptedVariantMatched: details.acceptedVariantMatched,
-    textSimilarityShadow: details.textSimilarityShadow,
-    confidenceUsedForScoring: details.confidenceUsedForScoring,
-    confidenceImputed: details.confidenceImputed,
+    phraseSimilarity: details.phraseSimilarity,
+    phraseMatchScore: details.phraseMatchScore,
     speechUnitsPerSec: details.speechUnitsPerSec,
     rateUnit: details.rateUnit,
     wordScore: details.wordScore,
@@ -3333,7 +3376,7 @@ function evaluateSpeech(text, confidence) {
     .map(normalizeSpeechText)
     .filter(Boolean);
   const wordMatched = !!normalizedText && normalizedKeywords.includes(normalizedText);
-  const textSimilarityShadow = speechTextSimilarity(normalizedText, normalizedKeywords);
+  const phraseSimilarity = speechTextSimilarity(normalizedText, normalizedKeywords);
 
   // VAD and ASR are independent. No transcript does not mean no voice.
   const hasVoice =
@@ -3383,17 +3426,19 @@ function evaluateSpeech(text, confidence) {
   $('action-btn').textContent = T.btnRetry;
   $('action-btn').className = 'green';
 
-  const usableConfidence = Number.isFinite(confidence) && confidence > 0 ? confidence : 0.75;
-  if (!(Number.isFinite(confidence) && confidence > 0)) confidenceWasImputed = true;
+  const reportedConfidence = Number.isFinite(confidence) && confidence > 0 ? confidence : null;
+  confidenceWasImputed = reportedConfidence === null;
 
-  // 1. Word Accuracy (40%) — legacy score formula retained. Matching now
-  // requires an exact accepted full/near-full phrase variant; substrings do not pass.
-  const wordScore = wordMatched
-    ? Math.round(70 + usableConfidence * 30)
-    : Math.round(usableConfidence * 30);
+  // 1. Phrase match (40%) — v1.1 algorithm. Browser confidence is not used.
+  // Exact accepted variants receive 100; other recognized transcripts receive
+  // their normalized Levenshtein similarity against the closest accepted variant.
+  const phraseMatchScore = wordMatched ? 100 : Math.round(phraseSimilarity * 100);
+  const wordScore = phraseMatchScore; // legacy field name retained for consumers
   const wordLabel = wordMatched
-    ? `✓ ${(usableConfidence * 100).toFixed(0)}%`
-    : `✗ ${(usableConfidence * 100).toFixed(0)}%`;
+    ? T.phraseExact
+    : phraseMatchScore > 0
+      ? T.phraseSimilarity.replace('{{percent}}', String(phraseMatchScore))
+      : T.phraseNoMatch;
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent = `"${text}"`;
 
@@ -3450,13 +3495,9 @@ function evaluateSpeech(text, confidence) {
     ? `${sub} · ${T.noisyTag} (${snrDb.toFixed(1)} dB)`
     : sub;
 
-  const qualityFlags = [];
-  if (snrLow) qualityFlags.push('LOW_SNR');
-  if (confidenceWasImputed) qualityFlags.push('ASR_CONFIDENCE_IMPUTED');
-  if (lastAsrErrorCode) qualityFlags.push(`ASR_ERROR_${String(lastAsrErrorCode).toUpperCase().replace(/[^A-Z0-9]+/g, '_')}`);
+  const qualityFlags = currentSpeechQualityFlags();
 
   const clinicalResult = cls === 'ok' ? 'normal' : cls === 'warn' ? 'warning' : 'abnormal';
-  const reportedConfidence = confidenceWasImputed ? null : confidence;
   const validAttemptRecord = appendSpeechAttempt('valid', {
     clinicalResult,
     clinicalScore: speechScore,
@@ -3465,9 +3506,8 @@ function evaluateSpeech(text, confidence) {
     reportedConfidence,
     normalizedTranscript: normalizedText,
     acceptedVariantMatched: wordMatched,
-    textSimilarityShadow,
-    confidenceUsedForScoring: usableConfidence,
-    confidenceImputed: confidenceWasImputed,
+    phraseSimilarity,
+    phraseMatchScore,
     speechUnitsPerSec: syllPerSec,
     rateUnit: rateUnitLabel(),
     durationSec: durSec,
@@ -3481,9 +3521,11 @@ function evaluateSpeech(text, confidence) {
     transcript: String(text || ''),
     normalizedTranscript: normalizedText,
     acceptedVariantMatched: wordMatched,
-    textSimilarityShadow,
-    confidence: usableConfidence,
-    confidenceImputed: confidenceWasImputed,
+    phraseSimilarity,
+    textSimilarityShadow: phraseSimilarity,
+    confidence: reportedConfidence,
+    confidenceImputed: false,
+    confidenceUsedForScoring: false,
     syllablesPerSec: syllPerSec,
     speechUnitsPerSec: syllPerSec,
     rateUnit: rateUnitLabel(),
@@ -3505,7 +3547,7 @@ function evaluateSpeech(text, confidence) {
     qualityFlags,
     riskLevel: cls,
     passed: cls === 'ok',
-    breakdown: { wordScore, rateScore, stabScore },
+    breakdown: { phraseMatchScore, wordScore, rateScore, stabScore },
     rawObservations: validAttemptRecord.rawObservations,
     derivedMetrics: validAttemptRecord.derivedMetrics,
     legacyRaw,
@@ -3523,7 +3565,8 @@ function evaluateSpeech(text, confidence) {
     `flatness min/max: ${flatMin.toFixed(3)} / ${flatMax.toFixed(3)}`,
     `loud frames: ${loudCount}`,
     `tonal frames: ${tonerCount}`,
-    `text similarity shadow: ${(textSimilarityShadow * 100).toFixed(1)}%`,
+    `phrase similarity: ${(phraseSimilarity * 100).toFixed(1)}%`,
+    `ASR confidence (raw only): ${reportedConfidence !== null ? reportedConfidence.toFixed(3) : 'unavailable'}`,
     `quality flags: ${qualityFlags.join(', ') || 'none'}`
   ].join('\n');
 
