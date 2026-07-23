@@ -1604,8 +1604,47 @@
     0%,100%{transform:scale(1);}
     50%{transform:scale(1.08);}
   }
+
+
+  /* QUICKSTROKE FACE NOTICE STATE — data capture v0.1.4
+     Exactly one instruction surface may be visible at a time.
+     This final override prevents stale smile/status/pose layers from stacking. */
+  body:not(.result-visible) #status-msg,
+  body:not(.result-visible) #pose-warn-msg,
+  body:not(.result-visible) #smile-prompt{
+    display:none!important;
+  }
+
+  body.notice-status:not(.result-visible) #status-msg:not(:empty){
+    display:flex!important;
+  }
+  body.notice-pose:not(.result-visible) #pose-warn-msg:not(:empty){
+    display:flex!important;
+  }
+  body.notice-smile:not(.result-visible) #smile-prompt{
+    display:block!important;
+  }
+
+  body.notice-status #pose-warn-msg,
+  body.notice-status #smile-prompt,
+  body.notice-pose #status-msg,
+  body.notice-pose #smile-prompt,
+  body.notice-smile #status-msg,
+  body.notice-smile #pose-warn-msg{
+    display:none!important;
+  }
+
+  /* Keep the structural dashboard completely transparent during screening. */
+  body:not(.result-visible) #dashboard{
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+
 </style>
-<script src="config.js?v=20260723-face-data-capture-v013"></script>
+<script src="config.js?v=20260723-face-data-capture-v014"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1757,7 +1796,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.2.4-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.2.5-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -2412,56 +2451,106 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
     breakdown
   };
 }
+const FACE_NOTICE_CLASSES = Object.freeze([
+  'notice-status',
+  'notice-pose',
+  'notice-smile'
+]);
+
+function setFaceNoticeMode(kind='none'){
+  FACE_NOTICE_CLASSES.forEach((className) => document.body.classList.remove(className));
+  if (kind === 'status') document.body.classList.add('notice-status');
+  else if (kind === 'pose') document.body.classList.add('notice-pose');
+  else if (kind === 'smile') document.body.classList.add('notice-smile');
+}
+
 function clearBottomPanels(){
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
   if (statusMsg) statusMsg.style.display = 'none';
   if (poseWarnMsg) poseWarnMsg.style.display = 'none';
+
+  setFaceNoticeMode('none');
   document.body.classList.remove('smile-prompt-visible','pose-warning-visible');
+
   activeNoticeKind = 'none';
   activeNoticeText = '';
 }
+
 function hideSmilePrompt(){
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
-  document.body.classList.remove('smile-prompt-visible');
-  if (activeNoticeKind === 'smile') { activeNoticeKind = 'none'; activeNoticeText = ''; }
+  document.body.classList.remove('smile-prompt-visible','notice-smile');
+
+  if (activeNoticeKind === 'smile') {
+    setFaceNoticeMode('none');
+    activeNoticeKind = 'none';
+    activeNoticeText = '';
+  }
 }
+
 function showStatusPanel(text){
-  if (!text) { clearBottomPanels(); return; }
+  if (!text) {
+    clearBottomPanels();
+    return;
+  }
+
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
+
+  poseWarnMsg.textContent = '';
   poseWarnMsg.style.display = 'none';
+
   statusMsg.textContent = text;
   statusMsg.style.display = 'flex';
+
   document.body.classList.remove('smile-prompt-visible','pose-warning-visible');
+  setFaceNoticeMode('status');
+
   activeNoticeKind = 'status';
   activeNoticeText = text;
 }
+
 function showPosePanel(text){
-  if (!text) { clearBottomPanels(); return; }
+  if (!text) {
+    clearBottomPanels();
+    return;
+  }
+
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
+
+  statusMsg.textContent = '';
   statusMsg.style.display = 'none';
+
   poseWarnMsg.textContent = text;
   poseWarnMsg.style.display = 'flex';
+
   document.body.classList.remove('smile-prompt-visible');
   document.body.classList.add('pose-warning-visible');
+  setFaceNoticeMode('pose');
+
   activeNoticeKind = 'pose';
   activeNoticeText = text;
 }
+
 function showSmilePrompt(text){
   const sp = document.getElementById('smile-prompt');
   if (!sp) return;
+
   const msg = text || FL.smilePrompt;
   const box = sp.querySelector('div');
   if (box) box.textContent = msg;
 
-  // Only one bottom message panel should be visible at a time.
-  poseWarnMsg.style.display = 'none';
+  statusMsg.textContent = '';
   statusMsg.style.display = 'none';
+  poseWarnMsg.textContent = '';
+  poseWarnMsg.style.display = 'none';
+
   document.body.classList.remove('pose-warning-visible');
   document.body.classList.add('smile-prompt-visible');
+  setFaceNoticeMode('smile');
+
   sp.style.display = 'block';
   activeNoticeKind = 'smile';
   activeNoticeText = msg;
@@ -4097,19 +4186,19 @@ startBtn.addEventListener('click', ()=>{
   if (['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(phase)) return;
   primeSpeech();
   if (!isCameraRunning) {
-    document.body.classList.remove('result-visible','start-ready');
+    document.body.classList.remove('result-visible','start-ready','notice-status','notice-pose','notice-smile');
     setUI({glassColor:'var(--col-blue-glass)', msg:FL.loading, showStart:false, showReset:false, showHud:false});
     startCamera();
     return;
   }
   if (!modelReady) {
-    document.body.classList.remove('result-visible','start-ready');
+    document.body.classList.remove('result-visible','start-ready','notice-status','notice-pose','notice-smile');
     showStatusPanel(FL.loadingModel);
     startBtn.classList.add('hidden');
     loadModel();
     return;
   }
-  document.body.classList.remove('result-visible','start-ready');
+  document.body.classList.remove('result-visible','start-ready','notice-status','notice-pose','notice-smile');
   const oldNav=document.getElementById('fast-nav-btn'); if(oldNav) oldNav.remove();
   startBtn.classList.add('hidden');
   startScreening();
