@@ -26,10 +26,10 @@ window.QS_CONFIG = {
   thresholds: {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
-      version: "face-prepilot-1.2.6",
-      algorithmVersion: "face-asymmetry-1.0.0",
-      resultSchemaVersion: "face-result-1.1.1",
-      researchPayloadVersion: "face-research-0.1.2",
+      version: "face-prepilot-1.3.0",
+      algorithmVersion: "face-asymmetry-1.1.0",
+      resultSchemaVersion: "face-result-1.2.0",
+      researchPayloadVersion: "face-research-0.2.0",
       researchHistoryLimit: 8,
 
       calibrationSeconds: 3,
@@ -51,6 +51,14 @@ window.QS_CONFIG = {
       realMoveMin: 0.0018,
       closedSmileRiseMin: 0.0018,
       smileRealMin: 0.018,
+
+      // v1.1 algorithm policy:
+      // - blendshape must support smile confirmation
+      // - 2D normalized geometry may support/grade symmetry but cannot confirm alone
+      // - x/y only; landmark z is not used
+      geometryNormalization: "eye-centered-2d-roll-scale",
+      geometryUsesLandmarkZ: false,
+      yawPitchPolicy: "quality-gate-only",
 
       minValidSmileFrames: 2,
       minVisibleMouthFrames: 5,

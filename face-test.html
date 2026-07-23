@@ -1606,30 +1606,30 @@
   }
 
 
-  /* QUICKSTROKE FACE NOTICE STATE — data capture v0.1.4
-     Exactly one instruction surface may be visible at a time.
-     This final override prevents stale smile/status/pose layers from stacking. */
+  /* QUICKSTROKE FACE NOTICE STATE — data capture v0.1.6
+     All short instructions use one physical surface (#status-msg).
+     This removes cross-element state races between smile/status prompts. */
   body:not(.result-visible) #status-msg,
   body:not(.result-visible) #pose-warn-msg,
   body:not(.result-visible) #smile-prompt{
     display:none!important;
   }
 
-  body.notice-status:not(.result-visible) #status-msg:not(:empty){
+  body.notice-status:not(.result-visible) #status-msg:not(:empty),
+  body.notice-smile:not(.result-visible) #status-msg:not(:empty){
     display:flex!important;
   }
   body.notice-pose:not(.result-visible) #pose-warn-msg:not(:empty){
     display:flex!important;
   }
-  body.notice-smile:not(.result-visible) #smile-prompt{
-    display:block!important;
+
+  /* The legacy smile element is intentionally retired from visible UX. */
+  #smile-prompt{
+    display:none!important;
   }
 
   body.notice-status #pose-warn-msg,
-  body.notice-status #smile-prompt,
   body.notice-pose #status-msg,
-  body.notice-pose #smile-prompt,
-  body.notice-smile #status-msg,
   body.notice-smile #pose-warn-msg{
     display:none!important;
   }
@@ -1644,7 +1644,7 @@
   }
 
 </style>
-<script src="config.js?v=20260723-face-data-capture-v015"></script>
+<script src="config.js?v=20260723-face-data-capture-v017"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1796,7 +1796,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.2.6-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.3.0-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -1899,9 +1899,9 @@ let mouthCtx = null;
 
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
-const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.2.0";
-const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.0.0";
-const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.0.1";
+const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.3.0";
+const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.1.0";
+const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.2.0";
 
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -1937,6 +1937,8 @@ const REAL_MOVE_MIN = FACE_CFG.realMoveMin ?? 0.0025;
 const CLOSED_SMILE_RISE_MIN = FACE_CFG.closedSmileRiseMin ?? 0.003;
 const SMILE_REAL_MIN = FACE_CFG.smileRealMin ?? 0.045;
 
+// v1.1 policy: threshold values are unchanged. The logic now prevents
+// normalized geometry from confirming a smile without blendshape support.
 const MIN_VALID_SMILE_FRAMES = FACE_CFG.minValidSmileFrames ?? 2;
 const MIN_VISIBLE_MOUTH_FRAMES = FACE_CFG.minVisibleMouthFrames ?? 5;
 const MIN_MOUTH_VISIBILITY_SCORE = FACE_CFG.minMouthVisibilityScore ?? 0.052;
@@ -1965,10 +1967,17 @@ const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
 const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
 const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioMin ?? 0.25;
 const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
-const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.1.0';
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.2.0';
 const FACE_RESEARCH_HISTORY_LIMIT = Math.max(1, FACE_CFG.researchHistoryLimit ?? 8);
 
-const IDX_L_EYE = 133, IDX_R_EYE = 362;
+// Stable eye-corner pairs from MediaPipe Face Landmarker.
+// Centers are deterministic midpoints of x/y landmarks; iris and landmark z are not used.
+const IDX_L_EYE_OUTER = 33, IDX_L_EYE_INNER = 133;
+const IDX_R_EYE_INNER = 362, IDX_R_EYE_OUTER = 263;
+
+// Legacy inner-eye anchors retained only for the existing mouth pixel-visibility ROI.
+const IDX_L_EYE = IDX_L_EYE_INNER, IDX_R_EYE = IDX_R_EYE_INNER;
+
 const IDX_NOSE = 4, IDX_FOREHEAD = 10, IDX_CHIN = 152;
 const IDX_ML = 61, IDX_MR = 291;
 const IDX_LIP_TOP = 13, IDX_LIP_BOTTOM = 14;
@@ -2281,6 +2290,14 @@ function summarizeAttemptFrames(frames){
   const mouthVisibilityScores = frames
     .map((f) => Number(f.mouthVisibilityScore))
     .filter((value) => Number.isFinite(value));
+  const eyeDistances = frames
+    .map((f) => Number(f.eyeDistance))
+    .filter((value) => Number.isFinite(value));
+  const eyeDistanceRatios = frames
+    .map((f) => Number(f.eyeDistanceRatioFromBaseline))
+    .filter((value) => Number.isFinite(value));
+  const blendSmileEvidenceFrameCount = count((f) => f.blendSmileEvidence === true);
+  const geometrySmileEvidenceFrameCount = count((f) => f.geometrySmileEvidence === true);
   return {
     sampledFrames: total,
     faceDetectedRatio: ratio(count((f) => f.faceDetected === true)),
@@ -2289,7 +2306,12 @@ function summarizeAttemptFrames(frames){
     mouthAssessableRatio: ratio(mouthAssessableFrameCount),
     handOverlapFrameCount,
     handOverlapRatio: ratio(handOverlapFrameCount),
-    avgMouthVisibilityScore: mouthVisibilityScores.length ? average(mouthVisibilityScores) : null
+    avgMouthVisibilityScore: mouthVisibilityScores.length ? average(mouthVisibilityScores) : null,
+    avgEyeDistance: eyeDistances.length ? average(eyeDistances) : null,
+    minEyeDistanceRatioFromBaseline: eyeDistanceRatios.length ? Math.min(...eyeDistanceRatios) : null,
+    maxEyeDistanceRatioFromBaseline: eyeDistanceRatios.length ? Math.max(...eyeDistanceRatios) : null,
+    blendSmileEvidenceFrameCount,
+    geometrySmileEvidenceFrameCount
   };
 }
 function resolveAttemptInvalidReason(requestedReasonCode, summary){
@@ -2308,12 +2330,20 @@ function resolveAttemptInvalidReason(requestedReasonCode, summary){
     summary.handOverlapRatio >= ATTEMPT_HAND_OVERLAP_RATIO_MIN;
   if (sustainedHandOverlap) return 'HAND_OCCLUSION';
 
-  const mouthSignalPresent = summary.avgMouthVisibilityScore !== null &&
-    summary.avgMouthVisibilityScore >= MIN_MOUTH_VISIBILITY_SCORE &&
+  const visualMouthSignalPresent = summary.avgMouthVisibilityScore !== null &&
+    summary.avgMouthVisibilityScore >= MIN_MOUTH_VISIBILITY_SCORE;
+
+  const assessableMouthSignalPresent = visualMouthSignalPresent &&
     summary.mouthAssessableRatio !== null &&
     summary.mouthAssessableRatio >= ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN;
 
-  if ((requestedReasonCode === 'MOUTH_NOT_VISIBLE' || requestedReasonCode === 'HAND_OCCLUSION') && mouthSignalPresent){
+  // mouthAssessable also includes the mouth-line heuristic. A neutral,
+  // closed mouth can therefore have a low assessable ratio even while the
+  // mouth region is plainly visible. Do not mislabel that as MOUTH_NOT_VISIBLE.
+  if (requestedReasonCode === 'MOUTH_NOT_VISIBLE' && visualMouthSignalPresent){
+    return smileEverDetected ? 'INSUFFICIENT_VALID_FRAMES' : 'NO_SMILE_DETECTED';
+  }
+  if (requestedReasonCode === 'HAND_OCCLUSION' && assessableMouthSignalPresent){
     return smileEverDetected ? 'INSUFFICIENT_VALID_FRAMES' : 'NO_SMILE_DETECTED';
   }
   return requestedReasonCode;
@@ -2338,7 +2368,10 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
       : 'direct',
     quality: {
       ...summary,
-      avgMouthVisibilityScore: roundMetric(summary.avgMouthVisibilityScore)
+      avgMouthVisibilityScore: roundMetric(summary.avgMouthVisibilityScore),
+      avgEyeDistance: roundMetric(summary.avgEyeDistance),
+      minEyeDistanceRatioFromBaseline: roundMetric(summary.minEyeDistanceRatioFromBaseline),
+      maxEyeDistanceRatioFromBaseline: roundMetric(summary.maxEyeDistanceRatioFromBaseline)
     },
     metrics: {
       validSmileFrames,
@@ -2349,7 +2382,11 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
       visibleMouthFrames,
       lastMouthVisibilityScore: roundMetric(lastMouthVisibilityScore),
       lastMouthDarkRatio: roundMetric(lastMouthDarkRatio),
-      smileEverDetected
+      smileEverDetected,
+      peakSmileLeft: roundMetric(peakSmileL),
+      peakSmileRight: roundMetric(peakSmileR),
+      peakNormalizedRiseLeft: roundMetric(peakRiseL),
+      peakNormalizedRiseRight: roundMetric(peakRiseR)
     },
     ...extra
   };
@@ -2430,15 +2467,32 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       smileAsymWarn: SMILE_ASYM_WARN,
       smileAsymBad: SMILE_ASYM_BAD,
       restAsymCritical: REST_ASYM_CRITICAL,
+      smileDetectMin: SMILE_DETECT_MIN,
+      smileDetectSide: SMILE_DETECT_SIDE,
+      smileValidStrength: SMILE_VALID_STRENGTH,
+      smileRealMin: SMILE_REAL_MIN,
+      closedSmileRiseMin: CLOSED_SMILE_RISE_MIN,
       attemptMouthAssessableRatioMin: ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN,
       attemptHandOverlapRatioMin: ATTEMPT_HAND_OVERLAP_RATIO_MIN
     },
     runtime: resultRuntimeMetadata(),
+    geometry: {
+      normalizationVersion: 'eye-frame-2d-1.0.0',
+      normalizationMethod: 'eye-centered-translation-scale-roll',
+      leftEyeCornerLandmarks: [IDX_L_EYE_OUTER, IDX_L_EYE_INNER],
+      rightEyeCornerLandmarks: [IDX_R_EYE_INNER, IDX_R_EYE_OUTER],
+      usesLandmarkZ: false,
+      yawPitchPolicy: 'quality_gate_only',
+      smileConfirmationPolicy: 'blendshape_required_geometry_support_allowed'
+    },
     baseline: {
       sampleCount: restCornerL.length,
       baseLeft: roundMetric(baseL),
       baseRight: roundMetric(baseR),
+      baseEyeDistance: roundMetric(baseEyeW),
+      // Deprecated compatibility alias; now represents center-to-center eye distance.
       baseEyeWidth: roundMetric(baseEyeW),
+      coordinateFrame: 'eye-centered-2d-roll-scale',
       restAsymMean: roundMetric(average(restCornerAsymSamples)),
       restAsymMax: roundMetric(restCornerAsymSamples.length ? Math.max(...restCornerAsymSamples) : null),
       criticalTriggered: criticalFired,
@@ -2485,6 +2539,10 @@ function hideSmilePrompt(){
   document.body.classList.remove('smile-prompt-visible','notice-smile');
 
   if (activeNoticeKind === 'smile') {
+    if (statusMsg) {
+      statusMsg.textContent = '';
+      statusMsg.style.display = 'none';
+    }
     setFaceNoticeMode('none');
     activeNoticeKind = 'none';
     activeNoticeText = '';
@@ -2537,23 +2595,26 @@ function showPosePanel(text){
 }
 
 function showSmilePrompt(text){
-  const sp = document.getElementById('smile-prompt');
-  if (!sp) return;
-
   const msg = text || FL.smilePrompt;
-  const box = sp.querySelector('div');
-  if (box) box.textContent = msg;
+  const sp = document.getElementById('smile-prompt');
 
-  statusMsg.textContent = '';
-  statusMsg.style.display = 'none';
+  // Keep the legacy element hidden. All visible instructions use statusMsg.
+  if (sp) {
+    const box = sp.querySelector('div');
+    if (box) box.textContent = msg;
+    sp.style.display = 'none';
+  }
+
   poseWarnMsg.textContent = '';
   poseWarnMsg.style.display = 'none';
+
+  statusMsg.textContent = msg;
+  statusMsg.style.display = 'flex';
 
   document.body.classList.remove('pose-warning-visible');
   document.body.classList.add('smile-prompt-visible');
   setFaceNoticeMode('smile');
 
-  sp.style.display = 'block';
   activeNoticeKind = 'smile';
   activeNoticeText = msg;
 }
@@ -2863,24 +2924,102 @@ window.goBackHome = goBackHome;
 window.downloadFaceResearchJson = downloadFaceResearchJson;
 window.copyFaceResearchJson = copyFaceResearchJson;
 
-/* ───────────── pose & geometry from landmarks ───────────── */
+/* ───────────── pose & 2D eye-frame geometry from landmarks ───────────── */
+function midpoint2D(a,b){
+  return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
+}
+
+function buildEyeFrame2D(lm){
+  const leftEyeCenter = midpoint2D(lm[IDX_L_EYE_OUTER], lm[IDX_L_EYE_INNER]);
+  const rightEyeCenter = midpoint2D(lm[IDX_R_EYE_INNER], lm[IDX_R_EYE_OUTER]);
+
+  const centerX = (leftEyeCenter.x + rightEyeCenter.x) / 2;
+  const centerY = (leftEyeCenter.y + rightEyeCenter.y) / 2;
+  const dx = rightEyeCenter.x - leftEyeCenter.x;
+  const dy = rightEyeCenter.y - leftEyeCenter.y;
+  const eyeDistance = Math.hypot(dx,dy) + 1e-6;
+  const rollRad = Math.atan2(dy,dx);
+  const cosR = Math.cos(-rollRad);
+  const sinR = Math.sin(-rollRad);
+
+  // 2D similarity transform only:
+  // translation by eye midpoint, roll compensation, then scale by eye distance.
+  // MediaPipe landmark z is deliberately not read.
+  const normalize = (pt)=>{
+    const x = pt.x - centerX;
+    const y = pt.y - centerY;
+    return {
+      x:(x*cosR - y*sinR) / eyeDistance,
+      y:(x*sinR + y*cosR) / eyeDistance
+    };
+  };
+
+  return {
+    leftEyeCenter,
+    rightEyeCenter,
+    centerX,
+    centerY,
+    eyeDistance,
+    rollRad,
+    rollDeg:rollRad * 180/Math.PI,
+    normalize
+  };
+}
+
 function computePose(lm){
-  const lEye=lm[IDX_L_EYE], rEye=lm[IDX_R_EYE], nose=lm[IDX_NOSE], forehead=lm[IDX_FOREHEAD], chin=lm[IDX_CHIN];
-  const mL=lm[IDX_ML], mR=lm[IDX_MR];
-  // roll: rEye - lEye (raw image coords) → ~0° when level
-  const dx = rEye.x - lEye.x, dy = rEye.y - lEye.y;
-  const rollDeg = Math.atan2(dy, dx) * 180/Math.PI;
-  const cosR = Math.cos(-rollDeg*Math.PI/180), sinR = Math.sin(-rollDeg*Math.PI/180);
-  const rotY = (pt,ref)=> ref.y + ((pt.x-ref.x)*sinR + (pt.y-ref.y)*cosR);
-  const mLy = rotY(mL,lEye), mRy = rotY(mR,lEye);
-  const foreY = rotY(forehead,lEye), chinY = rotY(chin,lEye), noseY = rotY(nose,lEye);
-  const faceLen = Math.abs(chinY - foreY) + 1e-6;
-  const ratio = (noseY - foreY)/faceLen;
+  const eyeFrame = buildEyeFrame2D(lm);
+  const nose=lm[IDX_NOSE], forehead=lm[IDX_FOREHEAD], chin=lm[IDX_CHIN];
+  const mouthLeft = eyeFrame.normalize(lm[IDX_ML]);
+  const mouthRight = eyeFrame.normalize(lm[IDX_MR]);
+  const foreheadNorm = eyeFrame.normalize(forehead);
+  const chinNorm = eyeFrame.normalize(chin);
+  const noseNorm = eyeFrame.normalize(nose);
+
+  // Pitch/yaw remain 2D quality gates only. They are not compensated clinically.
+  const faceLen = Math.abs(chinNorm.y - foreheadNorm.y) + 1e-6;
+  const ratio = (noseNorm.y - foreheadNorm.y) / faceLen;
   if (pitchNeutralRatio === null) pitchNeutralRatio = 0.355;
   const pitchDeg = (ratio - pitchNeutralRatio) * 95;
-  const eyeW = Math.hypot(lEye.x-rEye.x, lEye.y-rEye.y) + 1e-6;
-  const yawDeg = (nose.x - (lEye.x+rEye.x)/2)/eyeW * -90;
-  return { mLy, mRy, rollDeg, yawDeg, pitchDeg, eyeW };
+  const yawDeg = noseNorm.x * -90;
+
+  return {
+    // Compatibility names: these are now normalized eye-frame y coordinates.
+    mLy:mouthLeft.y,
+    mRy:mouthRight.y,
+    normalizedMouthLeftX:mouthLeft.x,
+    normalizedMouthRightX:mouthRight.x,
+    rollDeg:eyeFrame.rollDeg,
+    yawDeg,
+    pitchDeg,
+    eyeW:eyeFrame.eyeDistance,
+    eyeCenterX:eyeFrame.centerX,
+    eyeCenterY:eyeFrame.centerY
+  };
+}
+
+function evaluateSmileEvidence(smileL, smileR, riseL, riseR, mode='valid'){
+  const smileStrength = (smileL + smileR) / 2;
+  const strongBlend = Math.max(smileL, smileR);
+  const strongRise = Math.max(riseL, riseR);
+
+  // Existing thresholds only. Geometry is allowed to support a closed-mouth
+  // smile only when blendshape already supplies at least minimal real-smile evidence.
+  const blendSmileEvidence = strongBlend >= SMILE_REAL_MIN;
+  const geometrySmileEvidence = strongRise >= CLOSED_SMILE_RISE_MIN;
+  const directBlendThreshold = mode === 'start'
+    ? (smileStrength >= SMILE_DETECT_MIN || strongBlend >= SMILE_DETECT_SIDE)
+    : (smileStrength >= SMILE_VALID_STRENGTH || strongBlend >= SMILE_DETECT_SIDE);
+  const blendSupportedGeometry = blendSmileEvidence && geometrySmileEvidence;
+
+  return {
+    smileStrength,
+    strongBlend,
+    strongRise,
+    blendSmileEvidence,
+    geometrySmileEvidence,
+    blendSupportedGeometry,
+    confirmed:directBlendThreshold || blendSupportedGeometry
+  };
 }
 
 function bs(blend, name){
@@ -3336,17 +3475,26 @@ function onResults(results, handResults=null){
   const smileStrength = smileTotal / 2;
   const smileAsym = smileTotal > 0.05 ? Math.abs(smileL - smileR) / smileTotal : 0;
 
-  // geometry corner rise (relative to neutral baseline), normalized by eye width
+  // Mouth corners are already expressed in the current frame's eye-centered,
+  // roll-corrected, eye-distance-normalized coordinate system.
   let geomAsym = 0, riseLn = 0, riseRn = 0;
   if (baseL !== null && baseR !== null){
-    riseLn = Math.max(0, baseL - mLy) / baseEyeW;
-    riseRn = Math.max(0, baseR - mRy) / baseEyeW;
+    riseLn = Math.max(0, baseL - mLy);
+    riseRn = Math.max(0, baseR - mRy);
     const riseSum = riseLn + riseRn;
     if (riseSum > 0.05) geomAsym = Math.abs(riseLn - riseRn) / riseSum;
   }
   const frameAsym = Math.max(smileAsym, geomAsym);
 
   const inActionPhase = (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE');
+  const eyeDistanceRatioFromBaseline = baseEyeW ? eyeW / baseEyeW : null;
+  const smileEvidence = evaluateSmileEvidence(
+    smileL,
+    smileR,
+    riseLn,
+    riseRn,
+    phase === 'ACTION_PHASE' ? 'start' : 'valid'
+  );
 
   // ⚡ getMouthVisibility ทำ drawImage + getImageData (pixel readback) ทุกครั้งที่เรียก
   //    ซึ่งแพงมากบนมือถือ — เดิมรัน "ทุกเฟรม ทุก phase" แม้ตอนหน้าจอผลลัพธ์
@@ -3367,10 +3515,17 @@ function onResults(results, handResults=null){
     yawDeg:roundMetric(yawDeg,2),
     pitchDeg:roundMetric(pitchDeg,2),
     rollDeg:roundMetric(rollDeg,2),
+    eyeLineRollDeg:roundMetric(rollDeg,2),
+    eyeDistance:roundMetric(eyeW),
+    eyeDistanceRatioFromBaseline:roundMetric(eyeDistanceRatioFromBaseline),
+    normalizedMouthLeftY:roundMetric(mLy),
+    normalizedMouthRightY:roundMetric(mRy),
     smileLeft:roundMetric(smileL),
     smileRight:roundMetric(smileR),
     riseLeft:roundMetric(riseLn),
     riseRight:roundMetric(riseRn),
+    blendSmileEvidence:inActionPhase ? smileEvidence.blendSmileEvidence : null,
+    geometrySmileEvidence:inActionPhase ? smileEvidence.geometrySmileEvidence : null,
     mouthVisibilityScore:roundMetric(mouthVis.score),
     mouthDarkRatio:roundMetric(mouthVis.darkRatio),
     mouthCentralDarkRatio:roundMetric(mouthVis.centralDarkRatio),
@@ -3445,7 +3600,7 @@ function onResults(results, handResults=null){
   /* ── RESTING: collect neutral baseline + resting-droop check ── */
   if (phase==='RESTING_PHASE'){
     restCornerL.push(mLy); restCornerR.push(mRy); restEyeW.push(eyeW);
-    const restAsym = Math.abs(mLy - mRy) / eyeW;
+    const restAsym = Math.abs(mLy - mRy);
     restCornerAsymSamples = [...restCornerAsymSamples.slice(-7), restAsym];
     if (restCornerAsymSamples.length >= 8){
       const avg = average(restCornerAsymSamples);
@@ -3500,10 +3655,10 @@ function onResults(results, handResults=null){
       showSmilePrompt(FL.smilePrompt);
     }
 
-    // A smile has begun if blendshape rises OR mouth corners rise from baseline.
-    // The geometry path is what lets closed-mouth smiles be measured without teeth.
-    const closedSmileStart = Math.max(riseLn, riseRn) >= CLOSED_SMILE_RISE_MIN;
-    if (smileStrength >= SMILE_DETECT_MIN || Math.max(smileL, smileR) >= SMILE_DETECT_SIDE || closedSmileStart){
+    // Blendshape is required to confirm that a smile began. Normalized geometry
+    // may support a closed-mouth smile, but geometry alone can never open the window.
+    const startEvidence = evaluateSmileEvidence(smileL, smileR, riseLn, riseRn, 'start');
+    if (startEvidence.confirmed){
       clearSmileCaptureWindow();
       smileEverDetected = true;
       smileStartMs = now;
@@ -3538,27 +3693,8 @@ function onResults(results, handResults=null){
 
     // ใช้ "ข้างที่ขยับมากที่สุด" เป็นตัวตรวจว่ามีความพยายามยิ้ม
     // เพราะ stroke-like smile อาจขยับชัดแค่ข้างเดียว
-    const strongBlendNow = Math.max(smileL, smileR);
-    const strongRiseNow  = Math.max(riseLn, riseRn);
-    
-    const realMove =
-      strongRiseNow > REAL_MOVE_MIN ||
-      strongBlendNow >= SMILE_DETECT_SIDE;
-    
-    const geometrySmile =
-      strongRiseNow >= CLOSED_SMILE_RISE_MIN;
-    
-    const oneSideBlendSmile =
-      strongBlendNow >= SMILE_DETECT_SIDE;
-    
-    const twoSideAverageSmile =
-      smileStrength >= SMILE_VALID_STRENGTH;
-    
-    const hasSmileSignal =
-      oneSideBlendSmile || twoSideAverageSmile || geometrySmile;
-    
-    const validSmileNow =
-      hasSmileSignal && realMove && mouthAssessable;
+    const validEvidence = evaluateSmileEvidence(smileL, smileR, riseLn, riseRn, 'valid');
+    const validSmileNow = validEvidence.confirmed && mouthAssessable;
 
     // If a hand covers the mouth or the mouth becomes unassessable after the
     // smile window has started, discard everything recorded so far. Otherwise a
@@ -3630,9 +3766,9 @@ function finishFace(){
   // truly saw the person smile (weak attempt / occlusion) → unable to assess.
   const strongBlend = Math.max(peakSmileL, peakSmileR);
   const strongRise = Math.max(peakRiseL, peakRiseR);
-  // Closed-mouth smiles may have modest blendshape scores, so combine blendshape
-  // with actual mouth-corner rise. This removes the accidental "must show teeth" behavior.
-  const strongSide = Math.max(strongBlend, strongRise * 6.0);
+  // Geometry alone cannot prove that a smile occurred. Closed-mouth smiles remain
+  // supported through the earlier blend-supported-geometry path, but final validity
+  // still requires the existing minimum blendshape evidence.
   const avgMouthVisibility = average(mouthVisibilityScores) || 0;
   const validSmileRatio = validSmileFrames / Math.max(1, smileFrameCount);
   if (visibleMouthFrames < MIN_VISIBLE_MOUTH_FRAMES || avgMouthVisibility < MIN_MOUTH_VISIBILITY_SCORE){
@@ -3643,7 +3779,7 @@ function finishFace(){
     finishInvalid('INSUFFICIENT_VALID_FRAMES');
     return;
   }
-  if (strongSide < SMILE_REAL_MIN){
+  if (strongBlend < SMILE_REAL_MIN){
     finishInvalid('SMILE_TOO_WEAK');
     return;
   }
@@ -3686,7 +3822,10 @@ function finishFace(){
     restAsym: criticalRestAsym,
     peakSmileL, peakSmileR, peakRiseL, peakRiseR,
     validSmileFrames, smileFrameCount, validSmileRatio, smileWindowVisibleMouthFrames:visibleMouthFrames, visibleMouthFrames, avgMouthVisibility,
-    method: 'continuous_smile_hold_with_hand_occlusion_reset'
+    geometryNormalization: 'eye-centered-2d-roll-scale',
+    usesLandmarkZ: false,
+    smileConfirmation: 'blendshape_required_geometry_support_allowed',
+    method: 'continuous_blend_confirmed_smile_with_2d_eye_frame_geometry'
   });
 }
 
