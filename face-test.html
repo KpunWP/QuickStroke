@@ -1644,7 +1644,7 @@
   }
 
 </style>
-<script src="config.js?v=20260723-face-data-capture-v017"></script>
+<script src="config.js?v=20260723-face-data-capture-v018"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1796,7 +1796,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.3.0-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.3.1-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -1899,9 +1899,9 @@ let mouthCtx = null;
 
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
-const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.3.0";
+const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.3.1";
 const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.1.0";
-const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.2.0";
+const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.2.1";
 
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -1967,7 +1967,7 @@ const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
 const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
 const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioMin ?? 0.25;
 const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
-const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.2.0';
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.2.1';
 const FACE_RESEARCH_HISTORY_LIMIT = Math.max(1, FACE_CFG.researchHistoryLimit ?? 8);
 
 // Stable eye-corner pairs from MediaPipe Face Landmarker.
@@ -1996,9 +1996,13 @@ let noFaceCount = 0;
 let poseBadFrames = 0;   // hysteresis: กันเตือน pose เพราะค่าเด้งแค่เฟรมเดียว
 let poseGoodFrames = 0;  // debounce: ต้องนิ่งติดกันหลายเฟรมก่อนกลับมาทดสอบต่อ
 
-let restCornerAsymSamples = [];   // resting |mLy-mRy|/eyeWidth
+let restCornerAsymSamples = [];   // resting asymmetry in normalized eye frame
 let restCornerL = [], restCornerR = [], restEyeW = [];
+let restRawMouthLeftY = [], restRawMouthRightY = [];
+let restEyeCenterX = [], restEyeCenterY = [], restEyeLineRollDeg = [];
 let baseL = null, baseR = null, baseEyeW = null;
+let baseRawMouthLeftY = null, baseRawMouthRightY = null;
+let baseEyeCenterX = null, baseEyeCenterY = null, baseEyeLineRollDeg = null;
 let criticalFired = false;
 
 let smileStartMs = null;
@@ -2116,6 +2120,33 @@ function hideCenterCountdown(){ __lastCountdownShown = null; centerCD.style.disp
 function average(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
 function roundMetric(value, digits=4){
   return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
+}
+function standardDeviation(values){
+  const finite = values.filter((value) => Number.isFinite(value));
+  if (finite.length < 2) return null;
+  const mean = average(finite);
+  const variance = finite.reduce((sum,value) => sum + Math.pow(value - mean, 2), 0) / finite.length;
+  return Math.sqrt(variance);
+}
+function pearsonCorrelationFromFrames(frames, xAccessor, yAccessor){
+  const pairs = frames
+    .map((frame) => [Number(xAccessor(frame)), Number(yAccessor(frame))])
+    .filter(([x,y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (pairs.length < 3) return null;
+  const xs = pairs.map(([x]) => x);
+  const ys = pairs.map(([,y]) => y);
+  const meanX = average(xs);
+  const meanY = average(ys);
+  let covariance = 0, varianceX = 0, varianceY = 0;
+  for (let i=0; i<pairs.length; i++){
+    const dx = xs[i] - meanX;
+    const dy = ys[i] - meanY;
+    covariance += dx * dy;
+    varianceX += dx * dx;
+    varianceY += dy * dy;
+  }
+  const denominator = Math.sqrt(varianceX * varianceY);
+  return denominator > 1e-12 ? covariance / denominator : null;
 }
 function createResearchId(prefix='id'){
   try {
@@ -2314,6 +2345,63 @@ function summarizeAttemptFrames(frames){
     geometrySmileEvidenceFrameCount
   };
 }
+function summarizeCompensationFrames(frames){
+  const usable = frames.filter((frame) =>
+    Number.isFinite(Number(frame.rollDeg)) &&
+    Number.isFinite(Number(frame.rawRiseLeft)) &&
+    Number.isFinite(Number(frame.rawRiseRight)) &&
+    Number.isFinite(Number(frame.normalizedRiseLeft)) &&
+    Number.isFinite(Number(frame.normalizedRiseRight))
+  );
+  const values = (key) => usable
+    .map((frame) => Number(frame[key]))
+    .filter((value) => Number.isFinite(value));
+  const rawMeanRise = usable.map((frame) =>
+    (Number(frame.rawRiseLeft) + Number(frame.rawRiseRight)) / 2
+  );
+  const normalizedMeanRise = usable.map((frame) =>
+    (Number(frame.normalizedRiseLeft) + Number(frame.normalizedRiseRight)) / 2
+  );
+  const rawAsymmetry = values('rawGeometryAsymmetry');
+  const normalizedAsymmetry = values('normalizedGeometryAsymmetry');
+  const rolls = values('rollDeg');
+  const eyeRatios = values('eyeDistanceRatioFromBaseline');
+
+  return {
+    frameCount: usable.length,
+    rollDegMin: rolls.length ? Math.min(...rolls) : null,
+    rollDegMax: rolls.length ? Math.max(...rolls) : null,
+    meanAbsRollDeg: rolls.length ? average(rolls.map(Math.abs)) : null,
+    eyeDistanceRatioMin: eyeRatios.length ? Math.min(...eyeRatios) : null,
+    eyeDistanceRatioMax: eyeRatios.length ? Math.max(...eyeRatios) : null,
+
+    rawMeanRiseStd: standardDeviation(rawMeanRise),
+    normalizedMeanRiseStd: standardDeviation(normalizedMeanRise),
+    rawAsymmetryStd: standardDeviation(rawAsymmetry),
+    normalizedAsymmetryStd: standardDeviation(normalizedAsymmetry),
+
+    absRollVsRawRiseCorrelation: pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Math.abs(Number(frame.rollDeg)),
+      (frame) => (Number(frame.rawRiseLeft) + Number(frame.rawRiseRight)) / 2
+    ),
+    absRollVsNormalizedRiseCorrelation: pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Math.abs(Number(frame.rollDeg)),
+      (frame) => (Number(frame.normalizedRiseLeft) + Number(frame.normalizedRiseRight)) / 2
+    ),
+    eyeDistanceRatioVsRawRiseCorrelation: pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.eyeDistanceRatioFromBaseline),
+      (frame) => (Number(frame.rawRiseLeft) + Number(frame.rawRiseRight)) / 2
+    ),
+    eyeDistanceRatioVsNormalizedRiseCorrelation: pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.eyeDistanceRatioFromBaseline),
+      (frame) => (Number(frame.normalizedRiseLeft) + Number(frame.normalizedRiseRight)) / 2
+    )
+  };
+}
 function resolveAttemptInvalidReason(requestedReasonCode, summary){
   if (!requestedReasonCode) return null;
   const reasonCanUseAttemptSummary = [
@@ -2352,6 +2440,7 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
   const attemptNo = currentAttemptNo();
   const frames = getAttemptFrames(attemptNo);
   const summary = summarizeAttemptFrames(frames);
+  const compensation = summarizeCompensationFrames(frames);
   const invalidReasonCode = outcome === 'invalid'
     ? resolveAttemptInvalidReason(requestedInvalidReasonCode, summary)
     : null;
@@ -2372,6 +2461,22 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
       avgEyeDistance: roundMetric(summary.avgEyeDistance),
       minEyeDistanceRatioFromBaseline: roundMetric(summary.minEyeDistanceRatioFromBaseline),
       maxEyeDistanceRatioFromBaseline: roundMetric(summary.maxEyeDistanceRatioFromBaseline)
+    },
+    compensationAnalysis: {
+      frameCount: compensation.frameCount,
+      rollDegMin: roundMetric(compensation.rollDegMin,2),
+      rollDegMax: roundMetric(compensation.rollDegMax,2),
+      meanAbsRollDeg: roundMetric(compensation.meanAbsRollDeg,2),
+      eyeDistanceRatioMin: roundMetric(compensation.eyeDistanceRatioMin),
+      eyeDistanceRatioMax: roundMetric(compensation.eyeDistanceRatioMax),
+      rawMeanRiseStd: roundMetric(compensation.rawMeanRiseStd),
+      normalizedMeanRiseStd: roundMetric(compensation.normalizedMeanRiseStd),
+      rawAsymmetryStd: roundMetric(compensation.rawAsymmetryStd),
+      normalizedAsymmetryStd: roundMetric(compensation.normalizedAsymmetryStd),
+      absRollVsRawRiseCorrelation: roundMetric(compensation.absRollVsRawRiseCorrelation),
+      absRollVsNormalizedRiseCorrelation: roundMetric(compensation.absRollVsNormalizedRiseCorrelation),
+      eyeDistanceRatioVsRawRiseCorrelation: roundMetric(compensation.eyeDistanceRatioVsRawRiseCorrelation),
+      eyeDistanceRatioVsNormalizedRiseCorrelation: roundMetric(compensation.eyeDistanceRatioVsNormalizedRiseCorrelation)
     },
     metrics: {
       validSmileFrames,
@@ -2418,6 +2523,7 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
   const attemptSnapshot = attemptRecords.map((record) => ({
     ...record,
     quality: record.quality ? { ...record.quality } : record.quality,
+    compensationAnalysis: record.compensationAnalysis ? { ...record.compensationAnalysis } : record.compensationAnalysis,
     metrics: record.metrics ? { ...record.metrics } : record.metrics
   }));
   const frameSnapshot = researchFrames.map((frame) => ({ ...frame }));
@@ -2479,6 +2585,9 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
     geometry: {
       normalizationVersion: 'eye-frame-2d-1.0.0',
       normalizationMethod: 'eye-centered-translation-scale-roll',
+      telemetryComparisonMethod: 'legacy-image-frame-vs-normalized-eye-frame',
+      rawCoordinateFrame: 'mediapipe-image-normalized-xy',
+      rawRiseScaling: 'divide-by-baseline-eye-distance-for-comparison-only',
       leftEyeCornerLandmarks: [IDX_L_EYE_OUTER, IDX_L_EYE_INNER],
       rightEyeCornerLandmarks: [IDX_R_EYE_INNER, IDX_R_EYE_OUTER],
       usesLandmarkZ: false,
@@ -2492,6 +2601,12 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       baseEyeDistance: roundMetric(baseEyeW),
       // Deprecated compatibility alias; now represents center-to-center eye distance.
       baseEyeWidth: roundMetric(baseEyeW),
+      baseRawMouthLeftY: roundMetric(baseRawMouthLeftY),
+      baseRawMouthRightY: roundMetric(baseRawMouthRightY),
+      baseEyeCenterX: roundMetric(baseEyeCenterX),
+      baseEyeCenterY: roundMetric(baseEyeCenterY),
+      baseEyeLineRollDeg: roundMetric(baseEyeLineRollDeg,2),
+      rawCoordinateFrame: 'mediapipe-image-normalized-xy',
       coordinateFrame: 'eye-centered-2d-roll-scale',
       restAsymMean: roundMetric(average(restCornerAsymSamples)),
       restAsymMax: roundMetric(restCornerAsymSamples.length ? Math.max(...restCornerAsymSamples) : null),
@@ -2982,12 +3097,38 @@ function computePose(lm){
   const pitchDeg = (ratio - pitchNeutralRatio) * 95;
   const yawDeg = noseNorm.x * -90;
 
+  const rawMouthLeft = lm[IDX_ML];
+  const rawMouthRight = lm[IDX_MR];
+
   return {
-    // Compatibility names: these are now normalized eye-frame y coordinates.
+    // Compatibility names: these are normalized eye-frame y coordinates.
     mLy:mouthLeft.y,
     mRy:mouthRight.y,
+
+    // Raw MediaPipe image-normalized x/y inputs used by the transform.
+    rawLeftEyeCenterX:eyeFrame.leftEyeCenter.x,
+    rawLeftEyeCenterY:eyeFrame.leftEyeCenter.y,
+    rawRightEyeCenterX:eyeFrame.rightEyeCenter.x,
+    rawRightEyeCenterY:eyeFrame.rightEyeCenter.y,
+    rawEyeCenterX:eyeFrame.centerX,
+    rawEyeCenterY:eyeFrame.centerY,
+    rawMouthLeftX:rawMouthLeft.x,
+    rawMouthLeftY:rawMouthLeft.y,
+    rawMouthRightX:rawMouthRight.x,
+    rawMouthRightY:rawMouthRight.y,
+
+    // Output after translation, roll compensation and scale normalization.
     normalizedMouthLeftX:mouthLeft.x,
+    normalizedMouthLeftY:mouthLeft.y,
     normalizedMouthRightX:mouthRight.x,
+    normalizedMouthRightY:mouthRight.y,
+
+    // Exact parameters applied in this frame.
+    translationCompensationX:-eyeFrame.centerX,
+    translationCompensationY:-eyeFrame.centerY,
+    rollCompensationAppliedDeg:-eyeFrame.rollDeg,
+    scaleNormalizationFactor:1 / eyeFrame.eyeDistance,
+
     rollDeg:eyeFrame.rollDeg,
     yawDeg,
     pitchDeg,
@@ -3294,7 +3435,11 @@ function startScreening(){
   criticalRestAsym=null;
   criticalNoticeUntilMs=0;
   restCornerAsymSamples=[]; restCornerL=[]; restCornerR=[]; restEyeW=[];
+  restRawMouthLeftY=[]; restRawMouthRightY=[];
+  restEyeCenterX=[]; restEyeCenterY=[]; restEyeLineRollDeg=[];
   baseL=null; baseR=null; baseEyeW=null;
+  baseRawMouthLeftY=null; baseRawMouthRightY=null;
+  baseEyeCenterX=null; baseEyeCenterY=null; baseEyeLineRollDeg=null;
   criticalFired=false; noFaceCount=0; poseBadFrames=0; poseGoodFrames=0;
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
@@ -3342,6 +3487,11 @@ function calibrationTick(){
   baseL = average(restCornerL);
   baseR = average(restCornerR);
   baseEyeW = average(restEyeW) || 0.1;
+  baseRawMouthLeftY = average(restRawMouthLeftY);
+  baseRawMouthRightY = average(restRawMouthRightY);
+  baseEyeCenterX = average(restEyeCenterX);
+  baseEyeCenterY = average(restEyeCenterY);
+  baseEyeLineRollDeg = average(restEyeLineRollDeg);
   startActionPhase();
 }
 
@@ -3466,7 +3616,19 @@ function onResults(results, handResults=null){
   const lm = lmArr[0];
   drawFaceMesh(lm);  // dev mesh overlay (ทำงานเฉพาะ ?dev=1)
   const blend = (blendArr && blendArr.length) ? blendArr[0] : null;
-  const { mLy, mRy, rollDeg, yawDeg, pitchDeg, eyeW } = computePose(lm);
+  const {
+    mLy, mRy,
+    rawLeftEyeCenterX, rawLeftEyeCenterY,
+    rawRightEyeCenterX, rawRightEyeCenterY,
+    rawEyeCenterX, rawEyeCenterY,
+    rawMouthLeftX, rawMouthLeftY,
+    rawMouthRightX, rawMouthRightY,
+    normalizedMouthLeftX, normalizedMouthLeftY,
+    normalizedMouthRightX, normalizedMouthRightY,
+    translationCompensationX, translationCompensationY,
+    rollCompensationAppliedDeg, scaleNormalizationFactor,
+    rollDeg, yawDeg, pitchDeg, eyeW
+  } = computePose(lm);
 
   // blendshape smile (subject's anatomical left/right; magnitude is what matters)
   const smileL = bs(blend,'mouthSmileLeft');
@@ -3475,8 +3637,7 @@ function onResults(results, handResults=null){
   const smileStrength = smileTotal / 2;
   const smileAsym = smileTotal > 0.05 ? Math.abs(smileL - smileR) / smileTotal : 0;
 
-  // Mouth corners are already expressed in the current frame's eye-centered,
-  // roll-corrected, eye-distance-normalized coordinate system.
+  // Normalized geometry used by the algorithm.
   let geomAsym = 0, riseLn = 0, riseRn = 0;
   if (baseL !== null && baseR !== null){
     riseLn = Math.max(0, baseL - mLy);
@@ -3484,6 +3645,18 @@ function onResults(results, handResults=null){
     const riseSum = riseLn + riseRn;
     if (riseSum > 0.05) geomAsym = Math.abs(riseLn - riseRn) / riseSum;
   }
+
+  // Pilot-only comparison: reproduce the former image-frame rise before
+  // translation/roll/scale compensation. Scaling by baseline eye distance makes
+  // it dimensionless and easier to compare with normalized rise. It is never scored.
+  let rawRiseLn = 0, rawRiseRn = 0, rawGeomAsym = 0;
+  if (baseRawMouthLeftY !== null && baseRawMouthRightY !== null && baseEyeW){
+    rawRiseLn = Math.max(0, baseRawMouthLeftY - rawMouthLeftY) / baseEyeW;
+    rawRiseRn = Math.max(0, baseRawMouthRightY - rawMouthRightY) / baseEyeW;
+    const rawRiseSum = rawRiseLn + rawRiseRn;
+    if (rawRiseSum > 0.05) rawGeomAsym = Math.abs(rawRiseLn - rawRiseRn) / rawRiseSum;
+  }
+
   const frameAsym = Math.max(smileAsym, geomAsym);
 
   const inActionPhase = (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE');
@@ -3518,8 +3691,35 @@ function onResults(results, handResults=null){
     eyeLineRollDeg:roundMetric(rollDeg,2),
     eyeDistance:roundMetric(eyeW),
     eyeDistanceRatioFromBaseline:roundMetric(eyeDistanceRatioFromBaseline),
-    normalizedMouthLeftY:roundMetric(mLy),
-    normalizedMouthRightY:roundMetric(mRy),
+
+    rawLeftEyeCenterX:roundMetric(rawLeftEyeCenterX),
+    rawLeftEyeCenterY:roundMetric(rawLeftEyeCenterY),
+    rawRightEyeCenterX:roundMetric(rawRightEyeCenterX),
+    rawRightEyeCenterY:roundMetric(rawRightEyeCenterY),
+    rawEyeCenterX:roundMetric(rawEyeCenterX),
+    rawEyeCenterY:roundMetric(rawEyeCenterY),
+    rawMouthLeftX:roundMetric(rawMouthLeftX),
+    rawMouthLeftY:roundMetric(rawMouthLeftY),
+    rawMouthRightX:roundMetric(rawMouthRightX),
+    rawMouthRightY:roundMetric(rawMouthRightY),
+
+    translationCompensationX:roundMetric(translationCompensationX),
+    translationCompensationY:roundMetric(translationCompensationY),
+    rollCompensationAppliedDeg:roundMetric(rollCompensationAppliedDeg,2),
+    scaleNormalizationFactor:roundMetric(scaleNormalizationFactor),
+
+    normalizedMouthLeftX:roundMetric(normalizedMouthLeftX),
+    normalizedMouthLeftY:roundMetric(normalizedMouthLeftY),
+    normalizedMouthRightX:roundMetric(normalizedMouthRightX),
+    normalizedMouthRightY:roundMetric(normalizedMouthRightY),
+
+    rawRiseLeft:roundMetric(rawRiseLn),
+    rawRiseRight:roundMetric(rawRiseRn),
+    normalizedRiseLeft:roundMetric(riseLn),
+    normalizedRiseRight:roundMetric(riseRn),
+    rawGeometryAsymmetry:roundMetric(rawGeomAsym),
+    normalizedGeometryAsymmetry:roundMetric(geomAsym),
+
     smileLeft:roundMetric(smileL),
     smileRight:roundMetric(smileR),
     riseLeft:roundMetric(riseLn),
@@ -3600,6 +3800,11 @@ function onResults(results, handResults=null){
   /* ── RESTING: collect neutral baseline + resting-droop check ── */
   if (phase==='RESTING_PHASE'){
     restCornerL.push(mLy); restCornerR.push(mRy); restEyeW.push(eyeW);
+    restRawMouthLeftY.push(rawMouthLeftY);
+    restRawMouthRightY.push(rawMouthRightY);
+    restEyeCenterX.push(rawEyeCenterX);
+    restEyeCenterY.push(rawEyeCenterY);
+    restEyeLineRollDeg.push(rollDeg);
     const restAsym = Math.abs(mLy - mRy);
     restCornerAsymSamples = [...restCornerAsymSamples.slice(-7), restAsym];
     if (restCornerAsymSamples.length >= 8){
