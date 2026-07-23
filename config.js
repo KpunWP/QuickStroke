@@ -168,7 +168,7 @@ window.QS_CONFIG = {
 
     speech: {
       // Version identifiers stored with every Speech result.
-      version: "speech-prepilot-1.4.1",
+      version: "speech-prepilot-1.4.2",
       algorithmVersion: "speech-browser-asr-1.0.0",
       resultSchemaVersion: "speech-result-1.1.0",
       researchPayloadVersion: "speech-research-0.1.0",

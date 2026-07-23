@@ -771,6 +771,55 @@
       box-shadow:none!important;
     }
   }
+
+
+  /* QUICKSTROKE SPEECH DEV COPY LOG — v1.4.2
+     Keep the export control fixed and visible in result mode on mobile. */
+  #test-screen.done #mid{
+    padding-bottom:250px!important;
+    scroll-padding-bottom:250px!important;
+  }
+  #test-screen.done #dev-log-tools.show{
+    position:absolute!important;
+    left:12px!important;
+    right:12px!important;
+    bottom:156px!important;
+    z-index:132!important;
+    width:auto!important;
+    max-width:none!important;
+    margin:0!important;
+    display:flex!important;
+    gap:5px!important;
+    padding:0!important;
+  }
+  #test-screen.done #dev-copy-log{
+    width:100%!important;
+    min-height:52px!important;
+    color:#0D58B8!important;
+    background:#EAF2FD!important;
+    border:1.5px solid rgba(43,125,233,.42)!important;
+    border-radius:17px!important;
+    box-shadow:0 10px 24px rgba(27,42,58,.14)!important;
+    font-size:16px!important;
+    font-weight:800!important;
+  }
+  #test-screen.done #dev-log-status{
+    min-height:0!important;
+    padding:0 6px!important;
+    color:var(--ink-soft)!important;
+    font-size:11px!important;
+  }
+  @media (max-height:720px){
+    #test-screen.done #mid{
+      padding-bottom:236px!important;
+      scroll-padding-bottom:236px!important;
+    }
+    #test-screen.done #dev-log-tools.show{
+      bottom:146px!important;
+    }
+    #test-screen.done #dev-copy-log{min-height:48px!important;}
+  }
+
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
@@ -971,7 +1020,7 @@ const RETRY_FULL_RELEASE_WAIT_MS = SPEECH_CFG.retryFullReleaseWaitMs ?? 1200;
 const RESULT_KEEP_ALIVE_MS = SPEECH_CFG.resultKeepAliveMs ?? 20000;
 const RECOGNITION_SAFETY_MS = SPEECH_CFG.recognitionSafetyMs ?? 8000;
 const TRAILING_GAP_MS = SPEECH_CFG.trailingGapMs ?? 800;
-const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.4.1';
+const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.4.2';
 const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.0.0';
 const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.1.0';
 const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.1.0';
@@ -1109,7 +1158,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.4.1 — copyable research log';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.4.2 — fixed visible Copy Log';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -1541,7 +1590,11 @@ function persistSpeechPayload(payload, { writeLegacyResult = true } = {}) {
   }
   window.SPEECH_RESULT = payload;
   window.SPEECH_RESEARCH_RESULT = payload;
-  setTimeout(updateDevLogTools, 0);
+  // Update immediately and again after layout/paint. Mobile Safari may finish
+  // the result DOM one frame later than sessionStorage persistence.
+  updateDevLogTools();
+  requestAnimationFrame(updateDevLogTools);
+  setTimeout(updateDevLogTools, 80);
   return payload;
 }
 
@@ -1605,8 +1658,10 @@ function setDevLogStatus(message, kind = '') {
 function updateDevLogTools() {
   const tools = $('dev-log-tools');
   if (!tools) return;
-  const available = DEBUG_ON && phase === 'DONE' && Boolean(buildSpeechResearchLogBundle());
+  const screenDone = $('test-screen')?.classList.contains('done');
+  const available = DEBUG_ON && (phase === 'DONE' || screenDone) && Boolean(buildSpeechResearchLogBundle());
   tools.classList.toggle('show', available);
+  tools.setAttribute('aria-hidden', String(!available));
   if (!available) setDevLogStatus('');
 }
 
