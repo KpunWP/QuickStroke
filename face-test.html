@@ -1563,7 +1563,7 @@
     #top-bar{left:68px!important;right:12px!important;width:auto!important;}
   }
 </style>
-<script src="config.js"></script>
+<script src="config.js?v=20260723-face-data-capture-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1646,6 +1646,12 @@
     <span class="dbg-row"><span class="dbg-lbl">phase</span><span class="dbg-val" id="dbg-phase">—</span></span>
     <span class="dbg-row"><span class="dbg-lbl">mouthVisible</span><span class="dbg-val" id="dbg-mouthvis">—</span></span>
     <span class="dbg-row"><span class="dbg-lbl">mouthScore</span><span class="dbg-val" id="dbg-mouthscore">—</span></span>
+
+    <div class="dbg-section">🧪 RESEARCH PAYLOAD</div>
+    <div style="display:flex;gap:8px;margin-top:7px">
+      <button type="button" onclick="downloadFaceResearchJson()" style="flex:1;border:1px solid rgba(0,255,160,.35);background:rgba(0,255,160,.12);color:#A8F5C3;border-radius:9px;padding:8px 6px;font-size:10px;font-weight:800;cursor:pointer">Download JSON</button>
+      <button type="button" onclick="copyFaceResearchJson()" style="flex:1;border:1px solid rgba(255,213,79,.35);background:rgba(255,213,79,.10);color:#FFD54F;border-radius:9px;padding:8px 6px;font-size:10px;font-weight:800;cursor:pointer">Copy JSON</button>
+    </div>
   </div>
 </div>
 
@@ -1709,7 +1715,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.1.0 / 2026-07-20';
+const FACE_TEST_BUILD = 'face-prepilot-1.2.1-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -1875,6 +1881,8 @@ const POSE_BAD_TRIP_FRAMES = FACE_CFG.poseBadTripFrames ?? 3;      // หลุ�
 const POSE_GOOD_RESUME_FRAMES = FACE_CFG.poseGoodResumeFrames ?? 8; // นิ่งติดกันกี่เฟรมถึงไปต่อ
 const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
 const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.1.0';
+const FACE_RESEARCH_HISTORY_LIMIT = Math.max(1, FACE_CFG.researchHistoryLimit ?? 8);
 
 const IDX_L_EYE = 133, IDX_R_EYE = 362;
 const IDX_NOSE = 4, IDX_FOREHEAD = 10, IDX_CHIN = 152;
@@ -1924,6 +1932,8 @@ let retryTimer = null;
 let poseInterruptedSmile = false;   // true เมื่อ pose/no-face ขัดจังหวะช่วงยิ้ม → ต้องเริ่ม smile window ใหม่
 
 let screeningStartedAtMs = null;
+let faceTestAttemptId = null;
+let faceAttemptSequenceNo = null;
 let baselineWaitStartMs = null;
 let attemptStartedAtMs = null;
 let attemptRecords = [];
@@ -2013,6 +2023,150 @@ function average(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length :
 function roundMetric(value, digits=4){
   return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
 }
+function createResearchId(prefix='id'){
+  try {
+    if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
+    if (window.crypto?.getRandomValues) {
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      const token = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+      return `${prefix}-${token}`;
+    }
+  } catch (error) {
+    console.warn('Unable to create cryptographic research id; using fallback', error);
+  }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+function nextFaceAttemptSequence(){
+  const key = 'fast_face_attempt_sequence';
+  try {
+    const current = Number.parseInt(sessionStorage.getItem(key) || '0', 10);
+    const next = Number.isFinite(current) ? current + 1 : 1;
+    sessionStorage.setItem(key, String(next));
+    return next;
+  } catch (error) {
+    console.warn('Unable to update Face attempt sequence', error);
+    return null;
+  }
+}
+function ensureFaceTestAttemptIdentity({forceNew=false}={}){
+  if (forceNew || !faceTestAttemptId) {
+    faceTestAttemptId = createResearchId('face-attempt');
+    faceAttemptSequenceNo = nextFaceAttemptSequence();
+  }
+  return faceTestAttemptId;
+}
+function getFaceScreeningContext(){
+  let participantId = null;
+  let screeningSessionId = null;
+  let screeningSessionStartedAt = null;
+  let sessionMode = null;
+  try {
+    participantId = sessionStorage.getItem('fast_participant_id');
+    screeningSessionId = sessionStorage.getItem('fast_assessment_id');
+    screeningSessionStartedAt = sessionStorage.getItem('fast_started_at');
+    sessionMode = sessionStorage.getItem('fast_mode');
+  } catch (error) {
+    console.warn('Unable to read common screening context', error);
+  }
+  return {
+    participantId,
+    screeningSessionId,
+    screeningSessionStartedAt,
+    sessionMode,
+    identificationMode: participantId ? 'legacy_browser_session' : 'unidentified'
+  };
+}
+function faceAttemptStatus(validityStatus){
+  if (validityStatus === 'valid') return 'completed_valid';
+  if (validityStatus === 'invalid') return 'completed_invalid';
+  if (validityStatus === 'error') return 'technical_error';
+  if (validityStatus === 'aborted') return 'aborted';
+  return 'unknown';
+}
+function faceQualityStatus(validityStatus, flags=[]){
+  if (validityStatus === 'invalid' || validityStatus === 'error' || validityStatus === 'aborted') return 'invalid';
+  return flags.length ? 'warning' : 'acceptable';
+}
+function persistFacePayload(payload, {writeLegacyResult=true}={}){
+  if (!payload || typeof payload !== 'object') return payload;
+  const json = JSON.stringify(payload);
+  try {
+    if (writeLegacyResult) sessionStorage.setItem('fast_face', json);
+    sessionStorage.setItem('fast_face_research_latest', json);
+
+    let history = [];
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem('fast_face_research_history') || '[]');
+      if (Array.isArray(parsed)) history = parsed;
+    } catch (error) {
+      console.warn('Unable to parse Face research history; starting a new history', error);
+    }
+    const duplicateIndex = history.findIndex((item) => item?.testAttemptId === payload.testAttemptId);
+    if (duplicateIndex >= 0) history.splice(duplicateIndex, 1);
+    history.push(payload);
+    if (history.length > FACE_RESEARCH_HISTORY_LIMIT) {
+      history = history.slice(history.length - FACE_RESEARCH_HISTORY_LIMIT);
+    }
+    sessionStorage.setItem('fast_face_research_history', JSON.stringify(history));
+  } catch (error) {
+    console.warn('Unable to persist Face research payload', error);
+  }
+  window.FACE_RESEARCH_RESULT = payload;
+  return payload;
+}
+function latestFaceResearchPayload(){
+  if (window.FACE_RESEARCH_RESULT) return window.FACE_RESEARCH_RESULT;
+  try {
+    return JSON.parse(sessionStorage.getItem('fast_face_research_latest') || 'null');
+  } catch (error) {
+    console.warn('Unable to read latest Face research payload', error);
+    return null;
+  }
+}
+function downloadFaceResearchJson(){
+  if (!FACE_DEV_MODE) return;
+  const payload = latestFaceResearchPayload();
+  if (!payload) {
+    alert('No Face research payload is available yet.');
+    return;
+  }
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeId = String(payload.testAttemptId || 'latest').replace(/[^a-zA-Z0-9_-]/g, '_');
+  link.href = url;
+  link.download = `quickstroke-face-${safeId}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function copyFaceResearchJson(){
+  if (!FACE_DEV_MODE) return;
+  const payload = latestFaceResearchPayload();
+  if (!payload) {
+    alert('No Face research payload is available yet.');
+    return;
+  }
+  const json = JSON.stringify(payload, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    alert('Face research JSON copied.');
+  } catch (error) {
+    const area = document.createElement('textarea');
+    area.value = json;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand('copy');
+    area.remove();
+    if (copied) alert('Face research JSON copied.');
+    else alert('Unable to copy JSON. Use Download JSON instead.');
+  }
+}
 function currentAttemptNo(){ return Math.max(1, assessAttempts + 1); }
 function recordResearchFrame(data={}){
   if (!screeningStartedAtMs) return;
@@ -2079,9 +2233,19 @@ function resultRuntimeMetadata(){
 }
 function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, passed, invalidReasonCode=null, breakdown={}}){
   const completedAtMs = Date.now();
+  ensureFaceTestAttemptIdentity();
+  const qualityFlags = [...runtimeQualityFlags];
   return {
     schemaVersion: FACE_RESULT_SCHEMA_VERSION,
+    researchPayloadVersion: FACE_RESEARCH_PAYLOAD_VERSION,
     module: 'face',
+    faceBuildMarker: FACE_TEST_BUILD,
+    testAttemptId: faceTestAttemptId,
+    attemptSequenceNo: faceAttemptSequenceNo,
+    attemptStatus: faceAttemptStatus(validityStatus),
+    qualityStatus: faceQualityStatus(validityStatus, qualityFlags),
+    qualityFlags,
+    screeningContext: getFaceScreeningContext(),
     validityStatus,
     clinicalResult,
     technicalValidity: validityStatus === 'error'
@@ -2104,6 +2268,8 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       appVersion: window.QS_CONFIG?.version || null,
       faceModuleVersion: FACE_MODULE_VERSION,
       algorithmVersion: FACE_ALGORITHM_VERSION,
+      resultSchemaVersion: FACE_RESULT_SCHEMA_VERSION,
+      researchPayloadVersion: FACE_RESEARCH_PAYLOAD_VERSION,
       configHash: FACE_CONFIG_HASH,
       localePackVersion: activeLocalePackVersion,
       faceModelAsset: '/models/face_landmarker.task',
@@ -2448,6 +2614,8 @@ function goBackHome(){
 window.switchFaceLang = switchFaceLang;
 window.toggleDebug = toggleDebug;
 window.goBackHome = goBackHome;
+window.downloadFaceResearchJson = downloadFaceResearchJson;
+window.copyFaceResearchJson = copyFaceResearchJson;
 
 /* ───────────── pose & geometry from landmarks ───────────── */
 function computePose(lm){
@@ -2721,6 +2889,7 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
 /* ───────────── calibration / phase control ───────────── */
 function startScreening(){
   sessionStorage.removeItem('fast_face');
+  ensureFaceTestAttemptIdentity({forceNew:true});
   screeningStartedAtMs=Date.now();
   baselineWaitStartMs=screeningStartedAtMs;
   attemptStartedAtMs=null;
@@ -3299,7 +3468,7 @@ function finalizeInvalidResult(reasonCode, detail={}){
     }
   });
 
-  sessionStorage.setItem('fast_face', JSON.stringify(payload));
+  persistFacePayload(payload);
   sessionStorage.setItem('fast_result_source', 'face');
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
   const reasonText = invalidDisplayText(reasonCode);
@@ -3397,7 +3566,7 @@ function saveAndShow(score, riskLevel, breakdown){
     passed:riskLevel === 'ok',
     breakdown
   });
-  sessionStorage.setItem('fast_face', JSON.stringify(payload));
+  persistFacePayload(payload);
   sessionStorage.setItem('fast_result_source', 'face');
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
 
@@ -3474,7 +3643,7 @@ function saveTechnicalInvalid(reasonCode, message, detail={}){
     invalidReasonCode:reasonCode,
     breakdown:{reasonCode, method:'technical_error', detail}
   });
-  sessionStorage.setItem('fast_face', JSON.stringify(payload));
+  persistFacePayload(payload);
   sessionStorage.setItem('fast_result_source', 'face');
   phase='FACE_DONE';
   if (FL) {
