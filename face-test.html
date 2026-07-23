@@ -1376,6 +1376,29 @@
     display:flex!important;
   }
 
+  /* QUICKSTROKE FACE UX STATE FIX — v0.1.2
+     Hide the redundant start instruction only while the Start button is ready.
+     Restore short instructions and warnings throughout the active test. */
+  body.start-ready #status-msg,
+  body.start-ready #pose-warn-msg,
+  body.start-ready #smile-prompt{
+    display:none!important;
+  }
+
+  body.screening-active:not(.result-visible) #status-msg:not(:empty){
+    display:flex!important;
+  }
+  body.screening-active.smile-prompt-visible #status-msg,
+  body.screening-active.pose-warning-visible #status-msg{
+    display:none!important;
+  }
+  body.screening-active.smile-prompt-visible #smile-prompt{
+    display:block!important;
+  }
+  body.screening-active.pose-warning-visible #pose-warn-msg:not(:empty){
+    display:flex!important;
+  }
+
   @media (min-width:620px){
     #face-status-row{
       left:50%!important;
@@ -1582,7 +1605,7 @@
     50%{transform:scale(1.08);}
   }
 </style>
-<script src="config.js?v=20260723-face-data-capture-v011"></script>
+<script src="config.js?v=20260723-face-data-capture-v012"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1734,7 +1757,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.2.2-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.2.3-data-capture / 2026-07-23';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -2354,7 +2377,7 @@ function showStatusPanel(text){
   if (sp) sp.style.display = 'none';
   poseWarnMsg.style.display = 'none';
   statusMsg.textContent = text;
-  statusMsg.style.display = 'block';
+  statusMsg.style.display = 'flex';
   document.body.classList.remove('smile-prompt-visible','pose-warning-visible');
   activeNoticeKind = 'status';
   activeNoticeText = text;
@@ -2365,7 +2388,7 @@ function showPosePanel(text){
   if (sp) sp.style.display = 'none';
   statusMsg.style.display = 'none';
   poseWarnMsg.textContent = text;
-  poseWarnMsg.style.display = 'block';
+  poseWarnMsg.style.display = 'flex';
   document.body.classList.remove('smile-prompt-visible');
   document.body.classList.add('pose-warning-visible');
   activeNoticeKind = 'pose';
@@ -2929,9 +2952,14 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
   const db=document.getElementById('dashboard');
   if(db){ db.style.background=glassColor; db.classList.toggle('pulse',pulse); }
   document.body.classList.toggle('result-visible', !!showScore);
+
+  const screeningActive = ['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(phase);
+  const startReady = phase==='BEFORE_START' && showStart && !showScore;
+  document.body.classList.toggle('screening-active', screeningActive && !showScore);
+  document.body.classList.toggle('start-ready', startReady);
   document.body.classList.toggle('pose-warning-visible', !!poseWarn && !showScore);
 
-  const hideRedundantStartStatus = phase==='BEFORE_START' && showStart && !showScore;
+  const hideRedundantStartStatus = startReady;
   if(showScore){
     clearBottomPanels();
   } else if(poseWarn){
@@ -4011,19 +4039,19 @@ startBtn.addEventListener('click', ()=>{
   if (['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(phase)) return;
   primeSpeech();
   if (!isCameraRunning) {
-    document.body.classList.remove('result-visible');
+    document.body.classList.remove('result-visible','start-ready');
     setUI({glassColor:'var(--col-blue-glass)', msg:FL.loading, showStart:false, showReset:false, showHud:false});
     startCamera();
     return;
   }
   if (!modelReady) {
-    document.body.classList.remove('result-visible');
+    document.body.classList.remove('result-visible','start-ready');
     showStatusPanel(FL.loadingModel);
     startBtn.classList.add('hidden');
     loadModel();
     return;
   }
-  document.body.classList.remove('result-visible');
+  document.body.classList.remove('result-visible','start-ready');
   const oldNav=document.getElementById('fast-nav-btn'); if(oldNav) oldNav.remove();
   startBtn.classList.add('hidden');
   startScreening();
