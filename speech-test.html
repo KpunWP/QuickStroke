@@ -1036,7 +1036,7 @@ const MIC_SIGNAL_ONSET_MIN = SPEECH_CFG.micSignalOnsetMin ?? 0.018;
 const MIC_SIGNAL_OFFSET_MIN = SPEECH_CFG.micSignalOffsetMin ?? 0.010;
 const SPEECH_PREROLL_BUFFER_MS = SPEECH_CFG.speechPrerollBufferMs ?? 400;
 
-const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.6.0';
+const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.6.1';
 const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.2.0';
 const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.3.0';
 const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.3.0';
@@ -1175,7 +1175,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.6.0 — hybrid speech timing + independent rate';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.6.1 — rate-unit payload consistency fix';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -3427,6 +3427,8 @@ function appendSpeechAttempt(outcome, details = {}) {
     phraseMatchScore: details.phraseMatchScore,
     speechUnitsPerSec: details.speechUnitsPerSec,
     rateUnit: details.rateUnit,
+    rateSpeechUnitCount: details.rateSpeechUnitCount,
+    rateSpeechUnitSource: details.rateSpeechUnitSource,
     wordScore: details.wordScore,
     rateScore: details.rateScore,
     stabilityScore: details.stabilityScore,
