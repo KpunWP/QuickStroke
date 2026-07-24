@@ -6,7 +6,7 @@ window.QS_CONFIG = {
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20260723-speech-transcript-score-v1",
+    localePack: "20260724-speech-observation-ui-v1",
     languageRegistry: "20260720-language-registry-v1"
   },
 
@@ -168,10 +168,10 @@ window.QS_CONFIG = {
 
     speech: {
       // Version identifiers stored with every Speech result.
-      version: "speech-prepilot-1.6.1",
-      algorithmVersion: "speech-browser-asr-1.2.0",
-      resultSchemaVersion: "speech-result-1.3.0",
-      researchPayloadVersion: "speech-research-0.3.0",
+      version: "speech-prepilot-1.7.0",
+      algorithmVersion: "speech-browser-asr-1.3.0",
+      resultSchemaVersion: "speech-result-1.4.0",
+      researchPayloadVersion: "speech-research-0.4.0",
       researchHistoryLimit: 8,
 
       // Speech phrase scoring v1.1:
@@ -180,6 +180,17 @@ window.QS_CONFIG = {
       // - an exact accepted variant receives 100
       phraseScoringPolicy: "normalized_levenshtein_similarity",
       asrConfidencePolicy: "raw_observation_only",
+
+      // Pre-pilot result policy v1.3:
+      // - no combined numeric score is shown or used as the primary decision
+      // - phrase, rate, and technical quality are surfaced independently
+      // - all numeric scores remain research variables for patient-data analysis
+      decisionPolicy: "unvalidated_domain_observation_v1",
+      phraseAlertPolicy: "exact_variant_no_alert_else_attention",
+      rateReferencePolicy: "outside_exploratory_range_attention",
+      rateMinTranscriptCoverage: 0.60,
+      combinedScorePolicy: "research_only_not_displayed",
+      stabilityPolicy: "research_only",
 
       // Speech-rate scoring v1.2:
       // - rate is calculated independently from phrase correctness

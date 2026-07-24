@@ -820,6 +820,42 @@
     #test-screen.done #dev-copy-log{min-height:48px!important;}
   }
 
+
+  /* QUICKSTROKE SPEECH OBSERVATION RESULT — v1.7.0 */
+  .rb-score{display:none!important;}
+  #domain-summary{
+    width:100%;display:none;flex-direction:column;gap:8px;margin-top:10px;
+  }
+  #domain-quality-row[hidden]{display:none!important;}
+  .domain-row{
+    min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    padding:10px 12px;border-radius:14px;background:#F5F8FB;border:1px solid #E1E8EF;
+    text-align:left;
+  }
+  .domain-label{color:var(--ink-soft);font-size:15px;font-weight:800;}
+  .domain-status{font-size:15px;font-weight:800;text-align:right;}
+  .domain-status.no-alert{color:#137D68;}
+  .domain-status.attention{color:#B46B16;}
+  .domain-status.unavailable{color:#A23A36;}
+  #result-details-toggle{
+    width:100%;min-height:44px;margin-top:8px;border:1px solid #D7E0E9;border-radius:14px;
+    background:#fff;color:var(--clinical-deep);font-family:inherit;font-size:14px;font-weight:800;cursor:pointer;
+  }
+  #result-details-toggle:active{transform:scale(.99);}
+  #result-details-note{
+    margin-top:8px;padding:10px 12px;border-radius:14px;background:#F5F8FB;
+    color:var(--ink-soft);font-size:12px;font-weight:650;line-height:1.5;text-align:left;
+  }
+  #test-screen.done:not(.result-details-open) #transcript-box,
+  #test-screen.done:not(.result-details-open) #metrics-box{display:none!important;}
+  #test-screen.done.result-details-open #transcript-box{display:block!important;}
+  #test-screen.done.result-details-open #metrics-box{display:flex!important;}
+  #test-screen.done.result-details-open #result-details-note{display:block!important;}
+  #test-screen.done #result-banner{gap:6px;order:10;}
+  #test-screen.done #transcript-box{order:11;}
+  #test-screen.done #metrics-box{order:12;}
+  #test-screen.done #result-banner .rb-sub{line-height:1.45;}
+
 </style>
 <script src="config.js"></script>
 <script src="fast-permissions.js"></script>
@@ -876,8 +912,24 @@
     </div>
     <div id="result-banner">
       <div class="rb-title" id="rb-title"></div>
-      <div class="rb-score" id="rb-score"></div>
-      <div class="rb-sub"  id="rb-sub"></div>
+      <div class="rb-score" id="rb-score" aria-hidden="true"></div>
+      <div class="rb-sub" id="rb-sub"></div>
+      <div id="domain-summary" aria-label="Speech observations">
+        <div class="domain-row" id="domain-phrase-row">
+          <span class="domain-label" id="domain-phrase-label">Speech</span>
+          <span class="domain-status" id="domain-phrase-status">—</span>
+        </div>
+        <div class="domain-row" id="domain-rate-row">
+          <span class="domain-label" id="domain-rate-label">Speed</span>
+          <span class="domain-status" id="domain-rate-status">—</span>
+        </div>
+        <div class="domain-row" id="domain-quality-row" hidden>
+          <span class="domain-label" id="domain-quality-label">Data quality</span>
+          <span class="domain-status" id="domain-quality-status">—</span>
+        </div>
+      </div>
+      <button id="result-details-toggle" type="button" onclick="toggleSpeechResultDetails()" aria-expanded="false"></button>
+      <div id="result-details-note" hidden></div>
     </div>
     <div id="dev-log-tools" aria-live="polite">
       <button id="dev-copy-log" type="button" onclick="copySpeechResearchLog()">📋 Copy Log</button>
@@ -917,7 +969,14 @@ const SPEECH_REQUIRED_KEYS = Object.freeze([
   'manualStop', 'speechApiUnavailable', 'insufficientData',
   'resultInvalid', 'subInvalid', 'retryingNoVoice', 'retryingNoText',
   'micSessionReset', 'scoreLabel', 'languageUnavailable',
-  'phraseExact', 'phraseSimilarity', 'phraseNoMatch'
+  'phraseExact', 'phraseSimilarity', 'phraseNoMatch',
+  'displayNoAlertTitle', 'displayAttentionTitle', 'displayIndeterminateTitle',
+  'displayNoAlertSummary', 'displayAttentionSummary',
+  'domainPhraseLabel', 'domainRateLabel', 'domainQualityLabel',
+  'statusPhraseExact', 'statusPhraseAttention',
+  'statusRateWithin', 'statusRateSlow', 'statusRateFast', 'statusRateUnavailable',
+  'statusQualityAcceptable', 'statusQualityLimited',
+  'detailsShow', 'detailsHide', 'detailsResearchNote'
 ]);
 
 let speechLocaleRequestId = 0;
@@ -1036,10 +1095,20 @@ const MIC_SIGNAL_ONSET_MIN = SPEECH_CFG.micSignalOnsetMin ?? 0.018;
 const MIC_SIGNAL_OFFSET_MIN = SPEECH_CFG.micSignalOffsetMin ?? 0.010;
 const SPEECH_PREROLL_BUFFER_MS = SPEECH_CFG.speechPrerollBufferMs ?? 400;
 
-const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.6.1';
-const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.2.0';
-const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.3.0';
-const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.3.0';
+// Pre-pilot observation policy v1.3: no combined score is used as the
+// primary user-facing result. Phrase, rate, and technical quality are shown
+// independently with neutral language. All numeric metrics remain in research data.
+const SPEECH_DECISION_POLICY = SPEECH_CFG.decisionPolicy || 'unvalidated_domain_observation_v1';
+const PHRASE_ALERT_POLICY = SPEECH_CFG.phraseAlertPolicy || 'exact_variant_no_alert_else_attention';
+const RATE_REFERENCE_POLICY = SPEECH_CFG.rateReferencePolicy || 'outside_exploratory_range_attention';
+const RATE_MIN_TRANSCRIPT_COVERAGE = Math.max(0, Math.min(1, SPEECH_CFG.rateMinTranscriptCoverage ?? 0.60));
+const COMBINED_SCORE_POLICY = SPEECH_CFG.combinedScorePolicy || 'research_only_not_displayed';
+const STABILITY_POLICY = SPEECH_CFG.stabilityPolicy || 'research_only';
+
+const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.7.0';
+const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.3.0';
+const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.4.0';
+const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.4.0';
 const SPEECH_RESEARCH_HISTORY_LIMIT = Math.max(1, SPEECH_CFG.researchHistoryLimit ?? 8);
 const RESEARCH_SAMPLE_INTERVAL_MS = Math.max(50, SPEECH_CFG.researchSampleIntervalMs ?? 100);
 
@@ -1077,6 +1146,45 @@ function updateSpeechLabels() {
   if ($('lbl-word-accuracy')) $('lbl-word-accuracy').textContent = L.wordAccuracy;
   if ($('lbl-speech-rate')) $('lbl-speech-rate').textContent = L.speechRate;
   if ($('lbl-volume-stability')) $('lbl-volume-stability').textContent = L.volumeStability;
+  if ($('domain-phrase-label')) $('domain-phrase-label').textContent = L.domainPhraseLabel;
+  if ($('domain-rate-label')) $('domain-rate-label').textContent = L.domainRateLabel;
+  if ($('domain-quality-label')) $('domain-quality-label').textContent = L.domainQualityLabel;
+  if ($('result-details-toggle')) $('result-details-toggle').textContent = L.detailsShow;
+  if ($('result-details-note')) $('result-details-note').textContent = L.detailsResearchNote;
+}
+
+function setSpeechResultDetailsExpanded(expanded) {
+  const screen = $('test-screen');
+  const button = $('result-details-toggle');
+  if (!screen || !button) return;
+  screen.classList.toggle('result-details-open', !!expanded);
+  button.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+  button.textContent = expanded ? T.detailsHide : T.detailsShow;
+  const note = $('result-details-note');
+  if (note) note.hidden = !expanded;
+}
+
+function toggleSpeechResultDetails() {
+  const screen = $('test-screen');
+  setSpeechResultDetailsExpanded(!screen?.classList.contains('result-details-open'));
+}
+window.toggleSpeechResultDetails = toggleSpeechResultDetails;
+
+function setDomainStatus(rowKey, status, textValue, visible = true) {
+  const row = $(`domain-${rowKey}-row`);
+  const value = $(`domain-${rowKey}-status`);
+  if (row) row.hidden = !visible;
+  if (!value) return;
+  value.className = `domain-status ${status || ''}`.trim();
+  value.textContent = textValue || '—';
+}
+
+function resetDomainSummary() {
+  const summary = $('domain-summary');
+  const toggle = $('result-details-toggle');
+  if (summary) summary.style.display = 'none';
+  if (toggle) toggle.style.display = 'none';
+  setSpeechResultDetailsExpanded(false);
 }
 let T = null;
 let phase = 'IDLE'; // IDLE | CALIBRATING | RECORDING | RETRYING | DONE
@@ -1175,7 +1283,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.6.1 — rate-unit payload consistency fix';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.7.0 — neutral domain alerts + research-only combined score';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -1712,9 +1820,15 @@ function speechDerivedMetrics(details = {}) {
     snrDb: roundSpeechMetric(energy.snrDb, 3),
     coefficientOfVariation: roundSpeechMetric(energy.coefficientOfVariation, 5),
     energyFrameCount: vowelEnergyBuf.length,
+    transcriptCoverageRatio: roundSpeechMetric(details.transcriptCoverageRatio, 5),
+    phraseObservationStatus: details.phraseObservationStatus || null,
+    rateReliable: typeof details.rateReliable === 'boolean' ? details.rateReliable : null,
+    rateReferenceStatus: details.rateReferenceStatus || null,
     wordScore: Number.isFinite(details.wordScore) ? details.wordScore : null,
     rateScore: Number.isFinite(details.rateScore) ? details.rateScore : null,
     stabilityScore: Number.isFinite(details.stabilityScore) ? details.stabilityScore : null,
+    legacyWeightedScore: Number.isFinite(details.legacyWeightedScore) ? details.legacyWeightedScore : null,
+    // Deprecated compatibility alias. Never used as the primary display decision.
     totalSpeechScore: Number.isFinite(details.totalSpeechScore) ? details.totalSpeechScore : null
   };
 }
@@ -1798,7 +1912,7 @@ function buildSpeechResearchLogBundle() {
   }, 0);
 
   return {
-    exportSchemaVersion: 'quickstroke-speech-log-0.3.0',
+    exportSchemaVersion: 'quickstroke-speech-log-0.4.0',
     exportedAt: new Date().toISOString(),
     source: 'speech-test-dev-copy-log',
     debugBuild: DEBUG_BUILD,
@@ -2059,13 +2173,14 @@ function goBack() {
 }
 
 function resetUI() {
-  if ($('test-screen')) $('test-screen').classList.remove('done');
+  if ($('test-screen')) $('test-screen').classList.remove('done', 'result-details-open');
   $('mic-circle').className        = 'mic-circle';
   $('mic-icon').textContent        = '🎤';
   $('transcript-box').style.display = 'none';
   $('transcript-box').textContent  = '';
   $('metrics-box').style.display   = 'none';
   $('result-banner').style.display = 'none';
+  resetDomainSummary();
   $('debug-box').style.display     = 'none';
   $('debug-toggle').style.display  = 'none';
   $('dev-log-tools')?.classList.remove('show');
@@ -2342,7 +2457,7 @@ async function startRecording(forceDirectMic = false) {
   confidenceWasImputed = false;
   asrFinalReceived = false;
 
-  if ($('test-screen')) $('test-screen').classList.remove('done');
+  if ($('test-screen')) $('test-screen').classList.remove('done', 'result-details-open');
 
   const existingNav = document.getElementById('fast-nav-btn');
   if (existingNav) {
@@ -3288,7 +3403,12 @@ function makeSpeechResultPayload({
   rawObservations = {},
   derivedMetrics = {},
   legacyRaw = {},
-  measuredNoisy = false
+  measuredNoisy = false,
+  displayStatus = validityStatus === 'valid' ? 'no_alert' : 'indeterminate',
+  displayReasonCodes = [],
+  domains = {},
+  technicalQuality = {},
+  researchMetrics = {}
 }) {
   ensureSpeechModuleAttempt();
   const completedAtMs = Date.now();
@@ -3309,13 +3429,24 @@ function makeSpeechResultPayload({
     screeningContext: getSpeechScreeningContext(),
 
     validityStatus,
+    observationResult: displayStatus,
+    displayStatus,
+    displayReasonCodes: [...new Set(displayReasonCodes)],
+    decisionPolicy: SPEECH_DECISION_POLICY,
+    domains,
+    technicalQuality,
+    researchMetrics,
+
+    // Compatibility fields retained until the shared result page is migrated.
+    // clinicalScore/score contain the legacy weighted research metric only;
+    // displayStatus and domains are the primary pre-pilot result.
     clinicalResult,
     clinicalScore: validityStatus === 'valid' ? clinicalScore : null,
+    clinicalScoreInterpretation: 'deprecated_legacy_weighted_research_only',
     scoreUsable: validityStatus === 'valid',
+    scoreDecisionUse: false,
     invalidReasonCode,
     technicalValidity,
-
-    // Legacy fields retained until index/result consumers are fully migrated.
     score: validityStatus === 'valid' ? clinicalScore : null,
     riskLevel,
     passed,
@@ -3362,7 +3493,8 @@ function makeSpeechResultPayload({
       micSignalOnsetMultiplier: MIC_SIGNAL_ONSET_MULTIPLIER,
       micSignalOffsetMultiplier: MIC_SIGNAL_OFFSET_MULTIPLIER,
       micSignalOnsetMin: MIC_SIGNAL_ONSET_MIN,
-      micSignalOffsetMin: MIC_SIGNAL_OFFSET_MIN
+      micSignalOffsetMin: MIC_SIGNAL_OFFSET_MIN,
+      rateMinTranscriptCoverage: RATE_MIN_TRANSCRIPT_COVERAGE
     },
     runtime: { ...speechRuntimeInfo(), qualityFlags: qualityFlagSnapshot },
     policy: {
@@ -3371,6 +3503,12 @@ function makeSpeechResultPayload({
       phraseScoring: 'normalized_levenshtein_similarity',
       rateScoring: 'target_phrase_units_per_resolved_active_speech_duration',
       rateTiming: RATE_TIMING_POLICY,
+      primaryDecision: SPEECH_DECISION_POLICY,
+      phraseAlert: PHRASE_ALERT_POLICY,
+      rateReference: RATE_REFERENCE_POLICY,
+      combinedScore: COMBINED_SCORE_POLICY,
+      stabilityUse: STABILITY_POLICY,
+      technicalQuality: 'separate_from_speech_observations',
       asrConfidenceUse: 'raw_observation_only',
       microphoneSpeechProcessingClaim: 'not_fully_on_device',
       rawAudioStored: false
@@ -3429,9 +3567,14 @@ function appendSpeechAttempt(outcome, details = {}) {
     rateUnit: details.rateUnit,
     rateSpeechUnitCount: details.rateSpeechUnitCount,
     rateSpeechUnitSource: details.rateSpeechUnitSource,
+    transcriptCoverageRatio: details.transcriptCoverageRatio,
+    phraseObservationStatus: details.phraseObservationStatus,
+    rateReliable: details.rateReliable,
+    rateReferenceStatus: details.rateReferenceStatus,
     wordScore: details.wordScore,
     rateScore: details.rateScore,
     stabilityScore: details.stabilityScore,
+    legacyWeightedScore: details.legacyWeightedScore,
     totalSpeechScore: details.totalSpeechScore
   });
   const completedAtMs = Date.now();
@@ -3445,6 +3588,10 @@ function appendSpeechAttempt(outcome, details = {}) {
     invalidReasonCode: details.invalidReasonCode || null,
     clinicalResult: details.clinicalResult || null,
     clinicalScore: Number.isFinite(details.clinicalScore) ? details.clinicalScore : null,
+    displayStatus: details.displayStatus || null,
+    displayReasonCodes: Array.isArray(details.displayReasonCodes) ? [...details.displayReasonCodes] : [],
+    domains: details.domains || null,
+    technicalQuality: details.technicalQuality || null,
     qualityFlags,
     rawObservations,
     derivedMetrics
@@ -3521,6 +3668,7 @@ function finishSpeechInvalid(reasonCode, details = {}) {
   setSpeechCard('word', 'warn', T.accuracy, T.resultInvalid, '⚠️');
   setSpeechCard('rate', 'warn', T.rate, T.resultInvalid, '⚠️');
 
+  resetDomainSummary();
   const rb = $('result-banner');
   rb.className = 'result-banner warn';
   rb.style.display = 'flex';
@@ -3571,7 +3719,15 @@ function finishSpeechInvalid(reasonCode, details = {}) {
     rawObservations,
     derivedMetrics,
     legacyRaw,
-    measuredNoisy: qualityFlags.includes('LOW_SNR')
+    measuredNoisy: qualityFlags.includes('LOW_SNR'),
+    displayStatus: 'indeterminate',
+    displayReasonCodes: [reasonCode],
+    domains: {
+      phrase: { status: 'unavailable', reliable: false },
+      rate: { status: 'unavailable', reliable: false }
+    },
+    technicalQuality: { status: 'invalid', flags: qualityFlags },
+    researchMetrics: {}
   });
 
   persistSpeechPayload(result);
@@ -3652,39 +3808,58 @@ function evaluateSpeech(text, confidence) {
   const reportedConfidence = Number.isFinite(confidence) && confidence > 0 ? confidence : null;
   confidenceWasImputed = reportedConfidence === null;
 
-  // 1. Phrase match (40%) — v1.1 algorithm. Browser confidence is not used.
-  // Exact accepted variants receive 100; other recognized transcripts receive
-  // their normalized Levenshtein similarity against the closest accepted variant.
+  // 1. Phrase observation. Numeric similarity remains a research metric.
+  // Exact accepted variants produce no alert; every other recognized transcript
+  // is shown neutrally as something to review, without claiming abnormality.
   const phraseMatchScore = wordMatched ? 100 : Math.round(phraseSimilarity * 100);
-  const wordScore = phraseMatchScore; // legacy field name retained for consumers
+  const wordScore = phraseMatchScore; // legacy/research compatibility
   const wordLabel = wordMatched
     ? T.phraseExact
     : phraseMatchScore > 0
       ? T.phraseSimilarity.replace('{{percent}}', String(phraseMatchScore))
       : T.phraseNoMatch;
+  const phraseObservationStatus = wordMatched ? 'no_alert' : 'attention';
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent = `"${text}"`;
 
-  // 2. Speech Rate (40%) — independent from transcript correctness.
-  // This fixed-phrase task always uses the versioned target speech-unit count;
-  // phrase mismatch affects phrase scoring, not whether a rate can be measured.
+  // 2. Speech-rate research metric + neutral exploratory reference observation.
+  // Fixed target units are retained for longitudinal analysis. Reliability is
+  // recorded separately so a short/incomplete transcript cannot be presented
+  // as a dependable rate observation.
   const rateSpeechUnitCount = Number(T.syllables) || 0;
   const syllPerSec = rateSpeechUnitCount / Math.max(durSec, 0.2);
   const rateScore = rateToScore(syllPerSec);
   const rateLabel = `${syllPerSec.toFixed(1)} ${rateUnitLabel()}`;
+  const targetNormalized = normalizeSpeechText(T.target || '');
+  const transcriptCoverageRatio = targetNormalized
+    ? Math.min(1, Array.from(normalizedText).length / Math.max(1, Array.from(targetNormalized).length))
+    : null;
+  const timingUsesFallback = ['legacy_energy_fallback', 'current_activity_fallback'].includes(resolvedTimingSource.start)
+    || ['legacy_energy_fallback', 'current_activity_fallback'].includes(resolvedTimingSource.end);
+  const rateReliable = Number.isFinite(transcriptCoverageRatio)
+    && transcriptCoverageRatio >= RATE_MIN_TRANSCRIPT_COVERAGE
+    && !timingUsesFallback;
+  const rateReferenceStatus = !rateReliable
+    ? 'unavailable'
+    : syllPerSec < NORMAL_MIN
+      ? 'below_reference'
+      : syllPerSec > NORMAL_MAX
+        ? 'above_reference'
+        : 'within_reference';
 
-  // 3. Volume Stability (20%). Validity gates above prevent an imputed 50
-  // from being used when there are too few frames.
+  // 3. Voice-energy variability remains research-only until patient data can
+  // establish whether it is clinically useful.
   const stabScore = calcStab(vowelEnergyBuf);
   const stabLabel = `${stabScore}%`;
 
-  // 4. SNR is a quality flag only. It never causes invalid/retry in pre-pilot.
+  // 4. Technical quality is independent from the speech observations.
   const speechEnergy = calcSpeechEnergy(vowelEnergyBuf);
   const snrDb = calcSnrDb(speechEnergy, noiseFloor);
   const snrLow = snrDb !== null && snrDb < SNR_WARN_DB;
   window.MEASURED_NOISY = snrLow;
 
-  const speechScore = Math.round(wordScore * 0.40 + rateScore * 0.40 + stabScore * 0.20);
+  // Legacy weighted score is preserved for research comparison only.
+  const legacyWeightedScore = Math.round(wordScore * 0.40 + rateScore * 0.40 + stabScore * 0.20);
   setBar('word', wordScore, wordLabel);
   setBar('rate', rateScore, rateLabel);
   setBar('stab', stabScore, stabLabel);
@@ -3693,36 +3868,138 @@ function evaluateSpeech(text, confidence) {
   const std = Math.sqrt(vowelEnergyBuf.reduce((a, b) => a + (b - avg) ** 2, 0) / vowelEnergyBuf.length);
   const cvValue = avg > 0 ? std / avg : 0;
 
-  let cls, title, sub;
-  if (speechScore >= 70) { cls = 'ok'; title = T.resultOk; sub = T.subOk; }
-  else if (speechScore >= 45) { cls = 'warn'; title = T.resultWarn; sub = T.subWarn; }
-  else { cls = 'bad'; title = T.resultBad; sub = T.subBad; }
+  const qualityFlags = currentSpeechQualityFlags();
+  const uniqueQualityFlags = [...new Set(qualityFlags)];
+  const rateReliabilityFlags = [
+    Number.isFinite(transcriptCoverageRatio) && transcriptCoverageRatio < RATE_MIN_TRANSCRIPT_COVERAGE
+      ? 'LOW_TRANSCRIPT_COVERAGE'
+      : null,
+    timingUsesFallback ? 'RATE_TIMING_FALLBACK' : null
+  ].filter(Boolean);
+  const technicalQualityStatus = uniqueQualityFlags.length ? 'limited' : 'acceptable';
 
-  const issues = [];
-  if (wordScore < 50) issues.push(T.issueWord);
-  if (rateScore < 40) issues.push(`${T.issueSlow} (${syllPerSec.toFixed(1)} ${rateUnitLabel()})`);
-  if (stabScore < 40) issues.push(T.issueUnstable);
-  if (issues.length) sub = issues.join(' · ');
+  const displayReasonCodes = [];
+  if (phraseObservationStatus === 'attention') displayReasonCodes.push('PHRASE_DIFFERENCE_OBSERVED');
+  if (rateReferenceStatus === 'below_reference') displayReasonCodes.push('RATE_BELOW_EXPLORATORY_REFERENCE');
+  if (rateReferenceStatus === 'above_reference') displayReasonCodes.push('RATE_ABOVE_EXPLORATORY_REFERENCE');
+  if (rateReferenceStatus === 'unavailable') displayReasonCodes.push('RATE_UNRELIABLE');
+  uniqueQualityFlags.forEach(flag => displayReasonCodes.push(`QUALITY_${flag}`));
 
-  const col = { ok: 'var(--green)', warn: 'var(--amber)', bad: 'var(--red)' }[cls];
+  const displayStatus = displayReasonCodes.length ? 'attention' : 'no_alert';
+  const cls = displayStatus === 'no_alert' ? 'ok' : 'warn';
+  const title = displayStatus === 'no_alert' ? T.displayNoAlertTitle : T.displayAttentionTitle;
+  const attentionCount = [
+    phraseObservationStatus === 'attention',
+    rateReferenceStatus !== 'within_reference',
+    technicalQualityStatus === 'limited'
+  ].filter(Boolean).length;
+  const sub = displayStatus === 'no_alert'
+    ? T.displayNoAlertSummary
+    : T.displayAttentionSummary.replace('{{count}}', String(attentionCount));
+
+  const phraseStatusText = phraseObservationStatus === 'no_alert'
+    ? `✓ ${T.statusPhraseExact}`
+    : `! ${T.statusPhraseAttention}`;
+  const phraseStatusClass = phraseObservationStatus === 'no_alert' ? 'no-alert' : 'attention';
+
+  let rateStatusText;
+  let rateStatusClass;
+  if (rateReferenceStatus === 'within_reference') {
+    rateStatusText = `✓ ${T.statusRateWithin}`;
+    rateStatusClass = 'no-alert';
+  } else if (rateReferenceStatus === 'below_reference') {
+    rateStatusText = `! ${T.statusRateSlow}`;
+    rateStatusClass = 'attention';
+  } else if (rateReferenceStatus === 'above_reference') {
+    rateStatusText = `! ${T.statusRateFast}`;
+    rateStatusClass = 'attention';
+  } else {
+    rateStatusText = `! ${T.statusRateUnavailable}`;
+    rateStatusClass = 'unavailable';
+  }
+
+  const qualityStatusText = technicalQualityStatus === 'acceptable'
+    ? `✓ ${T.statusQualityAcceptable}`
+    : `! ${T.statusQualityLimited}`;
+  const qualityStatusClass = technicalQualityStatus === 'acceptable' ? 'no-alert' : 'attention';
+
+  const col = cls === 'ok' ? 'var(--green)' : 'var(--amber)';
   const rb = $('result-banner');
   rb.className = 'result-banner ' + cls;
   rb.style.display = 'flex';
   $('rb-title').textContent = title;
   $('rb-title').style.color = col;
-  $('rb-score').textContent = speechScore + ' / 100';
-  $('rb-score').style.color = col;
-  $('rb-sub').textContent = snrLow && snrDb !== null
-    ? `${sub} · ${T.noisyTag} (${snrDb.toFixed(1)} dB)`
-    : sub;
+  $('rb-score').textContent = '';
+  $('rb-sub').textContent = sub;
+  $('domain-summary').style.display = 'flex';
+  $('result-details-toggle').style.display = 'block';
+  setDomainStatus('phrase', phraseStatusClass, phraseStatusText, true);
+  setDomainStatus('rate', rateStatusClass, rateStatusText, true);
+  setDomainStatus('quality', qualityStatusClass, qualityStatusText, technicalQualityStatus === 'limited');
+  setSpeechResultDetailsExpanded(false);
 
-  const qualityFlags = currentSpeechQualityFlags();
+  // Keep the top status cards short and consistent with the result banner.
+  setSpeechCard('word', phraseObservationStatus === 'no_alert' ? 'pass' : 'active', T.domainPhraseLabel,
+    phraseObservationStatus === 'no_alert' ? T.statusPhraseExact : T.statusPhraseAttention,
+    phraseObservationStatus === 'no_alert' ? '✅' : '⚠️');
+  setSpeechCard('rate', rateReferenceStatus === 'within_reference' ? 'pass' : 'active', T.domainRateLabel,
+    rateReferenceStatus === 'within_reference' ? T.statusRateWithin
+      : rateReferenceStatus === 'below_reference' ? T.statusRateSlow
+      : rateReferenceStatus === 'above_reference' ? T.statusRateFast
+      : T.statusRateUnavailable,
+    rateReferenceStatus === 'within_reference' ? '✅' : '⚠️');
 
-  const clinicalResult = cls === 'ok' ? 'normal' : cls === 'warn' ? 'warning' : 'abnormal';
+  const domains = {
+    phrase: {
+      status: phraseObservationStatus,
+      reliable: true,
+      exactAcceptedVariant: wordMatched,
+      similarity: roundSpeechMetric(phraseSimilarity, 5),
+      score: phraseMatchScore,
+      reasonCode: phraseObservationStatus === 'attention' ? 'PHRASE_DIFFERENCE_OBSERVED' : null
+    },
+    rate: {
+      status: rateReferenceStatus === 'within_reference' ? 'no_alert'
+        : rateReferenceStatus === 'unavailable' ? 'unavailable' : 'attention',
+      reliable: rateReliable,
+      referenceStatus: rateReferenceStatus,
+      value: roundSpeechMetric(syllPerSec, 4),
+      unit: rateUnitLabel(),
+      exploratoryReferenceMin: NORMAL_MIN,
+      exploratoryReferenceMax: NORMAL_MAX,
+      transcriptCoverageRatio: roundSpeechMetric(transcriptCoverageRatio, 5),
+      reliabilityFlags: rateReliabilityFlags,
+      score: rateScore,
+      reasonCode: rateReferenceStatus === 'below_reference' ? 'RATE_BELOW_EXPLORATORY_REFERENCE'
+        : rateReferenceStatus === 'above_reference' ? 'RATE_ABOVE_EXPLORATORY_REFERENCE'
+        : rateReferenceStatus === 'unavailable' ? 'RATE_UNRELIABLE' : null
+    }
+  };
+  const technicalQuality = {
+    status: technicalQualityStatus,
+    flags: uniqueQualityFlags,
+    scoreUsableForResearch: true
+  };
+  const researchMetrics = {
+    phraseMatchScore,
+    rateScore,
+    stabilityScore: stabScore,
+    coefficientOfVariation: roundSpeechMetric(cvValue, 5),
+    legacyWeightedScore,
+    legacyWeightedScoreUse: 'research_only_not_displayed'
+  };
+
+  // Compatibility fields remain normal/warning only. No unvalidated observation
+  // is promoted to an "abnormal" or emergency claim in this pre-pilot UI.
+  const clinicalResult = displayStatus === 'no_alert' ? 'normal' : 'warning';
   const validAttemptRecord = appendSpeechAttempt('valid', {
     clinicalResult,
-    clinicalScore: speechScore,
-    qualityFlags,
+    clinicalScore: legacyWeightedScore,
+    displayStatus,
+    displayReasonCodes,
+    domains,
+    technicalQuality,
+    qualityFlags: uniqueQualityFlags,
     transcript: String(text || ''),
     reportedConfidence,
     normalizedTranscript: normalizedText,
@@ -3733,11 +4010,16 @@ function evaluateSpeech(text, confidence) {
     rateUnit: rateUnitLabel(),
     rateSpeechUnitCount,
     rateSpeechUnitSource: 'target_phrase_fixed',
+    transcriptCoverageRatio,
+    phraseObservationStatus,
+    rateReliable,
+    rateReferenceStatus,
     durationSec: durSec,
     wordScore,
     rateScore,
     stabilityScore: stabScore,
-    totalSpeechScore: speechScore
+    legacyWeightedScore,
+    totalSpeechScore: legacyWeightedScore
   });
 
   const legacyRaw = {
@@ -3754,6 +4036,9 @@ function evaluateSpeech(text, confidence) {
     rateUnit: rateUnitLabel(),
     rateSpeechUnitCount,
     rateSpeechUnitSource: 'target_phrase_fixed',
+    transcriptCoverageRatio,
+    rateReliable,
+    rateReferenceStatus,
     timingPolicy: RATE_TIMING_POLICY,
     timingStartSource: resolvedTimingSource.start,
     timingEndSource: resolvedTimingSource.end,
@@ -3769,17 +4054,32 @@ function evaluateSpeech(text, confidence) {
   const result = makeSpeechResultPayload({
     validityStatus: 'valid',
     clinicalResult,
-    clinicalScore: speechScore,
+    clinicalScore: legacyWeightedScore,
     invalidReasonCode: null,
-    technicalValidity: qualityFlags.length ? 'degraded' : 'full',
-    qualityFlags,
+    technicalValidity: uniqueQualityFlags.length ? 'degraded' : 'full',
+    qualityFlags: uniqueQualityFlags,
     riskLevel: cls,
-    passed: cls === 'ok',
-    breakdown: { phraseMatchScore, wordScore, rateScore, stabScore },
+    passed: displayStatus === 'no_alert',
+    breakdown: {
+      phraseMatchScore,
+      wordScore,
+      rateScore,
+      stabScore,
+      legacyWeightedScore,
+      displayStatus,
+      displayReasonCodes,
+      rateReliable,
+      rateReferenceStatus
+    },
     rawObservations: validAttemptRecord.rawObservations,
     derivedMetrics: validAttemptRecord.derivedMetrics,
     legacyRaw,
-    measuredNoisy: snrLow
+    measuredNoisy: snrLow,
+    displayStatus,
+    displayReasonCodes,
+    domains,
+    technicalQuality,
+    researchMetrics
   });
 
   persistSpeechPayload(result);
