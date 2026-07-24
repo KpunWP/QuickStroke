@@ -1006,12 +1006,12 @@ const CALIBRATION_MS   = SPEECH_CFG.calibrationMs ?? 300;       // เก็บ 
 const NOISE_MULTIPLIER = SPEECH_CFG.noiseMultiplier ?? 2.5;     // threshold = noiseFloor × 2.5
 const NOISE_FLOOR_CAP  = SPEECH_CFG.noiseFloorCap ?? 0.08;      // จำกัดเพดาน noise ป้องกันไมค์หลอน
 const NORMAL_MIN       = SPEECH_CFG.normalMin ?? 2.5;           // เกณฑ์ความเร็วขั้นต่ำ
-const NORMAL_MAX       = SPEECH_CFG.normalMax ?? 7.0;           // เกณฑ์ความเร็วสูงสุด
+const NORMAL_MAX       = SPEECH_CFG.normalMax ?? 6.0;           // เกณฑ์ความเร็วสูงสุด
 
 // SNR ต่ำเป็น quality warning เท่านั้นใน pre-pilot: ยังใช้คะแนนต่อและไม่บังคับ retry
 const SNR_WARN_DB      = SPEECH_CFG.minSnrDb ?? SPEECH_CFG.snrWarnDb ?? 10;
 const FLATNESS_MAX     = SPEECH_CFG.flatnessMax ?? SPEECH_CFG.maxNoiseFlatness ?? 0.78;
-const MIN_SPEECH_DURATION_SEC = SPEECH_CFG.minSpeechDurationSec ?? 1.2;
+const MIN_SPEECH_DURATION_SEC = SPEECH_CFG.minSpeechDurationSec ?? 0.6;
 const MIN_ENERGY_FRAMES = SPEECH_CFG.minEnergyFrames ?? 10;
 const AUTO_VALIDITY_RETRY_COUNT = SPEECH_CFG.autoValidityRetryCount ?? 1;
 const AUTO_VALIDITY_RETRY_DELAY_MS = SPEECH_CFG.autoValidityRetryDelayMs ?? 1500;
@@ -1021,10 +1021,25 @@ const RETRY_FULL_RELEASE_WAIT_MS = SPEECH_CFG.retryFullReleaseWaitMs ?? 1200;
 const RESULT_KEEP_ALIVE_MS = SPEECH_CFG.resultKeepAliveMs ?? 20000;
 const RECOGNITION_SAFETY_MS = SPEECH_CFG.recognitionSafetyMs ?? 8000;
 const TRAILING_GAP_MS = SPEECH_CFG.trailingGapMs ?? 800;
-const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.5.0';
-const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.1.0';
-const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.2.0';
-const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.2.0';
+
+// Speech timing v1.2: ASR confirms onset; calibrated time-domain microphone
+// activity trims pre-speech noise and the long post-speech energy tail.
+const RATE_TIMING_POLICY = SPEECH_CFG.rateTimingPolicy || 'asr_mic_hybrid_v1';
+const ASR_START_PREROLL_MS = SPEECH_CFG.asrStartPrerollMs ?? 120;
+const MIC_START_PREROLL_MS = SPEECH_CFG.micStartPrerollMs ?? 80;
+const MIC_END_POSTROLL_MS = SPEECH_CFG.micEndPostrollMs ?? 80;
+const MIC_ONSET_HOLD_MS = SPEECH_CFG.micOnsetHoldMs ?? 100;
+const MIC_HANGOVER_MS = SPEECH_CFG.micHangoverMs ?? 180;
+const MIC_SIGNAL_ONSET_MULTIPLIER = SPEECH_CFG.micSignalOnsetMultiplier ?? 8;
+const MIC_SIGNAL_OFFSET_MULTIPLIER = SPEECH_CFG.micSignalOffsetMultiplier ?? 4;
+const MIC_SIGNAL_ONSET_MIN = SPEECH_CFG.micSignalOnsetMin ?? 0.018;
+const MIC_SIGNAL_OFFSET_MIN = SPEECH_CFG.micSignalOffsetMin ?? 0.010;
+const SPEECH_PREROLL_BUFFER_MS = SPEECH_CFG.speechPrerollBufferMs ?? 400;
+
+const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.6.0';
+const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.2.0';
+const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.3.0';
+const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.3.0';
 const SPEECH_RESEARCH_HISTORY_LIMIT = Math.max(1, SPEECH_CFG.researchHistoryLimit ?? 8);
 const RESEARCH_SAMPLE_INTERVAL_MS = Math.max(50, SPEECH_CFG.researchSampleIntervalMs ?? 100);
 
@@ -1160,7 +1175,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.5.0 — transcript-similarity scoring';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.6.0 — hybrid speech timing + independent rate';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -1277,30 +1292,63 @@ function resetRecognitionEngine() {
 }
 
 // Noise Floor Calibration
-let noiseFloor     = 0;      
-let noiseFrames    = [];     
+let noiseFloor     = 0;
+let noiseFrames    = [];
+let micSignalNoiseFrames = [];
+let micSignalNoiseFloor = 0;
+let micSignalOnsetThreshold = MIC_SIGNAL_ONSET_MIN;
+let micSignalOffsetThreshold = MIC_SIGNAL_OFFSET_MIN;
 let calibStartMs   = null;
-let dynThreshold   = 0.04;   
+let recordingStartedMs = null;
+let dynThreshold   = 0.04;
 
-// Trailing Silence Audio Tracking State
+// Speech timing / activity state. speechStartMs and speechEndMs are the
+// resolved boundaries used by scoring; the other clocks are preserved for research.
 let vowelEnergyBuf = [];
-let voiceHistory   = [];     // เก็บประวัติเวลาและระดับพลังงานเสียงแบบสตรีมมิ่ง
+let voiceHistory   = []; // confirmed microphone-active frames
+let speechPreRollFrames = [];
+let lastEnergySampleMs = null;
 let speechStartMs  = null;
 let speechEndMs    = null;
 let lastVoiceMs    = null;
-let flatMin = 1, flatMax = 0, tonerCount = 0, loudCount = 0; // diagnostic
+let legacyEnergyStartMs = null;
+let legacyEnergyEndMs = null;
+let micOnsetCandidateMs = null;
+let micSpeechStartMs = null;
+let micSpeechEndMs = null;
+let lastMicVoiceMs = null;
+let asrSpeechStartMs = null;
+let asrSpeechEndMs = null;
+let resolvedTimingSource = { start: null, end: null, policy: RATE_TIMING_POLICY };
+let flatMin = 1, flatMax = 0, tonerCount = 0, loudCount = 0;
 
 function resetMeasurementState() {
   noiseFloor = 0;
   noiseFrames = [];
+  micSignalNoiseFrames = [];
+  micSignalNoiseFloor = 0;
+  micSignalOnsetThreshold = MIC_SIGNAL_ONSET_MIN;
+  micSignalOffsetThreshold = MIC_SIGNAL_OFFSET_MIN;
   calibStartMs = null;
+  recordingStartedMs = null;
   dynThreshold = 0.04;
 
   vowelEnergyBuf = [];
   voiceHistory = [];
+  speechPreRollFrames = [];
+  lastEnergySampleMs = null;
   speechStartMs = null;
   speechEndMs = null;
   lastVoiceMs = null;
+  legacyEnergyStartMs = null;
+  legacyEnergyEndMs = null;
+  micOnsetCandidateMs = null;
+  micSpeechStartMs = null;
+  micSpeechEndMs = null;
+  lastMicVoiceMs = null;
+  asrSpeechStartMs = null;
+  asrSpeechEndMs = null;
+  resolvedTimingSource = { start: null, end: null, policy: RATE_TIMING_POLICY };
 
   flatMin = 1;
   flatMax = 0;
@@ -1309,6 +1357,70 @@ function resetMeasurementState() {
 
   noisyAck = false;
   window.MEASURED_NOISY = false;
+}
+
+function speechPercentile(values, q) {
+  if (!Array.isArray(values) || !values.length) return 0;
+  const sorted = [...values].filter(Number.isFinite).sort((a, b) => a - b);
+  if (!sorted.length) return 0;
+  const index = Math.min(sorted.length - 1, Math.max(0, Math.round((sorted.length - 1) * q)));
+  return sorted[index];
+}
+
+function pushSpeechEnergySample(time, energy) {
+  if (!Number.isFinite(time) || !Number.isFinite(energy)) return;
+  if (lastEnergySampleMs !== null && time <= lastEnergySampleMs) return;
+  vowelEnergyBuf.push(energy);
+  if (vowelEnergyBuf.length > 500) vowelEnergyBuf.shift();
+  lastEnergySampleMs = time;
+}
+
+function seedSpeechEnergyFromPreRoll(startMs) {
+  speechPreRollFrames
+    .filter(frame => frame.time >= startMs && frame.micSignalEnergy >= micSignalOffsetThreshold)
+    .forEach(frame => pushSpeechEnergySample(frame.time, frame.vEnergy));
+}
+
+function resolveSpeechTiming(nowMs = performance.now()) {
+  const recordingFloor = recordingStartedMs || currentAttemptPerformanceStartedAt || nowMs;
+  let start = null;
+  let end = null;
+  let startSource = null;
+  let endSource = null;
+
+  if (asrSpeechStartMs) {
+    const asrStart = Math.max(recordingFloor, asrSpeechStartMs - ASR_START_PREROLL_MS);
+    start = micSpeechStartMs ? Math.max(asrStart, micSpeechStartMs) : asrStart;
+    startSource = micSpeechStartMs ? 'asr_mic_confirmed' : 'asr_speech_start';
+  } else if (micSpeechStartMs) {
+    start = micSpeechStartMs;
+    startSource = 'mic_activity';
+  } else if (legacyEnergyStartMs) {
+    start = legacyEnergyStartMs;
+    startSource = 'legacy_energy_fallback';
+  }
+
+  if (lastMicVoiceMs && (!start || lastMicVoiceMs >= start)) {
+    end = Math.min(nowMs, lastMicVoiceMs + MIC_END_POSTROLL_MS);
+    endSource = 'mic_last_active';
+  } else if (asrSpeechEndMs && (!start || asrSpeechEndMs >= start)) {
+    end = Math.min(nowMs, asrSpeechEndMs + MIC_END_POSTROLL_MS);
+    endSource = 'asr_speech_end';
+  } else if (legacyEnergyEndMs && (!start || legacyEnergyEndMs >= start)) {
+    end = legacyEnergyEndMs;
+    endSource = 'legacy_energy_fallback';
+  }
+
+  if (start && (!end || end < start)) {
+    const candidate = lastVoiceMs || nowMs;
+    if (candidate >= start) {
+      end = candidate;
+      endSource = endSource || 'current_activity_fallback';
+    }
+  }
+
+  resolvedTimingSource = { start: startSource, end: endSource, policy: RATE_TIMING_POLICY };
+  return { start, end, startSource, endSource };
 }
 
 
@@ -1477,11 +1589,9 @@ function appendAsrObservation(type, detail = {}) {
 }
 
 function currentSpeechDurationSec() {
-  if (speechStartMs && speechEndMs && speechEndMs >= speechStartMs) {
-    return (speechEndMs - speechStartMs) / 1000;
-  }
-  if (speechStartMs && lastVoiceMs && lastVoiceMs >= speechStartMs) {
-    return (lastVoiceMs - speechStartMs) / 1000;
+  const timing = resolveSpeechTiming();
+  if (timing.start && timing.end && timing.end >= timing.start) {
+    return (timing.end - timing.start) / 1000;
   }
   return 0;
 }
@@ -1502,6 +1612,14 @@ function currentSpeechQualityFlags() {
   const flags = [];
   const { snrDb } = currentSpeechEnergySummary();
   if (snrDb !== null && snrDb < SNR_WARN_DB) flags.push('LOW_SNR');
+  const timing = resolveSpeechTiming();
+  if (
+    timing.startSource === 'legacy_energy_fallback' ||
+    timing.endSource === 'legacy_energy_fallback' ||
+    timing.endSource === 'current_activity_fallback'
+  ) {
+    flags.push('RATE_TIMING_FALLBACK');
+  }
   const hasAsrResult = asrObservationEvents.some(event =>
     event.attemptNo === Math.max(1, speechAttemptNo) && event.type === 'result'
   );
@@ -1516,12 +1634,17 @@ function speechRawObservations(details = {}) {
   const reportedConfidence = Number.isFinite(details.reportedConfidence) && details.reportedConfidence > 0
     ? details.reportedConfidence
     : null;
-  const speechStartOffsetMs = speechStartMs && currentAttemptPerformanceStartedAt
-    ? Math.max(0, speechStartMs - currentAttemptPerformanceStartedAt)
+  const offset = value => value && currentAttemptPerformanceStartedAt
+    ? Math.max(0, value - currentAttemptPerformanceStartedAt)
     : null;
-  const speechEndOffsetMs = speechEndMs && currentAttemptPerformanceStartedAt
-    ? Math.max(0, speechEndMs - currentAttemptPerformanceStartedAt)
-    : null;
+  const speechStartOffsetMs = offset(speechStartMs);
+  const speechEndOffsetMs = offset(speechEndMs);
+  const asrSpeechStartOffsetMs = offset(asrSpeechStartMs);
+  const asrSpeechEndOffsetMs = offset(asrSpeechEndMs);
+  const micSpeechStartOffsetMs = offset(micSpeechStartMs);
+  const micSpeechEndOffsetMs = offset(lastMicVoiceMs || micSpeechEndMs);
+  const legacyEnergyStartOffsetMs = offset(legacyEnergyStartMs);
+  const legacyEnergyEndOffsetMs = offset(legacyEnergyEndMs);
   return {
     transcript: String(details.transcript || ''),
     asrConfidenceReported: reportedConfidence,
@@ -1532,11 +1655,28 @@ function speechRawObservations(details = {}) {
       .filter(event => event.attemptNo === speechAttemptNo)
       .map(event => ({ ...event })),
     calibrationSpeechBandEnergy: noiseFrames.map(value => roundSpeechMetric(value, 6)),
+    calibrationMicSignalEnergy: micSignalNoiseFrames.map(value => roundSpeechMetric(value, 8)),
     speechBandEnergySamples: vowelEnergyBuf.map(value => roundSpeechMetric(value, 6)),
     speechStartOffsetMs: roundSpeechMetric(speechStartOffsetMs, 1),
     speechEndOffsetMs: roundSpeechMetric(speechEndOffsetMs, 1),
+    asrSpeechStartOffsetMs: roundSpeechMetric(asrSpeechStartOffsetMs, 1),
+    asrSpeechEndOffsetMs: roundSpeechMetric(asrSpeechEndOffsetMs, 1),
+    micSpeechStartOffsetMs: roundSpeechMetric(micSpeechStartOffsetMs, 1),
+    micSpeechEndOffsetMs: roundSpeechMetric(micSpeechEndOffsetMs, 1),
+    legacyEnergyStartOffsetMs: roundSpeechMetric(legacyEnergyStartOffsetMs, 1),
+    legacyEnergyEndOffsetMs: roundSpeechMetric(legacyEnergyEndOffsetMs, 1),
+    vadAsrStartDeltaMs: Number.isFinite(micSpeechStartOffsetMs) && Number.isFinite(asrSpeechStartOffsetMs)
+      ? roundSpeechMetric(micSpeechStartOffsetMs - asrSpeechStartOffsetMs, 1)
+      : null,
+    timingPolicy: RATE_TIMING_POLICY,
+    timingStartSource: resolvedTimingSource.start,
+    timingEndSource: resolvedTimingSource.end,
+    micSignalNoiseFloor: roundSpeechMetric(micSignalNoiseFloor, 8),
+    micSignalOnsetThreshold: roundSpeechMetric(micSignalOnsetThreshold, 8),
+    micSignalOffsetThreshold: roundSpeechMetric(micSignalOffsetThreshold, 8),
     energyFrameCount: vowelEnergyBuf.length,
-    tonalVoiceEventCount: voiceHistory.length,
+    confirmedVoiceEventCount: voiceHistory.length,
+    tonalVoiceEventCount: tonerCount,
     loudFrameCount: loudCount,
     tonalFrameCount: tonerCount,
     flatnessMin: Number.isFinite(flatMin) && flatMin < 1 ? roundSpeechMetric(flatMin, 4) : null,
@@ -1561,6 +1701,11 @@ function speechDerivedMetrics(details = {}) {
     durationSec: roundSpeechMetric(durationSec, 4),
     speechUnitsPerSec: roundSpeechMetric(details.speechUnitsPerSec, 4),
     rateUnit: details.rateUnit || rateUnitLabel(),
+    rateSpeechUnitCount: Number.isFinite(details.rateSpeechUnitCount) ? details.rateSpeechUnitCount : null,
+    rateSpeechUnitSource: details.rateSpeechUnitSource || 'target_phrase_fixed',
+    timingPolicy: RATE_TIMING_POLICY,
+    timingStartSource: resolvedTimingSource.start,
+    timingEndSource: resolvedTimingSource.end,
     noiseFloor: roundSpeechMetric(noiseFloor, 6),
     dynamicThreshold: roundSpeechMetric(dynThreshold, 6),
     speechEnergy: roundSpeechMetric(energy.speechEnergy, 6),
@@ -1653,7 +1798,7 @@ function buildSpeechResearchLogBundle() {
   }, 0);
 
   return {
-    exportSchemaVersion: 'quickstroke-speech-log-0.2.0',
+    exportSchemaVersion: 'quickstroke-speech-log-0.3.0',
     exportedAt: new Date().toISOString(),
     source: 'speech-test-dev-copy-log',
     debugBuild: DEBUG_BUILD,
@@ -1974,7 +2119,9 @@ async function handleAction() {
   }
   else if (phase === 'RECORDING') {
     // ผู้ใช้กดปุ่มหยุดบันทึกด้วยตัวเองแมนนวล
-    speechEndMs = getLastSpeechSegmentEnd();
+    const timing = resolveSpeechTiming();
+    speechStartMs = timing.start;
+    speechEndMs = timing.end;
     evaluateSpeech('__manual__', 0);
   }
   else if (phase === 'DONE') {
@@ -2446,12 +2593,23 @@ async function beginSpeechRecognition() {
       appendAsrObservation('sound_start');
     };
     recognition.onspeechstart = () => {
-      DBG('ASR onspeechstart', '🗣️ ตรวจพบเสียงพูด');
-      appendAsrObservation('speech_start');
+      asrSpeechStartMs = performance.now();
+      const asrCandidateStart = Math.max(
+        recordingStartedMs || asrSpeechStartMs,
+        asrSpeechStartMs - ASR_START_PREROLL_MS
+      );
+      seedSpeechEnergyFromPreRoll(asrCandidateStart);
+      DBG('ASR onspeechstart', `🗣️ start=${(asrSpeechStartMs-currentAttemptPerformanceStartedAt).toFixed(1)}ms`);
+      appendAsrObservation('speech_start', {
+        performanceOffsetMs: roundSpeechMetric(asrSpeechStartMs - currentAttemptPerformanceStartedAt, 1)
+      });
     };
     recognition.onspeechend = () => {
-      DBG('ASR onspeechend');
-      appendAsrObservation('speech_end');
+      asrSpeechEndMs = performance.now();
+      DBG('ASR onspeechend', `end=${(asrSpeechEndMs-currentAttemptPerformanceStartedAt).toFixed(1)}ms`);
+      appendAsrObservation('speech_end', {
+        performanceOffsetMs: roundSpeechMetric(asrSpeechEndMs - currentAttemptPerformanceStartedAt, 1)
+      });
     };
 
     let gotResult = false;
@@ -2465,7 +2623,9 @@ async function beginSpeechRecognition() {
       if (!isCurrentRun()) return;
       clearRecognitionTimers();
       if (phase !== 'DONE') {
-        speechEndMs = getLastSpeechSegmentEnd();
+        const timing = resolveSpeechTiming();
+        speechStartMs = timing.start;
+        speechEndMs = timing.end;
         evaluateSpeech(text, conf);
       }
     };
@@ -2474,7 +2634,6 @@ async function beginSpeechRecognition() {
       DBG('ASR onresult', `results=${e.results.length}`);
       if (!isCurrentRun()) return;
       gotResult = true;
-      speechEndMs = getLastSpeechSegmentEnd();
 
       const startIndex = Number.isInteger(e.resultIndex) ? e.resultIndex : 0;
       for (let i = startIndex; i < e.results.length; i++) {
@@ -2616,7 +2775,9 @@ async function beginSpeechRecognition() {
     appendAsrObservation('unavailable');
     recognitionSafetyTimer = setTimeout(() => {
       if (phase !== 'DONE') {
-        speechEndMs = getLastSpeechSegmentEnd();
+        const timing = resolveSpeechTiming();
+        speechStartMs = timing.start;
+        speechEndMs = timing.end;
         evaluateSpeech('__no_api__', 1.0);
       }
     }, RECOGNITION_SAFETY_MS);
@@ -2791,6 +2952,7 @@ function runLoop() {
       calibStartMs = nowMs;
     }
     noiseFrames.push(vEnergy);
+    micSignalNoiseFrames.push(micSignalEnergy);
     recordSpeechResearchFrame({
       speechBandEnergy: roundSpeechMetric(vEnergy, 6),
       micSignalEnergy: roundSpeechMetric(micSignalEnergy, 8),
@@ -2811,9 +2973,19 @@ function runLoop() {
       
       noiseFloor   = Math.min(avg + std, NOISE_FLOOR_CAP);
       dynThreshold = noiseFloor * NOISE_MULTIPLIER;
+      micSignalNoiseFloor = speechPercentile(micSignalNoiseFrames, 0.90);
+      micSignalOnsetThreshold = Math.max(
+        MIC_SIGNAL_ONSET_MIN,
+        micSignalNoiseFloor * MIC_SIGNAL_ONSET_MULTIPLIER
+      );
+      micSignalOffsetThreshold = Math.max(
+        MIC_SIGNAL_OFFSET_MIN,
+        micSignalNoiseFloor * MIC_SIGNAL_OFFSET_MULTIPLIER
+      );
 
       // ไม่เตือนเสียงรบกวนก่อนพูด เพราะยังไม่มี signal ของเสียงพูดจริงให้เทียบ SNR
       phase = 'RECORDING';
+      recordingStartedMs = nowMs;
       $('mic-circle').className       = 'mic-circle recording';
       $('mic-icon').textContent       = '👄';
       $('action-btn').textContent     = T.btnStop || '⏹ หยุด';
@@ -2831,13 +3003,63 @@ function runLoop() {
     return;
   }
 
-  // ── PHASE 2: Recording & Stream Tracking ───────────
-  // isVoice ใช้ energy เป็นหลัก (จับเสียงพูดให้ได้แน่นอน)
-  // flatness ใช้แยกว่า frame นี้เป็น "เสียงพูดจริง" (tonal) หรือ "noise" (flat)
-  // FLATNESS_MAX is versioned in config (currently 0.78); it is not changed by this data-instrumentation update.
+  // ── PHASE 2: Recording & Hybrid Speech Timing ───────
+  // Frequency-band energy remains useful for SNR and visualization, but it no
+  // longer starts the timer by itself. Time-domain microphone activity is
+  // calibrated against the same device/session and must persist before onset.
   const isLoud  = vEnergy > dynThreshold;
-  const isToner = flatness < FLATNESS_MAX;
-  const isVoice = isLoud; // เริ่ม/จับเสียงด้วย energy
+  const isToner = flatness < FLATNESS_MAX; // research-only diagnostic
+
+  if (isLoud) {
+    if (!legacyEnergyStartMs) legacyEnergyStartMs = nowMs;
+    legacyEnergyEndMs = nowMs;
+    loudCount++;
+    if (flatness < flatMin) flatMin = flatness;
+    if (flatness > flatMax) flatMax = flatness;
+    if (isToner) tonerCount++;
+  }
+
+  speechPreRollFrames.push({ time: nowMs, vEnergy, micSignalEnergy, isLoud });
+  while (speechPreRollFrames.length && nowMs - speechPreRollFrames[0].time > SPEECH_PREROLL_BUFFER_MS) {
+    speechPreRollFrames.shift();
+  }
+
+  const micAboveOnset = isLoud && micSignalEnergy >= micSignalOnsetThreshold;
+  const micAboveOffset = isLoud && micSignalEnergy >= micSignalOffsetThreshold;
+
+  if (!micSpeechStartMs) {
+    if (micAboveOnset) {
+      if (!micOnsetCandidateMs) micOnsetCandidateMs = nowMs;
+      if (nowMs - micOnsetCandidateMs >= MIC_ONSET_HOLD_MS) {
+        micSpeechStartMs = Math.max(
+          recordingStartedMs || micOnsetCandidateMs,
+          micOnsetCandidateMs - MIC_START_PREROLL_MS
+        );
+        seedSpeechEnergyFromPreRoll(micSpeechStartMs);
+        DBG('TIMING mic onset', `start=${(micSpeechStartMs-currentAttemptPerformanceStartedAt).toFixed(1)}ms threshold=${micSignalOnsetThreshold.toFixed(6)}`);
+      }
+    } else {
+      micOnsetCandidateMs = null;
+    }
+  }
+
+  let isVoice = false;
+  if (micSpeechStartMs) {
+    if (micAboveOffset) {
+      lastMicVoiceMs = nowMs;
+      micSpeechEndMs = nowMs;
+      lastVoiceMs = nowMs;
+      voiceHistory.push({ time: nowMs, energy: vEnergy, micSignalEnergy });
+      pushSpeechEnergySample(nowMs, vEnergy);
+      isVoice = true;
+    } else if (lastMicVoiceMs && nowMs - lastMicVoiceMs <= MIC_HANGOVER_MS) {
+      isVoice = true;
+    }
+  }
+
+  const timingPreview = resolveSpeechTiming(nowMs);
+  speechStartMs = timingPreview.start;
+  speechEndMs = timingPreview.end;
 
   recordSpeechResearchFrame({
     speechBandEnergy: roundSpeechMetric(vEnergy, 6),
@@ -2845,40 +3067,23 @@ function runLoop() {
     spectralFlatness: roundSpeechMetric(flatness, 4),
     noiseFloor: roundSpeechMetric(noiseFloor, 6),
     dynamicThreshold: roundSpeechMetric(dynThreshold, 6),
+    micSignalOnsetThreshold: roundSpeechMetric(micSignalOnsetThreshold, 8),
+    micSignalOffsetThreshold: roundSpeechMetric(micSignalOffsetThreshold, 8),
     isLoud,
     isTonal: isToner,
+    isMicOnsetCandidate: !!micOnsetCandidateMs && !micSpeechStartMs,
+    isMicActive: micAboveOffset,
     isVoice
   });
 
-  // diagnostic: เก็บช่วง flatness ตอนเสียงดัง (เพื่อดูว่าเสียงพูด flatness เท่าไหร่)
-  if (isLoud) {
-    loudCount++;
-    if (flatness < flatMin) flatMin = flatness;
-    if (flatness > flatMax) flatMax = flatness;
-    if (isToner) tonerCount++;
-  }
-
-  if (isVoice) {
-    if (!speechStartMs) speechStartMs = nowMs;
-    lastVoiceMs = nowMs;
-    vowelEnergyBuf.push(vEnergy);
-    if (vowelEnergyBuf.length > 500) vowelEnergyBuf.shift();
-
-    // voiceHistory เก็บเฉพาะ frame ที่เป็นเสียงพูดจริง (tonal)
-    // → getLastSpeechSegmentEnd จะหาจุดจบจากเสียงพูดจริง ไม่ใช่ noise
-    if (isToner) {
-      voiceHistory.push({ time: nowMs, energy: vEnergy });
-    }
-  }
-
-  // ล้างข้อมูลประวัติเสียงที่เก่ากว่า 5 วินาทีทิ้งไป เพื่อป้องกันเมมโมรี่บวม
-  while (voiceHistory.length && (nowMs - voiceHistory[0].time > 5000)) {
+  while (voiceHistory.length && nowMs - voiceHistory[0].time > 12000) {
     voiceHistory.shift();
   }
 
   // แสดงพรีวิวสดแบบ Real-time บนบาร์กราฟหน้าจอ
-  const previewEnd = lastVoiceMs ? lastVoiceMs : nowMs;
-  const durSec = speechStartMs ? (previewEnd - speechStartMs) / 1000 : 0;
+  const durSec = timingPreview.start && timingPreview.end && timingPreview.end >= timingPreview.start
+    ? (timingPreview.end - timingPreview.start) / 1000
+    : 0;
   if (durSec > 0.3) {
     const rate = T.syllables / durSec;
     setBar('rate', rateToScore(rate), `${rate.toFixed(1)} ${rateUnitLabel()}`);
@@ -2898,10 +3103,12 @@ function runLoop() {
     `SNR:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${liveSnrDb !== null ? liveSnrDb.toFixed(1) + ' dB' : '—'}<br>` +
     `dynThreshold: ${dynThreshold.toFixed(5)}<br>` +
     `vEnergy:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${vEnergy.toFixed(5)}<br>` +
-    `flatness:&nbsp;&nbsp;&nbsp; ${flatness.toFixed(3)} ${isToner ? '(tone✓)' : '(noise✗)'}<br>` +
-    `→ state:&nbsp;&nbsp;&nbsp; ${isVoice ? '🔊 VOICE' : (isLoud ? '🔇 noise' : '🔇 silent')}<br>` +
+    `flatness:&nbsp;&nbsp;&nbsp; ${flatness.toFixed(3)} ${isToner ? '(tone✓)' : '(research)'}<br>` +
+    `mic onset/off: ${micSignalOnsetThreshold.toFixed(5)} / ${micSignalOffsetThreshold.toFixed(5)}<br>` +
+    `→ state:&nbsp;&nbsp;&nbsp; ${isVoice ? '🗣️ SPEECH' : (isLoud ? '🔉 energy only' : '🔇 silent')}<br>` +
+    `timing:&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; ${(timingPreview.startSource || '—')} → ${(timingPreview.endSource || '—')}<br>` +
     `dur (live):&nbsp;&nbsp; ${durSec.toFixed(2)}s<br>` +
-    `energyFrames: ${vowelEnergyBuf.length} | hist: ${voiceHistory.length}`;
+    `energyFrames: ${vowelEnergyBuf.length} | confirmed: ${voiceHistory.length}`;
 
   drawWave(freqArr, N);
   animationFrameId = requestAnimationFrame(runLoop);
@@ -3145,13 +3352,25 @@ function makeSpeechResultPayload({
       autoValidityRetryCount: AUTO_VALIDITY_RETRY_COUNT,
       autoValidityRetryDelayMs: AUTO_VALIDITY_RETRY_DELAY_MS,
       recognitionSafetyMs: RECOGNITION_SAFETY_MS,
-      trailingGapMs: TRAILING_GAP_MS
+      trailingGapMs: TRAILING_GAP_MS,
+      rateTimingPolicy: RATE_TIMING_POLICY,
+      asrStartPrerollMs: ASR_START_PREROLL_MS,
+      micStartPrerollMs: MIC_START_PREROLL_MS,
+      micEndPostrollMs: MIC_END_POSTROLL_MS,
+      micOnsetHoldMs: MIC_ONSET_HOLD_MS,
+      micHangoverMs: MIC_HANGOVER_MS,
+      micSignalOnsetMultiplier: MIC_SIGNAL_ONSET_MULTIPLIER,
+      micSignalOffsetMultiplier: MIC_SIGNAL_OFFSET_MULTIPLIER,
+      micSignalOnsetMin: MIC_SIGNAL_ONSET_MIN,
+      micSignalOffsetMin: MIC_SIGNAL_OFFSET_MIN
     },
     runtime: { ...speechRuntimeInfo(), qualityFlags: qualityFlagSnapshot },
     policy: {
       lowSnr: 'quality_flag_only',
       recognition: 'browser_default',
       phraseScoring: 'normalized_levenshtein_similarity',
+      rateScoring: 'target_phrase_units_per_resolved_active_speech_duration',
+      rateTiming: RATE_TIMING_POLICY,
       asrConfidenceUse: 'raw_observation_only',
       microphoneSpeechProcessingClaim: 'not_fully_on_device',
       rawAudioStored: false
@@ -3378,14 +3597,16 @@ function evaluateSpeech(text, confidence) {
   const wordMatched = !!normalizedText && normalizedKeywords.includes(normalizedText);
   const phraseSimilarity = speechTextSimilarity(normalizedText, normalizedKeywords);
 
-  // VAD and ASR are independent. No transcript does not mean no voice.
-  const hasVoice =
+  // Resolve one reproducible timing window before validity/scoring.
+  const timing = resolveSpeechTiming();
+  speechStartMs = timing.start;
+  speechEndMs = timing.end;
+  const hasVoice = !!(
+    asrSpeechStartMs ||
+    micSpeechStartMs ||
     vowelEnergyBuf.length >= MIN_ENERGY_FRAMES ||
-    voiceHistory.length >= 3 ||
-    (speechStartMs && lastVoiceMs && lastVoiceMs > speechStartMs);
-  if (hasVoice && (!speechEndMs || speechEndMs < speechStartMs)) {
-    speechEndMs = getLastSpeechSegmentEnd();
-  }
+    voiceHistory.length >= 3
+  );
 
   let durSec = 0;
   if (speechStartMs && speechEndMs && speechEndMs >= speechStartMs) {
@@ -3442,15 +3663,13 @@ function evaluateSpeech(text, confidence) {
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent = `"${text}"`;
 
-  // 2. Speech Rate (40%) — legacy scoring retained.
-  let rateScore = 0;
-  let rateLabel = T.wordMismatch;
-  let syllPerSec = 0;
-  if (wordMatched) {
-    syllPerSec = T.syllables / Math.max(durSec, 0.2);
-    rateScore = rateToScore(syllPerSec);
-    rateLabel = `${syllPerSec.toFixed(1)} ${rateUnitLabel()}`;
-  }
+  // 2. Speech Rate (40%) — independent from transcript correctness.
+  // This fixed-phrase task always uses the versioned target speech-unit count;
+  // phrase mismatch affects phrase scoring, not whether a rate can be measured.
+  const rateSpeechUnitCount = Number(T.syllables) || 0;
+  const syllPerSec = rateSpeechUnitCount / Math.max(durSec, 0.2);
+  const rateScore = rateToScore(syllPerSec);
+  const rateLabel = `${syllPerSec.toFixed(1)} ${rateUnitLabel()}`;
 
   // 3. Volume Stability (20%). Validity gates above prevent an imputed 50
   // from being used when there are too few frames.
@@ -3510,6 +3729,8 @@ function evaluateSpeech(text, confidence) {
     phraseMatchScore,
     speechUnitsPerSec: syllPerSec,
     rateUnit: rateUnitLabel(),
+    rateSpeechUnitCount,
+    rateSpeechUnitSource: 'target_phrase_fixed',
     durationSec: durSec,
     wordScore,
     rateScore,
@@ -3529,6 +3750,11 @@ function evaluateSpeech(text, confidence) {
     syllablesPerSec: syllPerSec,
     speechUnitsPerSec: syllPerSec,
     rateUnit: rateUnitLabel(),
+    rateSpeechUnitCount,
+    rateSpeechUnitSource: 'target_phrase_fixed',
+    timingPolicy: RATE_TIMING_POLICY,
+    timingStartSource: resolvedTimingSource.start,
+    timingEndSource: resolvedTimingSource.end,
     durationSec: durSec,
     noiseFloor,
     speechEnergy,
@@ -3561,6 +3787,9 @@ function evaluateSpeech(text, confidence) {
   $('debug-box').textContent = [
     'Speech diagnostics',
     `duration: ${durSec.toFixed(2)}s`,
+    `timing: ${resolvedTimingSource.start || '—'} → ${resolvedTimingSource.end || '—'}`,
+    `ASR start: ${asrSpeechStartMs && currentAttemptPerformanceStartedAt ? (asrSpeechStartMs-currentAttemptPerformanceStartedAt).toFixed(1)+'ms' : '—'}`,
+    `mic start/end: ${micSpeechStartMs && currentAttemptPerformanceStartedAt ? (micSpeechStartMs-currentAttemptPerformanceStartedAt).toFixed(1)+'ms' : '—'} / ${lastMicVoiceMs && currentAttemptPerformanceStartedAt ? (lastMicVoiceMs-currentAttemptPerformanceStartedAt).toFixed(1)+'ms' : '—'}`,
     `SNR: ${snrDb !== null ? snrDb.toFixed(1) + ' dB' : '—'}`,
     `flatness min/max: ${flatMin.toFixed(3)} / ${flatMax.toFixed(3)}`,
     `loud frames: ${loudCount}`,

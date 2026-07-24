@@ -168,10 +168,10 @@ window.QS_CONFIG = {
 
     speech: {
       // Version identifiers stored with every Speech result.
-      version: "speech-prepilot-1.5.0",
-      algorithmVersion: "speech-browser-asr-1.1.0",
-      resultSchemaVersion: "speech-result-1.2.0",
-      researchPayloadVersion: "speech-research-0.2.0",
+      version: "speech-prepilot-1.6.0",
+      algorithmVersion: "speech-browser-asr-1.2.0",
+      resultSchemaVersion: "speech-result-1.3.0",
+      researchPayloadVersion: "speech-research-0.3.0",
       researchHistoryLimit: 8,
 
       // Speech phrase scoring v1.1:
@@ -180,6 +180,24 @@ window.QS_CONFIG = {
       // - an exact accepted variant receives 100
       phraseScoringPolicy: "normalized_levenshtein_similarity",
       asrConfidencePolicy: "raw_observation_only",
+
+      // Speech-rate scoring v1.2:
+      // - rate is calculated independently from phrase correctness
+      // - the fixed target phrase unit count is divided by the resolved active-speech duration
+      // - ASR speech-start confirms onset; calibrated time-domain mic activity trims both ends
+      rateScoringPolicy: "target_phrase_units_per_resolved_active_speech_duration",
+      rateSpeechUnitSource: "target_phrase_fixed",
+      rateTimingPolicy: "asr_mic_hybrid_v1",
+      asrStartPrerollMs: 120,
+      micStartPrerollMs: 80,
+      micEndPostrollMs: 80,
+      micOnsetHoldMs: 100,
+      micHangoverMs: 180,
+      micSignalOnsetMultiplier: 8,
+      micSignalOffsetMultiplier: 4,
+      micSignalOnsetMin: 0.018,
+      micSignalOffsetMin: 0.010,
+      speechPrerollBufferMs: 400,
 
       calibrationMs: 300,
       noiseMultiplier: 2.5,
@@ -197,7 +215,9 @@ window.QS_CONFIG = {
       flatnessMax: 0.78,
       maxNoiseFlatness: 0.78,
       
-      minSpeechDurationSec: 1.2,
+      // A 6-unit phrase at the configured normal maximum (6 units/s) lasts 1.0 s.
+      // Keep this as a technical minimum below the valid rate range so fast normal speech is not invalidated.
+      minSpeechDurationSec: 0.6,
       minEnergyFrames: 10,
 
       // One automatic retry is allowed for no voice / voice not recognized.
