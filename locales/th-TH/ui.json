@@ -3,7 +3,7 @@
     "locale": "th-TH",
     "nativeName": "ภาษาไทย",
     "direction": "ltr",
-    "packVersion": "0.9.0",
+    "packVersion": "0.9.1",
     "status": "primary-research-language"
   },
   "index": {
@@ -318,11 +318,13 @@
     "displayIndeterminateTitle": "ประเมินไม่ได้",
     "displayNoAlertSummary": "ไม่พบจุดที่ควรสังเกต",
     "displayAttentionSummary": "พบ {{count}} จุดที่ควรสังเกต",
+    "displayAsrIncompleteSummary": "ระบบอ่านข้อความได้ไม่ครบ กรุณาทดสอบอีกครั้ง",
     "domainPhraseLabel": "คำพูด",
     "domainRateLabel": "ความเร็ว",
     "domainQualityLabel": "ข้อมูลเสียง",
     "statusPhraseExact": "ตรงตามประโยค",
     "statusPhraseAttention": "ควรสังเกต",
+    "statusPhraseUnavailable": "ประเมินไม่ได้",
     "statusRateWithin": "อยู่ในช่วงอ้างอิง",
     "statusRateSlow": "ช้ากว่าช่วงอ้างอิง",
     "statusRateFast": "เร็วกว่าช่วงอ้างอิง",

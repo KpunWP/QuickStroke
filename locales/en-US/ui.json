@@ -3,7 +3,7 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.9.0",
+    "packVersion": "0.9.1",
     "status": "developer-reference-language"
   },
   "index": {
@@ -320,11 +320,13 @@
     "displayIndeterminateTitle": "Unable to assess",
     "displayNoAlertSummary": "No item needs attention",
     "displayAttentionSummary": "{{count}} item(s) need attention",
+    "displayAsrIncompleteSummary": "The transcript was incomplete. Please test again.",
     "domainPhraseLabel": "Speech",
     "domainRateLabel": "Speed",
     "domainQualityLabel": "Audio data",
     "statusPhraseExact": "Matches the phrase",
     "statusPhraseAttention": "Needs attention",
+    "statusPhraseUnavailable": "Unable to assess",
     "statusRateWithin": "Within reference range",
     "statusRateSlow": "Below reference range",
     "statusRateFast": "Above reference range",

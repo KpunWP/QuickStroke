@@ -971,9 +971,9 @@ const SPEECH_REQUIRED_KEYS = Object.freeze([
   'micSessionReset', 'scoreLabel', 'languageUnavailable',
   'phraseExact', 'phraseSimilarity', 'phraseNoMatch',
   'displayNoAlertTitle', 'displayAttentionTitle', 'displayIndeterminateTitle',
-  'displayNoAlertSummary', 'displayAttentionSummary',
+  'displayNoAlertSummary', 'displayAttentionSummary', 'displayAsrIncompleteSummary',
   'domainPhraseLabel', 'domainRateLabel', 'domainQualityLabel',
-  'statusPhraseExact', 'statusPhraseAttention',
+  'statusPhraseExact', 'statusPhraseAttention', 'statusPhraseUnavailable',
   'statusRateWithin', 'statusRateSlow', 'statusRateFast', 'statusRateUnavailable',
   'statusQualityAcceptable', 'statusQualityLimited',
   'detailsShow', 'detailsHide', 'detailsResearchNote'
@@ -1095,20 +1095,21 @@ const MIC_SIGNAL_ONSET_MIN = SPEECH_CFG.micSignalOnsetMin ?? 0.018;
 const MIC_SIGNAL_OFFSET_MIN = SPEECH_CFG.micSignalOffsetMin ?? 0.010;
 const SPEECH_PREROLL_BUFFER_MS = SPEECH_CFG.speechPrerollBufferMs ?? 400;
 
-// Pre-pilot observation policy v1.3: no combined score is used as the
+// Pre-pilot observation policy v1.3.1: no combined score is used as the
 // primary user-facing result. Phrase, rate, and technical quality are shown
-// independently with neutral language. All numeric metrics remain in research data.
-const SPEECH_DECISION_POLICY = SPEECH_CFG.decisionPolicy || 'unvalidated_domain_observation_v1';
+// independently with neutral language. Interim-only ASR with low transcript
+// coverage is indeterminate rather than a speech-domain alert.
+const SPEECH_DECISION_POLICY = SPEECH_CFG.decisionPolicy || 'unvalidated_domain_observation_v1_1';
 const PHRASE_ALERT_POLICY = SPEECH_CFG.phraseAlertPolicy || 'exact_variant_no_alert_else_attention';
 const RATE_REFERENCE_POLICY = SPEECH_CFG.rateReferencePolicy || 'outside_exploratory_range_attention';
 const RATE_MIN_TRANSCRIPT_COVERAGE = Math.max(0, Math.min(1, SPEECH_CFG.rateMinTranscriptCoverage ?? 0.60));
 const COMBINED_SCORE_POLICY = SPEECH_CFG.combinedScorePolicy || 'research_only_not_displayed';
 const STABILITY_POLICY = SPEECH_CFG.stabilityPolicy || 'research_only';
 
-const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.7.0';
-const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.3.0';
-const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.4.0';
-const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.4.0';
+const SPEECH_VERSION = SPEECH_CFG.version || 'speech-prepilot-1.7.1';
+const SPEECH_ALGORITHM_VERSION = SPEECH_CFG.algorithmVersion || 'speech-browser-asr-1.3.1';
+const SPEECH_RESULT_SCHEMA_VERSION = SPEECH_CFG.resultSchemaVersion || 'speech-result-1.4.1';
+const SPEECH_RESEARCH_PAYLOAD_VERSION = SPEECH_CFG.researchPayloadVersion || 'speech-research-0.4.1';
 const SPEECH_RESEARCH_HISTORY_LIMIT = Math.max(1, SPEECH_CFG.researchHistoryLimit ?? 8);
 const RESEARCH_SAMPLE_INTERVAL_MS = Math.max(50, SPEECH_CFG.researchSampleIntervalMs ?? 100);
 
@@ -1283,7 +1284,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.7.0 — neutral domain alerts + research-only combined score';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.7.1 — incomplete-ASR indeterminate display fix';
 const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -1821,6 +1822,8 @@ function speechDerivedMetrics(details = {}) {
     coefficientOfVariation: roundSpeechMetric(energy.coefficientOfVariation, 5),
     energyFrameCount: vowelEnergyBuf.length,
     transcriptCoverageRatio: roundSpeechMetric(details.transcriptCoverageRatio, 5),
+    asrTranscriptIncomplete: typeof details.asrTranscriptIncomplete === 'boolean' ? details.asrTranscriptIncomplete : null,
+    phraseReliable: typeof details.phraseReliable === 'boolean' ? details.phraseReliable : null,
     phraseObservationStatus: details.phraseObservationStatus || null,
     rateReliable: typeof details.rateReliable === 'boolean' ? details.rateReliable : null,
     rateReferenceStatus: details.rateReferenceStatus || null,
@@ -1912,7 +1915,7 @@ function buildSpeechResearchLogBundle() {
   }, 0);
 
   return {
-    exportSchemaVersion: 'quickstroke-speech-log-0.4.0',
+    exportSchemaVersion: 'quickstroke-speech-log-0.4.1',
     exportedAt: new Date().toISOString(),
     source: 'speech-test-dev-copy-log',
     debugBuild: DEBUG_BUILD,
@@ -3568,6 +3571,8 @@ function appendSpeechAttempt(outcome, details = {}) {
     rateSpeechUnitCount: details.rateSpeechUnitCount,
     rateSpeechUnitSource: details.rateSpeechUnitSource,
     transcriptCoverageRatio: details.transcriptCoverageRatio,
+    asrTranscriptIncomplete: details.asrTranscriptIncomplete,
+    phraseReliable: details.phraseReliable,
     phraseObservationStatus: details.phraseObservationStatus,
     rateReliable: details.rateReliable,
     rateReferenceStatus: details.rateReferenceStatus,
@@ -3818,7 +3823,7 @@ function evaluateSpeech(text, confidence) {
     : phraseMatchScore > 0
       ? T.phraseSimilarity.replace('{{percent}}', String(phraseMatchScore))
       : T.phraseNoMatch;
-  const phraseObservationStatus = wordMatched ? 'no_alert' : 'attention';
+  let phraseObservationStatus = wordMatched ? 'no_alert' : 'attention';
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent = `"${text}"`;
 
@@ -3834,6 +3839,11 @@ function evaluateSpeech(text, confidence) {
   const transcriptCoverageRatio = targetNormalized
     ? Math.min(1, Array.from(normalizedText).length / Math.max(1, Array.from(targetNormalized).length))
     : null;
+  const asrTranscriptIncomplete = !asrFinalReceived
+    && Number.isFinite(transcriptCoverageRatio)
+    && transcriptCoverageRatio < RATE_MIN_TRANSCRIPT_COVERAGE;
+  const phraseReliable = !asrTranscriptIncomplete;
+  if (!phraseReliable) phraseObservationStatus = 'unavailable';
   const timingUsesFallback = ['legacy_energy_fallback', 'current_activity_fallback'].includes(resolvedTimingSource.start)
     || ['legacy_energy_fallback', 'current_activity_fallback'].includes(resolvedTimingSource.end);
   const rateReliable = Number.isFinite(transcriptCoverageRatio)
@@ -3874,20 +3884,26 @@ function evaluateSpeech(text, confidence) {
     Number.isFinite(transcriptCoverageRatio) && transcriptCoverageRatio < RATE_MIN_TRANSCRIPT_COVERAGE
       ? 'LOW_TRANSCRIPT_COVERAGE'
       : null,
+    asrTranscriptIncomplete ? 'ASR_INTERIM_ONLY' : null,
     timingUsesFallback ? 'RATE_TIMING_FALLBACK' : null
   ].filter(Boolean);
   const technicalQualityStatus = uniqueQualityFlags.length ? 'limited' : 'acceptable';
 
   const displayReasonCodes = [];
   if (phraseObservationStatus === 'attention') displayReasonCodes.push('PHRASE_DIFFERENCE_OBSERVED');
+  if (phraseObservationStatus === 'unavailable') displayReasonCodes.push('ASR_TRANSCRIPT_INCOMPLETE');
   if (rateReferenceStatus === 'below_reference') displayReasonCodes.push('RATE_BELOW_EXPLORATORY_REFERENCE');
   if (rateReferenceStatus === 'above_reference') displayReasonCodes.push('RATE_ABOVE_EXPLORATORY_REFERENCE');
   if (rateReferenceStatus === 'unavailable') displayReasonCodes.push('RATE_UNRELIABLE');
   uniqueQualityFlags.forEach(flag => displayReasonCodes.push(`QUALITY_${flag}`));
 
-  const displayStatus = displayReasonCodes.length ? 'attention' : 'no_alert';
+  const displayStatus = asrTranscriptIncomplete
+    ? 'indeterminate'
+    : displayReasonCodes.length ? 'attention' : 'no_alert';
   const cls = displayStatus === 'no_alert' ? 'ok' : 'warn';
-  const title = displayStatus === 'no_alert' ? T.displayNoAlertTitle : T.displayAttentionTitle;
+  const title = displayStatus === 'no_alert'
+    ? T.displayNoAlertTitle
+    : displayStatus === 'indeterminate' ? T.displayIndeterminateTitle : T.displayAttentionTitle;
   const attentionCount = [
     phraseObservationStatus === 'attention',
     rateReferenceStatus !== 'within_reference',
@@ -3895,12 +3911,18 @@ function evaluateSpeech(text, confidence) {
   ].filter(Boolean).length;
   const sub = displayStatus === 'no_alert'
     ? T.displayNoAlertSummary
-    : T.displayAttentionSummary.replace('{{count}}', String(attentionCount));
+    : displayStatus === 'indeterminate'
+      ? T.displayAsrIncompleteSummary
+      : T.displayAttentionSummary.replace('{{count}}', String(attentionCount));
 
   const phraseStatusText = phraseObservationStatus === 'no_alert'
     ? `✓ ${T.statusPhraseExact}`
-    : `! ${T.statusPhraseAttention}`;
-  const phraseStatusClass = phraseObservationStatus === 'no_alert' ? 'no-alert' : 'attention';
+    : phraseObservationStatus === 'unavailable'
+      ? `! ${T.statusPhraseUnavailable}`
+      : `! ${T.statusPhraseAttention}`;
+  const phraseStatusClass = phraseObservationStatus === 'no_alert'
+    ? 'no-alert'
+    : phraseObservationStatus === 'unavailable' ? 'unavailable' : 'attention';
 
   let rateStatusText;
   let rateStatusClass;
@@ -3940,7 +3962,8 @@ function evaluateSpeech(text, confidence) {
 
   // Keep the top status cards short and consistent with the result banner.
   setSpeechCard('word', phraseObservationStatus === 'no_alert' ? 'pass' : 'active', T.domainPhraseLabel,
-    phraseObservationStatus === 'no_alert' ? T.statusPhraseExact : T.statusPhraseAttention,
+    phraseObservationStatus === 'no_alert' ? T.statusPhraseExact
+      : phraseObservationStatus === 'unavailable' ? T.statusPhraseUnavailable : T.statusPhraseAttention,
     phraseObservationStatus === 'no_alert' ? '✅' : '⚠️');
   setSpeechCard('rate', rateReferenceStatus === 'within_reference' ? 'pass' : 'active', T.domainRateLabel,
     rateReferenceStatus === 'within_reference' ? T.statusRateWithin
@@ -3952,11 +3975,13 @@ function evaluateSpeech(text, confidence) {
   const domains = {
     phrase: {
       status: phraseObservationStatus,
-      reliable: true,
+      reliable: phraseReliable,
       exactAcceptedVariant: wordMatched,
       similarity: roundSpeechMetric(phraseSimilarity, 5),
       score: phraseMatchScore,
-      reasonCode: phraseObservationStatus === 'attention' ? 'PHRASE_DIFFERENCE_OBSERVED' : null
+      reliabilityFlags: asrTranscriptIncomplete ? ['ASR_INTERIM_ONLY', 'LOW_TRANSCRIPT_COVERAGE'] : [],
+      reasonCode: phraseObservationStatus === 'attention' ? 'PHRASE_DIFFERENCE_OBSERVED'
+        : phraseObservationStatus === 'unavailable' ? 'ASR_TRANSCRIPT_INCOMPLETE' : null
     },
     rate: {
       status: rateReferenceStatus === 'within_reference' ? 'no_alert'
@@ -3984,6 +4009,11 @@ function evaluateSpeech(text, confidence) {
     phraseMatchScore,
     rateScore,
     stabilityScore: stabScore,
+    asrFinalReceived,
+    transcriptCoverageRatio: roundSpeechMetric(transcriptCoverageRatio, 5),
+    asrTranscriptIncomplete,
+    phraseReliable,
+    rateReliable,
     coefficientOfVariation: roundSpeechMetric(cvValue, 5),
     legacyWeightedScore,
     legacyWeightedScoreUse: 'research_only_not_displayed'
@@ -4011,6 +4041,8 @@ function evaluateSpeech(text, confidence) {
     rateSpeechUnitCount,
     rateSpeechUnitSource: 'target_phrase_fixed',
     transcriptCoverageRatio,
+    asrTranscriptIncomplete,
+    phraseReliable,
     phraseObservationStatus,
     rateReliable,
     rateReferenceStatus,
@@ -4037,6 +4069,8 @@ function evaluateSpeech(text, confidence) {
     rateSpeechUnitCount,
     rateSpeechUnitSource: 'target_phrase_fixed',
     transcriptCoverageRatio,
+    asrTranscriptIncomplete,
+    phraseReliable,
     rateReliable,
     rateReferenceStatus,
     timingPolicy: RATE_TIMING_POLICY,

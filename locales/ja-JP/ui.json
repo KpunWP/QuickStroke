@@ -3,7 +3,7 @@
     "locale": "ja-JP",
     "nativeName": "日本語",
     "direction": "ltr",
-    "packVersion": "0.9.0",
+    "packVersion": "0.9.1",
     "status": "developer-reference-language"
   },
   "index": {
@@ -322,11 +322,13 @@
     "displayIndeterminateTitle": "評価できません",
     "displayNoAlertSummary": "注意が必要な項目はありません",
     "displayAttentionSummary": "確認したい項目が{{count}}件あります",
+    "displayAsrIncompleteSummary": "文字起こしが不完全です。もう一度お試しください",
     "domainPhraseLabel": "発話",
     "domainRateLabel": "速さ",
     "domainQualityLabel": "音声データ",
     "statusPhraseExact": "例文と一致",
     "statusPhraseAttention": "確認が必要",
+    "statusPhraseUnavailable": "評価できません",
     "statusRateWithin": "参照範囲内",
     "statusRateSlow": "参照範囲より遅い",
     "statusRateFast": "参照範囲より速い",
