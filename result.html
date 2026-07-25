@@ -545,6 +545,74 @@
      text-align: right
    }
 
+   .dev-panel {
+     margin-top: 12px
+   }
+
+   .dev-card {
+     border: 1.5px solid #75879A;
+     border-radius: 18px;
+     background: #101923;
+     color: #E8F0F8;
+     overflow: hidden
+   }
+
+   .dev-header {
+     min-height: 54px;
+     padding: 10px 12px 10px 15px;
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 12px;
+     border-bottom: 1px solid rgba(255,255,255,.13)
+   }
+
+   .dev-title {
+     font-family: 'Manrope';
+     font-size: 15px;
+     font-weight: 800;
+     letter-spacing: .1px
+   }
+
+   .dev-copy-button {
+     min-height: 38px;
+     padding: 0 13px;
+     border: 1px solid rgba(255,255,255,.28);
+     border-radius: 11px;
+     background: rgba(255,255,255,.10);
+     color: #fff;
+     font-family: 'Manrope';
+     font-size: 13px;
+     font-weight: 800;
+     cursor: pointer
+   }
+
+   .dev-copy-button:active {
+     transform: scale(.97)
+   }
+
+   .dev-copy-status {
+     min-height: 20px;
+     padding: 6px 15px 0;
+     color: #A9E8D8;
+     font-size: 13px;
+     font-weight: 700
+   }
+
+   .dev-log {
+     width: 100%;
+     max-height: 440px;
+     margin: 0;
+     padding: 12px 15px 16px;
+     overflow: auto;
+     white-space: pre-wrap;
+     overflow-wrap: anywhere;
+     color: #D9E6F2;
+     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+     font-size: 12px;
+     line-height: 1.55
+   }
+
    .actions {
      margin-top: 13px;
      display: flex;
@@ -787,6 +855,16 @@
      </div>
     </details>
    </section>
+   <section class="dev-panel" hidden="" id="dev-panel">
+    <div class="dev-card">
+     <div class="dev-header">
+      <div class="dev-title">Result decision diagnostic</div>
+      <button class="dev-copy-button" id="copy-dev-log" type="button">Copy log</button>
+     </div>
+     <div aria-live="polite" class="dev-copy-status" id="dev-copy-status"></div>
+     <pre class="dev-log" id="dev-log"></pre>
+    </div>
+   </section>
    <div class="actions">
     <button class="btn-primary" id="primary-action" type="button">
     </button>
@@ -813,8 +891,13 @@
      speech: RESULT_CFG.speechWeight ?? .20
    });
    const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
-   const RESEARCH_MODE = new URLSearchParams(location.search).get('research') === '1' || window
+   const QUERY_PARAMS = new URLSearchParams(location.search);
+   const DEV_MODE = QUERY_PARAMS.get('dev') === '1';
+   const RESEARCH_MODE = DEV_MODE || QUERY_PARAMS.get('research') === '1' || window
      .QS_CONFIG?.researchMode === true;
+   const RESULT_DIAGNOSTIC_VERSION = window.QS_CONFIG?.resultDiagnostics?.version ||
+     'result-dev-diagnostics-1.0.0';
+   let CURRENT_DEV_LOG = '';
    const REQUIRED = Object.freeze([
      'pageTitle',
      'summaryKicker',
@@ -1026,7 +1109,7 @@
    }
 
    function requestedResultSource(data) {
-     const querySource = new URLSearchParams(location.search).get('module');
+     const querySource = QUERY_PARAMS.get('module');
      const storedSource = sessionStorage.getItem('fast_result_source');
      const explicitSource = MODULES.includes(querySource)
        ? querySource
@@ -1436,6 +1519,209 @@
      )
    }
 
+   function diagnosticQualityFlags(d) {
+     if (!d || typeof d !== 'object') return [];
+     if (Array.isArray(d.qualityFlags)) return d.qualityFlags.map(String);
+     if (Array.isArray(d.runtime?.qualityFlags)) return d.runtime.qualityFlags.map(String);
+     return []
+   }
+
+   function moduleDiagnostic(name, d) {
+     if (!d || typeof d !== 'object') {
+       return {
+         module: name,
+         storageKey: `fast_${name}`,
+         present: false,
+         derivedClass: 'na',
+         userFacingUsable: false,
+         researchScoreUsable: false
+       }
+     }
+
+     const versions = d.versions && typeof d.versions === 'object'
+       ? d.versions
+       : {
+           moduleVersion: d.moduleVersion ?? null,
+           algorithmVersion: d.algorithmVersion ?? null,
+           resultSchemaVersion: d.resultSchemaVersion ?? d.schemaVersion ?? null,
+           researchPayloadVersion: d.researchPayloadVersion ?? null
+         };
+
+     return {
+       module: name,
+       storageKey: `fast_${name}`,
+       present: true,
+       identity: {
+         participantId: d.screeningContext?.participantId ?? d.participantId ?? null,
+         screeningSessionId: d.screeningContext?.screeningSessionId ??
+           d.screeningSessionId ?? null,
+         moduleRunId: d.moduleRunId ?? null,
+         testAttemptId: d.testAttemptId ?? d.attemptId ?? null,
+         attemptSequenceNo: d.attemptSequenceNo ?? null,
+         attemptTrigger: d.attemptTrigger ?? null
+       },
+       timing: {
+         startedAt: d.startedAt ?? d.startedAtUtc ?? null,
+         completedAt: d.completedAt ?? d.endedAtUtc ?? null
+       },
+       rawStatusFields: {
+         screeningDisplayStatus: d.screeningDisplayStatus ?? null,
+         displayStatus: d.displayStatus ?? null,
+         clinicalResult: d.clinicalResult ?? null,
+         riskLevel: d.riskLevel ?? null,
+         passed: typeof d.passed === 'boolean' ? d.passed : null,
+         validityStatus: d.validityStatus ?? null,
+         technicalValidity: d.technicalValidity ?? null,
+         attemptStatus: d.attemptStatus ?? null,
+         invalidReasonCode: d.invalidReasonCode ?? d.invalidReason ?? null
+       },
+       scoreFieldsResearchOnly: {
+         clinicalScore: d.clinicalScore ?? null,
+         score: d.score ?? null,
+         selectedNumericScore: moduleScore(d),
+         scoreUsableFlag: d.scoreUsable ?? null
+       },
+       derivedClass: moduleClass(d),
+       userFacingUsable: moduleIsUsable(d),
+       researchScoreUsable: moduleResearchScoreIsUsable(d),
+       qualityFlags: diagnosticQualityFlags(d),
+       versions
+     }
+   }
+
+   function decisionRuleApplied(r) {
+     if (r.scope === 'individual') {
+       const sourceData = r.data[r.source];
+       const sourceClass = moduleClass(sourceData);
+       if (!sourceData) return 'individual:no_data';
+       if (sourceClass === 'na') return 'individual:invalid_or_unusable';
+       if (sourceClass === 'bad') return 'individual:categorical_abnormal';
+       if (sourceClass === 'warn') return 'individual:categorical_warning';
+       return 'individual:categorical_normal'
+     }
+
+     if (SINGLE_POSITIVE_OVERRIDE && r.bad.length) {
+       return 'combined:single_positive_override_categorical_abnormal'
+     }
+     if (!r.attempted.length) return 'combined:no_data';
+     if (r.valid.length < MODULES.length) return 'combined:incomplete';
+     if (r.bad.length) return 'combined:categorical_abnormal';
+     if (r.warn.length) return 'combined:categorical_warning';
+     return 'combined:all_categorical_normal'
+   }
+
+   function buildDevDiagnostic(r) {
+     const resultPolicy = window.QS_CONFIG?.resultPolicy || {};
+     return {
+       diagnostic: {
+         version: RESULT_DIAGNOSTIC_VERSION,
+         generatedAt: new Date().toISOString(),
+         sanitized: true,
+         excludes: [
+           'speech transcript',
+           'raw audio',
+           'raw sensor time series',
+           'face landmarks',
+           'full module payloads'
+         ]
+       },
+       application: {
+         appName: window.QS_CONFIG?.appName ?? 'QuickStroke',
+         appVersion: window.QS_CONFIG?.version ?? null,
+         resultPolicyVersion: resultPolicy.version ?? null,
+         combinedDecisionBasis: resultPolicy.combinedDecisionBasis ??
+           'categorical_module_status_only',
+         weightedScoreUse: resultPolicy.weightedScoreUse ??
+           'research_only_not_user_facing',
+         language: LANG,
+         urlMode: 'dev=1'
+       },
+       session: {
+         participantId: sessionStorage.getItem('fast_participant_id'),
+         screeningSessionId: sessionStorage.getItem('fast_assessment_id'),
+         startedAt: sessionStorage.getItem('fast_started_at'),
+         completedAt: sessionStorage.getItem('fast_completed_at'),
+         screeningMode: sessionStorage.getItem('fast_mode'),
+         requestedResultSource: sessionStorage.getItem('fast_result_source')
+       },
+       modules: Object.fromEntries(
+         MODULES.map(name => [name, moduleDiagnostic(name, r.data[name])])
+       ),
+       categoricalDecision: {
+         attemptedModules: r.attempted,
+         validModules: r.valid,
+         invalidModules: r.invalid,
+         missingModules: r.missing,
+         abnormalModules: r.bad,
+         warningModules: r.warn,
+         scope: r.scope,
+         sourceModule: r.source,
+         finalUserFacingState: r.state,
+         ruleApplied: decisionRuleApplied(r),
+         singlePositiveOverride: SINGLE_POSITIVE_OVERRIDE,
+         weightedScoreUsedForUserFacingDecision: false
+       },
+       researchOnlySummary: {
+         weights: WEIGHTS,
+         scoreModules: r.researchScoreModules,
+         weightedScore: r.weighted,
+         usedForUserFacingDecision: false
+       }
+     }
+   }
+
+   async function copyText(text) {
+     if (navigator.clipboard?.writeText && window.isSecureContext) {
+       await navigator.clipboard.writeText(text);
+       return
+     }
+
+     const textarea = document.createElement('textarea');
+     textarea.value = text;
+     textarea.setAttribute('readonly', '');
+     textarea.style.position = 'fixed';
+     textarea.style.opacity = '0';
+     document.body.appendChild(textarea);
+     textarea.select();
+     const copied = document.execCommand('copy');
+     textarea.remove();
+     if (!copied) throw new Error('copy-command-failed')
+   }
+
+   function renderDevDiagnostics(r) {
+     const panel = document.getElementById('dev-panel');
+     panel.hidden = !DEV_MODE;
+     if (!DEV_MODE) return;
+
+     const diagnostic = buildDevDiagnostic(r);
+     CURRENT_DEV_LOG = JSON.stringify(diagnostic, null, 2);
+     window.QS_RESULT_DEV_DIAGNOSTIC = diagnostic;
+     window.QS_RESULT_DEV_LOG = CURRENT_DEV_LOG;
+
+     const logElement = document.getElementById('dev-log');
+     const statusElement = document.getElementById('dev-copy-status');
+     const copyButton = document.getElementById('copy-dev-log');
+     logElement.textContent = CURRENT_DEV_LOG;
+     statusElement.textContent = '';
+     copyButton.textContent = 'Copy log';
+     copyButton.onclick = async () => {
+       try {
+         await copyText(CURRENT_DEV_LOG);
+         copyButton.textContent = 'Copied';
+         statusElement.textContent = 'Diagnostic log copied to clipboard.';
+       } catch (error) {
+         console.error('[QuickStroke result diagnostic] Copy failed', error);
+         copyButton.textContent = 'Copy failed';
+         statusElement.textContent = 'Copy failed. Select the log text manually.';
+       }
+     };
+
+     console.groupCollapsed('[QuickStroke result diagnostic]');
+     console.info('Weighted score used for user-facing decision:', false);
+     console.info(diagnostic);
+     console.groupEnd()
+   }
+
    function action(button, label, handler, hidden = false) {
      button.hidden = hidden;
      button.textContent = label;
@@ -1498,6 +1784,7 @@
      renderNext(CURRENT);
      renderReminder(CURRENT);
      renderResearch(CURRENT);
+     renderDevDiagnostics(CURRENT);
      renderActions(CURRENT)
    }
 

@@ -1,6 +1,6 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.5",
+  version: "1.0.6",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
@@ -29,6 +29,13 @@ window.QS_CONFIG = {
     version: "result-policy-1.0.0",
     combinedDecisionBasis: "categorical_module_status_only",
     weightedScoreUse: "research_only_not_user_facing"
+  },
+
+  resultDiagnostics: {
+    version: "result-dev-diagnostics-1.0.0",
+    enabledQuery: "dev=1",
+    sanitized: true,
+    rawPayloadIncluded: false
   },
 
   thresholds: {
