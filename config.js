@@ -1,6 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.6",
+  version: "1.0.8",
+  buildId: "20260725-face-contract-v2",
+  configVersion: "quickstroke-config-1.0.8",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
@@ -45,8 +47,6 @@ window.QS_CONFIG = {
       algorithmVersion: "face-asymmetry-1.2.0",
       resultSchemaVersion: "face-result-1.3.0",
       researchPayloadVersion: "face-research-0.3.0",
-      researchHistoryLimit: 8,
-
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
@@ -123,6 +123,14 @@ window.QS_CONFIG = {
     },
 
     arm: {
+      // Formal data-contract identifiers. These label the existing pre-pilot
+      // algorithm and do not imply clinical validation.
+      version: "arm-prepilot-1.0.0",
+      algorithmVersion: "arm-drift-1.0.0",
+      resultSchemaVersion: "arm-result-1.0.0",
+      researchPayloadVersion: "arm-research-1.0.0",
+      sensorCapturePolicyVersion: "arm-sensor-capture-1.0.0",
+
       // ระยะเวลาวัดแขนแต่ละข้าง
       measureSec: 10,
     

@@ -1644,7 +1644,9 @@
   }
 
 </style>
-<script src="config.js?v=20260723-face-data-capture-v019"></script>
+<script src="config.js?v=20260725-face-contract-v2"></script>
+<script src="./js/data-contract.js?v=20260725-data-contract-v2"></script>
+<script src="./js/research-store.js?v=20260725-research-store-v2"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1796,7 +1798,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.4.0-data-capture / 2026-07-23';
+const FACE_TEST_BUILD = 'face-prepilot-1.4.0-contract-migration / 2026-07-25';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -1922,6 +1924,9 @@ function fnv1aHash(text) {
 
 const FACE_CONFIG_HASH = `fnv1a-${fnv1aHash(stableStringify(FACE_CFG))}`;
 
+const FACE_DATA_CONTRACT = window.QuickStrokeDataContract || null;
+const FACE_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
+
 const CALIBRATION_SECONDS = FACE_CFG.calibrationSeconds ?? 3;       // short "get ready" before smiling
 const ACTION_DURATION_MS = FACE_CFG.actionDurationMs ?? 4000;       // length of the smile-recording window
 const MAX_ASSESS_ATTEMPTS = FACE_CFG.maxAssessAttempts ?? 3;        // auto-retry "unable to assess"
@@ -1968,7 +1973,6 @@ const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
 const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioMin ?? 0.25;
 const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
 const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.3.0';
-const FACE_RESEARCH_HISTORY_LIMIT = Math.max(1, FACE_CFG.researchHistoryLimit ?? 8);
 
 // Stable eye-corner pairs from MediaPipe Face Landmarker.
 // Centers are deterministic midpoints of x/y landmarks; iris and landmark z are not used.
@@ -2034,6 +2038,11 @@ let poseInterruptedSmile = false;   // true เมื่อ pose/no-face ขั�
 let screeningStartedAtMs = null;
 let faceTestAttemptId = null;
 let faceAttemptSequenceNo = null;
+let faceModuleRunRecord = null;
+let activeFaceAttemptRecord = null;
+let lastCompletedFaceAttemptRecord = null;
+let facePersistenceChain = Promise.resolve();
+let facePersistenceErrors = [];
 let baselineWaitStartMs = null;
 let attemptStartedAtMs = null;
 let attemptRecords = [];
@@ -2160,6 +2169,7 @@ function pearsonCorrelationFromFrames(frames, xAccessor, yAccessor){
 }
 function createResearchId(prefix='id'){
   try {
+    if (FACE_DATA_CONTRACT && prefix === 'face-attempt') return FACE_DATA_CONTRACT.createId('testAttempt');
     if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
     if (window.crypto?.getRandomValues) {
       const bytes = new Uint8Array(16);
@@ -2172,33 +2182,15 @@ function createResearchId(prefix='id'){
   }
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
 }
-function nextFaceAttemptSequence(){
-  const key = 'fast_face_attempt_sequence';
-  try {
-    const current = Number.parseInt(sessionStorage.getItem(key) || '0', 10);
-    const next = Number.isFinite(current) ? current + 1 : 1;
-    sessionStorage.setItem(key, String(next));
-    return next;
-  } catch (error) {
-    console.warn('Unable to update Face attempt sequence', error);
-    return null;
-  }
-}
-function ensureFaceTestAttemptIdentity({forceNew=false}={}){
-  if (forceNew || !faceTestAttemptId) {
-    faceTestAttemptId = createResearchId('face-attempt');
-    faceAttemptSequenceNo = nextFaceAttemptSequence();
-  }
-  return faceTestAttemptId;
-}
 function getFaceScreeningContext(){
+  if (FACE_DATA_CONTRACT) return FACE_DATA_CONTRACT.getSessionContext();
   let participantId = null;
   let screeningSessionId = null;
   let screeningSessionStartedAt = null;
   let sessionMode = null;
   try {
     participantId = sessionStorage.getItem('fast_participant_id');
-    screeningSessionId = sessionStorage.getItem('fast_assessment_id');
+    screeningSessionId = sessionStorage.getItem('fast_screening_session_id') || sessionStorage.getItem('fast_assessment_id');
     screeningSessionStartedAt = sessionStorage.getItem('fast_started_at');
     sessionMode = sessionStorage.getItem('fast_mode');
   } catch (error) {
@@ -2212,16 +2204,296 @@ function getFaceScreeningContext(){
     identificationMode: participantId ? 'legacy_browser_session' : 'unidentified'
   };
 }
+function queueFacePersistence(label, operation){
+  if (!FACE_RESEARCH_STORE || typeof operation !== 'function') return facePersistenceChain;
+  facePersistenceChain = facePersistenceChain.then(async()=>{
+    try {
+      return await operation();
+    } catch (error) {
+      runtimeQualityFlags.add('STORAGE_WRITE_FAILED');
+      facePersistenceErrors.push({
+        label,
+        code:error?.code || 'STORAGE_WRITE_FAILED',
+        message:error?.message || String(error),
+        occurredAt:new Date().toISOString()
+      });
+      console.error(`[Face persistence] ${label}`, error);
+      return null;
+    }
+  });
+  return facePersistenceChain;
+}
+async function flushFaceResearchPersistence(){
+  try { await facePersistenceChain; } catch (error) {}
+  return facePersistenceErrors.length === 0;
+}
+function faceModuleRunTrigger(previousPhase){
+  if (previousPhase === 'FACE_DONE' || previousPhase === 'CRITICAL_ASYMMETRY') return 'result_retry';
+  if (['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(previousPhase)) return 'resume_existing_session';
+  return sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_start';
+}
+function finalizeOpenFaceLifecycle(reasonCode='USER_ABORTED'){
+  if (activeFaceAttemptRecord?.attemptStatus === 'in_progress') {
+    let finalized = null;
+    try {
+      finalized = FACE_DATA_CONTRACT?.finalizeAttempt(activeFaceAttemptRecord, {
+        attemptStatus:'aborted',
+        validityStatus:'invalid',
+        technicalValidity:runtimeQualityFlags.size ? 'degraded' : 'full',
+        observationStatus:'indeterminate',
+        qualityStatus:'unusable',
+        qualityFlags:[...runtimeQualityFlags],
+        invalidReasonCode:reasonCode,
+        completionReasonCode:reasonCode
+      }) || {...activeFaceAttemptRecord, attemptStatus:'aborted', validityStatus:'invalid', invalidReasonCode:reasonCode, completedAt:new Date().toISOString()};
+    } catch (error) {
+      console.warn('Unable to finalize open Face attempt', error);
+    }
+    if (finalized && FACE_RESEARCH_STORE) {
+      queueFacePersistence('abort Face attempt', ()=>FACE_RESEARCH_STORE.finalizeTestAttempt(finalized.testAttemptId, finalized));
+    }
+    lastCompletedFaceAttemptRecord = finalized || activeFaceAttemptRecord;
+    faceTestAttemptId = lastCompletedFaceAttemptRecord?.testAttemptId || faceTestAttemptId;
+    faceAttemptSequenceNo = lastCompletedFaceAttemptRecord?.attemptSequenceNo || faceAttemptSequenceNo;
+    activeFaceAttemptRecord = null;
+  }
+  if (faceModuleRunRecord?.moduleRunStatus === 'in_progress') {
+    const moduleRunId = faceModuleRunRecord.moduleRunId;
+    const completedAt = new Date().toISOString();
+    if (FACE_RESEARCH_STORE) {
+      queueFacePersistence('abort Face module run', ()=>FACE_RESEARCH_STORE.finalizeModuleRun(moduleRunId, {
+        moduleRunStatus:'aborted',
+        completedAt,
+        completionReasonCode:reasonCode
+      }));
+    }
+    faceModuleRunRecord = {...faceModuleRunRecord, moduleRunStatus:'aborted', completedAt, completionReasonCode:reasonCode};
+  }
+}
+function beginFaceAttempt({trigger='initial_attempt', retryOfAttemptId=null, triggerReasonCode=null, startedAt=null, stage='baseline'}={}){
+  if (!faceModuleRunRecord) throw new Error('Face module run must exist before creating an attempt.');
+  let attempt;
+  if (FACE_DATA_CONTRACT) {
+    attempt = FACE_DATA_CONTRACT.createTestAttempt({
+      moduleRunId:faceModuleRunRecord.moduleRunId,
+      module:'face',
+      measurementTarget:'face',
+      trigger,
+      retryOfAttemptId,
+      triggerReasonCode,
+      startedAt:startedAt || new Date().toISOString()
+    });
+  } else {
+    const seq = (lastCompletedFaceAttemptRecord?.attemptSequenceNo || 0) + 1;
+    attempt = {
+      schemaVersion:'quickstroke-common-data-0.1.0', recordType:'test_attempt',
+      ...getFaceScreeningContext(), moduleRunId:faceModuleRunRecord.moduleRunId,
+      testAttemptId:createResearchId('face-attempt'), attemptSequenceNo:seq,
+      targetAttemptSequenceNo:seq, module:'face', measurementTarget:'face',
+      attemptTrigger:trigger, retryOfAttemptId, triggerReasonCode,
+      attemptStatus:'in_progress', startedAt:startedAt || new Date().toISOString()
+    };
+  }
+  activeFaceAttemptRecord = {...attempt, attemptStageAtStart:stage};
+  const attemptForStorage = activeFaceAttemptRecord;
+  faceTestAttemptId = attemptForStorage.testAttemptId;
+  faceAttemptSequenceNo = attemptForStorage.attemptSequenceNo;
+  if (FACE_RESEARCH_STORE) {
+    queueFacePersistence('add Face attempt', ()=>FACE_RESEARCH_STORE.addTestAttempt(attemptForStorage));
+  }
+  return attemptForStorage;
+}
+function beginFaceModuleRun(previousPhase='BEFORE_START', startedAt=null){
+  if (faceModuleRunRecord?.moduleRunStatus === 'in_progress') {
+    finalizeOpenFaceLifecycle('USER_RESTARTED_MODULE');
+  }
+  const trigger = faceModuleRunTrigger(previousPhase);
+  if (FACE_DATA_CONTRACT) {
+    faceModuleRunRecord = FACE_DATA_CONTRACT.createModuleRun({
+      module:'face',
+      trigger,
+      targetOrder:['face'],
+      startedAt:startedAt || new Date().toISOString()
+    });
+  } else {
+    faceModuleRunRecord = {
+      schemaVersion:'quickstroke-common-data-0.1.0', recordType:'module_run',
+      ...getFaceScreeningContext(), moduleRunId:createResearchId('face-run'),
+      moduleRunSequenceNo:null, module:'face', moduleRunTrigger:trigger,
+      moduleRunStatus:'in_progress', targetOrder:['face'],
+      startedAt:startedAt || new Date().toISOString(), completedAt:null
+    };
+  }
+  activeFaceAttemptRecord = null;
+  lastCompletedFaceAttemptRecord = null;
+  faceTestAttemptId = null;
+  faceAttemptSequenceNo = null;
+  const moduleRunForStorage = faceModuleRunRecord;
+  if (FACE_RESEARCH_STORE) {
+    const context = getFaceScreeningContext();
+    queueFacePersistence('ensure Face screening session', async()=>{
+      const storeName = FACE_RESEARCH_STORE.stores.screeningSessions;
+      const existing = await FACE_RESEARCH_STORE.get(storeName, context.screeningSessionId);
+      if (!existing && FACE_DATA_CONTRACT) {
+        await FACE_RESEARCH_STORE.addScreeningSession(FACE_DATA_CONTRACT.createScreeningSessionRecord({context}));
+      }
+    });
+    queueFacePersistence('add Face module run', ()=>FACE_RESEARCH_STORE.addModuleRun(moduleRunForStorage));
+  }
+  return beginFaceAttempt({trigger:'initial_attempt', startedAt:moduleRunForStorage.startedAt, stage:'baseline'});
+}
+function ensureFaceTestAttemptIdentity({forceNew=false, trigger='initial_attempt', retryOfAttemptId=null, triggerReasonCode=null, stage='action'}={}){
+  if (!faceModuleRunRecord) beginFaceModuleRun('BEFORE_START', new Date().toISOString());
+  if (forceNew || !activeFaceAttemptRecord) {
+    return beginFaceAttempt({trigger, retryOfAttemptId, triggerReasonCode, stage});
+  }
+  faceTestAttemptId = activeFaceAttemptRecord.testAttemptId;
+  faceAttemptSequenceNo = activeFaceAttemptRecord.attemptSequenceNo;
+  return faceTestAttemptId;
+}
+function currentAttemptNo(){
+  return activeFaceAttemptRecord?.attemptSequenceNo || lastCompletedFaceAttemptRecord?.attemptSequenceNo || Math.max(1, assessAttempts + 1);
+}
 function faceAttemptStatus(validityStatus){
   if (validityStatus === 'valid') return 'completed_valid';
   if (validityStatus === 'invalid') return 'completed_invalid';
-  if (validityStatus === 'error') return 'technical_error';
+  if (validityStatus === 'error' || validityStatus === 'not_evaluable') return 'technical_error';
   if (validityStatus === 'aborted') return 'aborted';
   return 'unknown';
 }
 function faceQualityStatus(validityStatus, flags=[]){
-  if (validityStatus === 'invalid' || validityStatus === 'error' || validityStatus === 'aborted') return 'invalid';
+  if (validityStatus === 'invalid' || validityStatus === 'error' || validityStatus === 'not_evaluable' || validityStatus === 'aborted') return 'invalid';
   return flags.length ? 'warning' : 'acceptable';
+}
+function canonicalFaceObservationStatus(riskLevel, validityStatus){
+  if (validityStatus === 'error' || validityStatus === 'not_evaluable') return 'not_available';
+  if (validityStatus !== 'valid') return 'indeterminate';
+  if (riskLevel === 'bad') return 'abnormal';
+  if (riskLevel === 'warn') return 'attention';
+  return 'no_alert';
+}
+function currentFaceBaselineSnapshot(){
+  return {
+    sampleCount:restCornerL.length,
+    baseLeft:roundMetric(baseL), baseRight:roundMetric(baseR), baseEyeDistance:roundMetric(baseEyeW),
+    baseRawMouthLeftY:roundMetric(baseRawMouthLeftY), baseRawMouthRightY:roundMetric(baseRawMouthRightY),
+    baseEyeCenterX:roundMetric(baseEyeCenterX), baseEyeCenterY:roundMetric(baseEyeCenterY),
+    baseEyeLineRollDeg:roundMetric(baseEyeLineRollDeg,2),
+    restAsymMean:roundMetric(average(restCornerAsymSamples)),
+    restAsymMax:roundMetric(restCornerAsymSamples.length ? Math.max(...restCornerAsymSamples) : null),
+    criticalTriggered:criticalFired, criticalRestAsym:roundMetric(criticalRestAsym)
+  };
+}
+function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
+  if (!finalizedAttempt || !FACE_RESEARCH_STORE) return;
+  const baselineSnapshot = currentFaceBaselineSnapshot();
+  const legacySnapshot = JSON.parse(JSON.stringify(legacyRecord || null));
+  const frameSnapshot = frames.map((frame)=>({...frame}));
+  queueFacePersistence('finalize Face attempt', async()=>{
+    await FACE_RESEARCH_STORE.finalizeTestAttempt(finalizedAttempt.testAttemptId, finalizedAttempt);
+    if (FACE_DATA_CONTRACT) {
+      const measurement = FACE_DATA_CONTRACT.createModuleMeasurement({
+        moduleRunId:finalizedAttempt.moduleRunId,
+        testAttemptId:finalizedAttempt.testAttemptId,
+        module:'face',
+        measurementTarget:'face',
+        measuredAt:finalizedAttempt.completedAt,
+        payload:{
+          attemptSummary:legacySnapshot,
+          baseline:baselineSnapshot,
+          frameCount:frameSnapshot.length,
+          storesImagesOrVideo:false
+        }
+      });
+      await FACE_RESEARCH_STORE.addModuleMeasurement(measurement);
+    }
+    if (frameSnapshot.length) {
+      const context = finalizedAttempt;
+      const observations = frameSnapshot.map((frame,index)=>{
+        const {moduleRunId, testAttemptId, attemptSequenceNo, ...sample} = frame;
+        const observedAt = screeningStartedAtMs && Number.isFinite(frame.tMs)
+          ? new Date(screeningStartedAtMs + frame.tMs).toISOString()
+          : finalizedAttempt.completedAt;
+        return {
+          schemaVersion:'face-observation-0.1.0', recordType:'sensor_observation',
+          participantId:context.participantId, screeningSessionId:context.screeningSessionId,
+          legacyAssessmentId:context.legacyAssessmentId || null,
+          moduleRunId:finalizedAttempt.moduleRunId, testAttemptId:finalizedAttempt.testAttemptId,
+          module:'face', measurementTarget:'face', sampleSequenceNo:index + 1,
+          observedAt, tMs:frame.tMs, phase:frame.phase, payload:sample
+        };
+      });
+      await FACE_RESEARCH_STORE.appendSensorObservations(observations);
+    }
+  });
+}
+function finalizeCanonicalFaceAttempt(outcome, reasonCode, legacyRecord, extra={}){
+  ensureFaceTestAttemptIdentity();
+  const current = activeFaceAttemptRecord;
+  if (!current) return null;
+  const qualityFlags = [...runtimeQualityFlags];
+  const validityStatus = outcome === 'valid' ? 'valid' : outcome === 'not_evaluable' ? 'not_evaluable' : 'invalid';
+  const technicalValidity = validityStatus === 'not_evaluable' ? 'failed' : (qualityFlags.length ? 'degraded' : 'full');
+  const observationStatus = extra.observationStatus || canonicalFaceObservationStatus(extra.riskLevel, validityStatus);
+  let finalized;
+  if (FACE_DATA_CONTRACT) {
+    finalized = FACE_DATA_CONTRACT.finalizeAttempt(current, {
+      attemptStatus:outcome === 'aborted' ? 'aborted' : 'completed',
+      validityStatus,
+      technicalValidity,
+      observationStatus,
+      qualityStatus:validityStatus === 'valid' ? (qualityFlags.length ? 'limited' : 'acceptable') : 'unusable',
+      qualityFlags,
+      invalidReasonCode:validityStatus === 'valid' ? null : reasonCode,
+      completionReasonCode:reasonCode || null,
+      selectedForModuleResult:extra.selectedForModuleResult === true,
+      result:{
+        outcome,
+        riskLevel:extra.riskLevel || null,
+        representativeAsym:extra.representativeAsym ?? null,
+        stage:legacyRecord?.stage || null
+      }
+    });
+  } else {
+    finalized = {...current, attemptStatus:'completed', validityStatus, technicalValidity,
+      observationStatus, qualityStatus:validityStatus === 'valid' ? 'acceptable' : 'unusable',
+      qualityFlags, invalidReasonCode:validityStatus === 'valid' ? null : reasonCode,
+      completedAt:new Date().toISOString()};
+  }
+  const attemptFrames = getAllAttemptFrames(finalized.testAttemptId);
+  persistCanonicalFaceAttempt(finalized, legacyRecord, attemptFrames);
+  activeFaceAttemptRecord = null;
+  lastCompletedFaceAttemptRecord = finalized;
+  faceTestAttemptId = finalized.testAttemptId;
+  faceAttemptSequenceNo = finalized.attemptSequenceNo;
+  return finalized;
+}
+function finalizeFaceModuleRun(payload){
+  if (!faceModuleRunRecord || faceModuleRunRecord.moduleRunStatus !== 'in_progress') return;
+  const completedAt = payload.completedAt || new Date().toISOString();
+  const selectedTestAttemptId = payload.selectedTestAttemptId || payload.testAttemptId || null;
+  const moduleRunId = faceModuleRunRecord.moduleRunId;
+  const projectionContext = payload.screeningContext || getFaceScreeningContext();
+  if (FACE_RESEARCH_STORE) {
+    queueFacePersistence('finalize Face module run', async()=>{
+      await FACE_RESEARCH_STORE.finalizeModuleRun(moduleRunId, {
+        moduleRunStatus:'completed', completedAt,
+        completionReasonCode:payload.validityStatus === 'valid' ? 'FACE_RESULT_COMPLETED' : 'FACE_RESULT_NOT_EVALUABLE',
+        selectedTestAttemptId,
+        validityStatus:payload.canonicalValidityStatus || payload.validityStatus,
+        observationStatus:payload.observationStatus || canonicalFaceObservationStatus(payload.riskLevel, payload.validityStatus)
+      });
+      await FACE_RESEARCH_STORE.putProjection({
+        projectionId:`${projectionContext.screeningSessionId}:face`,
+        schemaVersion:FACE_RESULT_SCHEMA_VERSION,
+        participantId:projectionContext.participantId,
+        screeningSessionId:projectionContext.screeningSessionId,
+        module:'face', selectedModuleRunId:moduleRunId, selectedTestAttemptId,
+        updatedAt:completedAt, payload
+      });
+    });
+  }
+  faceModuleRunRecord = {...faceModuleRunRecord, moduleRunStatus:'completed', completedAt, selectedTestAttemptId};
 }
 function persistFacePayload(payload, {writeLegacyResult=true}={}){
   if (!payload || typeof payload !== 'object') return payload;
@@ -2237,17 +2509,15 @@ function persistFacePayload(payload, {writeLegacyResult=true}={}){
     } catch (error) {
       console.warn('Unable to parse Face research history; starting a new history', error);
     }
-    const duplicateIndex = history.findIndex((item) => item?.testAttemptId === payload.testAttemptId);
+    const duplicateIndex = history.findIndex((item) => item?.moduleRunId === payload.moduleRunId);
     if (duplicateIndex >= 0) history.splice(duplicateIndex, 1);
     history.push(payload);
-    if (history.length > FACE_RESEARCH_HISTORY_LIMIT) {
-      history = history.slice(history.length - FACE_RESEARCH_HISTORY_LIMIT);
-    }
     sessionStorage.setItem('fast_face_research_history', JSON.stringify(history));
   } catch (error) {
     console.warn('Unable to persist Face research payload', error);
   }
   window.FACE_RESEARCH_RESULT = payload;
+  finalizeFaceModuleRun(payload);
   return payload;
 }
 function latestFaceResearchPayload(){
@@ -2302,7 +2572,6 @@ async function copyFaceResearchJson(){
     else alert('Unable to copy JSON. Use Download JSON instead.');
   }
 }
-function currentAttemptNo(){ return Math.max(1, assessAttempts + 1); }
 function recordResearchFrame(data={}){
   if (!screeningStartedAtMs) return;
   // Telemetry belongs only to the active measurement lifecycle. Once a terminal
@@ -2312,15 +2581,24 @@ function recordResearchFrame(data={}){
   const now = Date.now();
   if (now - lastResearchFrameAtMs < RESEARCH_SAMPLE_INTERVAL_MS) return;
   lastResearchFrameAtMs = now;
+  const attempt = activeFaceAttemptRecord || lastCompletedFaceAttemptRecord;
   researchFrames.push({
     tMs: now - screeningStartedAtMs,
-    attemptNo: currentAttemptNo(),
+    moduleRunId:faceModuleRunRecord?.moduleRunId || null,
+    testAttemptId:attempt?.testAttemptId || faceTestAttemptId,
+    attemptSequenceNo:attempt?.attemptSequenceNo || currentAttemptNo(),
+    attemptNo:attempt?.attemptSequenceNo || currentAttemptNo(),
     phase,
     ...data
   });
 }
-function getAttemptFrames(attemptNo){
-  return researchFrames.filter((frame) => frame.attemptNo === attemptNo && String(frame.phase).startsWith('ACTION'));
+function getAllAttemptFrames(attemptReference){
+  return researchFrames.filter((frame) => typeof attemptReference === 'string'
+    ? frame.testAttemptId === attemptReference
+    : frame.attemptNo === attemptReference);
+}
+function getAttemptFrames(attemptReference){
+  return getAllAttemptFrames(attemptReference).filter((frame) => String(frame.phase).startsWith('ACTION'));
 }
 function currentGeometryRiseAggregation(){
   const aggregatedSignedRiseLeft = median(validSignedRiseL) ?? 0;
@@ -2534,23 +2812,37 @@ function resolveAttemptInvalidReason(requestedReasonCode, summary){
   return requestedReasonCode;
 }
 function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
-  const attemptNo = currentAttemptNo();
-  const frames = getAttemptFrames(attemptNo);
+  ensureFaceTestAttemptIdentity();
+  const activeAttempt = activeFaceAttemptRecord;
+  const attemptNo = activeAttempt?.attemptSequenceNo || currentAttemptNo();
+  const attemptId = activeAttempt?.testAttemptId || faceTestAttemptId;
+  const frames = getAttemptFrames(attemptId || attemptNo);
   const summary = summarizeAttemptFrames(frames);
   const compensation = summarizeCompensationFrames(frames);
   const riseAggregation = currentGeometryRiseAggregation();
   const invalidReasonCode = outcome === 'invalid'
     ? resolveAttemptInvalidReason(requestedInvalidReasonCode, summary)
-    : null;
+    : (outcome === 'not_evaluable' || outcome === 'aborted' ? requestedInvalidReasonCode : null);
+  const completedAt = new Date().toISOString();
+  const canonicalStartedAt = activeAttempt?.startedAt || (screeningStartedAtMs ? new Date(screeningStartedAtMs).toISOString() : null);
+  const stage = attemptStartedAtMs ? 'action' : (extra.stage || 'baseline');
   const record = {
+    moduleRunId:faceModuleRunRecord?.moduleRunId || null,
+    testAttemptId:attemptId,
     attemptNo,
-    startedAt: attemptStartedAtMs ? new Date(attemptStartedAtMs).toISOString() : null,
-    completedAt: new Date().toISOString(),
-    durationMs: attemptStartedAtMs ? Date.now() - attemptStartedAtMs : null,
+    attemptSequenceNo:attemptNo,
+    attemptTrigger:activeAttempt?.attemptTrigger || null,
+    retryOfAttemptId:activeAttempt?.retryOfAttemptId || null,
+    stage,
+    startedAt:canonicalStartedAt,
+    actionStartedAt:attemptStartedAtMs ? new Date(attemptStartedAtMs).toISOString() : null,
+    completedAt,
+    durationMs:canonicalStartedAt ? Math.max(0, Date.parse(completedAt) - Date.parse(canonicalStartedAt)) : null,
+    actionDurationMs:attemptStartedAtMs ? Date.now() - attemptStartedAtMs : null,
     outcome,
     invalidReasonCode,
-    requestedInvalidReasonCode: outcome === 'invalid' ? requestedInvalidReasonCode : null,
-    reasonResolution: outcome === 'invalid' && invalidReasonCode !== requestedInvalidReasonCode
+    requestedInvalidReasonCode:outcome === 'valid' ? null : requestedInvalidReasonCode,
+    reasonResolution:outcome === 'invalid' && invalidReasonCode !== requestedInvalidReasonCode
       ? 'attempt_summary_normalized'
       : 'direct',
     quality: {
@@ -2568,7 +2860,6 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
       smileFrameCount,
       validSmileRatio: validSmileFrames / Math.max(1, smileFrameCount),
       smileWindowVisibleMouthFrames: visibleMouthFrames,
-      // Deprecated alias retained temporarily so existing result/debug code does not break.
       visibleMouthFrames,
       lastMouthVisibilityScore: roundMetric(lastMouthVisibilityScore),
       lastMouthDarkRatio: roundMetric(lastMouthDarkRatio),
@@ -2587,13 +2878,16 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
     ...extra
   };
   attemptRecords.push(record);
+  finalizeCanonicalFaceAttempt(outcome, invalidReasonCode, record, extra);
   return record;
 }
 function resultRuntimeMetadata(){
+  const coarseRuntime = FACE_DATA_CONTRACT?.getCoarseRuntimeSnapshot?.() || {
+    platform:navigator.userAgentData?.platform || navigator.platform || null,
+    language:navigator.language || null
+  };
   return {
-    userAgent: navigator.userAgent,
-    platform: navigator.userAgentData?.platform || navigator.platform || null,
-    language: navigator.language || null,
+    ...coarseRuntime,
     camera: cameraRuntime,
     permission: permissionRuntime,
     faceDelegate: faceDelegateUsed,
@@ -2601,14 +2895,19 @@ function resultRuntimeMetadata(){
     handModelAvailable: !!handLandmarker,
     degradedMode: handLandmarker ? null : 'VISUAL_MOUTH_GATE_ONLY',
     qualityFlags: [...runtimeQualityFlags],
+    persistenceErrors:[...facePersistenceErrors],
     faceDetectErrorCount,
     handDetectErrorCount
   };
 }
 function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, passed, invalidReasonCode=null, breakdown={}}){
   const completedAtMs = Date.now();
-  ensureFaceTestAttemptIdentity();
+  const selectedAttempt = lastCompletedFaceAttemptRecord || activeFaceAttemptRecord;
+  if (!selectedAttempt) ensureFaceTestAttemptIdentity();
+  const resolvedAttempt = lastCompletedFaceAttemptRecord || activeFaceAttemptRecord;
   const qualityFlags = [...runtimeQualityFlags];
+  const canonicalValidityStatus = FACE_DATA_CONTRACT?.normalizeValidityStatus(validityStatus) || (validityStatus === 'error' ? 'not_evaluable' : validityStatus);
+  const observationStatus = canonicalFaceObservationStatus(riskLevel, validityStatus);
   // Snapshot mutable arrays before exposing the payload through window/sessionStorage.
   // This prevents post-result camera frames from changing JSON copied later in dev mode.
   const attemptSnapshot = attemptRecords.map((record) => ({
@@ -2625,13 +2924,20 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
     researchPayloadVersion: FACE_RESEARCH_PAYLOAD_VERSION,
     module: 'face',
     faceBuildMarker: FACE_TEST_BUILD,
-    testAttemptId: faceTestAttemptId,
-    attemptSequenceNo: faceAttemptSequenceNo,
+    moduleRunId: faceModuleRunRecord?.moduleRunId || null,
+    moduleRunSequenceNo: faceModuleRunRecord?.moduleRunSequenceNo || null,
+    selectedTestAttemptId: resolvedAttempt?.testAttemptId || faceTestAttemptId,
+    testAttemptId: resolvedAttempt?.testAttemptId || faceTestAttemptId,
+    attemptSequenceNo: resolvedAttempt?.attemptSequenceNo || faceAttemptSequenceNo,
+    attemptTrigger: resolvedAttempt?.attemptTrigger || null,
+    retryOfAttemptId: resolvedAttempt?.retryOfAttemptId || null,
     attemptStatus: faceAttemptStatus(validityStatus),
     qualityStatus: faceQualityStatus(validityStatus, qualityFlags),
     qualityFlags,
     screeningContext: getFaceScreeningContext(),
     validityStatus,
+    canonicalValidityStatus,
+    observationStatus,
     clinicalResult,
     technicalValidity: validityStatus === 'error'
       ? 'error'
@@ -2651,6 +2957,11 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
     localeUsed: FACE_LOCALE_MAP[activeFaceLang] || document.documentElement.lang || null,
     versions: {
       appVersion: window.QS_CONFIG?.version || null,
+      buildId: window.QS_CONFIG?.buildId || null,
+      configVersion: window.QS_CONFIG?.configVersion || null,
+      commonDataModelVersion: FACE_DATA_CONTRACT?.version || null,
+      baselineManifestVersion: FACE_DATA_CONTRACT?.versions?.baselineManifest || null,
+      faceMeasurementDictionaryVersion: FACE_DATA_CONTRACT?.moduleVersionFallbacks?.face?.measurementDictionaryVersion || 'face-measurement-0.1.0',
       faceModuleVersion: FACE_MODULE_VERSION,
       algorithmVersion: FACE_ALGORITHM_VERSION,
       resultSchemaVersion: FACE_RESULT_SCHEMA_VERSION,
@@ -3530,9 +3841,13 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
 
 /* ───────────── calibration / phase control ───────────── */
 function startScreening(){
+  const previousPhase = phase;
+  const nextScreeningStartedAtMs = Date.now();
   sessionStorage.removeItem('fast_face');
-  ensureFaceTestAttemptIdentity({forceNew:true});
-  screeningStartedAtMs=Date.now();
+  runtimeQualityFlags.delete('STORAGE_WRITE_FAILED');
+  facePersistenceErrors = [];
+  beginFaceModuleRun(previousPhase, new Date(nextScreeningStartedAtMs).toISOString());
+  screeningStartedAtMs=nextScreeningStartedAtMs;
   baselineWaitStartMs=screeningStartedAtMs;
   attemptStartedAtMs=null;
   attemptRecords=[];
@@ -3603,6 +3918,16 @@ function calibrationTick(){
 }
 
 function startActionPhase(){
+  if (!activeFaceAttemptRecord) {
+    const retryOfAttemptId = lastCompletedFaceAttemptRecord?.testAttemptId || faceTestAttemptId;
+    beginFaceAttempt({
+      trigger:retryOfAttemptId ? 'automatic_retry' : 'initial_attempt',
+      retryOfAttemptId:retryOfAttemptId || null,
+      triggerReasonCode:lastInvalidReasonCode,
+      startedAt:new Date().toISOString(),
+      stage:'action'
+    });
+  }
   phase='ACTION_PHASE';
   attemptStartedAtMs=Date.now();
   poseInterruptedSmile=false;
@@ -4159,7 +4484,9 @@ function finishFace(){
   captureAttempt('valid', null, {
     weakRatio:roundMetric(weakRatio),
     representativeAsym:roundMetric(rep),
-    geometryRiseUsable:riseAggregation.geometryRiseUsable
+    geometryRiseUsable:riseAggregation.geometryRiseUsable,
+    riskLevel,
+    observationStatus:canonicalFaceObservationStatus(riskLevel, 'valid')
   });
   saveAndShow(score, riskLevel, {
     representativeAsym: rep, blendAsym, riseAsym, weakRatio,
@@ -4264,7 +4591,7 @@ function finishInvalid(reasonCode='UNABLE_TO_ASSESS', options={}){
   hideSmilePrompt();
   lastInvalidReasonCode = reasonCode;
 
-  const hadActionAttempt = !!attemptStartedAtMs || allowAutoRetry;
+  const hadActionAttempt = !!activeFaceAttemptRecord || !!attemptStartedAtMs || allowAutoRetry;
   if (hadActionAttempt){
     const attemptRecord = captureAttempt('invalid', reasonCode, detail);
     reasonCode = attemptRecord.invalidReasonCode || reasonCode;
@@ -4318,7 +4645,14 @@ function addNavButton(){
     const btn=document.createElement('button');
     btn.id='fast-nav-btn'; btn.className='action-btn';
     btn.style.cssText=`background:${bg};border-color:rgba(255,255,255,0.25);color:#fff;font-weight:700;box-shadow:0 4px 12px rgba(43,125,233,0.35);width:100%;padding:13px 16px;border-radius:14px;`;
-    btn.textContent=label; btn.onclick=()=>window.location.href=target;
+    btn.textContent=label; btn.onclick=async()=>{
+      btn.disabled=true;
+      await Promise.race([
+        flushFaceResearchPersistence(),
+        new Promise((resolve)=>setTimeout(resolve, 1200))
+      ]);
+      window.location.href=target;
+    };
     const row=document.getElementById('btn-row');
     if (row) row.appendChild(btn);
   }, 400);
@@ -4402,7 +4736,15 @@ function detectLoop(){
 
 function saveTechnicalInvalid(reasonCode, message, detail={}){
   if (!screeningStartedAtMs) screeningStartedAtMs = Date.now();
-  runtimeQualityFlags.add(reasonCode);
+  if (!faceModuleRunRecord) beginFaceModuleRun('BEFORE_START', new Date(screeningStartedAtMs).toISOString());
+  if (activeFaceAttemptRecord) {
+    captureAttempt('not_evaluable', reasonCode, {
+      stage:attemptStartedAtMs ? 'action' : 'technical_startup',
+      technicalError:true,
+      detail
+    });
+    assessAttempts++;
+  }
   const payload = makeResultPayload({
     validityStatus:'error',
     clinicalResult:null,
@@ -4727,6 +5069,9 @@ resetBtn.addEventListener('click', ()=>{
 });
 
 window.addEventListener('beforeunload', ()=>{
+  if (activeFaceAttemptRecord || faceModuleRunRecord?.moduleRunStatus === 'in_progress') {
+    finalizeOpenFaceLifecycle('PAGE_HIDDEN');
+  }
   isCameraRunning=false;
   if (countdownTimer){ clearInterval(countdownTimer); countdownTimer=null; }
   if (retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
