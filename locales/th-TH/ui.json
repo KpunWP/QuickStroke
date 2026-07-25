@@ -3,7 +3,7 @@
     "locale": "th-TH",
     "nativeName": "ภาษาไทย",
     "direction": "ltr",
-    "packVersion": "0.9.1",
+    "packVersion": "0.9.2",
     "status": "primary-research-language"
   },
   "index": {
@@ -390,7 +390,7 @@
     "technicalTitle": "รายละเอียดสำหรับงานวิจัย",
     "technicalDisclaimer": "คะแนนภายในใช้วิเคราะห์ระบบเท่านั้น ไม่ใช่เปอร์เซ็นต์ความเสี่ยงหรือผลวินิจฉัย",
     "moduleScore": "คะแนน{module}",
-    "internalWeightedScore": "คะแนนรวมภายใน",
+    "internalWeightedScore": "คะแนนรวมเพื่อการวิจัยเท่านั้น",
     "basedOn": "จาก {n}/3 รายการ",
     "languageUnavailable": "ไม่สามารถโหลดภาษาได้",
     "moduleValidity": "{module} · ความใช้ได้ของผล",

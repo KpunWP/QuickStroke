@@ -1,12 +1,12 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.4",
+  version: "1.0.5",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20260725-speech-incomplete-asr-ui-v1",
+    localePack: "20260725-result-research-only-v1",
     languageRegistry: "20260720-language-registry-v1"
   },
 
@@ -17,10 +17,18 @@ window.QS_CONFIG = {
   },
 
   scoring: {
+    // Retained only for research summaries. These weights do not determine
+    // the user-facing combined result in result-policy-1.0.0.
     faceWeight: 0.4,
     armWeight: 0.4,
     speechWeight: 0.2,
     singlePositiveOverride: true
+  },
+
+  resultPolicy: {
+    version: "result-policy-1.0.0",
+    combinedDecisionBasis: "categorical_module_status_only",
+    weightedScoreUse: "research_only_not_user_facing"
   },
 
   thresholds: {

@@ -3,7 +3,7 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.9.1",
+    "packVersion": "0.9.2",
     "status": "developer-reference-language"
   },
   "index": {
@@ -392,7 +392,7 @@
     "technicalTitle": "Research details",
     "technicalDisclaimer": "Internal scores are for system analysis only. They are not a risk percentage or diagnosis.",
     "moduleScore": "{module} score",
-    "internalWeightedScore": "Internal weighted score",
+    "internalWeightedScore": "Research-only weighted score",
     "basedOn": "based on {n}/3 checks",
     "languageUnavailable": "Language unavailable",
     "moduleValidity": "{module} · Result validity",

@@ -3,7 +3,7 @@
     "locale": "ja-JP",
     "nativeName": "日本語",
     "direction": "ltr",
-    "packVersion": "0.9.1",
+    "packVersion": "0.9.2",
     "status": "developer-reference-language"
   },
   "index": {
@@ -394,7 +394,7 @@
     "technicalTitle": "研究用の詳細",
     "technicalDisclaimer": "内部スコアはシステム分析用です。リスクの割合や診断結果ではありません。",
     "moduleScore": "{module}スコア",
-    "internalWeightedScore": "内部加重スコア",
+    "internalWeightedScore": "研究専用の加重スコア",
     "basedOn": "{n}/3項目に基づく",
     "languageUnavailable": "言語を読み込めません",
     "moduleValidity": "{module}・結果の有効性",

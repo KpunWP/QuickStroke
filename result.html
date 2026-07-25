@@ -977,12 +977,8 @@
      }
    }
 
-   function riskClass(score) {
-     if (score >= 70) return 'ok';
-     if (score >= 45) return 'warn';
-     return 'bad'
-   }
-
+   // Numeric module scores remain available for research summaries only.
+   // They must never determine the user-facing combined result.
    function moduleScore(d) {
      if (!d || typeof d !== 'object') return null;
      const raw = d.clinicalScore ?? d.score;
@@ -990,25 +986,43 @@
      return Number.isFinite(value) ? value : null
    }
 
-   function moduleIsUsable(d) {
-     if (!d || typeof d !== 'object') return false;
-     if (typeof d.validityStatus === 'string' && d.validityStatus !== 'valid') return false;
-     if (d.scoreUsable === false) return false;
-     if (d.riskLevel === 'invalid') return false;
-     return moduleScore(d) !== null
-   }
-
    function moduleClass(d) {
-     if (!moduleIsUsable(d)) return 'na';
+     if (!d || typeof d !== 'object') return 'na';
+     if (typeof d.validityStatus === 'string' && d.validityStatus !== 'valid') return 'na';
+     if (d.technicalValidity === 'error') return 'na';
+     if (['technical_error', 'completed_invalid', 'aborted'].includes(d.attemptStatus)) return 'na';
+     if (d.riskLevel === 'invalid') return 'na';
 
+     const displayMap = {
+       no_alert: 'ok',
+       normal: 'ok',
+       attention: 'warn',
+       warning: 'warn',
+       abnormal: 'bad'
+     };
      const clinicalMap = {
        normal: 'ok',
        warning: 'warn',
        abnormal: 'bad'
      };
+
+     if (displayMap[d.screeningDisplayStatus]) return displayMap[d.screeningDisplayStatus];
+     if (displayMap[d.displayStatus]) return displayMap[d.displayStatus];
      if (clinicalMap[d.clinicalResult]) return clinicalMap[d.clinicalResult];
      if (['ok', 'warn', 'bad'].includes(d.riskLevel)) return d.riskLevel;
-     return riskClass(moduleScore(d))
+     if (typeof d.passed === 'boolean') return d.passed ? 'ok' : 'bad';
+
+     return 'na'
+   }
+
+   function moduleIsUsable(d) {
+     return moduleClass(d) !== 'na'
+   }
+
+   function moduleResearchScoreIsUsable(d) {
+     if (!moduleIsUsable(d)) return false;
+     if (d.scoreUsable === false) return false;
+     return moduleScore(d) !== null
    }
 
    function requestedResultSource(data) {
@@ -1045,10 +1059,15 @@
      const bad = valid.filter(name => moduleClass(data[name]) === 'bad');
      const warn = valid.filter(name => moduleClass(data[name]) === 'warn');
 
+     // Research-only weighted summary. This value is never consulted below
+     // when selecting the user-facing state.
+     const researchScoreModules = valid.filter(name =>
+       moduleResearchScoreIsUsable(data[name])
+     );
      let totalWeight = 0;
      let weightedSum = 0;
 
-     valid.forEach(name => {
+     researchScoreModules.forEach(name => {
        totalWeight += WEIGHTS[name];
        weightedSum += moduleScore(data[name]) * WEIGHTS[name];
      });
@@ -1086,10 +1105,10 @@
        state = 'noData';
      } else if (valid.length < 3) {
        state = 'incomplete';
-     } else if (warn.length || riskClass(weighted) === 'warn') {
-       state = 'review';
-     } else if (riskClass(weighted) === 'bad') {
+     } else if (bad.length) {
        state = 'urgent';
+     } else if (warn.length) {
+       state = 'review';
      } else {
        state = 'ok';
      }
@@ -1103,6 +1122,7 @@
        bad,
        warn,
        weighted,
+       researchScoreModules,
        mode,
        scope,
        source,
@@ -1412,7 +1432,7 @@
        grid,
        T.internalWeightedScore,
        r.weighted === null ? '—' :
-         `${r.weighted} · ${T.basedOn.replace('{n}',r.valid.length)}`
+         `${r.weighted} · ${T.basedOn.replace('{n}',r.researchScoreModules.length)}`
      )
    }
 
