@@ -785,8 +785,8 @@
   </style>
   <script src="config.js">
   </script>
-  <script src="./js/data-contract.js?v=20260725-data-contract-v2"></script>
-  <script src="./js/research-store.js?v=20260725-research-store-v2"></script>
+  <script src="./js/data-contract.js?v=20260726-data-integrity-v1"></script>
+  <script src="./js/research-store.js?v=20260726-data-integrity-v1"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
   <script src="./js/languages.js?v=20260717-lang-v1"></script>
   <script src="./js/i18n.js">
@@ -890,6 +890,8 @@
      ja: 'ja-JP'
    });
    const MODULES = Object.freeze(['face', 'arm', 'speech']);
+   const DATA_CONTRACT = window.QuickStrokeDataContract || null;
+   const RESEARCH_STORE = window.QuickStrokeResearchStore || null;
    const RESULT_CFG = window.QS_CONFIG?.scoring || {};
    const WEIGHTS = Object.freeze({
      face: RESULT_CFG.faceWeight ?? .40,
@@ -1808,11 +1810,30 @@
      renderActions(CURRENT)
    }
 
-   function retryModule(name) {
+   async function syncActiveSessionMode(requestedMode) {
+     const context = DATA_CONTRACT?.getSessionContext?.() || {};
+     if (!context.screeningSessionId || !RESEARCH_STORE?.updateActiveScreeningSession) return;
+     try {
+       const current = await RESEARCH_STORE.get(
+         RESEARCH_STORE.stores.screeningSessions,
+         context.screeningSessionId
+       );
+       if (!current || current.sessionStatus !== 'active') return;
+       const nextMode = DATA_CONTRACT.resolveSessionMode(current.sessionMode, requestedMode);
+       if (nextMode !== current.sessionMode) {
+         await RESEARCH_STORE.updateActiveScreeningSession(context.screeningSessionId, { sessionMode: nextMode });
+       }
+     } catch (error) {
+       console.warn('Unable to synchronize result retry session mode.', error);
+     }
+   }
+
+   async function retryModule(name) {
      sessionStorage.removeItem(`fast_${name}`);
      sessionStorage.setItem('fast_mode', 'individual');
      sessionStorage.setItem('fast_result_source', name);
      sessionStorage.setItem('fast_lang', LANG);
+     await syncActiveSessionMode('individual');
      location.href = `${name}-test.html`;
    }
 
@@ -1820,10 +1841,11 @@
      return CURRENT?.invalid[0] || CURRENT?.missing[0] || 'face';
    }
 
-   function continueTests() {
+   async function continueTests() {
      sessionStorage.setItem('fast_mode', 'full');
      sessionStorage.removeItem('fast_result_source');
      sessionStorage.setItem('fast_lang', LANG);
+     await syncActiveSessionMode('full');
      location.href = `${nextModule()}-test.html`;
    }
 

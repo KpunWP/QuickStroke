@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.12",
-  buildId: "20260726-arm-dev-flow-fix-v1",
-  configVersion: "quickstroke-config-1.0.12",
+  version: "1.0.13",
+  buildId: "20260726-data-integrity-cleanup-v1",
+  configVersion: "quickstroke-config-1.0.13",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],

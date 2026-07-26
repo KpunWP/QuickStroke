@@ -22,6 +22,7 @@
   const LOCAL_STORAGE_SCHEMA_VERSION = 'quickstroke-local-store-0.1.0';
   const RESULT_POLICY_VERSION = 'result-policy-1.0.0';
   const RESULT_DIAGNOSTICS_VERSION = 'result-dev-diagnostics-1.0.0';
+  const RESULT_PROJECTION_SCHEMA_VERSION = 'quickstroke-result-projection-0.1.0';
 
   const MODULES = Object.freeze(['face', 'arm', 'speech']);
   const MEASUREMENT_TARGETS = Object.freeze([
@@ -141,7 +142,7 @@
       moduleVersion: 'speech-prepilot-1.7.1',
       algorithmVersion: 'speech-browser-asr-1.3.1',
       resultSchemaVersion: 'speech-result-1.4.1',
-      researchPayloadVersion: 'speech-research-0.4.1',
+      researchPayloadVersion: 'speech-research-0.5.0',
       measurementDictionaryVersion: 'speech-measurement-0.1.0'
     })
   });
@@ -645,7 +646,10 @@
       additionalReasonCodes: Object.freeze(sanitizeQualityFlags(outcome.additionalReasonCodes)),
       completedAt: outcome.completedAt || nowIso(),
       completionReasonCode: outcome.completionReasonCode || null,
-      selectedForModuleResult: outcome.selectedForModuleResult === true,
+      // Selection is mutable until the module run is finalized. The module run's
+      // selectedTestAttemptId(s) is the canonical source of truth.
+      selectedForModuleResult: null,
+      selectionSource: 'derived_from_module_run',
       result: isPlainObject(outcome.result) ? Object.freeze({ ...outcome.result }) : null
     };
 
@@ -852,6 +856,116 @@
     });
   }
 
+
+  function resolveSessionMode(currentMode, requestedMode) {
+    const current = currentMode || 'undetermined';
+    if (!requestedMode) return current;
+    if (current === 'undetermined') return requestedMode;
+    if (current === requestedMode || current === 'mixed') return current;
+    return 'mixed';
+  }
+
+  function deriveAttemptSelectionFlags(moduleRuns = [], attempts = []) {
+    const selectedByRun = new Map();
+    (Array.isArray(moduleRuns) ? moduleRuns : []).forEach((run) => {
+      const selected = new Set();
+      if (run?.selectedTestAttemptId) selected.add(run.selectedTestAttemptId);
+      Object.values(run?.selectedTestAttemptIds || {}).forEach((id) => {
+        if (id) selected.add(id);
+      });
+      selectedByRun.set(run?.moduleRunId, selected);
+    });
+    return (Array.isArray(attempts) ? attempts : []).map((attempt) => ({
+      ...attempt,
+      selectedForModuleResult: selectedByRun.get(attempt?.moduleRunId)?.has(attempt?.testAttemptId) === true
+    }));
+  }
+
+  function cloneSmallObject(value) {
+    if (!value || typeof value !== 'object') return null;
+    try {
+      return JSON.parse(JSON.stringify(value));
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function createLightweightProjectionPayload(module, payload = {}) {
+    if (!MODULES.includes(module)) throw new TypeError(`Unsupported projection module: ${String(module)}`);
+    const rawValidity = payload.canonicalValidityStatus || payload.validityStatus;
+    const validityStatus = normalizeValidityStatus(rawValidity)
+      || (rawValidity === 'error' ? 'not_evaluable' : null)
+      || 'not_evaluable';
+    const qualityFlags = sanitizeQualityFlags(payload.qualityFlags || payload.technicalQuality?.flags || []);
+    const technicalValidity = normalizeTechnicalValidity(payload.technicalValidity, validityStatus);
+    const qualityStatus = normalizeQualityStatus(
+      payload.qualityStatus || payload.technicalQuality?.status,
+      validityStatus,
+      qualityFlags
+    );
+    const observationCandidate = payload.observationStatus || payload.displayStatus || payload.observationResult;
+    const observationStatus = OBSERVATION_STATUS.includes(observationCandidate)
+      ? observationCandidate
+      : validityStatus === 'valid'
+        ? payload.riskLevel === 'bad' ? 'abnormal'
+          : payload.riskLevel === 'warn' ? 'attention'
+          : payload.riskLevel === 'ok' ? 'no_alert'
+          : 'indeterminate'
+        : validityStatus === 'not_evaluable' ? 'not_available' : 'indeterminate';
+
+    const base = {
+      schemaVersion: RESULT_PROJECTION_SCHEMA_VERSION,
+      module,
+      moduleRunId: payload.moduleRunId || null,
+      selectedTestAttemptId: payload.selectedTestAttemptId || payload.testAttemptId || null,
+      selectedTestAttemptIds: cloneSmallObject(payload.selectedTestAttemptIds),
+      validityStatus,
+      technicalValidity,
+      observationStatus,
+      qualityStatus,
+      qualityFlags,
+      invalidReasonCode: validityStatus === 'valid' ? null : (payload.invalidReasonCode || null),
+      completedAt: payload.completedAt || nowIso(),
+      riskLevel: payload.riskLevel || null,
+      passed: typeof payload.passed === 'boolean' ? payload.passed : null
+    };
+
+    if (module === 'face') {
+      const breakdown = payload.breakdown || {};
+      base.domainSummary = {
+        clinicalResult: payload.clinicalResult || null,
+        restingCriticalTriggered: breakdown.restingCriticalTriggered === true,
+        restAsym: Number.isFinite(breakdown.restAsym) ? breakdown.restAsym : null,
+        representativeAsym: Number.isFinite(breakdown.representativeAsym) ? breakdown.representativeAsym : null,
+        weakRatio: Number.isFinite(breakdown.weakRatio) ? breakdown.weakRatio : null
+      };
+    } else if (module === 'arm') {
+      const breakdown = payload.breakdown || {};
+      base.selectedTestAttemptId = null;
+      base.domainSummary = {
+        left: {
+          status: breakdown.leftClass || null,
+          driftMaxDeg: Number.isFinite(breakdown.leftDrift) ? breakdown.leftDrift : null
+        },
+        right: {
+          status: breakdown.rightClass || null,
+          driftMaxDeg: Number.isFinite(breakdown.rightDrift) ? breakdown.rightDrift : null
+        }
+      };
+    } else if (module === 'speech') {
+      base.domainSummary = {
+        phrase: cloneSmallObject(payload.domains?.phrase),
+        rate: cloneSmallObject(payload.domains?.rate),
+        technicalQuality: {
+          status: payload.technicalQuality?.status || qualityStatus,
+          flags: qualityFlags
+        }
+      };
+    }
+
+    return Object.freeze(base);
+  }
+
   function inspectSourceIntegrity() {
     const snapshot = createVersionSnapshot();
     const errors = [];
@@ -886,7 +1000,8 @@
       technicalEventSchema: TECHNICAL_EVENT_SCHEMA_VERSION,
       localStorageSchema: LOCAL_STORAGE_SCHEMA_VERSION,
       resultPolicy: RESULT_POLICY_VERSION,
-      resultDiagnostics: RESULT_DIAGNOSTICS_VERSION
+      resultDiagnostics: RESULT_DIAGNOSTICS_VERSION,
+      resultProjectionSchema: RESULT_PROJECTION_SCHEMA_VERSION
     }),
     enums: Object.freeze({
       modules: MODULES,
@@ -923,6 +1038,9 @@
     normalizeQualityStatus,
     sanitizeQualityFlags,
     createVersionSnapshot,
+    createLightweightProjectionPayload,
+    resolveSessionMode,
+    deriveAttemptSelectionFlags,
     getCoarseRuntimeSnapshot,
     validateCommonRecord,
     inspectSourceIntegrity

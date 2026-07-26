@@ -315,6 +315,58 @@
     });
   }
 
+
+  async function patchOpenLifecycleRecord(storeName, key, patch) {
+    const config = LIFECYCLE_CONFIG[storeName];
+    if (!config) throw createStoreError('INVALID_STORAGE_OPERATION', `${storeName} is not a lifecycle store.`);
+    const database = await open();
+    const storedPatch = cloneForStorage(patch || {});
+
+    try {
+      const transaction = database.transaction(storeName, 'readwrite');
+      const transactionDone = transactionToPromise(transaction);
+      const store = transaction.objectStore(storeName);
+      const current = await requestToPromise(store.get(key));
+      if (!current) {
+        transaction.abort();
+        throw createStoreError('STORAGE_RECORD_NOT_FOUND', `No ${storeName} record exists for ${key}.`);
+      }
+      if (!config.openStatuses.includes(current[config.statusField])) {
+        transaction.abort();
+        throw createStoreError(
+          'IMMUTABLE_RECORD_UPDATE_REJECTED',
+          `${storeName} record ${key} is already finalized.`,
+          { currentStatus: current[config.statusField] }
+        );
+      }
+      if (storedPatch[config.statusField] && storedPatch[config.statusField] !== current[config.statusField]) {
+        transaction.abort();
+        throw createStoreError(
+          'PAYLOAD_VALIDATION_FAILED',
+          `Use finalizeLifecycleRecord to change ${config.statusField}.`
+        );
+      }
+      const next = { ...current, ...storedPatch, updatedAt: nowIso() };
+      if (identityChanged(current, next)) {
+        transaction.abort();
+        throw createStoreError(
+          'FINALIZED_RECORD_MUTATION_ATTEMPTED',
+          `Identity fields cannot change while updating ${storeName}.`,
+          { key }
+        );
+      }
+      store.put(next);
+      await transactionDone;
+      return next;
+    } catch (error) {
+      const wrapped = error?.name === 'QuickStrokeResearchStoreError'
+        ? error
+        : createStoreError('STORAGE_WRITE_FAILED', `Unable to update open ${storeName} record.`, { key }, error);
+      notifyError(wrapped);
+      throw wrapped;
+    }
+  }
+
   async function finalizeLifecycleRecord(storeName, key, patch) {
     const config = LIFECYCLE_CONFIG[storeName];
     if (!config) {
@@ -475,13 +527,17 @@
       getAllByIndex(STORE_NAMES.resultProjections, 'screeningSessionId', screeningSessionId)
     ]);
 
+    const exportedAttempts = CONTRACT.deriveAttemptSelectionFlags
+      ? CONTRACT.deriveAttemptSelectionFlags(moduleRuns, attempts)
+      : attempts;
+
     return {
-      exportSchemaVersion: 'quickstroke-session-export-0.1.0',
+      exportSchemaVersion: 'quickstroke-session-export-0.1.1',
       exportedAt: nowIso(),
       versionSnapshot: CONTRACT.createVersionSnapshot(),
       screeningSession: session,
       moduleRuns,
-      testAttempts: attempts,
+      testAttempts: exportedAttempts,
       moduleMeasurements: measurements,
       sensorObservations: observations,
       technicalEvents: events,
@@ -529,6 +585,11 @@
     healthCheck,
     count,
     addScreeningSession: (record) => addImmutable(STORE_NAMES.screeningSessions, record),
+    updateActiveScreeningSession: (screeningSessionId, patch) => patchOpenLifecycleRecord(
+      STORE_NAMES.screeningSessions,
+      screeningSessionId,
+      patch
+    ),
     finalizeScreeningSession: (screeningSessionId, patch) => finalizeLifecycleRecord(
       STORE_NAMES.screeningSessions,
       screeningSessionId,
