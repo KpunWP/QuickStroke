@@ -1611,6 +1611,10 @@ const ARM_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
 
 // ── Developer mode: follows the global switch on Index ─────
 const ARM_DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
+// Global Dev Mode only enables diagnostics and logging. The old three-trial
+// engineering protocol is now opt-in and must never alter the normal FAST flow.
+const ARM_GUIDED_PROTOCOL_MODE = ARM_DEV_MODE &&
+  new URLSearchParams(window.location.search).get('armProtocol') === '1';
 let armDevPanelOpen = false;
 let devLogging = true;
 let devLogRows = [];
@@ -1646,6 +1650,9 @@ function currentDevProtocol() {
 
 function updateDevProtocolUI() {
   if (!ARM_DEV_MODE) return;
+  const protocolCard = document.querySelector('.arm-dev-protocol');
+  if (protocolCard) protocolCard.style.display = ARM_GUIDED_PROTOCOL_MODE ? '' : 'none';
+  if (!ARM_GUIDED_PROTOCOL_MODE) return;
   const p = currentDevProtocol();
   const step = document.getElementById('dev-protocol-step');
   const title = document.getElementById('dev-protocol-title');
@@ -1656,7 +1663,7 @@ function updateDevProtocolUI() {
 }
 
 function advanceDevProtocol() {
-  if (!ARM_DEV_MODE) return;
+  if (!ARM_GUIDED_PROTOCOL_MODE) return;
   if (devProtocolIndex < DEV_PROTOCOLS.length - 1) {
     devProtocolIndex += 1;
     addDevMarker(`PROTOCOL_${devProtocolIndex + 1}_${currentDevProtocol().key.toUpperCase()}`);
@@ -1696,7 +1703,7 @@ function updateArmDevHUD() {
   set('dev-samples', String(validSensorSampleCount));
   set('dev-sensor-age', lastSensorSampleAt > 0 ? `${Math.max(0, Math.round(performance.now() - lastSensorSampleAt))} ms` : '—');
   set('dev-fresh-limit', `${ARM_READINESS_CFG.sampleFreshMs} ms`);
-  set('dev-build', ARM_BUILD_ID);
+  set('dev-build', `${ARM_BUILD_ID}${ARM_GUIDED_PROTOCOL_MODE ? ' · guided-protocol' : ' · normal-flow'}`);
   set('dev-config', `${window.QS_CONFIG?.version || '—'} / ${ARM_READINESS_CFG.version}`);
   set('dev-tts', armTtsStatus || 'idle');
   set('dev-runtime-error', armLastRuntimeError || '—');
@@ -1844,7 +1851,7 @@ function clearArmDevLog() {
   devProtocolIndex = 0;
   devThresholdMarked = false;
   updateDevProtocolUI();
-  addDevMarker('PROTOCOL_1_NORMAL');
+  addDevMarker(ARM_GUIDED_PROTOCOL_MODE ? 'PROTOCOL_1_NORMAL' : 'DEV_LOG_CLEARED');
   updateArmDevHUD();
 }
 
@@ -1852,7 +1859,7 @@ function initArmDevMode() {
   if (!ARM_DEV_MODE) return;
   document.body.classList.add('dev-mode');
   updateDevProtocolUI();
-  addDevMarker('PROTOCOL_1_NORMAL');
+  addDevMarker(ARM_GUIDED_PROTOCOL_MODE ? 'PROTOCOL_1_NORMAL' : 'DEV_LOG_STARTED');
   updateArmDevHUD();
 }
 
@@ -2911,7 +2918,7 @@ function finalizeArmModuleRun(payload, {writeProjection = true} = {}) {
     queueArmPersistence('finalize Arm module run', async() => {
       await ARM_RESEARCH_STORE.finalizeModuleRun(moduleRunId, {
         moduleRunStatus:'completed', completedAt,
-        completionReasonCode:ARM_DEV_MODE ? 'ARM_DEV_PROTOCOL_COMPLETED' : 'ARM_RESULT_COMPLETED',
+        completionReasonCode:ARM_GUIDED_PROTOCOL_MODE ? 'ARM_DEV_PROTOCOL_COMPLETED' : 'ARM_RESULT_COMPLETED',
         selectedTestAttemptId,
         selectedTestAttemptIds:{...selectedArmAttemptIds},
         validityStatus, observationStatus
@@ -3867,7 +3874,7 @@ function finishArm() {
 
   // In normal user mode, unclear movement and wrist motion are test-quality
   // problems, not stroke-positive results. Repeat the same arm.
-  if (!ARM_DEV_MODE && !analysis.valid) {
+  if (!ARM_GUIDED_PROTOCOL_MODE && !analysis.valid) {
     showArmRetest(analysis);
     return;
   }
@@ -4018,13 +4025,13 @@ function showFinal() {
 
   // Dev trials intentionally include arm lowering and wrist rotation; do not
   // overwrite the user's real FAST result or create flow-navigation buttons.
-  if (!ARM_DEV_MODE) {
+  if (!ARM_GUIDED_PROTOCOL_MODE) {
     sessionStorage.setItem('fast_arm', JSON.stringify(armPayload));
     sessionStorage.setItem('fast_arm_research_latest', JSON.stringify(armPayload));
     sessionStorage.setItem('fast_result_source', 'arm');
     handleArmFastFlow();
   }
-  finalizeArmModuleRun(armPayload, {writeProjection:!ARM_DEV_MODE});
+  finalizeArmModuleRun(armPayload, {writeProjection:!ARM_GUIDED_PROTOCOL_MODE});
   const fb = $('final-banner');
   fb.className = ok?'ok':'bad'; fb.style.display='flex';
   $('fb-icon').textContent  = ok?'✅':'⚠️';
@@ -4035,7 +4042,7 @@ function showFinal() {
   $('instr').style.display = 'none';
   $('sub-instr').style.display = 'none';
   $('arm-icon').textContent  = ok?'🙌':'⚠️';
-  if (ARM_DEV_MODE) {
+  if (ARM_GUIDED_PROTOCOL_MODE) {
     $('action-btn').textContent =
       devProtocolIndex < DEV_PROTOCOLS.length - 1
         ? `Next protocol: ${DEV_PROTOCOLS[devProtocolIndex + 1].title}`
@@ -4098,7 +4105,7 @@ function handleBtn() {
     startWait();
 
   } else if (phase === 'DONE') {
-    if (ARM_DEV_MODE) {
+    if (ARM_GUIDED_PROTOCOL_MODE) {
       if (devProtocolIndex >= DEV_PROTOCOLS.length - 1) {
         downloadArmDevLog();
         return;
@@ -4108,9 +4115,9 @@ function handleBtn() {
     }
 
     resetAll();
-    if (!ARM_DEV_MODE) pendingRetryReason = 'full_test_retry';
+    if (!ARM_GUIDED_PROTOCOL_MODE) pendingRetryReason = 'full_test_retry';
 
-    if (ARM_DEV_MODE) {
+    if (ARM_GUIDED_PROTOCOL_MODE) {
       const p = currentDevProtocol();
       $('instr').textContent = p.title;
       $('sub-instr').textContent = p.sub;
@@ -4392,7 +4399,7 @@ function refreshArmLanguageUI(){
     $('fb-sub').textContent = ok ? T.finalOkSub : T.finalBadSub;
     $('instr').textContent = ok ? T.finalOk : T.finalBad;
     $('sub-instr').textContent = '';
-    $('action-btn').textContent = ARM_DEV_MODE
+    $('action-btn').textContent = ARM_GUIDED_PROTOCOL_MODE
       ? (devProtocolIndex < DEV_PROTOCOLS.length - 1
           ? `Next protocol: ${DEV_PROTOCOLS[devProtocolIndex + 1].title}`
           : 'Download sensor CSV')
@@ -4448,7 +4455,7 @@ async function selectLang(code) {
 // FAST FLOW navigation
 // ═══════════════════════════════════════════════════
 function handleArmFastFlow() {
-  if (ARM_DEV_MODE) return;
+  if (ARM_GUIDED_PROTOCOL_MODE) return;
 
   const mode = sessionStorage.getItem('fast_mode');
   const labels = T;
@@ -4465,14 +4472,18 @@ function handleArmFastFlow() {
     if (mode === 'full') {
       // Full: Arm is the second step, so continue to Speech.
       btn.textContent = labels.navNext;
-      btn.onclick = () => {
+      btn.onclick = async () => {
+        btn.disabled = true;
+        await flushArmResearchPersistence();
         window.location.href = 'speech-test.html';
       };
     } else {
       // Individual: show this module's result immediately.
       btn.textContent = labels.navResult;
       btn.style.background = 'var(--green)';
-      btn.onclick = () => {
+      btn.onclick = async () => {
+        btn.disabled = true;
+        await flushArmResearchPersistence();
         window.location.href = 'result.html';
       };
     }
