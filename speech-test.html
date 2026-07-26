@@ -858,8 +858,8 @@
 
 </style>
 <script src="config.js"></script>
-<script src="./js/data-contract.js?v=20260726-data-integrity-v1"></script>
-<script src="./js/research-store.js?v=20260726-data-integrity-v1"></script>
+<script src="./js/data-contract.js?v=20260726-data-contract-v3"></script>
+<script src="./js/research-store.js?v=20260726-research-store-v3"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260717-lang-v1"></script>
@@ -1598,6 +1598,10 @@ function queueSpeechPersistence(label, task) {
   return speechPersistenceChain;
 }
 
+async function flushSpeechResearchPersistence() {
+  try { await speechPersistenceChain; } catch (error) {}
+}
+
 function speechModuleRunTrigger(trigger = 'initial_start') {
   if (trigger === 'user_retry') return 'result_retry';
   const mode = sessionStorage.getItem('fast_mode');
@@ -1647,23 +1651,9 @@ function beginSpeechModuleRun(trigger = 'initial_start') {
   try { sessionStorage.removeItem('fast_speech'); } catch (error) {}
   if (SPEECH_RESEARCH_STORE) {
     const snapshot = cloneSpeechResearchValue(speechModuleRunRecord);
-    const context = getSpeechScreeningContext();
-    queueSpeechPersistence('ensure Speech screening session', async() => {
-      const storeName = SPEECH_RESEARCH_STORE.stores.screeningSessions;
-      const existing = await SPEECH_RESEARCH_STORE.get(storeName, context.screeningSessionId);
-      if (!existing && SPEECH_DATA_CONTRACT) {
-        await SPEECH_RESEARCH_STORE.addScreeningSession(SPEECH_DATA_CONTRACT.createScreeningSessionRecord({context}));
-      } else if (existing?.sessionStatus === 'active' && context.sessionMode && SPEECH_RESEARCH_STORE.updateActiveScreeningSession) {
-        const sessionMode = SPEECH_DATA_CONTRACT.resolveSessionMode(existing.sessionMode, context.sessionMode);
-        if (sessionMode !== existing.sessionMode) {
-          await SPEECH_RESEARCH_STORE.updateActiveScreeningSession(context.screeningSessionId, {sessionMode});
-        }
-      }
-    });
     queueSpeechPersistence('add Speech module run', () => SPEECH_RESEARCH_STORE.addModuleRun(snapshot));
   }
-  window.QuickStrokeDevMode?.logEvent?.('MODULE_RUN_STARTED', {
-    category:'lifecycle',
+  window.QuickStrokeDevMode?.logEvent?.('SPEECH_MODULE_RUN_STARTED', {
     module:'speech', moduleRunId:speechModuleRunRecord.moduleRunId,
     trigger:speechModuleRunRecord.moduleRunTrigger
   });
@@ -1723,8 +1713,7 @@ function beginSpeechCanonicalAttempt() {
     const snapshot = cloneSpeechResearchValue(attempt);
     queueSpeechPersistence('add Speech attempt', () => SPEECH_RESEARCH_STORE.addTestAttempt(snapshot));
   }
-  window.QuickStrokeDevMode?.logEvent?.('ATTEMPT_STARTED', {
-    category:'lifecycle',
+  window.QuickStrokeDevMode?.logEvent?.('SPEECH_ATTEMPT_STARTED', {
     module:'speech', moduleRunId:attempt.moduleRunId,
     testAttemptId:attempt.testAttemptId,
     attemptSequenceNo:attempt.attemptSequenceNo,
@@ -3531,29 +3520,16 @@ function currentSpeechVersions() {
     schemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
     resultSchemaVersion: SPEECH_RESULT_SCHEMA_VERSION,
     researchPayloadVersion: SPEECH_RESEARCH_PAYLOAD_VERSION,
-    moduleLocalePackVersion: window.QuickStrokeI18n?.getMessages?.()?.meta?.packVersion || null
+    localePackVersion: window.QuickStrokeI18n?.getMessages?.()?.meta?.packVersion || null
   };
 }
 
 function sanitizedSpeechMicrophoneRuntime() {
   const runtime = cloneSpeechResearchValue(microphoneRuntime || {}) || {};
-  const labelAvailable = Boolean(runtime.label);
-  delete runtime.label;
   if (runtime.settings) {
     delete runtime.settings.deviceId;
     delete runtime.settings.groupId;
   }
-  if (runtime.constraints) {
-    const allowedConstraintKeys = [
-      'sampleRate', 'sampleSize', 'channelCount',
-      'echoCancellation', 'noiseSuppression', 'autoGainControl'
-    ];
-    runtime.constraints = Object.fromEntries(
-      Object.entries(runtime.constraints).filter(([key]) => allowedConstraintKeys.includes(key))
-    );
-  }
-  runtime.labelAvailable = labelAvailable;
-  runtime.deviceCategory = 'default_or_selected_microphone';
   return runtime;
 }
 
@@ -3824,8 +3800,7 @@ function finalizeCanonicalSpeechAttempt({
   activeSpeechAttemptRecord = null;
   activeSpeechResearchFrames = [];
   activeAsrObservationEvents = [];
-  window.QuickStrokeDevMode?.logEvent?.('ATTEMPT_FINALIZED', {
-    category:'lifecycle',
+  window.QuickStrokeDevMode?.logEvent?.('SPEECH_ATTEMPT_FINALIZED', {
     module:'speech', moduleRunId:finalized.moduleRunId,
     testAttemptId:finalized.testAttemptId,
     validityStatus:finalized.validityStatus,
@@ -3861,18 +3836,13 @@ function finalizeSpeechModuleRun(payload, {status='completed', reasonCode=null, 
           screeningSessionId:context.screeningSessionId,
           module:'speech', selectedModuleRunId:moduleRunId,
           selectedTestAttemptId, updatedAt:completedAt,
-          payload:SPEECH_DATA_CONTRACT?.createLightweightProjectionPayload?.('speech', payload) || cloneSpeechResearchValue(payload)
+          payload:cloneSpeechResearchValue(payload)
         });
       }
     });
   }
   speechModuleRunRecord = {...speechModuleRunRecord, moduleRunStatus:status, completedAt,
     selectedTestAttemptId, validityStatus, observationStatus};
-  window.QuickStrokeDevMode?.logEvent?.('MODULE_RUN_FINALIZED', {
-    category:'lifecycle', module:'speech', moduleRunId, selectedTestAttemptId,
-    moduleRunStatus:status, validityStatus, observationStatus,
-    reasonCode:reasonCode || null
-  });
 }
 
 function finalizeOpenSpeechLifecycle(reasonCode = 'USER_NAVIGATED_AWAY') {
@@ -4577,8 +4547,13 @@ function handleFastFlow(riskLevel) {
   btn.style.display = 'block';
   btn.setAttribute('aria-hidden', 'false');
 
-  btn.onclick = () => {
+  btn.onclick = async () => {
+    btn.disabled = true;
     stopAll(true);
+    await Promise.race([
+      flushSpeechResearchPersistence(),
+      new Promise(resolve => setTimeout(resolve, 1500))
+    ]);
     window.location.href = 'result.html';
   };
 

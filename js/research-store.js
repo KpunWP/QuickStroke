@@ -15,7 +15,7 @@
 
   const DB_NAME = 'quickstroke_research';
   const DB_VERSION = 1;
-  const STORE_VERSION = 'quickstroke-local-store-0.1.0';
+  const STORE_VERSION = 'quickstroke-local-store-0.1.1';
 
   const STORE_NAMES = Object.freeze({
     metadata: 'metadata',
@@ -428,19 +428,87 @@
     }
   }
 
-  async function putProjection(projection) {
-    const database = await open();
-    const stored = cloneForStorage(projection);
-    if (!stored.screeningSessionId || !stored.module) {
+  async function touchSessionActivity(screeningSessionId, patch = {}) {
+    if (!screeningSessionId) return null;
+    try {
+      return await patchOpenLifecycleRecord(STORE_NAMES.screeningSessions, screeningSessionId, {
+        lastActivityAt: patch.lastActivityAt || nowIso(),
+        ...(patch.lastModuleCompletedAt ? { lastModuleCompletedAt: patch.lastModuleCompletedAt } : {}),
+        ...(patch.lastCompletedModule ? { lastCompletedModule: patch.lastCompletedModule } : {}),
+        ...(patch.lastResultProjectionAt ? { lastResultProjectionAt: patch.lastResultProjectionAt } : {})
+      });
+    } catch (error) {
+      if (error?.code !== 'IMMUTABLE_RECORD_UPDATE_REJECTED' && error?.code !== 'STORAGE_RECORD_NOT_FOUND') {
+        console.warn('[QuickStrokeResearchStore] Unable to update session activity metadata.', error);
+      }
+      return null;
+    }
+  }
+
+  async function finalizeModuleRunAndTouch(moduleRunId, patch) {
+    const finalized = await finalizeLifecycleRecord(STORE_NAMES.moduleRuns, moduleRunId, patch);
+    await touchSessionActivity(finalized.screeningSessionId, {
+      lastActivityAt: finalized.completedAt || finalized.finalizedAt || nowIso(),
+      lastModuleCompletedAt: finalized.completedAt || finalized.finalizedAt || nowIso(),
+      lastCompletedModule: finalized.module || null
+    });
+    return finalized;
+  }
+
+  function normalizeProjectionForStorage(projection) {
+    const source = cloneForStorage(projection || {});
+    if (!source.screeningSessionId || !source.module) {
       throw createStoreError('PAYLOAD_VALIDATION_FAILED', 'Projection requires screeningSessionId and module.');
     }
-    stored.projectionId = stored.projectionId || `${stored.screeningSessionId}:${stored.module}`;
-    stored.updatedAt = nowIso();
+
+    const rawPayload = source.payload && typeof source.payload === 'object'
+      ? source.payload
+      : source;
+    const lightweight = CONTRACT.createLightweightProjectionPayload
+      ? CONTRACT.createLightweightProjectionPayload(source.module, {
+          ...rawPayload,
+          moduleRunId: source.selectedModuleRunId || source.moduleRunId || rawPayload.moduleRunId || null,
+          selectedTestAttemptId: source.selectedTestAttemptId || rawPayload.selectedTestAttemptId || rawPayload.testAttemptId || null,
+          selectedTestAttemptIds: source.selectedTestAttemptIds || rawPayload.selectedTestAttemptIds || null
+        })
+      : rawPayload;
+
+    return {
+      projectionId: source.projectionId || `${source.screeningSessionId}:${source.module}`,
+      schemaVersion: lightweight.schemaVersion || CONTRACT.versions?.resultProjectionSchema || source.schemaVersion,
+      participantId: source.participantId || rawPayload.participantId || null,
+      screeningSessionId: source.screeningSessionId,
+      module: source.module,
+      selectedModuleRunId: source.selectedModuleRunId || lightweight.moduleRunId || source.moduleRunId || null,
+      selectedTestAttemptId: lightweight.selectedTestAttemptId || null,
+      selectedTestAttemptIds: lightweight.selectedTestAttemptIds || null,
+      validityStatus: lightweight.validityStatus,
+      technicalValidity: lightweight.technicalValidity,
+      observationStatus: lightweight.observationStatus,
+      qualityStatus: lightweight.qualityStatus,
+      qualityFlags: lightweight.qualityFlags || [],
+      invalidReasonCode: lightweight.invalidReasonCode || null,
+      completedAt: lightweight.completedAt || source.updatedAt || nowIso(),
+      riskLevel: lightweight.riskLevel || null,
+      passed: typeof lightweight.passed === 'boolean' ? lightweight.passed : null,
+      domainSummary: lightweight.domainSummary || null,
+      researchSummary: lightweight.researchSummary || null,
+      updatedAt: nowIso()
+    };
+  }
+
+  async function putProjection(projection) {
+    const database = await open();
+    const stored = normalizeProjectionForStorage(projection);
 
     try {
       const transaction = database.transaction(STORE_NAMES.resultProjections, 'readwrite');
       transaction.objectStore(STORE_NAMES.resultProjections).put(stored);
       await transactionToPromise(transaction);
+      await touchSessionActivity(stored.screeningSessionId, {
+        lastActivityAt: stored.updatedAt,
+        lastResultProjectionAt: stored.updatedAt
+      });
       return stored;
     } catch (error) {
       const wrapped = createStoreError(
@@ -596,11 +664,7 @@
       patch
     ),
     addModuleRun: (record) => addImmutable(STORE_NAMES.moduleRuns, record),
-    finalizeModuleRun: (moduleRunId, patch) => finalizeLifecycleRecord(
-      STORE_NAMES.moduleRuns,
-      moduleRunId,
-      patch
-    ),
+    finalizeModuleRun: finalizeModuleRunAndTouch,
     addTestAttempt: (record) => addImmutable(STORE_NAMES.testAttempts, record),
     finalizeTestAttempt: (testAttemptId, patch) => finalizeLifecycleRecord(
       STORE_NAMES.testAttempts,

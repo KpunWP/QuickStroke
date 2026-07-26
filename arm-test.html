@@ -1465,8 +1465,8 @@
   }
 </style>
 <script src="config.js?v=20260726-arm-contract-v1"></script>
-<script src="./js/data-contract.js?v=20260726-data-integrity-v1"></script>
-<script src="./js/research-store.js?v=20260726-data-integrity-v1"></script>
+<script src="./js/data-contract.js?v=20260726-data-contract-v3"></script>
+<script src="./js/research-store.js?v=20260726-research-store-v3"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260717-lang-v1"></script>
@@ -2654,20 +2654,10 @@ function ensureArmModuleRun() {
       const existing = await ARM_RESEARCH_STORE.get(storeName, context.screeningSessionId);
       if (!existing && ARM_DATA_CONTRACT) {
         await ARM_RESEARCH_STORE.addScreeningSession(ARM_DATA_CONTRACT.createScreeningSessionRecord({context}));
-      } else if (existing?.sessionStatus === 'active' && context.sessionMode && ARM_RESEARCH_STORE.updateActiveScreeningSession) {
-        const sessionMode = ARM_DATA_CONTRACT.resolveSessionMode(existing.sessionMode, context.sessionMode);
-        if (sessionMode !== existing.sessionMode) {
-          await ARM_RESEARCH_STORE.updateActiveScreeningSession(context.screeningSessionId, {sessionMode});
-        }
       }
     });
     queueArmPersistence('add Arm module run', () => ARM_RESEARCH_STORE.addModuleRun(moduleRunForStorage));
   }
-  window.QuickStrokeDevMode?.logEvent?.('MODULE_RUN_STARTED', {
-    category:'lifecycle', module:'arm', moduleRunId:moduleRunForStorage.moduleRunId,
-    moduleRunSequenceNo:moduleRunForStorage.moduleRunSequenceNo,
-    moduleRunTrigger:moduleRunForStorage.moduleRunTrigger
-  });
   return armModuleRunRecord;
 }
 
@@ -2743,8 +2733,7 @@ function beginCanonicalArmAttempt(retryReason = null) {
   if (ARM_RESEARCH_STORE) {
     queueArmPersistence('add Arm attempt', () => ARM_RESEARCH_STORE.addTestAttempt(attemptForStorage));
   }
-  window.QuickStrokeDevMode?.logEvent?.('ATTEMPT_STARTED', {
-    category:'lifecycle',
+  window.QuickStrokeDevMode?.logEvent?.('ARM_ATTEMPT_STARTED', {
     module:'arm', moduleRunId:moduleRun.moduleRunId,
     testAttemptId:activeArmAttemptRecord.testAttemptId,
     phase, side:arm, trigger
@@ -2907,8 +2896,7 @@ function finalizeCanonicalArmAttempt(status, invalidReason = null, legacySnapsho
   lastCompletedArmAttemptBySide[arm] = finalized;
   if (validityStatus === 'valid') selectedArmAttemptIds[arm] = finalized.testAttemptId;
   activeArmAttemptRecord = null;
-  window.QuickStrokeDevMode?.logEvent?.('ATTEMPT_FINALIZED', {
-    category:'lifecycle',
+  window.QuickStrokeDevMode?.logEvent?.('ARM_ATTEMPT_FINALIZED', {
     module:'arm', moduleRunId:finalized.moduleRunId,
     testAttemptId:finalized.testAttemptId, phase, side:arm,
     validityStatus, observationStatus, invalidReasonCode:finalized.invalidReasonCode
@@ -2924,7 +2912,7 @@ function finalizeArmModuleRun(payload, {writeProjection = true} = {}) {
   const validityStatus = bothValid ? 'valid' : 'invalid';
   const observationStatus = bothValid ? (abnormal ? 'abnormal' : 'no_alert') : 'indeterminate';
   const moduleRunId = armModuleRunRecord.moduleRunId;
-  const selectedTestAttemptId = null;
+  const selectedTestAttemptId = selectedArmAttemptIds.right || selectedArmAttemptIds.left || null;
   const context = getArmScreeningContext();
   if (ARM_RESEARCH_STORE) {
     queueArmPersistence('finalize Arm module run', async() => {
@@ -2942,22 +2930,15 @@ function finalizeArmModuleRun(payload, {writeProjection = true} = {}) {
           participantId:context.participantId,
           screeningSessionId:context.screeningSessionId,
           module:'arm', selectedModuleRunId:moduleRunId,
-          selectedTestAttemptId:null,
+          selectedTestAttemptId,
           selectedTestAttemptIds:{...selectedArmAttemptIds},
-          updatedAt:completedAt,
-          payload:ARM_DATA_CONTRACT?.createLightweightProjectionPayload?.('arm', payload) || payload
+          updatedAt:completedAt, payload
         });
       }
     });
   }
   armModuleRunRecord = {...armModuleRunRecord, moduleRunStatus:'completed', completedAt,
-    selectedTestAttemptId:null, selectedTestAttemptIds:{...selectedArmAttemptIds}, validityStatus, observationStatus};
-  window.QuickStrokeDevMode?.logEvent?.('MODULE_RUN_FINALIZED', {
-    category:'lifecycle', module:'arm', moduleRunId,
-    selectedTestAttemptId:null,
-    selectedTestAttemptIds:{...selectedArmAttemptIds},
-    validityStatus, observationStatus
-  });
+    selectedTestAttemptId, selectedTestAttemptIds:{...selectedArmAttemptIds}, validityStatus, observationStatus};
 }
 
 function finalizeOpenArmLifecycle(reason = 'USER_NAVIGATED_AWAY') {
@@ -4010,7 +3991,7 @@ function showFinal() {
     readiness:{
       version:ARM_READINESS_CFG.version,
       locale:activeArmLocaleMeta?.locale || T?.code || null,
-      moduleLocalePackVersion:activeArmLocaleMeta?.packVersion || null,
+      localePackVersion:activeArmLocaleMeta?.packVersion || null,
       config:{
         sampleFreshMs:ARM_READINESS_CFG.sampleFreshMs,
         sensorWaitTimeoutMs:ARM_READINESS_CFG.sensorWaitTimeoutMs,

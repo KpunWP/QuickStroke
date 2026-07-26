@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.13",
-  buildId: "20260726-data-integrity-cleanup-v1",
-  configVersion: "quickstroke-config-1.0.13",
+  version: "1.0.14",
+  buildId: "20260726-result-canonical-v1",
+  configVersion: "quickstroke-config-1.0.14",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
@@ -34,7 +34,7 @@ window.QS_CONFIG = {
   },
 
   resultDiagnostics: {
-    version: "result-dev-diagnostics-1.0.0",
+    version: "result-dev-diagnostics-1.1.0",
     enabledQuery: "dev=1",
     globalDevModeKey: "quickstroke_dev_mode",
     globalDevModeVersion: "quickstroke-dev-mode-0.1.0",

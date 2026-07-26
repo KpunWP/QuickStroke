@@ -19,10 +19,10 @@
   const MANIFEST_VERSION = 'quickstroke-baseline-manifest-0.1.0';
   const TECHNICAL_CODE_REGISTRY_VERSION = 'quickstroke-technical-codes-0.1.0';
   const TECHNICAL_EVENT_SCHEMA_VERSION = 'technical-event-0.1.0';
-  const LOCAL_STORAGE_SCHEMA_VERSION = 'quickstroke-local-store-0.1.0';
+  const LOCAL_STORAGE_SCHEMA_VERSION = 'quickstroke-local-store-0.1.1';
   const RESULT_POLICY_VERSION = 'result-policy-1.0.0';
-  const RESULT_DIAGNOSTICS_VERSION = 'result-dev-diagnostics-1.0.0';
-  const RESULT_PROJECTION_SCHEMA_VERSION = 'quickstroke-result-projection-0.1.0';
+  const RESULT_DIAGNOSTICS_VERSION = 'result-dev-diagnostics-1.1.0';
+  const RESULT_PROJECTION_SCHEMA_VERSION = 'quickstroke-result-projection-0.1.1';
 
   const MODULES = Object.freeze(['face', 'arm', 'speech']);
   const MEASUREMENT_TARGETS = Object.freeze([
@@ -927,7 +927,8 @@
       invalidReasonCode: validityStatus === 'valid' ? null : (payload.invalidReasonCode || null),
       completedAt: payload.completedAt || nowIso(),
       riskLevel: payload.riskLevel || null,
-      passed: typeof payload.passed === 'boolean' ? payload.passed : null
+      passed: typeof payload.passed === 'boolean' ? payload.passed : null,
+      researchSummary: null
     };
 
     if (module === 'face') {
@@ -938,6 +939,11 @@
         restAsym: Number.isFinite(breakdown.restAsym) ? breakdown.restAsym : null,
         representativeAsym: Number.isFinite(breakdown.representativeAsym) ? breakdown.representativeAsym : null,
         weakRatio: Number.isFinite(breakdown.weakRatio) ? breakdown.weakRatio : null
+      };
+      const faceResearchScore = payload.researchMetrics?.legacyFaceScore ?? payload.clinicalScore ?? payload.score;
+      base.researchSummary = {
+        legacyScore: Number.isFinite(Number(faceResearchScore)) ? Number(faceResearchScore) : null,
+        use: 'research_only_not_user_facing'
       };
     } else if (module === 'arm') {
       const breakdown = payload.breakdown || {};
@@ -952,6 +958,11 @@
           driftMaxDeg: Number.isFinite(breakdown.rightDrift) ? breakdown.rightDrift : null
         }
       };
+      const armResearchScore = payload.researchMetrics?.legacyArmScore ?? payload.clinicalScore ?? payload.score;
+      base.researchSummary = {
+        legacyScore: Number.isFinite(Number(armResearchScore)) ? Number(armResearchScore) : null,
+        use: 'research_only_not_user_facing'
+      };
     } else if (module === 'speech') {
       base.domainSummary = {
         phrase: cloneSmallObject(payload.domains?.phrase),
@@ -960,6 +971,11 @@
           status: payload.technicalQuality?.status || qualityStatus,
           flags: qualityFlags
         }
+      };
+      const speechResearchScore = payload.researchMetrics?.legacyWeightedScore ?? payload.legacyWeightedScore ?? payload.clinicalScore ?? payload.score;
+      base.researchSummary = {
+        legacyScore: Number.isFinite(Number(speechResearchScore)) ? Number(speechResearchScore) : null,
+        use: 'research_only_not_user_facing'
       };
     }
 

@@ -1645,8 +1645,8 @@
 
 </style>
 <script src="config.js?v=20260725-face-contract-v2"></script>
-<script src="./js/data-contract.js?v=20260726-data-integrity-v1"></script>
-<script src="./js/research-store.js?v=20260726-data-integrity-v1"></script>
+<script src="./js/data-contract.js?v=20260726-data-contract-v3"></script>
+<script src="./js/research-store.js?v=20260726-research-store-v3"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
@@ -2301,13 +2301,6 @@ function beginFaceAttempt({trigger='initial_attempt', retryOfAttemptId=null, tri
   if (FACE_RESEARCH_STORE) {
     queueFacePersistence('add Face attempt', ()=>FACE_RESEARCH_STORE.addTestAttempt(attemptForStorage));
   }
-  window.QuickStrokeDevMode?.logEvent?.('ATTEMPT_STARTED', {
-    category:'lifecycle', module:'face', moduleRunId:attemptForStorage.moduleRunId,
-    testAttemptId:attemptForStorage.testAttemptId,
-    attemptSequenceNo:attemptForStorage.attemptSequenceNo,
-    attemptTrigger:attemptForStorage.attemptTrigger,
-    retryOfAttemptId:attemptForStorage.retryOfAttemptId || null
-  });
   return attemptForStorage;
 }
 function beginFaceModuleRun(previousPhase='BEFORE_START', startedAt=null){
@@ -2343,20 +2336,10 @@ function beginFaceModuleRun(previousPhase='BEFORE_START', startedAt=null){
       const existing = await FACE_RESEARCH_STORE.get(storeName, context.screeningSessionId);
       if (!existing && FACE_DATA_CONTRACT) {
         await FACE_RESEARCH_STORE.addScreeningSession(FACE_DATA_CONTRACT.createScreeningSessionRecord({context}));
-      } else if (existing?.sessionStatus === 'active' && context.sessionMode && FACE_RESEARCH_STORE.updateActiveScreeningSession) {
-        const sessionMode = FACE_DATA_CONTRACT.resolveSessionMode(existing.sessionMode, context.sessionMode);
-        if (sessionMode !== existing.sessionMode) {
-          await FACE_RESEARCH_STORE.updateActiveScreeningSession(context.screeningSessionId, {sessionMode});
-        }
       }
     });
     queueFacePersistence('add Face module run', ()=>FACE_RESEARCH_STORE.addModuleRun(moduleRunForStorage));
   }
-  window.QuickStrokeDevMode?.logEvent?.('MODULE_RUN_STARTED', {
-    category:'lifecycle', module:'face', moduleRunId:moduleRunForStorage.moduleRunId,
-    moduleRunSequenceNo:moduleRunForStorage.moduleRunSequenceNo,
-    moduleRunTrigger:moduleRunForStorage.moduleRunTrigger
-  });
   return beginFaceAttempt({trigger:'initial_attempt', startedAt:moduleRunForStorage.startedAt, stage:'baseline'});
 }
 function ensureFaceTestAttemptIdentity({forceNew=false, trigger='initial_attempt', retryOfAttemptId=null, triggerReasonCode=null, stage='action'}={}){
@@ -2483,13 +2466,6 @@ function finalizeCanonicalFaceAttempt(outcome, reasonCode, legacyRecord, extra={
   lastCompletedFaceAttemptRecord = finalized;
   faceTestAttemptId = finalized.testAttemptId;
   faceAttemptSequenceNo = finalized.attemptSequenceNo;
-  window.QuickStrokeDevMode?.logEvent?.('ATTEMPT_FINALIZED', {
-    category:'lifecycle', module:'face', moduleRunId:finalized.moduleRunId,
-    testAttemptId:finalized.testAttemptId,
-    validityStatus:finalized.validityStatus,
-    observationStatus:finalized.observationStatus,
-    invalidReasonCode:finalized.invalidReasonCode || null
-  });
   return finalized;
 }
 function finalizeFaceModuleRun(payload){
@@ -2513,17 +2489,11 @@ function finalizeFaceModuleRun(payload){
         participantId:projectionContext.participantId,
         screeningSessionId:projectionContext.screeningSessionId,
         module:'face', selectedModuleRunId:moduleRunId, selectedTestAttemptId,
-        updatedAt:completedAt,
-        payload:FACE_DATA_CONTRACT?.createLightweightProjectionPayload?.('face', payload) || payload
+        updatedAt:completedAt, payload
       });
     });
   }
   faceModuleRunRecord = {...faceModuleRunRecord, moduleRunStatus:'completed', completedAt, selectedTestAttemptId};
-  window.QuickStrokeDevMode?.logEvent?.('MODULE_RUN_FINALIZED', {
-    category:'lifecycle', module:'face', moduleRunId, selectedTestAttemptId,
-    validityStatus:payload.canonicalValidityStatus || payload.validityStatus,
-    observationStatus:payload.observationStatus || canonicalFaceObservationStatus(payload.riskLevel, payload.validityStatus)
-  });
 }
 function persistFacePayload(payload, {writeLegacyResult=true}={}){
   if (!payload || typeof payload !== 'object') return payload;
@@ -2996,8 +2966,8 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       algorithmVersion: FACE_ALGORITHM_VERSION,
       resultSchemaVersion: FACE_RESULT_SCHEMA_VERSION,
       researchPayloadVersion: FACE_RESEARCH_PAYLOAD_VERSION,
-      moduleConfigHash: FACE_CONFIG_HASH,
-      moduleLocalePackVersion: activeLocalePackVersion,
+      configHash: FACE_CONFIG_HASH,
+      localePackVersion: activeLocalePackVersion,
       faceModelAsset: '/models/face_landmarker.task',
       handModelAsset: '/models/hand_landmarker.task'
     },

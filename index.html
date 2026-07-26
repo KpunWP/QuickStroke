@@ -345,8 +345,8 @@
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 <script src="config.js"></script>
-<script src="./js/data-contract.js?v=20260726-data-integrity-v1"></script>
-<script src="./js/research-store.js?v=20260726-data-integrity-v1"></script>
+<script src="./js/data-contract.js?v=20260726-data-contract-v3"></script>
+<script src="./js/research-store.js?v=20260726-research-store-v3"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 </head>
 <body>
@@ -625,11 +625,19 @@ async function finalizePersistedSession(context, status, reasonCode) {
   }
 }
 
+function resolvePersistedSessionMode(currentMode, requestedMode) {
+  const current = currentMode || 'undetermined';
+  if (!requestedMode) return current;
+  if (current === 'undetermined') return requestedMode;
+  if (current === requestedMode || current === 'mixed') return current;
+  return 'mixed';
+}
+
 async function prepareScreeningSession(mode) {
   const context = ensureScreeningSession(false, mode);
   const persisted = await persistScreeningSessionIfNeeded(context);
   if (persisted && RESEARCH_STORE?.updateActiveScreeningSession && persisted.sessionStatus === 'active') {
-    const nextMode = DATA_CONTRACT.resolveSessionMode(persisted.sessionMode, mode);
+    const nextMode = resolvePersistedSessionMode(persisted.sessionMode, mode);
     if (nextMode !== persisted.sessionMode) {
       try {
         await RESEARCH_STORE.updateActiveScreeningSession(context.screeningSessionId, { sessionMode: nextMode });
