@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.10",
-  buildId: "20260726-arm-contract-v1",
-  configVersion: "quickstroke-config-1.0.10",
+  version: "1.0.11",
+  buildId: "20260726-speech-contract-v1",
+  configVersion: "quickstroke-config-1.0.11",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
@@ -198,8 +198,7 @@ window.QS_CONFIG = {
       version: "speech-prepilot-1.7.1",
       algorithmVersion: "speech-browser-asr-1.3.1",
       resultSchemaVersion: "speech-result-1.4.1",
-      researchPayloadVersion: "speech-research-0.4.1",
-      researchHistoryLimit: 8,
+      researchPayloadVersion: "speech-research-0.5.0",
 
       // Speech phrase scoring v1.1:
       // - browser ASR confidence is stored as a raw observation only

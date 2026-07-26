@@ -2786,69 +2786,59 @@ function persistCanonicalArmAttempt(finalizedAttempt, legacySnapshot, detailSnap
   const details = cloneArmResearchValue(detailSnapshot);
   const sampleSnapshot = samples.map(sample => cloneArmResearchValue(sample));
   const sensorSources = [...armAttemptSensorSources];
-  let finalGapMs = null;
-  if (armLastAcceptedSamplePerf !== null) {
-    const value = performance.now() - armLastAcceptedSamplePerf;
-    if (Number.isFinite(value) && value >= 0) finalGapMs = value;
-  }
-  const observedMaxGapMs = Math.max(
-    Number.isFinite(armAttemptMaxGapMs) ? armAttemptMaxGapMs : 0,
-    Number.isFinite(finalGapMs) ? finalGapMs : 0
-  );
-  const finalGapExceeded = Number.isFinite(finalGapMs) && finalGapMs > ARM_SENSOR_GAP_THRESHOLD_MS;
   const sensorSummary = {
     acceptedSampleCount:armAttemptAcceptedSamples,
     telemetrySampleCount:sampleSnapshot.length,
-    sensorGapCount:armAttemptGapCount + (finalGapExceeded ? 1 : 0),
-    maxSensorGapMs:Number.isFinite(observedMaxGapMs) ? Math.round(observedMaxGapMs) : null,
-    finalSampleAgeMs:Number.isFinite(finalGapMs) ? Math.round(finalGapMs) : null,
+    sensorGapCount:armAttemptGapCount,
+    maxSensorGapMs:Number.isFinite(armAttemptMaxGapMs) ? Math.round(armAttemptMaxGapMs) : null,
     sourceSwitchCount:legacy?.sensorSourceSwitches ?? 0,
     sensorSources,
     usedOrientationFallback:sensorSources.includes('orientation-fallback'),
     captureIntervalMs:ARM_RESEARCH_SAMPLE_INTERVAL_MS,
     gapThresholdMs:ARM_SENSOR_GAP_THRESHOLD_MS
   };
-  const readinessSnapshot = cloneArmResearchValue(legacy?.readinessChecks || readinessChecks);
-  let measurementSnapshot = null;
-  if (ARM_DATA_CONTRACT) {
-    measurementSnapshot = ARM_DATA_CONTRACT.createModuleMeasurement({
-      moduleRunId:attemptSnapshot.moduleRunId,
-      testAttemptId:attemptSnapshot.testAttemptId,
-      module:'arm',
-      measurementTarget:attemptSnapshot.measurementTarget,
-      measuredAt:attemptSnapshot.completedAt,
-      payload:{
-        schemaVersion:ARM_RESEARCH_PAYLOAD_VERSION,
-        sensorCapturePolicyVersion:ARM_SENSOR_CAPTURE_POLICY_VERSION,
-        attemptSummary:legacy,
-        result:details,
-        baseline:cloneArmResearchValue(legacy?.baseline),
-        readinessChecks:readinessSnapshot,
-        sensorSummary,
-        phoneFacingExpectedSide:'unknown',
-        phoneFacingVerificationMethod:'none_imu_only'
-      }
-    });
-  }
-  const observations = sampleSnapshot.map((sample, index) => ({
-    schemaVersion:'arm-sensor-observation-0.1.0', recordType:'sensor_observation',
-    participantId:attemptSnapshot.participantId,
-    screeningSessionId:attemptSnapshot.screeningSessionId,
-    legacyAssessmentId:attemptSnapshot.legacyAssessmentId || null,
-    moduleRunId:attemptSnapshot.moduleRunId,
-    testAttemptId:attemptSnapshot.testAttemptId,
-    module:'arm', measurementTarget:attemptSnapshot.measurementTarget,
-    sampleSequenceNo:index + 1,
-    observedAt:sample.observedAt || attemptSnapshot.completedAt,
-    tMs:sample.tMs, phase:sample.phase,
-    payload:sample
-  }));
   queueArmPersistence('finalize Arm attempt', async() => {
     await ARM_RESEARCH_STORE.finalizeTestAttempt(attemptSnapshot.testAttemptId, attemptSnapshot);
-    if (measurementSnapshot) await ARM_RESEARCH_STORE.addModuleMeasurement(measurementSnapshot);
-    if (observations.length) await ARM_RESEARCH_STORE.appendSensorObservations(observations);
+    if (ARM_DATA_CONTRACT) {
+      const measurement = ARM_DATA_CONTRACT.createModuleMeasurement({
+        moduleRunId:attemptSnapshot.moduleRunId,
+        testAttemptId:attemptSnapshot.testAttemptId,
+        module:'arm',
+        measurementTarget:attemptSnapshot.measurementTarget,
+        measuredAt:attemptSnapshot.completedAt,
+        payload:{
+          schemaVersion:ARM_RESEARCH_PAYLOAD_VERSION,
+          sensorCapturePolicyVersion:ARM_SENSOR_CAPTURE_POLICY_VERSION,
+          attemptSummary:legacy,
+          result:details,
+          baseline:cloneArmResearchValue(legacy?.baseline),
+          readinessChecks:cloneArmResearchValue(legacy?.readinessChecks || readinessChecks),
+          sensorSummary,
+          phoneFacingExpectedSide:'unknown',
+          phoneFacingVerificationMethod:'none_imu_only'
+        }
+      });
+      await ARM_RESEARCH_STORE.addModuleMeasurement(measurement);
+    }
+    if (sampleSnapshot.length) {
+      const observations = sampleSnapshot.map((sample, index) => ({
+        schemaVersion:'arm-sensor-observation-0.1.0', recordType:'sensor_observation',
+        participantId:attemptSnapshot.participantId,
+        screeningSessionId:attemptSnapshot.screeningSessionId,
+        legacyAssessmentId:attemptSnapshot.legacyAssessmentId || null,
+        moduleRunId:attemptSnapshot.moduleRunId,
+        testAttemptId:attemptSnapshot.testAttemptId,
+        module:'arm', measurementTarget:attemptSnapshot.measurementTarget,
+        sampleSequenceNo:index + 1,
+        observedAt:sample.observedAt || attemptSnapshot.completedAt,
+        tMs:sample.tMs, phase:sample.phase,
+        payload:sample
+      }));
+      await ARM_RESEARCH_STORE.appendSensorObservations(observations);
+    }
   });
 }
+
 function finalizeCanonicalArmAttempt(status, invalidReason = null, legacySnapshot = null, details = {}) {
   if (!activeArmAttemptRecord) return null;
   const current = activeArmAttemptRecord;
