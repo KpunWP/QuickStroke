@@ -1464,7 +1464,7 @@
     #action-dock #fast-nav-btn{font-size:18px!important;padding-inline:8px!important;}
   }
 </style>
-<script src="config.js"></script>
+<script src="config.js?v=20260726-arm-contract-v1"></script>
 <script src="./js/data-contract.js?v=20260725-data-contract-v2"></script>
 <script src="./js/research-store.js?v=20260725-research-store-v2"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
@@ -1605,6 +1605,9 @@
 </div>
 <script>
 'use strict';
+
+const ARM_DATA_CONTRACT = window.QuickStrokeDataContract || null;
+const ARM_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
 
 // ── Developer mode: follows the global switch on Index ─────
 const ARM_DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
@@ -1923,6 +1926,10 @@ const PRE_MEASURE_DELAY_MS    = optionalFiniteConfigNumber(ARM_CFG.preMeasureDel
 
 const RETRY_SEC               = requireFiniteConfigNumber(ARM_CFG.retrySec, 'thresholds.arm.retrySec', { min:1, integer:true });
 const LPF                     = requireFiniteConfigNumber(ARM_CFG.lpf, 'thresholds.arm.lpf', { min:0.001, max:1 });
+const ARM_RESEARCH_SAMPLE_INTERVAL_MS = optionalFiniteConfigNumber(ARM_CFG.researchSampleIntervalMs, 100, 'thresholds.arm.researchSampleIntervalMs', { min:20, integer:true });
+const ARM_SENSOR_GAP_THRESHOLD_MS = optionalFiniteConfigNumber(ARM_CFG.sensorGapThresholdMs, 250, 'thresholds.arm.sensorGapThresholdMs', { min:50, integer:true });
+const ARM_RESEARCH_PAYLOAD_VERSION = ARM_CFG.researchPayloadVersion || 'arm-research-1.0.0';
+const ARM_SENSOR_CAPTURE_POLICY_VERSION = ARM_CFG.sensorCapturePolicyVersion || 'arm-sensor-capture-1.0.0';
 
 if (Number.isFinite(Number(ARM_CFG.thresholdAlertHoldMs)) &&
     Number.isFinite(Number(ARM_CFG.driftFailHoldMs)) &&
@@ -1979,7 +1986,9 @@ window.__ARM_RUNTIME_CONFIG = Object.freeze({
   preMeasureDelayMs:PRE_MEASURE_DELAY_MS,
   sampleFreshMs:ARM_READINESS_CFG.sampleFreshMs,
   sensorWaitTimeoutMs:ARM_READINESS_CFG.sensorWaitTimeoutMs,
-  preMeasureMaxDeltaDeg:ARM_READINESS_CFG.preMeasureMaxDeltaDeg
+  preMeasureMaxDeltaDeg:ARM_READINESS_CFG.preMeasureMaxDeltaDeg,
+  researchSampleIntervalMs:ARM_RESEARCH_SAMPLE_INTERVAL_MS,
+  sensorGapThresholdMs:ARM_SENSOR_GAP_THRESHOLD_MS
 });
 
 console.log('[Arm config resolved]', window.__ARM_RUNTIME_CONFIG);
@@ -2215,8 +2224,15 @@ let sensorApiSupported = false;
 let permissionReady = false;
 let sensorPermission = { orientation:'unknown', motion:'unknown' };
 let sensorPermissionAttempted = false;
-const ARM_BUILD_ID = 'arm-readiness-v1.9-config-contract-fix';
+const ARM_BUILD_ID = 'arm-contract-v1.0.10';
 window.__ARM_BUILD_ID = ARM_BUILD_ID;
+window.__ARM_RESEARCH_CONTRACT = Object.freeze({
+  moduleVersion:ARM_CFG?.version || null,
+  algorithmVersion:ARM_CFG?.algorithmVersion || null,
+  resultSchemaVersion:ARM_CFG?.resultSchemaVersion || null,
+  researchPayloadVersion:ARM_RESEARCH_PAYLOAD_VERSION,
+  sensorCapturePolicyVersion:ARM_SENSOR_CAPTURE_POLICY_VERSION
+});
 let firstSensorSampleAt = 0;
 let lastSensorSampleAt = 0;
 let validSensorSampleCount = 0;
@@ -2241,6 +2257,22 @@ let armReadinessAttempts = [];
 let currentReadinessAttempt = null;
 let attemptNoByArm = { left:0, right:0 };
 let pendingRetryReason = null;
+
+// Canonical Arm research lifecycle. The existing readiness objects remain as
+// compatibility summaries; these records are the immutable source of truth.
+let armModuleRunRecord = null;
+let activeArmAttemptRecord = null;
+let lastCompletedArmAttemptBySide = { left:null, right:null };
+let selectedArmAttemptIds = { left:null, right:null };
+let armPersistenceChain = Promise.resolve();
+let armPersistenceErrors = [];
+let armResearchSamplesByAttempt = new Map();
+let armLastResearchSampleAt = 0;
+let armLastAcceptedSamplePerf = null;
+let armAttemptGapCount = 0;
+let armAttemptMaxGapMs = 0;
+let armAttemptAcceptedSamples = 0;
+let armAttemptSensorSources = new Set();
 
 let driftValues = { right: null, left: null };
 let armAnalysis = { right:null, left:null };
@@ -2308,6 +2340,7 @@ async function requestSensor(cb) {
     if (!orientationGranted && !motionGranted) {
       permissionReady = false;
       sensorOk = false;
+      finalizeArmPreflightFailure('permission_denied');
       alert(T.sensorDenied);
       return;
     }
@@ -2326,6 +2359,7 @@ async function requestSensor(cb) {
     permissionReady = false;
     sensorOk = false;
     sensorPermission = { orientation:'error', motion:'error' };
+    finalizeArmPreflightFailure('permission_denied');
     alert(T.sensorDenied);
   }
 }
@@ -2498,6 +2532,440 @@ function readinessMessage(reason) {
   };
 }
 
+function cloneArmResearchValue(value) {
+  if (value === undefined) return null;
+  try {
+    if (typeof structuredClone === 'function') return structuredClone(value);
+  } catch (error) {}
+  try { return JSON.parse(JSON.stringify(value)); }
+  catch (error) { return null; }
+}
+
+function getArmScreeningContext() {
+  if (ARM_DATA_CONTRACT) return ARM_DATA_CONTRACT.ensureScreeningContext({
+    mode:sessionStorage.getItem('fast_mode') || null
+  });
+  return {
+    participantId:sessionStorage.getItem('fast_participant_id'),
+    screeningSessionId:sessionStorage.getItem('fast_screening_session_id') || sessionStorage.getItem('fast_assessment_id'),
+    legacyAssessmentId:sessionStorage.getItem('fast_legacy_assessment_id'),
+    screeningSessionStartedAt:sessionStorage.getItem('fast_started_at'),
+    sessionMode:sessionStorage.getItem('fast_mode')
+  };
+}
+
+function queueArmPersistence(label, operation) {
+  if (!ARM_RESEARCH_STORE || typeof operation !== 'function') return armPersistenceChain;
+  armPersistenceChain = armPersistenceChain.then(async() => {
+    try {
+      return await operation();
+    } catch (error) {
+      armPersistenceErrors.push({
+        label,
+        code:error?.code || 'STORAGE_WRITE_FAILED',
+        message:error?.message || String(error),
+        occurredAt:new Date().toISOString()
+      });
+      console.error(`[Arm persistence] ${label}`, error);
+      return null;
+    }
+  });
+  return armPersistenceChain;
+}
+
+async function flushArmResearchPersistence() {
+  try { await armPersistenceChain; } catch (error) {}
+  return armPersistenceErrors.length === 0;
+}
+
+function normalizeArmReasonCode(reason) {
+  const key = String(reason || 'ARM_ATTEMPT_INVALID').trim().toLowerCase();
+  const map = {
+    permission_denied:'PERMISSION_DENIED',
+    sensor_unsupported:'SENSOR_UNSUPPORTED',
+    sensor_no_samples:'SENSOR_NO_SAMPLES',
+    sensor_stale:'SENSOR_STALE',
+    coordinate_frame_unresolved:'COORDINATE_FRAME_UNRESOLVED',
+    device_landscape:'DEVICE_LANDSCAPE',
+    device_flat:'DEVICE_FLAT',
+    device_not_upright:'DEVICE_NOT_UPRIGHT',
+    device_upside_down:'DEVICE_UPSIDE_DOWN',
+    device_not_moved_from_rest:'DEVICE_NOT_MOVED_FROM_REST',
+    sensor_source_changed:'SENSOR_SOURCE_CHANGED',
+    screen_orientation_changed:'SCREEN_ORIENTATION_CHANGED',
+    pose_changed_before_measurement:'POSE_CHANGED_BEFORE_MEASUREMENT',
+    page_hidden:'PAGE_HIDDEN',
+    uncertain:'UNCERTAIN_MOVEMENT',
+    wrist_movement:'WRIST_MOVEMENT',
+    full_test_retry:'FULL_TEST_RETRY',
+    user_aborted:'USER_ABORTED',
+    user_navigated_away:'USER_NAVIGATED_AWAY'
+  };
+  return map[key] || key.toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+}
+
+function armMeasurementTarget(side = arm) {
+  return side === 'right' ? 'right_arm' : 'left_arm';
+}
+
+function armModuleRunTrigger() {
+  return sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_start';
+}
+
+function isArmTechnicalFailure(reason) {
+  return new Set([
+    'permission_denied','sensor_unsupported','sensor_no_samples','sensor_stale',
+    'coordinate_frame_unresolved','page_hidden'
+  ]).has(String(reason || '').toLowerCase());
+}
+
+function ensureArmModuleRun() {
+  if (armModuleRunRecord?.moduleRunStatus === 'in_progress') return armModuleRunRecord;
+  const startedAt = new Date().toISOString();
+  const context = getArmScreeningContext();
+  if (ARM_DATA_CONTRACT) {
+    armModuleRunRecord = ARM_DATA_CONTRACT.createModuleRun({
+      module:'arm',
+      trigger:armModuleRunTrigger(),
+      targetOrder:['left_arm','right_arm'],
+      startedAt
+    });
+  } else {
+    armModuleRunRecord = {
+      schemaVersion:'quickstroke-common-data-0.1.0', recordType:'module_run',
+      ...context, moduleRunId:`MR-${crypto.randomUUID?.() || Date.now()}`,
+      moduleRunSequenceNo:null, module:'arm', moduleRunTrigger:armModuleRunTrigger(),
+      moduleRunStatus:'in_progress', targetOrder:['left_arm','right_arm'],
+      startedAt, completedAt:null
+    };
+  }
+  selectedArmAttemptIds = { left:null, right:null };
+  const moduleRunForStorage = cloneArmResearchValue(armModuleRunRecord);
+  if (ARM_RESEARCH_STORE) {
+    queueArmPersistence('ensure Arm screening session', async() => {
+      const storeName = ARM_RESEARCH_STORE.stores.screeningSessions;
+      const existing = await ARM_RESEARCH_STORE.get(storeName, context.screeningSessionId);
+      if (!existing && ARM_DATA_CONTRACT) {
+        await ARM_RESEARCH_STORE.addScreeningSession(ARM_DATA_CONTRACT.createScreeningSessionRecord({context}));
+      }
+    });
+    queueArmPersistence('add Arm module run', () => ARM_RESEARCH_STORE.addModuleRun(moduleRunForStorage));
+  }
+  return armModuleRunRecord;
+}
+
+function finalizeArmPreflightFailure(reason) {
+  ensureArmModuleRun();
+  beginCanonicalArmAttempt(pendingRetryReason);
+  attemptNoByArm[arm] += 1;
+  currentReadinessAttempt = {
+    arm,
+    attemptNo:attemptNoByArm[arm],
+    moduleRunId:armModuleRunRecord?.moduleRunId || null,
+    testAttemptId:activeArmAttemptRecord?.testAttemptId || null,
+    retryOfAttemptId:activeArmAttemptRecord?.retryOfAttemptId || null,
+    attemptTrigger:activeArmAttemptRecord?.attemptTrigger || 'initial_attempt',
+    retryReason:pendingRetryReason,
+    startedAtUtc:new Date().toISOString(),
+    startedAtPerf:performance.now(),
+    readinessVersion:ARM_READINESS_CFG.version,
+    status:'in_progress', invalidReason:null, events:[],
+    sampleCountAtStart:validSensorSampleCount,
+    sourceSwitchCountAtStart:sensorSourceSwitchCount
+  };
+  armReadinessAttempts.push(currentReadinessAttempt);
+  recordReadinessEvent('attempt_started');
+  recordReadinessEvent('preflight_failed', {invalidReason:reason});
+  finalizeReadinessAttempt('completed_invalid', reason, {
+    motionClass:'not_started', passed:null, driftMaxDeg:null,
+    peakDelta:null, ratioZX:null
+  });
+  pendingRetryReason = reason;
+}
+
+function beginCanonicalArmAttempt(retryReason = null) {
+  const moduleRun = ensureArmModuleRun();
+  const previous = lastCompletedArmAttemptBySide[arm];
+  const reasonKey = String(retryReason || '').toLowerCase();
+  const isRetry = Boolean(retryReason && reasonKey !== 'full_test_retry' && previous?.testAttemptId);
+  const trigger = !isRetry
+    ? 'initial_attempt'
+    : (['uncertain','wrist_movement'].includes(reasonKey) ? 'automatic_retry' : 'technical_recovery');
+  const startedAt = new Date().toISOString();
+  let attempt;
+  if (ARM_DATA_CONTRACT) {
+    attempt = ARM_DATA_CONTRACT.createTestAttempt({
+      moduleRunId:moduleRun.moduleRunId,
+      module:'arm',
+      measurementTarget:armMeasurementTarget(),
+      trigger,
+      retryOfAttemptId:isRetry ? previous.testAttemptId : null,
+      triggerReasonCode:retryReason ? normalizeArmReasonCode(retryReason) : null,
+      startedAt
+    });
+  } else {
+    attempt = {
+      schemaVersion:'quickstroke-common-data-0.1.0', recordType:'test_attempt',
+      ...getArmScreeningContext(), moduleRunId:moduleRun.moduleRunId,
+      testAttemptId:`TA-${crypto.randomUUID?.() || Date.now()}`, attemptSequenceNo:null,
+      targetAttemptSequenceNo:null, module:'arm', measurementTarget:armMeasurementTarget(),
+      attemptTrigger:trigger, retryOfAttemptId:isRetry ? previous.testAttemptId : null,
+      triggerReasonCode:retryReason ? normalizeArmReasonCode(retryReason) : null,
+      attemptStatus:'in_progress', startedAt, completedAt:null
+    };
+  }
+  activeArmAttemptRecord = {...attempt};
+  armResearchSamplesByAttempt.set(activeArmAttemptRecord.testAttemptId, []);
+  armLastResearchSampleAt = 0;
+  armLastAcceptedSamplePerf = null;
+  armAttemptGapCount = 0;
+  armAttemptMaxGapMs = 0;
+  armAttemptAcceptedSamples = 0;
+  armAttemptSensorSources = new Set();
+  const attemptForStorage = cloneArmResearchValue(activeArmAttemptRecord);
+  if (ARM_RESEARCH_STORE) {
+    queueArmPersistence('add Arm attempt', () => ARM_RESEARCH_STORE.addTestAttempt(attemptForStorage));
+  }
+  window.QuickStrokeDevMode?.logEvent?.('ARM_ATTEMPT_STARTED', {
+    module:'arm', moduleRunId:moduleRun.moduleRunId,
+    testAttemptId:activeArmAttemptRecord.testAttemptId,
+    phase, side:arm, trigger
+  });
+  return activeArmAttemptRecord;
+}
+
+function recordArmResearchSample(force = false) {
+  if (!activeArmAttemptRecord) return;
+  const now = performance.now();
+  if (!force && now - armLastResearchSampleAt < ARM_RESEARCH_SAMPLE_INTERVAL_MS) return;
+  armLastResearchSampleAt = now;
+  const rows = armResearchSamplesByAttempt.get(activeArmAttemptRecord.testAttemptId) || [];
+  rows.push({
+    observedAt:new Date().toISOString(),
+    tMs:currentReadinessAttempt?.startedAtPerf
+      ? Math.max(0, Math.round(now - currentReadinessAttempt.startedAtPerf))
+      : null,
+    phase:phase || null,
+    sensorSource:gravitySource || null,
+    gravityRaw:{...gravityRaw},
+    gravityFiltered:{...gravityFilt},
+    gravityScreen:{...gravityScreen},
+    gravityMagnitude:Number.isFinite(gravityMagnitude) ? gravityMagnitude : null,
+    orientation:{
+      alpha:Number.isFinite(alphaNow) ? alphaNow : null,
+      beta:Number.isFinite(betaNow) ? betaNow : null,
+      gamma:Number.isFinite(gammaNow) ? gammaNow : null,
+      absolute:orientationAbsolute
+    },
+    screenOrientation:{...screenOrientationSnapshot},
+    sensorFresh:isSensorFresh(),
+    currentDriftDeg:Number.isFinite(currentDrift) ? currentDrift : null,
+    driftMaxDeg:Number.isFinite(driftMax) ? driftMax : null,
+    currentDelta:{...currentDelta},
+    peakDelta:{...peakDelta},
+    peakRatioZX:Number.isFinite(peakRatio) ? peakRatio : null,
+    motionClass:motionClass || null,
+    stableSpreadDeg:Number.isFinite(stableSpread) ? stableSpread : null,
+    readinessInvalidReason:readinessInvalidReason ? normalizeArmReasonCode(readinessInvalidReason) : null,
+    maxAngleFromRestDeg:Number.isFinite(maxAngleFromRest) ? maxAngleFromRest : null
+  });
+  armResearchSamplesByAttempt.set(activeArmAttemptRecord.testAttemptId, rows);
+}
+
+function armQualityFlagsForAttempt() {
+  const flags = [];
+  if (armAttemptSensorSources.has('orientation-fallback')) flags.push('DEVICE_ORIENTATION_FALLBACK');
+  if (armPersistenceErrors.length) flags.push('STORAGE_WRITE_FAILED');
+  return [...new Set(flags)];
+}
+
+function persistCanonicalArmAttempt(finalizedAttempt, legacySnapshot, detailSnapshot, samples) {
+  if (!finalizedAttempt || !ARM_RESEARCH_STORE) return;
+  const attemptSnapshot = cloneArmResearchValue(finalizedAttempt);
+  const legacy = cloneArmResearchValue(legacySnapshot);
+  const details = cloneArmResearchValue(detailSnapshot);
+  const sampleSnapshot = samples.map(sample => cloneArmResearchValue(sample));
+  const sensorSources = [...armAttemptSensorSources];
+  let finalGapMs = null;
+  if (armLastAcceptedSamplePerf !== null) {
+    const value = performance.now() - armLastAcceptedSamplePerf;
+    if (Number.isFinite(value) && value >= 0) finalGapMs = value;
+  }
+  const observedMaxGapMs = Math.max(
+    Number.isFinite(armAttemptMaxGapMs) ? armAttemptMaxGapMs : 0,
+    Number.isFinite(finalGapMs) ? finalGapMs : 0
+  );
+  const finalGapExceeded = Number.isFinite(finalGapMs) && finalGapMs > ARM_SENSOR_GAP_THRESHOLD_MS;
+  const sensorSummary = {
+    acceptedSampleCount:armAttemptAcceptedSamples,
+    telemetrySampleCount:sampleSnapshot.length,
+    sensorGapCount:armAttemptGapCount + (finalGapExceeded ? 1 : 0),
+    maxSensorGapMs:Number.isFinite(observedMaxGapMs) ? Math.round(observedMaxGapMs) : null,
+    finalSampleAgeMs:Number.isFinite(finalGapMs) ? Math.round(finalGapMs) : null,
+    sourceSwitchCount:legacy?.sensorSourceSwitches ?? 0,
+    sensorSources,
+    usedOrientationFallback:sensorSources.includes('orientation-fallback'),
+    captureIntervalMs:ARM_RESEARCH_SAMPLE_INTERVAL_MS,
+    gapThresholdMs:ARM_SENSOR_GAP_THRESHOLD_MS
+  };
+  const readinessSnapshot = cloneArmResearchValue(legacy?.readinessChecks || readinessChecks);
+  let measurementSnapshot = null;
+  if (ARM_DATA_CONTRACT) {
+    measurementSnapshot = ARM_DATA_CONTRACT.createModuleMeasurement({
+      moduleRunId:attemptSnapshot.moduleRunId,
+      testAttemptId:attemptSnapshot.testAttemptId,
+      module:'arm',
+      measurementTarget:attemptSnapshot.measurementTarget,
+      measuredAt:attemptSnapshot.completedAt,
+      payload:{
+        schemaVersion:ARM_RESEARCH_PAYLOAD_VERSION,
+        sensorCapturePolicyVersion:ARM_SENSOR_CAPTURE_POLICY_VERSION,
+        attemptSummary:legacy,
+        result:details,
+        baseline:cloneArmResearchValue(legacy?.baseline),
+        readinessChecks:readinessSnapshot,
+        sensorSummary,
+        phoneFacingExpectedSide:'unknown',
+        phoneFacingVerificationMethod:'none_imu_only'
+      }
+    });
+  }
+  const observations = sampleSnapshot.map((sample, index) => ({
+    schemaVersion:'arm-sensor-observation-0.1.0', recordType:'sensor_observation',
+    participantId:attemptSnapshot.participantId,
+    screeningSessionId:attemptSnapshot.screeningSessionId,
+    legacyAssessmentId:attemptSnapshot.legacyAssessmentId || null,
+    moduleRunId:attemptSnapshot.moduleRunId,
+    testAttemptId:attemptSnapshot.testAttemptId,
+    module:'arm', measurementTarget:attemptSnapshot.measurementTarget,
+    sampleSequenceNo:index + 1,
+    observedAt:sample.observedAt || attemptSnapshot.completedAt,
+    tMs:sample.tMs, phase:sample.phase,
+    payload:sample
+  }));
+  queueArmPersistence('finalize Arm attempt', async() => {
+    await ARM_RESEARCH_STORE.finalizeTestAttempt(attemptSnapshot.testAttemptId, attemptSnapshot);
+    if (measurementSnapshot) await ARM_RESEARCH_STORE.addModuleMeasurement(measurementSnapshot);
+    if (observations.length) await ARM_RESEARCH_STORE.appendSensorObservations(observations);
+  });
+}
+function finalizeCanonicalArmAttempt(status, invalidReason = null, legacySnapshot = null, details = {}) {
+  if (!activeArmAttemptRecord) return null;
+  const current = activeArmAttemptRecord;
+  const reasonCode = invalidReason ? normalizeArmReasonCode(invalidReason) : null;
+  const technicalFailure = invalidReason ? isArmTechnicalFailure(invalidReason) : false;
+  const validityStatus = status === 'completed_valid'
+    ? 'valid'
+    : technicalFailure ? 'not_evaluable' : 'invalid';
+  const qualityFlags = armQualityFlagsForAttempt();
+  const fallbackUsed = qualityFlags.includes('DEVICE_ORIENTATION_FALLBACK');
+  const observationStatus = validityStatus === 'valid'
+    ? (details.motionClass === 'possible_arm_drift' ? 'abnormal' : 'no_alert')
+    : validityStatus === 'not_evaluable' ? 'not_available' : 'indeterminate';
+  const attemptStatus = reasonCode === 'PAGE_HIDDEN' ? 'interrupted' : 'completed';
+  let finalized;
+  if (ARM_DATA_CONTRACT) {
+    finalized = ARM_DATA_CONTRACT.finalizeAttempt(current, {
+      attemptStatus,
+      validityStatus,
+      technicalValidity:technicalFailure ? 'failed' : (fallbackUsed ? 'degraded' : 'full'),
+      observationStatus,
+      qualityStatus:validityStatus === 'valid'
+        ? (qualityFlags.length ? 'limited' : 'acceptable')
+        : 'unusable',
+      qualityFlags,
+      invalidReasonCode:validityStatus === 'valid' ? null : (reasonCode || 'ARM_ATTEMPT_INVALID'),
+      completionReasonCode:reasonCode || 'ARM_ATTEMPT_COMPLETED',
+      selectedForModuleResult:validityStatus === 'valid',
+      result:{
+        side:arm,
+        motionClass:details.motionClass || null,
+        passed:details.passed ?? null,
+        driftMaxDeg:details.driftMaxDeg ?? null,
+        peakDelta:cloneArmResearchValue(details.peakDelta),
+        ratioZX:details.ratioZX ?? null
+      }
+    });
+  } else {
+    finalized = {...current, attemptStatus, validityStatus,
+      technicalValidity:technicalFailure ? 'failed' : (fallbackUsed ? 'degraded' : 'full'),
+      observationStatus, qualityStatus:validityStatus === 'valid' ? 'acceptable' : 'unusable',
+      qualityFlags, invalidReasonCode:validityStatus === 'valid' ? null : reasonCode,
+      completedAt:new Date().toISOString()};
+  }
+  const samples = armResearchSamplesByAttempt.get(finalized.testAttemptId) || [];
+  persistCanonicalArmAttempt(finalized, legacySnapshot, details, samples);
+  armResearchSamplesByAttempt.delete(finalized.testAttemptId);
+  lastCompletedArmAttemptBySide[arm] = finalized;
+  if (validityStatus === 'valid') selectedArmAttemptIds[arm] = finalized.testAttemptId;
+  activeArmAttemptRecord = null;
+  window.QuickStrokeDevMode?.logEvent?.('ARM_ATTEMPT_FINALIZED', {
+    module:'arm', moduleRunId:finalized.moduleRunId,
+    testAttemptId:finalized.testAttemptId, phase, side:arm,
+    validityStatus, observationStatus, invalidReasonCode:finalized.invalidReasonCode
+  });
+  return finalized;
+}
+
+function finalizeArmModuleRun(payload, {writeProjection = true} = {}) {
+  if (!armModuleRunRecord || armModuleRunRecord.moduleRunStatus !== 'in_progress') return;
+  const completedAt = payload?.completedAt || new Date().toISOString();
+  const bothValid = Boolean(selectedArmAttemptIds.left && selectedArmAttemptIds.right);
+  const abnormal = armAnalysis.left?.key === 'possible_arm_drift' || armAnalysis.right?.key === 'possible_arm_drift';
+  const validityStatus = bothValid ? 'valid' : 'invalid';
+  const observationStatus = bothValid ? (abnormal ? 'abnormal' : 'no_alert') : 'indeterminate';
+  const moduleRunId = armModuleRunRecord.moduleRunId;
+  const selectedTestAttemptId = selectedArmAttemptIds.right || selectedArmAttemptIds.left || null;
+  const context = getArmScreeningContext();
+  if (ARM_RESEARCH_STORE) {
+    queueArmPersistence('finalize Arm module run', async() => {
+      await ARM_RESEARCH_STORE.finalizeModuleRun(moduleRunId, {
+        moduleRunStatus:'completed', completedAt,
+        completionReasonCode:ARM_DEV_MODE ? 'ARM_DEV_PROTOCOL_COMPLETED' : 'ARM_RESULT_COMPLETED',
+        selectedTestAttemptId,
+        selectedTestAttemptIds:{...selectedArmAttemptIds},
+        validityStatus, observationStatus
+      });
+      if (writeProjection) {
+        await ARM_RESEARCH_STORE.putProjection({
+          projectionId:`${context.screeningSessionId}:arm`,
+          schemaVersion:ARM_CFG.resultSchemaVersion || 'arm-result-1.0.0',
+          participantId:context.participantId,
+          screeningSessionId:context.screeningSessionId,
+          module:'arm', selectedModuleRunId:moduleRunId,
+          selectedTestAttemptId,
+          selectedTestAttemptIds:{...selectedArmAttemptIds},
+          updatedAt:completedAt, payload
+        });
+      }
+    });
+  }
+  armModuleRunRecord = {...armModuleRunRecord, moduleRunStatus:'completed', completedAt,
+    selectedTestAttemptId, selectedTestAttemptIds:{...selectedArmAttemptIds}, validityStatus, observationStatus};
+}
+
+function finalizeOpenArmLifecycle(reason = 'USER_NAVIGATED_AWAY') {
+  if (activeArmAttemptRecord?.attemptStatus === 'in_progress') {
+    const legacy = currentReadinessAttempt ? cloneArmResearchValue({...currentReadinessAttempt, startedAtPerf:undefined}) : null;
+    finalizeCanonicalArmAttempt('completed_invalid', reason, legacy, {
+      motionClass:motionClass || null, driftMaxDeg:driftMax,
+      peakDelta:{...peakDelta}, ratioZX:peakRatio
+    });
+  }
+  if (armModuleRunRecord?.moduleRunStatus === 'in_progress') {
+    const moduleRunId = armModuleRunRecord.moduleRunId;
+    const completedAt = new Date().toISOString();
+    if (ARM_RESEARCH_STORE) {
+      queueArmPersistence('interrupt Arm module run', () => ARM_RESEARCH_STORE.finalizeModuleRun(moduleRunId, {
+        moduleRunStatus:'interrupted', completedAt,
+        completionReasonCode:normalizeArmReasonCode(reason)
+      }));
+    }
+    armModuleRunRecord = {...armModuleRunRecord, moduleRunStatus:'interrupted', completedAt,
+      completionReasonCode:normalizeArmReasonCode(reason)};
+  }
+}
+
 function recordReadinessEvent(type, details = {}) {
   const event = {
     atUtc:new Date().toISOString(),
@@ -2515,11 +2983,18 @@ function recordReadinessEvent(type, details = {}) {
 }
 
 function beginReadinessAttempt() {
+  const retryReason = pendingRetryReason;
+  ensureArmModuleRun();
+  beginCanonicalArmAttempt(retryReason);
   attemptNoByArm[arm] += 1;
   currentReadinessAttempt = {
     arm,
     attemptNo:attemptNoByArm[arm],
-    retryReason:pendingRetryReason,
+    moduleRunId:armModuleRunRecord?.moduleRunId || null,
+    testAttemptId:activeArmAttemptRecord?.testAttemptId || null,
+    retryOfAttemptId:activeArmAttemptRecord?.retryOfAttemptId || null,
+    attemptTrigger:activeArmAttemptRecord?.attemptTrigger || 'initial_attempt',
+    retryReason,
     startedAtUtc:new Date().toISOString(),
     startedAtPerf:performance.now(),
     readinessVersion:ARM_READINESS_CFG.version,
@@ -2548,6 +3023,17 @@ function finalizeReadinessAttempt(status, invalidReason = null, details = {}) {
   currentReadinessAttempt.phoneFacingExpectedSide = 'unknown';
   currentReadinessAttempt.baseline = baselineMeta ? { ...baselineMeta } : null;
   Object.assign(currentReadinessAttempt, details);
+  const legacySnapshot = cloneArmResearchValue({
+    ...currentReadinessAttempt,
+    startedAtPerf:undefined,
+    events:currentReadinessAttempt.events.map(event => ({...event}))
+  });
+  finalizeCanonicalArmAttempt(status, invalidReason, legacySnapshot, {
+    ...details,
+    passed:details.passed ?? (details.motionClass === 'normal' ? true : details.motionClass === 'possible_arm_drift' ? false : null),
+    peakDelta:details.peakDelta || {...peakDelta},
+    ratioZX:details.ratioZX ?? peakRatio
+  });
 }
 
 function showReadinessWarning(reason) {
@@ -2720,6 +3206,7 @@ function showValidationRetest(reason) {
   results[arm] = null;
   driftValues[arm] = null;
   armAnalysis[arm] = null;
+  recordReadinessEvent('measurement_invalidated', { invalidReason:reason });
   finalizeReadinessAttempt('completed_invalid', reason);
   pendingRetryReason = reason;
 
@@ -2733,7 +3220,6 @@ function showValidationRetest(reason) {
   $('action-btn').textContent = T?.btnRetryArm || T?.btnRetry || 'Retry';
   $('action-btn').className = 'amber';
   $('action-btn').disabled = false;
-  recordReadinessEvent('measurement_invalidated', { invalidReason:reason });
   beep(440, 0.25);
   vibe([120,80,120]);
   speakNow(message.voice);
@@ -2813,6 +3299,18 @@ function setGravityVector(raw, source, magnitude = null) {
   lastSensorSampleAt = now;
   if (!firstSensorSampleAt) firstSensorSampleAt = now;
   validSensorSampleCount++;
+  if (activeArmAttemptRecord) {
+    armAttemptAcceptedSamples++;
+    armAttemptSensorSources.add(source);
+    if (armLastAcceptedSamplePerf !== null) {
+      const gapMs = now - armLastAcceptedSamplePerf;
+      if (Number.isFinite(gapMs)) {
+        armAttemptMaxGapMs = Math.max(armAttemptMaxGapMs, gapMs);
+        if (gapMs > ARM_SENSOR_GAP_THRESHOLD_MS) armAttemptGapCount++;
+      }
+    }
+    armLastAcceptedSamplePerf = now;
+  }
 
   // State recovery must happen immediately after accepting a real sensor sample.
   // Keep it before orientation transforms or other readiness calculations so a
@@ -2904,6 +3402,7 @@ function handleGravityTick() {
   if (phase === 'PRE_MEASURE_RECHECK') tickPreMeasureRecheck();
   if (phase === 'MEASURE') tickMeasure();
   updateArmDevHUD();
+  recordArmResearchSample();
   recordArmDevSample();
 }
 
@@ -3388,6 +3887,7 @@ function finishArm() {
     analysis.valid ? null : analysis.key,
     {
       motionClass:analysis.key,
+      passed:analysis.passed,
       driftMaxDeg:driftMax,
       peakDelta:{ ...peakDelta },
       ratioZX:analysis.ratio
@@ -3453,56 +3953,88 @@ function showFinal() {
   const armScore = Math.min(scoreR, scoreL);
   const riskLevel = ok ? 'ok' : 'bad';
 
+  const context = getArmScreeningContext();
+  const armQualityFlags = [...new Set([
+    ...(armAnalysis.left && lastCompletedArmAttemptBySide.left?.qualityFlags || []),
+    ...(armAnalysis.right && lastCompletedArmAttemptBySide.right?.qualityFlags || []),
+    ...(armPersistenceErrors.length ? ['STORAGE_WRITE_FAILED'] : [])
+  ])];
+  const armPayload = {
+    schemaVersion:ARM_CFG.resultSchemaVersion || 'arm-result-1.0.0',
+    researchPayloadVersion:ARM_RESEARCH_PAYLOAD_VERSION,
+    sensorCapturePolicyVersion:ARM_SENSOR_CAPTURE_POLICY_VERSION,
+    participantId:context.participantId,
+    screeningSessionId:context.screeningSessionId,
+    legacyAssessmentId:context.legacyAssessmentId || null,
+    moduleRunId:armModuleRunRecord?.moduleRunId || null,
+    selectedTestAttemptIds:{...selectedArmAttemptIds},
+    completedAt:new Date().toISOString(),
+    validityStatus:selectedArmAttemptIds.left && selectedArmAttemptIds.right ? 'valid' : 'invalid',
+    technicalValidity:armQualityFlags.length ? 'degraded' : 'full',
+    observationStatus:selectedArmAttemptIds.left && selectedArmAttemptIds.right
+      ? (ok ? 'no_alert' : 'abnormal')
+      : 'indeterminate',
+    qualityStatus:armQualityFlags.length ? 'limited' : 'acceptable',
+    qualityFlags:armQualityFlags,
+    score:armScore,
+    riskLevel,
+    passed:ok,
+    breakdown:{
+      rightDrift:driftValues.right,
+      leftDrift:driftValues.left,
+      rightScore:scoreR,
+      leftScore:scoreL,
+      rightClass:armAnalysis.right?.key || null,
+      leftClass:armAnalysis.left?.key || null,
+      rightRatioZX:armAnalysis.right?.ratio ?? null,
+      leftRatioZX:armAnalysis.left?.ratio ?? null,
+      rightPeakDelta:armAnalysis.right?.peakDelta || null,
+      leftPeakDelta:armAnalysis.left?.peakDelta || null
+    },
+    readiness:{
+      version:ARM_READINESS_CFG.version,
+      locale:activeArmLocaleMeta?.locale || T?.code || null,
+      localePackVersion:activeArmLocaleMeta?.packVersion || null,
+      config:{
+        sampleFreshMs:ARM_READINESS_CFG.sampleFreshMs,
+        sensorWaitTimeoutMs:ARM_READINESS_CFG.sensorWaitTimeoutMs,
+        preMeasureMaxDeltaDeg:ARM_READINESS_CFG.preMeasureMaxDeltaDeg,
+        movedFromRestMinDeg:ARM_READINESS_CFG.movedFromRestMinDeg,
+        enforcePortraitScreen:ARM_READINESS_CFG.enforcePortraitScreen,
+        enforceTopUp:ARM_READINESS_CFG.enforceTopUp,
+        enforceMovedFromRest:ARM_READINESS_CFG.enforceMovedFromRest
+      },
+      permission:{...sensorPermission},
+      attempts:armReadinessAttempts.map(attempt => ({
+        ...attempt,
+        startedAtPerf:undefined,
+        events:attempt.events.map(event => ({...event}))
+      })),
+      sensorSummary:{
+        validSampleCount:validSensorSampleCount,
+        invalidSampleCount:invalidSensorSampleCount,
+        sourceSwitchCount:sensorSourceSwitchCount,
+        lastSource:gravitySource || null
+      }
+    },
+    researchMetrics:{
+      legacyArmScore:armScore,
+      rightScore:scoreR,
+      leftScore:scoreL
+    },
+    persistenceErrors:[...armPersistenceErrors],
+    versionSnapshot:ARM_DATA_CONTRACT?.createVersionSnapshot?.('arm') || null
+  };
+
   // Dev trials intentionally include arm lowering and wrist rotation; do not
   // overwrite the user's real FAST result or create flow-navigation buttons.
   if (!ARM_DEV_MODE) {
-    sessionStorage.setItem('fast_arm', JSON.stringify({
-      score: armScore,
-      riskLevel,
-      passed: ok,
-      breakdown: {
-        rightDrift: driftValues.right,
-        leftDrift: driftValues.left,
-        rightScore: scoreR,
-        leftScore: scoreL,
-        rightClass: armAnalysis.right?.key || null,
-        leftClass: armAnalysis.left?.key || null,
-        rightRatioZX: armAnalysis.right?.ratio ?? null,
-        leftRatioZX: armAnalysis.left?.ratio ?? null,
-        rightPeakDelta: armAnalysis.right?.peakDelta || null,
-        leftPeakDelta: armAnalysis.left?.peakDelta || null
-      },
-      readiness: {
-        version: ARM_READINESS_CFG.version,
-        locale: activeArmLocaleMeta?.locale || T?.code || null,
-        localePackVersion: activeArmLocaleMeta?.packVersion || null,
-        config: {
-          sampleFreshMs: ARM_READINESS_CFG.sampleFreshMs,
-          sensorWaitTimeoutMs: ARM_READINESS_CFG.sensorWaitTimeoutMs,
-          preMeasureMaxDeltaDeg: ARM_READINESS_CFG.preMeasureMaxDeltaDeg,
-          movedFromRestMinDeg: ARM_READINESS_CFG.movedFromRestMinDeg,
-          enforcePortraitScreen: ARM_READINESS_CFG.enforcePortraitScreen,
-          enforceTopUp: ARM_READINESS_CFG.enforceTopUp,
-          enforceMovedFromRest: ARM_READINESS_CFG.enforceMovedFromRest
-        },
-        permission: { ...sensorPermission },
-        attempts: armReadinessAttempts.map(attempt => ({
-          ...attempt,
-          startedAtPerf: undefined,
-          events: attempt.events.map(event => ({ ...event }))
-        })),
-        sensorSummary: {
-          validSampleCount: validSensorSampleCount,
-          invalidSampleCount: invalidSensorSampleCount,
-          sourceSwitchCount: sensorSourceSwitchCount,
-          lastSource: gravitySource || null
-        }
-      }
-    }));
+    sessionStorage.setItem('fast_arm', JSON.stringify(armPayload));
+    sessionStorage.setItem('fast_arm_research_latest', JSON.stringify(armPayload));
     sessionStorage.setItem('fast_result_source', 'arm');
-
     handleArmFastFlow();
   }
+  finalizeArmModuleRun(armPayload, {writeProjection:!ARM_DEV_MODE});
   const fb = $('final-banner');
   fb.className = ok?'ok':'bad'; fb.style.display='flex';
   $('fb-icon').textContent  = ok?'✅':'⚠️';
@@ -3599,6 +4131,7 @@ function handleBtn() {
 
 /* 🛠️ ฟังก์ชันสำหรับสลับกลับไปหน้าเลือกภาษา (Reset ทั้งหมดพร้อมย้ายหน้าจอ) */
 function navToLangScreen() {
+  finalizeOpenArmLifecycle('USER_NAVIGATED_AWAY');
   if (measureTimer) { clearInterval(measureTimer); measureTimer = null; }
   if (preMeasureTimer) { clearTimeout(preMeasureTimer); preMeasureTimer = null; }
   if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
@@ -3612,6 +4145,9 @@ function navToLangScreen() {
 
 function resetAll() {
   updateArmDevHUD();
+  armModuleRunRecord = null;
+  activeArmAttemptRecord = null;
+  selectedArmAttemptIds = { left:null, right:null };
   removeFastNavButton();
   phase='IDLE'; arm='left'; results={right:null,left:null};
   gravityBase=null;
@@ -3684,6 +4220,7 @@ function warnKey(key, title, sub, voiceTxt) {
 }
 
 function goArmHome(){
+  finalizeOpenArmLifecycle('USER_NAVIGATED_AWAY');
   if (measureTimer) { clearInterval(measureTimer); measureTimer = null; }
   if (preMeasureTimer) { clearTimeout(preMeasureTimer); preMeasureTimer = null; }
   if (retryTimer) { clearInterval(retryTimer); retryTimer = null; }
@@ -3956,6 +4493,12 @@ function handleArmFastFlow() {
     dock.classList.add('split');
   }, 700);
 }
+
+window.addEventListener('pagehide', () => {
+  if (armModuleRunRecord?.moduleRunStatus === 'in_progress') {
+    finalizeOpenArmLifecycle('PAGE_HIDDEN');
+  }
+});
 
 window.addEventListener('error', event => {
   armLastRuntimeError = String(event?.message || 'Unknown runtime error').slice(0, 180);
