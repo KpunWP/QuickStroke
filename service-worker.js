@@ -1,4 +1,4 @@
-/* QuickStroke Service Worker — Offline-Ready Face + Speech Edition (v20)
+/* QuickStroke Service Worker — Offline-Ready Face + Speech Edition (v22)
  *
  * กลยุทธ์:
  * - HTML: network-first พร้อม timeout 3 วินาที
@@ -7,7 +7,7 @@
  * - JS / JSON / รูปภาพ: stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v21";
+const CACHE_NAME = "quickstroke-pwa-v22";
 const CACHE_PREFIX = "quickstroke-pwa-";
 
 const CORE_SHELL = [
@@ -20,6 +20,7 @@ const CORE_SHELL = [
   "/config.js",
   "/js/data-contract.js",
   "/js/research-store.js",
+  "/js/dev-mode.js",
 
   "/js/i18n.js",
   "/js/languages.js",

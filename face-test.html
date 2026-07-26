@@ -1647,6 +1647,7 @@
 <script src="config.js?v=20260725-face-contract-v2"></script>
 <script src="./js/data-contract.js?v=20260725-data-contract-v2"></script>
 <script src="./js/research-store.js?v=20260725-research-store-v2"></script>
+<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1763,8 +1764,8 @@
 <script type="module">
 'use strict';
 
-// Developer UI is hidden in production. Open face-test.html?dev=1 to enable it.
-const FACE_DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
+// Developer UI follows the global Dev Mode switch on Index; ?dev=1 remains a fallback.
+const FACE_DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
 document.body.classList.toggle('dev-mode', FACE_DEV_MODE);
 
 // tasks-vision is imported dynamically inside loadModel() so that a failed/blocked
@@ -1807,12 +1808,11 @@ window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD �
 const videoEl = document.getElementById('video');
 
 /* ═══════════════ DEV MESH OVERLAY (demo/debug only) ═══════════════
- * เปิดด้วย ?dev=1 หรือ ?mesh=1 ใน URL — ไม่กระทบผู้ใช้ปกติ
+ * เปิดจาก Global Dev Mode หรือใช้ ?mesh=1 เฉพาะ mesh — ไม่กระทบผู้ใช้ปกติ
  * ใช้สำหรับอัดคลิป demo + debug landmark ระหว่างเฟสพัฒนา
  * ตอน deploy production จริง (เก็บข้อมูลผู้ป่วย) ให้ลบบล็อกนี้ออก
  */
-const DEV_MESH = new URLSearchParams(location.search).has('dev')
-              || new URLSearchParams(location.search).has('mesh');
+const DEV_MESH = FACE_DEV_MODE || new URLSearchParams(location.search).has('mesh');
 let meshOn = DEV_MESH; // เปิด mesh ทันทีถ้าอยู่ใน dev mode
 const meshCanvas = document.getElementById('canvas');
 const meshCtx = meshCanvas ? meshCanvas.getContext('2d') : null;

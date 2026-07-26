@@ -38,7 +38,11 @@
     "statusDone": "เสร็จแล้ว",
     "statusRetry": "ลองใหม่",
     "statusCaution": "ควรระวัง",
-    "statusDetected": "พบสัญญาณ"
+    "statusDetected": "พบสัญญาณ",
+    "devModeEnable": "เปิด",
+    "devModeDisable": "ปิด",
+    "devModeOn": "โหมดผู้พัฒนาเปิดอยู่ทุกหน้า",
+    "devModeOff": "โหมดผู้พัฒนาปิดอยู่"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",

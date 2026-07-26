@@ -860,6 +860,7 @@
 <script src="config.js"></script>
 <script src="./js/data-contract.js?v=20260725-data-contract-v2"></script>
 <script src="./js/research-store.js?v=20260725-research-store-v2"></script>
+<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260717-lang-v1"></script>
 <script src="./js/i18n.js"></script>  
@@ -1284,10 +1285,10 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 let cleanupPromise = Promise.resolve();
 
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
-// เปิดใช้โดยเติม ?dev=1 ท้าย URL เช่น /speech-test.html?dev=1
+// เปิดจาก Global Dev Mode ที่หน้า Index; ?dev=1 ยังใช้เป็น fallback ได้
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
 const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.7.1 — incomplete-ASR indeterminate display fix';
-const DEBUG_ON = new URLSearchParams(location.search).get('dev') === '1';
+const DEBUG_ON = window.QuickStrokeDevMode?.isEnabled?.() === true;
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
 

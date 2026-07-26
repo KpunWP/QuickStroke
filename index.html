@@ -197,6 +197,23 @@
     font-size:16px;font-weight:700;line-height:1.5;
   }
   .clear-zone{padding:10px 22px 0}
+
+  .dev-zone{padding:14px 22px 0}
+  .dev-card{
+    padding:14px;border-radius:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;
+    background:rgba(23,37,54,.055);border:1px dashed rgba(23,37,54,.20);
+  }
+  .dev-copy{min-width:0;text-align:left}
+  .dev-eyebrow{color:var(--ink-faint);font-family:'Manrope',sans-serif;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+  .dev-status{margin-top:2px;color:var(--ink-soft);font-size:14px;font-weight:750;line-height:1.35}
+  .dev-toggle{
+    min-width:116px;min-height:46px;padding:9px 13px;border:1.5px solid rgba(43,125,233,.24);border-radius:16px;
+    background:#fff;color:var(--clinical-deep);font-size:14px;font-weight:800;cursor:pointer;
+    box-shadow:0 5px 15px rgba(27,42,58,.06);transition:transform .12s,background .15s,color .15s,border-color .15s;
+  }
+  .dev-toggle:active{transform:scale(.97)}
+  .dev-toggle[aria-pressed="true"]{background:#172536;color:#7CFFB2;border-color:#172536}
+
   .btn-clear{
     display:none;width:100%;min-height:54px;border:1.5px solid var(--line);border-radius:18px;
     background:#fff;color:var(--ink-soft);font-family:inherit;font-size:16px;font-weight:750;
@@ -300,7 +317,7 @@
     .hero{padding-left:18px;padding-right:18px}
     .actions{padding-left:18px;padding-right:18px}
     .emergency{margin-left:18px;margin-right:18px}
-    .clear-zone{padding-left:18px;padding-right:18px}
+    .clear-zone,.dev-zone{padding-left:18px;padding-right:18px}
     .module-choice{padding-left:4px;padding-right:4px}
     .module-icon{width:44px;height:44px}
     .module-state{font-size:13px}
@@ -330,6 +347,7 @@
 <script src="config.js"></script>
 <script src="./js/data-contract.js?v=20260725-data-contract-v2"></script>
 <script src="./js/research-store.js?v=20260725-research-store-v2"></script>
+<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 </head>
 <body>
 <div class="app-shell">
@@ -419,6 +437,22 @@
         data-i18n="index.newPersonButton"
       >เริ่มรายใหม่</button>
     </div>
+
+    <section class="dev-zone" aria-labelledby="dev-mode-title">
+      <div class="dev-card">
+        <div class="dev-copy">
+          <div class="dev-eyebrow" id="dev-mode-title">DEV MODE</div>
+          <div class="dev-status" id="dev-mode-status" aria-live="polite">โหมดผู้พัฒนาปิดอยู่</div>
+        </div>
+        <button
+          type="button"
+          class="dev-toggle"
+          id="dev-mode-toggle"
+          aria-pressed="false"
+          onclick="toggleGlobalDevMode()"
+        >เปิด</button>
+      </div>
+    </section>
   </main>
 </div>
 
@@ -494,6 +528,7 @@
 const MODULES = Object.freeze(['face', 'arm', 'speech']);
 const DATA_CONTRACT = window.QuickStrokeDataContract;
 const RESEARCH_STORE = window.QuickStrokeResearchStore;
+const DEV_MODE = window.QuickStrokeDevMode;
 const LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze({ th:'th-TH', en:'en-US', ja:'ja-JP' });
 
 if (!DATA_CONTRACT) {
@@ -594,6 +629,32 @@ async function prepareScreeningSession(mode) {
   const context = ensureScreeningSession(false, mode);
   await persistScreeningSessionIfNeeded(context);
   return context;
+}
+
+function updateGlobalDevModeUi() {
+  const enabled = DEV_MODE?.isEnabled?.() === true;
+  const button = document.getElementById('dev-mode-toggle');
+  const status = document.getElementById('dev-mode-status');
+  if (button) {
+    button.setAttribute('aria-pressed', String(enabled));
+    button.textContent = enabled
+      ? tr('index.devModeDisable', 'ปิด')
+      : tr('index.devModeEnable', 'เปิด');
+  }
+  if (status) {
+    status.textContent = enabled
+      ? tr('index.devModeOn', 'โหมดผู้พัฒนาเปิดอยู่ทุกหน้า')
+      : tr('index.devModeOff', 'โหมดผู้พัฒนาปิดอยู่');
+  }
+}
+
+function toggleGlobalDevMode() {
+  if (!DEV_MODE) {
+    console.error('QuickStrokeDevMode failed to load.');
+    return;
+  }
+  DEV_MODE.toggle({ source:'index_button' });
+  updateGlobalDevModeUi();
 }
 
 function interpolate(text, params = {}) {
@@ -698,6 +759,7 @@ async function setLang(requestedLang) {
   sessionStorage.setItem('fast_lang', lang);
   updateEmergencyAction();
   updateProgress();
+  updateGlobalDevModeUi();
 }
 
 function updateEmergencyAction() {
@@ -892,6 +954,8 @@ function acceptDisclaimer() {
   document.getElementById('disclaimer-overlay')?.classList.remove('show');
 }
 
+window.addEventListener('quickstroke:dev-mode-change', updateGlobalDevModeUi);
+
 window.addEventListener('quickstroke:research-store-error', (event) => {
   const detail = event?.detail || {};
   markResearchStoreStatus('failed', detail);
@@ -922,6 +986,7 @@ window.addEventListener('quickstroke:research-store-error', (event) => {
     persistScreeningSessionIfNeeded(context)
   ]);
 
+  updateGlobalDevModeUi();
   showDisclaimerIfNeeded();
 })();
 </script>

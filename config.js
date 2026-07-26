@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.8",
-  buildId: "20260725-face-contract-v2",
-  configVersion: "quickstroke-config-1.0.8",
+  version: "1.0.9",
+  buildId: "20260726-global-dev-mode-v1",
+  configVersion: "quickstroke-config-1.0.9",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
@@ -36,6 +36,8 @@ window.QS_CONFIG = {
   resultDiagnostics: {
     version: "result-dev-diagnostics-1.0.0",
     enabledQuery: "dev=1",
+    globalDevModeKey: "quickstroke_dev_mode",
+    globalDevModeVersion: "quickstroke-dev-mode-0.1.0",
     sanitized: true,
     rawPayloadIncluded: false
   },

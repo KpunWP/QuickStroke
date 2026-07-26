@@ -787,6 +787,7 @@
   </script>
   <script src="./js/data-contract.js?v=20260725-data-contract-v2"></script>
   <script src="./js/research-store.js?v=20260725-research-store-v2"></script>
+<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
   <script src="./js/languages.js?v=20260717-lang-v1"></script>
   <script src="./js/i18n.js">
   </script>
@@ -861,7 +862,10 @@
     <div class="dev-card">
      <div class="dev-header">
       <div class="dev-title">Result decision diagnostic</div>
-      <button class="dev-copy-button" id="copy-dev-log" type="button">Copy log</button>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+       <button class="dev-copy-button" id="copy-dev-log" type="button">Copy result</button>
+       <button class="dev-copy-button" id="copy-session-log" type="button">Copy session</button>
+      </div>
      </div>
      <div aria-live="polite" class="dev-copy-status" id="dev-copy-status"></div>
      <pre class="dev-log" id="dev-log"></pre>
@@ -894,7 +898,7 @@
    });
    const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
    const QUERY_PARAMS = new URLSearchParams(location.search);
-   const DEV_MODE = QUERY_PARAMS.get('dev') === '1';
+   const DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
    const RESEARCH_MODE = DEV_MODE || QUERY_PARAMS.get('research') === '1' || window
      .QS_CONFIG?.researchMode === true;
    const RESULT_DIAGNOSTIC_VERSION = window.QS_CONFIG?.resultDiagnostics?.version ||
@@ -1703,18 +1707,32 @@
      const logElement = document.getElementById('dev-log');
      const statusElement = document.getElementById('dev-copy-status');
      const copyButton = document.getElementById('copy-dev-log');
+     const copySessionButton = document.getElementById('copy-session-log');
      logElement.textContent = CURRENT_DEV_LOG;
      statusElement.textContent = '';
-     copyButton.textContent = 'Copy log';
+     copyButton.textContent = 'Copy result';
      copyButton.onclick = async () => {
        try {
          await copyText(CURRENT_DEV_LOG);
          copyButton.textContent = 'Copied';
-         statusElement.textContent = 'Diagnostic log copied to clipboard.';
+         statusElement.textContent = 'Result diagnostic copied to clipboard.';
        } catch (error) {
          console.error('[QuickStroke result diagnostic] Copy failed', error);
          copyButton.textContent = 'Copy failed';
          statusElement.textContent = 'Copy failed. Select the log text manually.';
+       }
+     };
+
+     copySessionButton.textContent = 'Copy session';
+     copySessionButton.onclick = async () => {
+       try {
+         await window.QuickStrokeDevMode.copyCurrentSessionLog();
+         copySessionButton.textContent = 'Copied';
+         statusElement.textContent = 'Full session research log copied to clipboard.';
+       } catch (error) {
+         console.error('[QuickStroke session export] Copy failed', error);
+         copySessionButton.textContent = 'Copy failed';
+         statusElement.textContent = 'Session log is unavailable or could not be copied.';
        }
      };
 

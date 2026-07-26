@@ -38,7 +38,11 @@
     "statusDone": "完了",
     "statusRetry": "再試行",
     "statusCaution": "注意",
-    "statusDetected": "サインあり"
+    "statusDetected": "サインあり",
+    "devModeEnable": "オン",
+    "devModeDisable": "オフ",
+    "devModeOn": "開発者モードは全ページで有効です",
+    "devModeOff": "開発者モードはオフです"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",

@@ -38,7 +38,11 @@
     "statusDone": "Complete",
     "statusRetry": "Retry",
     "statusCaution": "Caution",
-    "statusDetected": "Sign found"
+    "statusDetected": "Sign found",
+    "devModeEnable": "Enable",
+    "devModeDisable": "Disable",
+    "devModeOn": "Developer mode is active on every page",
+    "devModeOff": "Developer mode is off"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",
