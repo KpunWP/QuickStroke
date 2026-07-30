@@ -2227,7 +2227,11 @@ async function flushFaceResearchPersistence(){
   try { await facePersistenceChain; } catch (error) {}
   return facePersistenceErrors.length === 0;
 }
+function pendingFaceModuleRetry(){
+  return FACE_DATA_CONTRACT?.getPendingModuleRetry?.('face') || null;
+}
 function faceModuleRunTrigger(previousPhase){
+  if (pendingFaceModuleRetry()) return 'result_retry';
   if (previousPhase === 'FACE_DONE' || previousPhase === 'CRITICAL_ASYMMETRY') return 'result_retry';
   if (['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(previousPhase)) return 'resume_existing_session';
   return sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_start';
@@ -2304,15 +2308,20 @@ function beginFaceAttempt({trigger='initial_attempt', retryOfAttemptId=null, tri
   return attemptForStorage;
 }
 function beginFaceModuleRun(previousPhase='BEFORE_START', startedAt=null){
+  const previousModuleRunId = faceModuleRunRecord?.moduleRunId || null;
   if (faceModuleRunRecord?.moduleRunStatus === 'in_progress') {
     finalizeOpenFaceLifecycle('USER_RESTARTED_MODULE');
   }
   const trigger = faceModuleRunTrigger(previousPhase);
   if (FACE_DATA_CONTRACT) {
+    const pendingRetry = pendingFaceModuleRetry();
     faceModuleRunRecord = FACE_DATA_CONTRACT.createModuleRun({
       module:'face',
       trigger,
       targetOrder:['face'],
+      retryOfModuleRunId:trigger === 'result_retry' ? pendingRetry?.previousModuleRunId || previousModuleRunId : null,
+      runContextMode:sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_flow',
+      localeUsed:document.documentElement.lang || sessionStorage.getItem('fast_lang') || null,
       startedAt:startedAt || new Date().toISOString()
     });
   } else {

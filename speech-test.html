@@ -1602,19 +1602,28 @@ async function flushSpeechResearchPersistence() {
   try { await speechPersistenceChain; } catch (error) {}
 }
 
+function pendingSpeechModuleRetry() {
+  return SPEECH_DATA_CONTRACT?.getPendingModuleRetry?.('speech') || null;
+}
 function speechModuleRunTrigger(trigger = 'initial_start') {
-  if (trigger === 'user_retry') return 'result_retry';
+  if (pendingSpeechModuleRetry() || trigger === 'user_retry') return 'result_retry';
   const mode = sessionStorage.getItem('fast_mode');
   return mode === 'full' ? 'full_flow' : 'individual_start';
 }
 
 function beginSpeechModuleRun(trigger = 'initial_start') {
   const startedAt = new Date().toISOString();
+  const previousModuleRunId = speechModuleRunRecord?.moduleRunId || null;
   if (SPEECH_DATA_CONTRACT) {
+    const moduleRunTrigger = speechModuleRunTrigger(trigger);
+    const pendingRetry = pendingSpeechModuleRetry();
     speechModuleRunRecord = SPEECH_DATA_CONTRACT.createModuleRun({
       module:'speech',
-      trigger:speechModuleRunTrigger(trigger),
+      trigger:moduleRunTrigger,
       targetOrder:['speech'],
+      retryOfModuleRunId:moduleRunTrigger === 'result_retry' ? pendingRetry?.previousModuleRunId || previousModuleRunId : null,
+      runContextMode:sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_flow',
+      localeUsed:document.documentElement.lang || sessionStorage.getItem('fast_lang') || null,
       startedAt
     });
   } else {

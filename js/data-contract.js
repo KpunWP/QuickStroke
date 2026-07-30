@@ -118,7 +118,8 @@
     sessionSchemaVersion: 'fast_session_schema_version',
     manifestVersion: 'fast_baseline_manifest_version',
     sessionMode: 'fast_mode',
-    resultSource: 'fast_result_source'
+    resultSource: 'fast_result_source',
+    pendingModuleRetry: 'fast_pending_module_retry'
   });
 
   const MODULE_VERSION_FALLBACKS = Object.freeze({
@@ -428,6 +429,9 @@
       module,
       trigger = 'full_flow',
       targetOrder = null,
+      retryOfModuleRunId = null,
+      runContextMode = null,
+      localeUsed = null,
       startedAt = nowIso()
     } = options;
 
@@ -446,6 +450,8 @@
 
     return Object.freeze({
       schemaVersion: CONTRACT_VERSION,
+      commonDataModelVersion: CONTRACT_VERSION,
+      moduleRunSchemaVersion: 'module-run-0.1.0',
       recordType: 'module_run',
       participantId: context.participantId,
       screeningSessionId: context.screeningSessionId,
@@ -454,10 +460,16 @@
       moduleRunSequenceNo,
       module,
       moduleRunTrigger: trigger,
+      retryOfModuleRunId: retryOfModuleRunId || null,
+      runContextMode: runContextMode || (context.sessionMode === 'full' ? 'full_flow' : 'individual_flow'),
+      localeUsed: localeUsed || null,
       moduleRunStatus: 'in_progress',
       targetOrder: Array.isArray(targetOrder) ? [...targetOrder] : null,
+      attemptCount: null,
       startedAt,
       completedAt: null,
+      createdAt: startedAt,
+      updatedAt: startedAt,
       versionSnapshot: createVersionSnapshot(module)
     });
   }
@@ -465,6 +477,25 @@
   function getCurrentModuleRunId(module) {
     if (!MODULES.includes(module)) return null;
     return sessionStore()?.getItem(currentModuleRunKey(module)) || null;
+  }
+
+  function getPendingModuleRetry(module) {
+    if (!MODULES.includes(module)) return null;
+    const store = sessionStore();
+    if (!store) return null;
+    try {
+      const parsed = JSON.parse(store.getItem(SESSION_KEYS.pendingModuleRetry) || 'null');
+      if (!parsed || parsed.module !== module) return null;
+      if (typeof parsed.previousModuleRunId !== 'string' || !parsed.previousModuleRunId.trim()) return null;
+      return Object.freeze({
+        module,
+        previousModuleRunId: parsed.previousModuleRunId,
+        requestedAt: typeof parsed.requestedAt === 'string' ? parsed.requestedAt : null
+      });
+    } catch (error) {
+      console.warn('[QuickStrokeDataContract] Invalid pending module retry marker.', error);
+      return null;
+    }
   }
 
   function createTestAttempt(options = {}) {
@@ -1046,6 +1077,7 @@
     closeScreeningSession,
     createModuleRun,
     getCurrentModuleRunId,
+    getPendingModuleRetry,
     createTestAttempt,
     createModuleMeasurement,
     finalizeAttempt,

@@ -416,6 +416,7 @@
 
       if (!next.completedAt) next.completedAt = nowIso();
       if (!next.finalizedAt) next.finalizedAt = nowIso();
+      next.updatedAt = nowIso();
       store.put(next);
       await transactionDone;
       return next;

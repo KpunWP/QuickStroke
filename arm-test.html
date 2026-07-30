@@ -2268,6 +2268,7 @@ let pendingRetryReason = null;
 // Canonical Arm research lifecycle. The existing readiness objects remain as
 // compatibility summaries; these records are the immutable source of truth.
 let armModuleRunRecord = null;
+let previousArmModuleRunIdForRetry = null;
 let activeArmAttemptRecord = null;
 let lastCompletedArmAttemptBySide = { left:null, right:null };
 let selectedArmAttemptIds = { left:null, right:null };
@@ -2615,7 +2616,11 @@ function armMeasurementTarget(side = arm) {
   return side === 'right' ? 'right_arm' : 'left_arm';
 }
 
+function pendingArmModuleRetry() {
+  return ARM_DATA_CONTRACT?.getPendingModuleRetry?.('arm') || null;
+}
 function armModuleRunTrigger() {
+  if (pendingArmModuleRetry() || (pendingRetryReason === 'full_test_retry' && previousArmModuleRunIdForRetry)) return 'result_retry';
   return sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_start';
 }
 
@@ -2631,10 +2636,15 @@ function ensureArmModuleRun() {
   const startedAt = new Date().toISOString();
   const context = getArmScreeningContext();
   if (ARM_DATA_CONTRACT) {
+    const trigger = armModuleRunTrigger();
+    const pendingRetry = pendingArmModuleRetry();
     armModuleRunRecord = ARM_DATA_CONTRACT.createModuleRun({
       module:'arm',
-      trigger:armModuleRunTrigger(),
+      trigger,
       targetOrder:['left_arm','right_arm'],
+      retryOfModuleRunId:trigger === 'result_retry' ? pendingRetry?.previousModuleRunId || previousArmModuleRunIdForRetry : null,
+      runContextMode:sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_flow',
+      localeUsed:document.documentElement.lang || sessionStorage.getItem('fast_lang') || null,
       startedAt
     });
   } else {
@@ -4142,6 +4152,7 @@ function navToLangScreen() {
 
 function resetAll() {
   updateArmDevHUD();
+  if (armModuleRunRecord?.moduleRunId) previousArmModuleRunIdForRetry = armModuleRunRecord.moduleRunId;
   armModuleRunRecord = null;
   activeArmAttemptRecord = null;
   selectedArmAttemptIds = { left:null, right:null };
