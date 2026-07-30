@@ -357,6 +357,11 @@
      transform: scale(.98)
    }
 
+   .module-tile[role="button"]:focus-visible {
+     outline: 3px solid rgba(23, 111, 209, .28);
+     outline-offset: 2px
+   }
+
    .module-icon {
      width: 43px;
      height: 43px;
@@ -1760,8 +1765,8 @@
      return {
        cls,
        text: cls === 'ok' ? T.moduleOk : cls === 'warn' ? T.moduleReview : T.moduleBad,
-       action: '',
-       actionable: false
+       action: T.retryModule,
+       actionable: true
      }
    }
 
