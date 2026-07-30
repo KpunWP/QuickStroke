@@ -879,6 +879,8 @@
       <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
        <button class="dev-copy-button" id="copy-dev-log" type="button">Copy result</button>
        <button class="dev-copy-button" id="copy-session-log" type="button">Copy session</button>
+       <button class="dev-copy-button" id="share-session-log" type="button">Share session TXT</button>
+       <button class="dev-copy-button" id="download-session-log" type="button">Download session TXT</button>
       </div>
      </div>
      <div aria-live="polite" class="dev-integrity-summary" id="dev-integrity-summary"></div>
@@ -2169,6 +2171,8 @@
      const statusElement = document.getElementById('dev-copy-status');
      const copyButton = document.getElementById('copy-dev-log');
      const copySessionButton = document.getElementById('copy-session-log');
+     const shareSessionButton = document.getElementById('share-session-log');
+     const downloadSessionButton = document.getElementById('download-session-log');
      logElement.textContent = CURRENT_DEV_LOG;
      const integrity = r.integrity || { status: 'unknown', errors: [], warnings: [] };
      integrityElement.className = `dev-integrity-summary ${integrity.status || 'warning'}`;
@@ -2205,6 +2209,52 @@
          console.error('[QuickStroke session export] Copy failed', error);
          copySessionButton.textContent = 'Copy failed';
          statusElement.textContent = 'Session log is unavailable or could not be copied.';
+       }
+     };
+
+
+     shareSessionButton.textContent = 'Share session TXT';
+     shareSessionButton.onclick = async () => {
+       shareSessionButton.disabled = true;
+       shareSessionButton.textContent = 'Preparing…';
+       statusElement.textContent = 'Preparing the full session TXT file…';
+       try {
+         const result = await window.QuickStrokeDevMode.shareCurrentSessionFile();
+         shareSessionButton.textContent = 'Shared';
+         statusElement.textContent = `Session TXT shared: ${result.filename}`;
+       } catch (error) {
+         if (error?.name === 'AbortError') {
+           shareSessionButton.textContent = 'Share session TXT';
+           statusElement.textContent = 'Sharing was cancelled.';
+         } else if (error?.code === 'FILE_SHARE_UNSUPPORTED') {
+           console.warn('[QuickStroke session export] File sharing unsupported', error);
+           shareSessionButton.textContent = 'Share unavailable';
+           statusElement.textContent = 'This browser cannot share a file. Use Download session TXT instead.';
+         } else {
+           console.error('[QuickStroke session export] Share failed', error);
+           shareSessionButton.textContent = 'Share failed';
+           statusElement.textContent = 'The session TXT file could not be shared. Use Download session TXT instead.';
+         }
+       } finally {
+         shareSessionButton.disabled = false;
+       }
+     };
+
+     downloadSessionButton.textContent = 'Download session TXT';
+     downloadSessionButton.onclick = async () => {
+       downloadSessionButton.disabled = true;
+       downloadSessionButton.textContent = 'Preparing…';
+       statusElement.textContent = 'Preparing the full session TXT file…';
+       try {
+         const result = await window.QuickStrokeDevMode.downloadCurrentSessionFile();
+         downloadSessionButton.textContent = 'Downloaded';
+         statusElement.textContent = `Session TXT downloaded: ${result.filename}`;
+       } catch (error) {
+         console.error('[QuickStroke session export] Download failed', error);
+         downloadSessionButton.textContent = 'Download failed';
+         statusElement.textContent = 'The session TXT file could not be downloaded.';
+       } finally {
+         downloadSessionButton.disabled = false;
        }
      };
 

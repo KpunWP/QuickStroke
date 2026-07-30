@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.15",
-  buildId: "20260730-common-lineage-v1",
-  configVersion: "quickstroke-config-1.0.15",
+  version: "1.0.16",
+  buildId: "20260730-session-file-share-v1",
+  configVersion: "quickstroke-config-1.0.16",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],

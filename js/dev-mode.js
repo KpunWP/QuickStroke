@@ -1,4 +1,4 @@
-/* QuickStroke global developer mode — v0.1.0
+/* QuickStroke global developer mode — v0.2.0
  *
  * Load after config.js, data-contract.js and research-store.js.
  * Developer mode changes visibility and logging only. It must never change
@@ -9,7 +9,7 @@
 
   if (global.QuickStrokeDevMode) return;
 
-  const VERSION = 'quickstroke-dev-mode-0.1.0';
+  const VERSION = 'quickstroke-dev-mode-0.2.0';
   const STORAGE_KEY = 'quickstroke_dev_mode';
   const LEGACY_STORAGE_KEY = 'fast_dev_mode';
   const CHANGE_EVENT = 'quickstroke:dev-mode-change';
@@ -279,6 +279,78 @@
     return text;
   }
 
+  function safeFilenamePart(value, fallback = 'unknown') {
+    const normalized = String(value || fallback)
+      .trim()
+      .replace(/[^A-Za-z0-9._-]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    return normalized || fallback;
+  }
+
+  function compactUtcTimestamp(value = new Date()) {
+    const date = value instanceof Date ? value : new Date(value);
+    if (Number.isNaN(date.getTime())) return 'unknown-time';
+    return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  }
+
+  async function buildCurrentSessionTextFile() {
+    const payload = await exportCurrentSession();
+    const text = JSON.stringify(payload, null, 2);
+    const sessionId = safeFilenamePart(payload?.screeningSession?.screeningSessionId, 'unknown-session');
+    const exportedAt = compactUtcTimestamp(payload?.exportedAt || new Date());
+    const filename = `quickstroke-session_${sessionId}_${exportedAt}.txt`;
+    const file = new File([text], filename, { type: 'text/plain;charset=utf-8' });
+    return { payload, text, filename, file };
+  }
+
+  async function shareCurrentSessionFile() {
+    const prepared = await buildCurrentSessionTextFile();
+    const navigatorObject = global.navigator;
+    if (!navigatorObject?.share) {
+      const error = new Error('File sharing is not supported by this browser.');
+      error.code = 'FILE_SHARE_UNSUPPORTED';
+      throw error;
+    }
+    const shareData = {
+      title: 'QuickStroke session log',
+      text: `QuickStroke session export ${prepared.payload?.screeningSession?.screeningSessionId || ''}`.trim(),
+      files: [prepared.file]
+    };
+    if (navigatorObject.canShare && !navigatorObject.canShare({ files: shareData.files })) {
+      const error = new Error('This browser cannot share files.');
+      error.code = 'FILE_SHARE_UNSUPPORTED';
+      throw error;
+    }
+    await navigatorObject.share(shareData);
+    return {
+      filename: prepared.filename,
+      byteLength: prepared.file.size,
+      screeningSessionId: prepared.payload?.screeningSession?.screeningSessionId || null
+    };
+  }
+
+  async function downloadCurrentSessionFile() {
+    const prepared = await buildCurrentSessionTextFile();
+    if (!global.document || !global.URL?.createObjectURL) {
+      throw new Error('File download is not supported by this browser.');
+    }
+    const url = global.URL.createObjectURL(prepared.file);
+    const anchor = global.document.createElement('a');
+    anchor.href = url;
+    anchor.download = prepared.filename;
+    anchor.rel = 'noopener';
+    anchor.style.display = 'none';
+    global.document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    global.setTimeout(() => global.URL.revokeObjectURL(url), 1000);
+    return {
+      filename: prepared.filename,
+      byteLength: prepared.file.size,
+      screeningSessionId: prepared.payload?.screeningSession?.screeningSessionId || null
+    };
+  }
+
   function initDom() {
     applyDomState();
     if (enabled) {
@@ -307,7 +379,10 @@
     applyDomState,
     logEvent,
     exportCurrentSession,
-    copyCurrentSessionLog
+    copyCurrentSessionLog,
+    buildCurrentSessionTextFile,
+    shareCurrentSessionFile,
+    downloadCurrentSessionFile
   });
 
   Object.defineProperty(global, 'QuickStrokeDevMode', {
