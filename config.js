@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.17",
-  buildId: "20260730-result-module-retry-v1",
-  configVersion: "quickstroke-config-1.0.17",
+  version: "1.0.18",
+  buildId: "20260730-full-retry-speech-ios-v1",
+  configVersion: "quickstroke-config-1.0.18",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
@@ -195,10 +195,10 @@ window.QS_CONFIG = {
 
     speech: {
       // Version identifiers stored with every Speech result.
-      version: "speech-prepilot-1.7.1",
-      algorithmVersion: "speech-browser-asr-1.3.1",
+      version: "speech-prepilot-1.8.0",
+      algorithmVersion: "speech-browser-asr-1.4.0",
       resultSchemaVersion: "speech-result-1.4.1",
-      researchPayloadVersion: "speech-research-0.5.0",
+      researchPayloadVersion: "speech-research-0.5.1",
 
       // Speech phrase scoring v1.1:
       // - browser ASR confidence is stored as a raw observation only
@@ -212,7 +212,7 @@ window.QS_CONFIG = {
       // - phrase, rate, and technical quality are surfaced independently
       // - all numeric scores remain research variables for patient-data analysis
       // - interim-only ASR with coverage below 0.60 is indeterminate, not a phrase alert
-      decisionPolicy: "unvalidated_domain_observation_v1_1",
+      decisionPolicy: "unvalidated_domain_observation_v1_2",
       phraseAlertPolicy: "exact_variant_no_alert_else_attention",
       rateReferencePolicy: "outside_exploratory_range_attention",
       rateMinTranscriptCoverage: 0.60,
@@ -225,7 +225,7 @@ window.QS_CONFIG = {
       // - ASR speech-start confirms onset; calibrated time-domain mic activity trims both ends
       rateScoringPolicy: "target_phrase_units_per_resolved_active_speech_duration",
       rateSpeechUnitSource: "target_phrase_fixed",
-      rateTimingPolicy: "asr_mic_hybrid_v1",
+      rateTimingPolicy: "asr_mic_hybrid_v1_1",
       asrStartPrerollMs: 120,
       micStartPrerollMs: 80,
       micEndPostrollMs: 80,
@@ -236,6 +236,16 @@ window.QS_CONFIG = {
       micSignalOnsetMin: 0.018,
       micSignalOffsetMin: 0.010,
       speechPrerollBufferMs: 400,
+
+      // iOS microphone streams can contain startup transients or prompt leakage.
+      // Discard a short warm-up window, estimate the quiet baseline from a
+      // low percentile, and cap only the technical time-domain VAD thresholds.
+      micCalibrationPolicyVersion: "speech-mic-calibration-ios-robust-1.0.0",
+      micCalibrationWarmupMs: 400,
+      micCalibrationQuietPercentile: 0.35,
+      micCalibrationHighPercentile: 0.90,
+      micSignalOnsetMax: 0.12,
+      micSignalOffsetMax: 0.06,
 
       calibrationMs: 300,
       noiseMultiplier: 2.5,

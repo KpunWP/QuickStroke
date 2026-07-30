@@ -140,10 +140,10 @@
       sensorCapturePolicyVersion: 'arm-sensor-capture-1.0.0'
     }),
     speech: Object.freeze({
-      moduleVersion: 'speech-prepilot-1.7.1',
-      algorithmVersion: 'speech-browser-asr-1.3.1',
+      moduleVersion: 'speech-prepilot-1.8.0',
+      algorithmVersion: 'speech-browser-asr-1.4.0',
       resultSchemaVersion: 'speech-result-1.4.1',
-      researchPayloadVersion: 'speech-research-0.5.0',
+      researchPayloadVersion: 'speech-research-0.5.1',
       measurementDictionaryVersion: 'speech-measurement-0.1.0'
     })
   });
@@ -726,7 +726,8 @@
         resultSchemaVersion: speechConfig.resultSchemaVersion || moduleFallback.resultSchemaVersion,
         researchPayloadVersion: speechConfig.researchPayloadVersion || moduleFallback.researchPayloadVersion,
         measurementDictionaryVersion: moduleFallback.measurementDictionaryVersion,
-        timingPolicyVersion: speechConfig.rateTimingPolicy || null
+        timingPolicyVersion: speechConfig.rateTimingPolicy || null,
+        micCalibrationPolicyVersion: speechConfig.micCalibrationPolicyVersion || null
       };
     }
 

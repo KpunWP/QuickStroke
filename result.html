@@ -2339,14 +2339,26 @@
 
    function retryModule(name) {
      const currentRunId = CURRENT?.data?.[name]?.moduleRunId || null;
+     const canonicalSessionMode = RESULT_DATA_CONTEXT?.session?.sessionMode || null;
+     const storedSessionMode = sessionStorage.getItem('fast_mode');
+     const sessionMode = canonicalSessionMode === 'full' || storedSessionMode === 'full'
+       ? 'full'
+       : 'individual';
+
      sessionStorage.removeItem(`fast_${name}`);
      sessionStorage.setItem('fast_pending_module_retry', JSON.stringify({
        module: name,
        previousModuleRunId: currentRunId,
-       requestedAt: new Date().toISOString()
+       requestedAt: new Date().toISOString(),
+       sessionMode,
+       resultScope: sessionMode === 'full' ? 'combined' : 'individual'
      }));
-     sessionStorage.setItem('fast_mode', 'individual');
-     sessionStorage.setItem('fast_result_source', name);
+     sessionStorage.setItem('fast_mode', sessionMode);
+     if (sessionMode === 'full') {
+       sessionStorage.removeItem('fast_result_source');
+     } else {
+       sessionStorage.setItem('fast_result_source', name);
+     }
      sessionStorage.setItem('fast_lang', LANG);
      location.href = `${name}-test.html`;
    }

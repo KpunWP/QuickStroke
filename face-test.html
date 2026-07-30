@@ -4646,7 +4646,9 @@ function addNavButton(){
     let target = 'result.html';
     let bg = '#1FA98F';
 
-    if (mode === 'full') {
+    const returningFromResultRetry = faceModuleRunRecord?.moduleRunTrigger === 'result_retry'
+      || Boolean(pendingFaceModuleRetry());
+    if (mode === 'full' && !returningFromResultRetry) {
       label = FL.navNext;
       target = 'arm-test.html';
       bg = '#2B7DE9';
