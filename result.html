@@ -1798,10 +1798,13 @@
          `<div class="module-icon">${ICONS[name]}</div><div class="module-name"></div><div class="module-status"></div><div class="module-action"></div>`;
        el.querySelector('.module-name').textContent = T[name];
        el.querySelector('.module-status').textContent = s.text;
-       if (s.actionable && r.state !== 'urgent') {
+       const devUrgentRetryEnabled = DEV_MODE && r.state === 'urgent';
+       if (s.actionable && (r.state !== 'urgent' || devUrgentRetryEnabled)) {
          el.setAttribute('role', 'button');
          el.tabIndex = 0;
-         el.querySelector('.module-action').textContent = s.action;
+         el.querySelector('.module-action').textContent = devUrgentRetryEnabled
+           ? `DEV · ${s.action}`
+           : s.action;
          const go = () => retryModule(name);
          el.onclick = go;
          el.onkeydown = e => {
@@ -2040,6 +2043,7 @@
        missingModules: [...r.missing],
        abnormalModules: [...r.bad],
        historicalAbnormalRetainedModules: MODULES.filter(name => r.data[name]?.historicalAbnormalRetained === true),
+       devUrgentRetryControlsEnabled: DEV_MODE && r.state === 'urgent',
        warningModules: [...r.warn],
        scope: r.scope,
        sourceModule: r.source,

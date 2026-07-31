@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.19",
-  buildId: "20260731-arm-side-lineage-sticky-v1",
-  configVersion: "quickstroke-config-1.0.19",
+  version: "1.0.20",
+  buildId: "20260731-dev-urgent-retry-v1",
+  configVersion: "quickstroke-config-1.0.20",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
