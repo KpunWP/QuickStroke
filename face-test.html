@@ -1645,7 +1645,7 @@
 
 </style>
 <script src="config.js?v=20260725-face-contract-v2"></script>
-<script src="./js/data-contract.js?v=20260726-data-contract-v3"></script>
+<script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
 <script src="./js/research-store.js?v=20260726-research-store-v3"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="fast-permissions.js"></script>
@@ -2319,7 +2319,11 @@ function beginFaceModuleRun(previousPhase='BEFORE_START', startedAt=null){
       module:'face',
       trigger,
       targetOrder:['face'],
-      retryOfModuleRunId:trigger === 'result_retry' ? pendingRetry?.previousModuleRunId || previousModuleRunId : null,
+      retryOfModuleRunId:trigger === 'result_retry'
+        ? FACE_DATA_CONTRACT.resolveRetryParentModuleRunId?.('face', previousModuleRunId)
+          || pendingRetry?.previousModuleRunId
+          || previousModuleRunId
+        : null,
       runContextMode:sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_flow',
       localeUsed:document.documentElement.lang || sessionStorage.getItem('fast_lang') || null,
       startedAt:startedAt || new Date().toISOString()

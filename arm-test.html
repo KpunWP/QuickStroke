@@ -1464,8 +1464,8 @@
     #action-dock #fast-nav-btn{font-size:18px!important;padding-inline:8px!important;}
   }
 </style>
-<script src="config.js?v=20260726-arm-contract-v1"></script>
-<script src="./js/data-contract.js?v=20260726-data-contract-v3"></script>
+<script src="config.js?v=20260731-arm-side-v1"></script>
+<script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
 <script src="./js/research-store.js?v=20260726-research-store-v3"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="fast-permissions.js"></script>
@@ -1947,15 +1947,16 @@ if (Number.isFinite(Number(ARM_CFG.thresholdAlertHoldMs)) &&
 /* ═══════════════════════════════════════════════════════════════
    ARM MEASUREMENT READINESS v1
    - Validation layer only: arm-drift thresholds/scoring stay unchanged.
-   - Top-up and moved-from-rest are collected in shadow mode until the
-     engineering device matrix confirms safe enforcement thresholds.
-   - IMU-only cannot verify the phone side relative to the user's body.
+   - Portrait and top-up are hard technical gates. The iOS gravity Y sign is
+     normalized so a physically top-up phone passes.
+   - IMU-only cannot identify the user's anatomical left/right arm; an explicit
+     side-confirmation tap is therefore required and stored with each attempt.
 ═══════════════════════════════════════════════════════════════ */
 const ARM_READINESS_INPUT = window.QS_CONFIG?.thresholds?.armReadiness || {};
 const ARM_READINESS_CFG = Object.freeze({
   version: typeof ARM_READINESS_INPUT.version === 'string'
     ? ARM_READINESS_INPUT.version
-    : 'arm-readiness-1.0.1',
+    : 'arm-readiness-1.1.0',
   sampleFreshMs: optionalFiniteConfigNumber(
     ARM_READINESS_INPUT.sampleFreshMs,
     Math.max(1500, MOTION_FALLBACK_MS * 2),
@@ -2269,6 +2270,7 @@ let pendingRetryReason = null;
 // compatibility summaries; these records are the immutable source of truth.
 let armModuleRunRecord = null;
 let previousArmModuleRunIdForRetry = null;
+let armSideConfirmation = { side:null, confirmedAt:null, method:null };
 let activeArmAttemptRecord = null;
 let lastCompletedArmAttemptBySide = { left:null, right:null };
 let selectedArmAttemptIds = { left:null, right:null };
@@ -2586,6 +2588,28 @@ async function flushArmResearchPersistence() {
   return armPersistenceErrors.length === 0;
 }
 
+function clearArmSideConfirmation() {
+  armSideConfirmation = { side:null, confirmedAt:null, method:null };
+}
+
+function confirmCurrentArmSide(method = 'explicit_start_button') {
+  armSideConfirmation = { side:arm, confirmedAt:new Date().toISOString(), method };
+  window.QuickStrokeDevMode?.logEvent?.('ARM_SIDE_USER_CONFIRMED', {
+    module:'arm', arm, method, confirmedAt:armSideConfirmation.confirmedAt
+  });
+  return armSideConfirmation;
+}
+
+function armSideIsConfirmed() {
+  return armSideConfirmation.side === arm && Boolean(armSideConfirmation.confirmedAt);
+}
+
+function armStartButtonText(side = arm, retry = false) {
+  if (!T) return retry ? 'Confirm side and retry' : 'Confirm side and start';
+  const key = retry ? `btnConfirmRetry_${side}` : `btnConfirmStart_${side}`;
+  return T[key] || (retry ? T.btnRetryArm : T.btnStart);
+}
+
 function normalizeArmReasonCode(reason) {
   const key = String(reason || 'ARM_ATTEMPT_INVALID').trim().toLowerCase();
   const map = {
@@ -2598,6 +2622,7 @@ function normalizeArmReasonCode(reason) {
     device_flat:'DEVICE_FLAT',
     device_not_upright:'DEVICE_NOT_UPRIGHT',
     device_upside_down:'DEVICE_UPSIDE_DOWN',
+    arm_side_not_confirmed:'ARM_SIDE_NOT_CONFIRMED',
     device_not_moved_from_rest:'DEVICE_NOT_MOVED_FROM_REST',
     sensor_source_changed:'SENSOR_SOURCE_CHANGED',
     screen_orientation_changed:'SCREEN_ORIENTATION_CHANGED',
@@ -2642,7 +2667,11 @@ function ensureArmModuleRun() {
       module:'arm',
       trigger,
       targetOrder:['left_arm','right_arm'],
-      retryOfModuleRunId:trigger === 'result_retry' ? pendingRetry?.previousModuleRunId || previousArmModuleRunIdForRetry : null,
+      retryOfModuleRunId:trigger === 'result_retry'
+        ? ARM_DATA_CONTRACT.resolveRetryParentModuleRunId?.('arm', previousArmModuleRunIdForRetry)
+          || pendingRetry?.previousModuleRunId
+          || previousArmModuleRunIdForRetry
+        : null,
       runContextMode:sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_flow',
       localeUsed:document.documentElement.lang || sessionStorage.getItem('fast_lang') || null,
       startedAt
@@ -2686,6 +2715,10 @@ function finalizeArmPreflightFailure(reason) {
     startedAtUtc:new Date().toISOString(),
     startedAtPerf:performance.now(),
     readinessVersion:ARM_READINESS_CFG.version,
+    confirmedArmSide:armSideConfirmation.side,
+    armSideConfirmationStatus:armSideIsConfirmed() ? 'confirmed' : 'not_confirmed',
+    armSideConfirmationMethod:armSideConfirmation.method,
+    armSideConfirmedAt:armSideConfirmation.confirmedAt,
     status:'in_progress', invalidReason:null, events:[],
     sampleCountAtStart:validSensorSampleCount,
     sourceSwitchCountAtStart:sensorSourceSwitchCount
@@ -2831,8 +2864,12 @@ function persistCanonicalArmAttempt(finalizedAttempt, legacySnapshot, detailSnap
           baseline:cloneArmResearchValue(legacy?.baseline),
           readinessChecks:cloneArmResearchValue(legacy?.readinessChecks || readinessChecks),
           sensorSummary,
-          phoneFacingExpectedSide:'unknown',
-          phoneFacingVerificationMethod:'none_imu_only'
+          phoneFacingExpectedSide:'not_sensor_verifiable',
+          phoneFacingVerificationMethod:'instruction_plus_user_confirmation',
+          confirmedArmSide:legacy?.confirmedArmSide || attemptSnapshot.measurementTarget?.replace('_arm','') || null,
+          armSideConfirmationStatus:legacy?.armSideConfirmationStatus || 'not_confirmed',
+          armSideConfirmationMethod:legacy?.armSideConfirmationMethod || null,
+          armSideConfirmedAt:legacy?.armSideConfirmedAt || null
         }
       });
       await ARM_RESEARCH_STORE.addModuleMeasurement(measurement);
@@ -3005,6 +3042,10 @@ function beginReadinessAttempt() {
     startedAtUtc:new Date().toISOString(),
     startedAtPerf:performance.now(),
     readinessVersion:ARM_READINESS_CFG.version,
+    confirmedArmSide:armSideConfirmation.side,
+    armSideConfirmationStatus:armSideIsConfirmed() ? 'confirmed' : 'not_confirmed',
+    armSideConfirmationMethod:armSideConfirmation.method,
+    armSideConfirmedAt:armSideConfirmation.confirmedAt,
     status:'in_progress',
     invalidReason:null,
     events:[],
@@ -3027,7 +3068,11 @@ function finalizeReadinessAttempt(status, invalidReason = null, details = {}) {
   currentReadinessAttempt.maxAngleFromRestDeg = Number.isFinite(maxAngleFromRest) ? maxAngleFromRest : null;
   currentReadinessAttempt.deviceMovedFromRest =
     maxAngleFromRest >= ARM_READINESS_CFG.movedFromRestMinDeg ? 'pass' : 'fail';
-  currentReadinessAttempt.phoneFacingExpectedSide = 'unknown';
+  currentReadinessAttempt.phoneFacingExpectedSide = 'not_sensor_verifiable';
+  currentReadinessAttempt.armSideConfirmationStatus = armSideIsConfirmed() ? 'confirmed' : 'not_confirmed';
+  currentReadinessAttempt.confirmedArmSide = armSideConfirmation.side;
+  currentReadinessAttempt.armSideConfirmationMethod = armSideConfirmation.method;
+  currentReadinessAttempt.armSideConfirmedAt = armSideConfirmation.confirmedAt;
   currentReadinessAttempt.baseline = baselineMeta ? { ...baselineMeta } : null;
   Object.assign(currentReadinessAttempt, details);
   const legacySnapshot = cloneArmResearchValue({
@@ -3073,9 +3118,12 @@ function evaluateReadiness() {
     window.innerWidth > window.innerHeight;
   const phoneFlat = Math.abs(gravityScreen.z) > FLAT_Z_THR;
   const uprightMagnitudeOk = Math.abs(gravityScreen.y) >= PORTRAIT_Y_MIN;
+  // In the screen frame used by iOS DeviceMotion, an upright/top-up phone has
+  // negative gravity Y. The previous sign was reversed and marked every normal
+  // iPhone attempt as upside-down.
   const topUpStatus =
-    gravityScreen.y >= PORTRAIT_Y_MIN ? 'pass' :
-    gravityScreen.y <= -PORTRAIT_Y_MIN ? 'fail' :
+    gravityScreen.y <= -PORTRAIT_Y_MIN ? 'pass' :
+    gravityScreen.y >= PORTRAIT_Y_MIN ? 'fail' :
     'unknown';
   const movedStatus =
     !restReferenceVector ? 'unknown' :
@@ -3091,13 +3139,15 @@ function evaluateReadiness() {
       !screenLandscape && !phoneFlat && uprightMagnitudeOk ? 'pass' : 'fail',
     deviceNotUpsideDown: topUpStatus,
     orientationStable: 'unknown',
-    phoneFacingExpectedSide: 'unknown',
+    armSideUserConfirmed: armSideIsConfirmed() ? 'pass' : 'fail',
+    phoneFacingExpectedSide: 'not_sensor_verifiable',
     baselineQualityAcceptable: baselineMeta ? 'pass' : 'unknown',
     preMeasurePoseStillValid: currentPreMeasureDelta === null ? 'unknown' : 'pass'
   };
 
   let invalidReason = null;
-  if (!permissionReady) invalidReason = 'permission_denied';
+  if (!armSideIsConfirmed()) invalidReason = 'arm_side_not_confirmed';
+  else if (!permissionReady) invalidReason = 'permission_denied';
   else if (!sensorApiSupported) invalidReason = 'sensor_unsupported';
   else if (!gravityReady) invalidReason = 'sensor_no_samples';
   else if (!fresh) invalidReason = 'sensor_stale';
@@ -3477,7 +3527,12 @@ function tickCalib() {
         screenSource:screenOrientationSnapshot.source,
         deviceMovedFromRest:
           maxAngleFromRest >= ARM_READINESS_CFG.movedFromRestMinDeg ? 'pass' : 'fail',
-        phoneFacingExpectedSide:'unknown',
+        phoneFacingExpectedSide:'not_sensor_verifiable',
+        phoneFacingVerificationMethod:'instruction_plus_user_confirmation',
+        confirmedArmSide:armSideConfirmation.side,
+        armSideConfirmationStatus:armSideIsConfirmed() ? 'confirmed' : 'not_confirmed',
+        armSideConfirmationMethod:armSideConfirmation.method,
+        armSideConfirmedAt:armSideConfirmation.confirmedAt,
         deviceNotUpsideDown:readiness.checks.deviceNotUpsideDown
       };
       readinessChecks.baselineQualityAcceptable = 'pass';
@@ -3866,7 +3921,8 @@ function showArmRetest(a) {
   $('drift-wrap').style.display = 'none';
   $('arm-circle').className = 'arm-circle waiting';
   $('arm-ring').className = 'arm-ring-outer';
-  $('action-btn').textContent = T.btnRetryArm;
+  clearArmSideConfirmation();
+  $('action-btn').textContent = armStartButtonText(arm, true);
   $('action-btn').className = 'amber';
   $('action-btn').disabled = false;
 
@@ -3924,7 +3980,7 @@ function finishArm() {
   $('arm-ring').className   = 'arm-ring-outer';
 
   if (arm==='left') {
-    $('action-btn').textContent = T.btnNext;
+    $('action-btn').textContent = armStartButtonText('right');
     $('action-btn').className   = '';
     $('action-btn').disabled    = false;
   } else {
@@ -4069,12 +4125,13 @@ function handleBtn() {
   initAudio();
 
   if (phase === 'IDLE') {
+    arm = 'left';
+    confirmCurrentArmSide('explicit_start_button');
     // Prime TTS immediately inside the original user gesture. On iOS, doing this
     // only after awaiting sensor permission can cause the first spoken prompt to
     // be dropped until the page is refreshed.
     const speechReady = primeSpeechEngine();
 
-    arm = 'left';
     cardState('left', 'active', '🤚', T.pending);
     $('action-btn').disabled = true;
 
@@ -4107,10 +4164,14 @@ function handleBtn() {
 
   } else if (phase === 'BETWEEN' && arm === 'left') {
     arm = 'right';
+    clearArmSideConfirmation();
+    confirmCurrentArmSide('explicit_next_arm_button');
     $('action-btn').disabled = true;
     startWait();
 
   } else if (phase === 'RETRY_ARM') {
+    clearArmSideConfirmation();
+    confirmCurrentArmSide('explicit_retry_button');
     $('action-btn').disabled = true;
     startWait();
 
@@ -4157,7 +4218,7 @@ function resetAll() {
   activeArmAttemptRecord = null;
   selectedArmAttemptIds = { left:null, right:null };
   removeFastNavButton();
-  phase='IDLE'; arm='left'; results={right:null,left:null};
+  phase='IDLE'; arm='left'; clearArmSideConfirmation(); results={right:null,left:null};
   gravityBase=null;
   baselineMeta=null;
   screenOrientationAtBaseline=null;
@@ -4196,7 +4257,7 @@ function resetAll() {
   $('arm-icon').textContent='🤚'; hideWarn();
   $('instr').textContent=T['instrWait_left'];
   $('sub-instr').textContent=T['subWait_left'];
-  $('action-btn').textContent=T.btnStart;
+  $('action-btn').textContent=armStartButtonText('left');
   $('action-btn').className=''; $('action-btn').disabled=false;
 }
 
@@ -4380,7 +4441,7 @@ function refreshArmLanguageUI(){
   if (phase === 'IDLE' || phase === 'WAIT_VOICE' || phase === 'WAIT_SENSOR') {
     $('instr').textContent = T['instrWait_' + arm];
     $('sub-instr').textContent = T['subWait_' + arm];
-    $('action-btn').textContent = T.btnStart;
+    $('action-btn').textContent = armStartButtonText(arm);
   } else if (phase === 'CALIB' || phase === 'PRE_MEASURE_RECHECK') {
     if (!isWarnVisible()) {
       $('instr').textContent = T.instrCalib;
@@ -4397,13 +4458,13 @@ function refreshArmLanguageUI(){
   } else if (phase === 'BETWEEN') {
     $('instr').textContent = T['instrDone_' + arm];
     $('sub-instr').textContent = '';
-    if (arm === 'left') $('action-btn').textContent = T.btnNext;
+    if (arm === 'left') $('action-btn').textContent = armStartButtonText('right');
   } else if (phase === 'RETRY_ARM') {
     const a = armAnalysis[arm];
     const wrist = a?.key === 'wrist_movement';
     $('instr').textContent = wrist ? T.instrRetryWrist : T.instrRetryUncertain;
     $('sub-instr').textContent = wrist ? T.subRetryWrist : T.subRetryUncertain;
-    $('action-btn').textContent = T.btnRetryArm;
+    $('action-btn').textContent = armStartButtonText(arm, true);
   } else if (phase === 'DONE') {
     const ok = results.right === 'pass' && results.left === 'pass';
     $('fb-title').textContent = ok ? T.finalOk : T.finalBad;
@@ -4459,6 +4520,7 @@ async function selectLang(code) {
   // เริ่มต้นที่แขนซ้ายเสมอ และ render UI หลัง locale พร้อม
   arm = 'left';
   refreshArmLanguageUI();
+  actionBtn.textContent = armStartButtonText('left');
   actionBtn.disabled = false;
 }
 

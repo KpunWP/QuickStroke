@@ -4,7 +4,8 @@
     "nativeName": "日本語",
     "direction": "ltr",
     "packVersion": "0.9.2",
-    "status": "developer-reference-language"
+    "status": "developer-reference-language",
+    "version": "20260731-arm-side-sticky-result-v1"
   },
   "index": {
     "title": "脳卒中のサインをチェック",
@@ -250,8 +251,17 @@
         "title": "動かさないでください",
         "subtitle": "自動的に開始します",
         "voice": "動かさないでください。自動的に開始します。"
+      },
+      "arm_side_not_confirmed": {
+        "title": "正しい腕を確認してください",
+        "subtitle": "画面に表示された腕で持ち、確認ボタンを押してください",
+        "voice": "正しい腕を確認してください"
       }
-    }
+    },
+    "btnConfirmStart_left": "左腕を確認して開始",
+    "btnConfirmStart_right": "右腕を確認して開始",
+    "btnConfirmRetry_left": "左腕を確認して再テスト",
+    "btnConfirmRetry_right": "右腕を確認して再テスト"
   },
   "speech": {
     "langCode": "ja-JP",
@@ -409,7 +419,8 @@
     "technicalDegraded": "低下",
     "technicalError": "エラー",
     "invalidReason": "判定不可の理由",
-    "qualityFlags": "品質フラグ"
+    "qualityFlags": "品質フラグ",
+    "modulePriorAbnormal": "以前の検査で異常を検出"
   },
   "permissions": {
     "checking": "権限を確認しています...",

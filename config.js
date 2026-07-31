@@ -1,14 +1,14 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.18",
-  buildId: "20260730-full-retry-speech-ios-v1",
-  configVersion: "quickstroke-config-1.0.18",
+  version: "1.0.19",
+  buildId: "20260731-arm-side-lineage-sticky-v1",
+  configVersion: "quickstroke-config-1.0.19",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20260725-result-research-only-v1",
+    localePack: "20260731-arm-side-sticky-result-v1",
     languageRegistry: "20260720-language-registry-v1"
   },
 
@@ -20,7 +20,7 @@ window.QS_CONFIG = {
 
   scoring: {
     // Retained only for research summaries. These weights do not determine
-    // the user-facing combined result in result-policy-1.0.0.
+    // the user-facing combined result in result-policy-1.1.0.
     faceWeight: 0.4,
     armWeight: 0.4,
     speechWeight: 0.2,
@@ -28,13 +28,14 @@ window.QS_CONFIG = {
   },
 
   resultPolicy: {
-    version: "result-policy-1.0.0",
+    version: "result-policy-1.1.0",
     combinedDecisionBasis: "categorical_module_status_only",
+    repeatedRunSelectionPolicy: "any_valid_abnormal_within_session_sticky",
     weightedScoreUse: "research_only_not_user_facing"
   },
 
   resultDiagnostics: {
-    version: "result-dev-diagnostics-1.1.0",
+    version: "result-dev-diagnostics-1.2.0",
     enabledQuery: "dev=1",
     globalDevModeKey: "quickstroke_dev_mode",
     globalDevModeVersion: "quickstroke-dev-mode-0.1.0",
@@ -127,10 +128,10 @@ window.QS_CONFIG = {
     arm: {
       // Formal data-contract identifiers. These label the existing pre-pilot
       // algorithm and do not imply clinical validation.
-      version: "arm-prepilot-1.0.0",
+      version: "arm-prepilot-1.1.0",
       algorithmVersion: "arm-drift-1.0.0",
-      resultSchemaVersion: "arm-result-1.0.0",
-      researchPayloadVersion: "arm-research-1.0.0",
+      resultSchemaVersion: "arm-result-1.0.1",
+      researchPayloadVersion: "arm-research-1.0.1",
       sensorCapturePolicyVersion: "arm-sensor-capture-1.0.0",
       researchSampleIntervalMs: 100,
       sensorGapThresholdMs: 250,
@@ -179,7 +180,7 @@ window.QS_CONFIG = {
 
     // Readiness/configuration layer แยกจาก arm-drift algorithm เดิม
     armReadiness: {
-      version: "arm-readiness-1.0.1",
+      version: "arm-readiness-1.1.0",
       sampleFreshMs: 2000,
       sensorWaitTimeoutMs: 6000,
       preMeasureMaxDeltaDeg: 5,
@@ -188,8 +189,8 @@ window.QS_CONFIG = {
       // Hard gates ที่ใช้ในรอบนี้
       enforcePortraitScreen: true,
 
-      // Shadow mode: เก็บค่าและ log แต่ยังไม่ปฏิเสธ measurement
-      enforceTopUp: false,
+      // Hard gate: after correcting the iOS gravity-axis sign, reject upside-down posture.
+      enforceTopUp: true,
       enforceMovedFromRest: false
     },
 

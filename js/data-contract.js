@@ -20,8 +20,8 @@
   const TECHNICAL_CODE_REGISTRY_VERSION = 'quickstroke-technical-codes-0.1.0';
   const TECHNICAL_EVENT_SCHEMA_VERSION = 'technical-event-0.1.0';
   const LOCAL_STORAGE_SCHEMA_VERSION = 'quickstroke-local-store-0.1.1';
-  const RESULT_POLICY_VERSION = 'result-policy-1.0.0';
-  const RESULT_DIAGNOSTICS_VERSION = 'result-dev-diagnostics-1.1.0';
+  const RESULT_POLICY_VERSION = 'result-policy-1.1.0';
+  const RESULT_DIAGNOSTICS_VERSION = 'result-dev-diagnostics-1.2.0';
   const RESULT_PROJECTION_SCHEMA_VERSION = 'quickstroke-result-projection-0.1.1';
 
   const MODULES = Object.freeze(['face', 'arm', 'speech']);
@@ -131,11 +131,11 @@
       measurementDictionaryVersion: 'face-measurement-0.1.0'
     }),
     arm: Object.freeze({
-      moduleVersion: 'arm-prepilot-1.0.0',
+      moduleVersion: 'arm-prepilot-1.1.0',
       algorithmVersion: 'arm-drift-1.0.0',
-      readinessVersion: 'arm-readiness-1.0.1',
-      resultSchemaVersion: 'arm-result-1.0.0',
-      researchPayloadVersion: 'arm-research-1.0.0',
+      readinessVersion: 'arm-readiness-1.1.0',
+      resultSchemaVersion: 'arm-result-1.0.1',
+      researchPayloadVersion: 'arm-research-1.0.1',
       measurementDictionaryVersion: 'arm-measurement-0.1.0',
       sensorCapturePolicyVersion: 'arm-sensor-capture-1.0.0'
     }),
@@ -496,6 +496,23 @@
       console.warn('[QuickStrokeDataContract] Invalid pending module retry marker.', error);
       return null;
     }
+  }
+
+  // Resolve the immediate parent for a repeated module run. The synchronously
+  // stored current-module-run ID is preferred over the Result marker because
+  // IndexedDB projection writes may still be settling when the user taps retry
+  // again. This prevents later retries from repeatedly pointing to an older run.
+  function resolveRetryParentModuleRunId(module, preferredModuleRunId = null) {
+    if (!MODULES.includes(module)) return null;
+    const candidates = [
+      getCurrentModuleRunId(module),
+      preferredModuleRunId,
+      getPendingModuleRetry(module)?.previousModuleRunId
+    ];
+    for (const candidate of candidates) {
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    }
+    return null;
   }
 
   function createTestAttempt(options = {}) {
@@ -1079,6 +1096,7 @@
     createModuleRun,
     getCurrentModuleRunId,
     getPendingModuleRetry,
+    resolveRetryParentModuleRunId,
     createTestAttempt,
     createModuleMeasurement,
     finalizeAttempt,

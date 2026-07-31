@@ -858,7 +858,7 @@
 
 </style>
 <script src="config.js"></script>
-<script src="./js/data-contract.js?v=20260726-data-contract-v3"></script>
+<script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
 <script src="./js/research-store.js?v=20260726-research-store-v3"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="./js/speech-calibration.js?v=20260730-ios-calibration-v1"></script>
@@ -1636,7 +1636,11 @@ function beginSpeechModuleRun(trigger = 'initial_start') {
       module:'speech',
       trigger:moduleRunTrigger,
       targetOrder:['speech'],
-      retryOfModuleRunId:moduleRunTrigger === 'result_retry' ? pendingRetry?.previousModuleRunId || previousModuleRunId : null,
+      retryOfModuleRunId:moduleRunTrigger === 'result_retry'
+        ? SPEECH_DATA_CONTRACT.resolveRetryParentModuleRunId?.('speech', previousModuleRunId)
+          || pendingRetry?.previousModuleRunId
+          || previousModuleRunId
+        : null,
       runContextMode:sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_flow',
       localeUsed:document.documentElement.lang || sessionStorage.getItem('fast_lang') || null,
       startedAt

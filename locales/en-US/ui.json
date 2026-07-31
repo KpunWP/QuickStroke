@@ -4,7 +4,8 @@
     "nativeName": "English",
     "direction": "ltr",
     "packVersion": "0.9.2",
-    "status": "developer-reference-language"
+    "status": "developer-reference-language",
+    "version": "20260731-arm-side-sticky-result-v1"
   },
   "index": {
     "title": "Check for Stroke Signs",
@@ -250,8 +251,17 @@
         "title": "Hold still",
         "subtitle": "The test will start automatically",
         "voice": "Hold still. The test will start automatically."
+      },
+      "arm_side_not_confirmed": {
+        "title": "Confirm the correct arm",
+        "subtitle": "Use the arm shown on screen, then tap the confirmation button",
+        "voice": "Please confirm the correct arm"
       }
-    }
+    },
+    "btnConfirmStart_left": "Confirm left arm and start",
+    "btnConfirmStart_right": "Confirm right arm and start",
+    "btnConfirmRetry_left": "Confirm left arm and retry",
+    "btnConfirmRetry_right": "Confirm right arm and retry"
   },
   "speech": {
     "langCode": "en-US",
@@ -407,7 +417,8 @@
     "technicalDegraded": "Degraded",
     "technicalError": "Error",
     "invalidReason": "Invalid reason",
-    "qualityFlags": "Quality flags"
+    "qualityFlags": "Quality flags",
+    "modulePriorAbnormal": "Abnormal finding retained from an earlier test"
   },
   "permissions": {
     "checking": "Checking permissions...",

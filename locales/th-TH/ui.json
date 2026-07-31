@@ -4,7 +4,8 @@
     "nativeName": "ภาษาไทย",
     "direction": "ltr",
     "packVersion": "0.9.2",
-    "status": "primary-research-language"
+    "status": "primary-research-language",
+    "version": "20260731-arm-side-sticky-result-v1"
   },
   "index": {
     "title": "เช็กสัญญาณสโตรก",
@@ -250,8 +251,17 @@
         "title": "ถือนิ่งๆ",
         "subtitle": "ระบบจะเริ่มให้อัตโนมัติ",
         "voice": "ถือนิ่งๆ ระบบจะเริ่มให้อัตโนมัติ"
+      },
+      "arm_side_not_confirmed": {
+        "title": "ยืนยันแขนให้ถูกข้าง",
+        "subtitle": "กดปุ่มเริ่มของแขนที่ระบุ แล้วถือโทรศัพท์ด้วยแขนข้างนั้น",
+        "voice": "กรุณายืนยันแขนให้ถูกข้าง"
       }
-    }
+    },
+    "btnConfirmStart_left": "ยืนยันแขนซ้ายและเริ่ม",
+    "btnConfirmStart_right": "ยืนยันแขนขวาและเริ่ม",
+    "btnConfirmRetry_left": "ยืนยันแขนซ้ายและทดสอบใหม่",
+    "btnConfirmRetry_right": "ยืนยันแขนขวาและทดสอบใหม่"
   },
   "speech": {
     "langCode": "th-TH",
@@ -405,7 +415,8 @@
     "technicalDegraded": "ลดระดับ",
     "technicalError": "ผิดพลาด",
     "invalidReason": "เหตุผลที่ประเมินไม่ได้",
-    "qualityFlags": "ธงคุณภาพ"
+    "qualityFlags": "ธงคุณภาพ",
+    "modulePriorAbnormal": "เคยพบความผิดปกติในครั้งก่อน"
   },
   "permissions": {
     "checking": "กำลังตรวจสอบสิทธิ์...",

@@ -804,7 +804,7 @@
   </style>
   <script src="config.js">
   </script>
-  <script src="./js/data-contract.js?v=20260726-data-contract-v3"></script>
+  <script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
   <script src="./js/research-store.js?v=20260726-research-store-v3"></script>
 <script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
   <script src="./js/languages.js?v=20260717-lang-v1"></script>
@@ -924,7 +924,7 @@
    const RESEARCH_MODE = DEV_MODE || QUERY_PARAMS.get('research') === '1' || window
      .QS_CONFIG?.researchMode === true;
    const RESULT_DIAGNOSTIC_VERSION = window.QS_CONFIG?.resultDiagnostics?.version ||
-     'result-dev-diagnostics-1.1.0';
+     'result-dev-diagnostics-1.2.0';
    const RESULT_CONTRACT = window.QuickStrokeDataContract || null;
    const RESULT_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
    let CURRENT_DEV_LOG = '';
@@ -1251,10 +1251,17 @@
      const validityStatus = selectionIntegrityFailed
        ? 'not_evaluable'
        : latestRun.validityStatus || projection?.validityStatus || 'not_evaluable';
-     const observationStatus = selectionIntegrityFailed
+     const latestObservationStatus = selectionIntegrityFailed
        ? 'not_available'
        : latestRun.observationStatus || projection?.observationStatus ||
          (validityStatus === 'valid' ? 'indeterminate' : 'not_available');
+     const abnormalHistoryRuns = completedRuns.filter(run =>
+       run?.validityStatus === 'valid' && run?.observationStatus === 'abnormal'
+     );
+     const historicalAbnormalRetained = latestObservationStatus !== 'abnormal' && abnormalHistoryRuns.length > 0;
+     // A later normal retry updates the latest measurement but cannot silently
+     // erase a prior valid abnormal finding in the same screening session.
+     const observationStatus = historicalAbnormalRetained ? 'abnormal' : latestObservationStatus;
      const qualityFlags = uniqueStrings([
        ...(projection?.qualityFlags || []),
        ...selectedAttempts.flatMap(attempt => attempt?.qualityFlags || [])
@@ -1282,6 +1289,7 @@
        participantId: latestRun.participantId || projection?.participantId || null,
        screeningSessionId: latestRun.screeningSessionId || projection?.screeningSessionId || null,
        moduleRunId: latestRun.moduleRunId,
+       moduleRunSequenceNo: latestRun.moduleRunSequenceNo ?? null,
        selectedTestAttemptId: name === 'arm' ? null : latestRun.selectedTestAttemptId || null,
        selectedTestAttemptIds: name === 'arm' ? { ...latestRun.selectedTestAttemptIds } : null,
        testAttemptId: name === 'arm' ? null : latestRun.selectedTestAttemptId || null,
@@ -1296,6 +1304,10 @@
        validityStatus,
        technicalValidity,
        observationStatus,
+       latestObservationStatus,
+       historicalAbnormalRetained,
+       abnormalHistoryCount:abnormalHistoryRuns.length,
+       abnormalHistoryModuleRunIds:abnormalHistoryRuns.map(run => run.moduleRunId),
        qualityStatus,
        qualityFlags,
        invalidReasonCode,
@@ -1764,7 +1776,9 @@
      const cls = moduleClass(d);
      return {
        cls,
-       text: cls === 'ok' ? T.moduleOk : cls === 'warn' ? T.moduleReview : T.moduleBad,
+       text: d.historicalAbnormalRetained
+         ? (T.modulePriorAbnormal || T.moduleBad)
+         : cls === 'ok' ? T.moduleOk : cls === 'warn' ? T.moduleReview : T.moduleBad,
        action: T.retryModule,
        actionable: true
      }
@@ -1972,6 +1986,9 @@
        },
        statusFields: {
          observationStatus: d.observationStatus ?? null,
+         latestObservationStatus: d.latestObservationStatus ?? null,
+         historicalAbnormalRetained: d.historicalAbnormalRetained === true,
+         abnormalHistoryCount: d.abnormalHistoryCount ?? 0,
          validityStatus: d.validityStatus ?? null,
          technicalValidity: d.technicalValidity ?? null,
          qualityStatus: d.qualityStatus ?? null,
@@ -2014,7 +2031,7 @@
 
    function buildDecisionTrace(r) {
      return {
-       policyVersion: window.QS_CONFIG?.resultPolicy?.version || 'result-policy-1.0.0',
+       policyVersion: window.QS_CONFIG?.resultPolicy?.version || 'result-policy-1.1.0',
        decisionBasis: window.QS_CONFIG?.resultPolicy?.combinedDecisionBasis || 'categorical_module_status_only',
        dataSource: r.resultDataSource,
        attemptedModules: [...r.attempted],
@@ -2022,6 +2039,7 @@
        invalidModules: [...r.invalid],
        missingModules: [...r.missing],
        abnormalModules: [...r.bad],
+       historicalAbnormalRetainedModules: MODULES.filter(name => r.data[name]?.historicalAbnormalRetained === true),
        warningModules: [...r.warn],
        scope: r.scope,
        sourceModule: r.source,
@@ -2349,6 +2367,8 @@
      sessionStorage.setItem('fast_pending_module_retry', JSON.stringify({
        module: name,
        previousModuleRunId: currentRunId,
+       previousModuleRunSequenceNo: CURRENT?.data?.[name]?.moduleRunSequenceNo || null,
+       currentModuleRunIdAtRequest: RESULT_CONTRACT?.getCurrentModuleRunId?.(name) || null,
        requestedAt: new Date().toISOString(),
        sessionMode,
        resultScope: sessionMode === 'full' ? 'combined' : 'individual'
