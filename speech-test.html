@@ -858,9 +858,11 @@
 
 </style>
 <script src="config.js"></script>
-<script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
-<script src="./js/research-store.js?v=20260726-research-store-v3"></script>
-<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
+<script src="./js/app-mode.js?v=20260801-app-mode-v1"></script>
+<script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
+<script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
+<script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
+<script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
 <script src="./js/speech-calibration.js?v=20260730-ios-calibration-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260717-lang-v1"></script>
@@ -1678,7 +1680,18 @@ function beginSpeechModuleRun(trigger = 'initial_start') {
   speechPersistenceErrors = [];
   try { sessionStorage.removeItem('fast_speech'); } catch (error) {}
   if (SPEECH_RESEARCH_STORE) {
+    const context = SPEECH_DATA_CONTRACT?.getSessionContext?.() || getSpeechScreeningContext();
     const snapshot = cloneSpeechResearchValue(speechModuleRunRecord);
+    queueSpeechPersistence('ensure Speech screening session', async () => {
+      if (SPEECH_RESEARCH_STORE.isPersistenceEnabled?.() !== true) return;
+      const storeName = SPEECH_RESEARCH_STORE.stores.screeningSessions;
+      const existing = await SPEECH_RESEARCH_STORE.get(storeName, context.screeningSessionId);
+      if (!existing && SPEECH_DATA_CONTRACT) {
+        await SPEECH_RESEARCH_STORE.addScreeningSession(
+          SPEECH_DATA_CONTRACT.createScreeningSessionRecord({ context })
+        );
+      }
+    });
     queueSpeechPersistence('add Speech module run', () => SPEECH_RESEARCH_STORE.addModuleRun(snapshot));
   }
   window.QuickStrokeDevMode?.logEvent?.('SPEECH_MODULE_RUN_STARTED', {
@@ -1777,7 +1790,7 @@ function getSpeechScreeningContext() {
     participantId: canonical?.participantId || participantId,
     screeningSessionId: canonical?.screeningSessionId || screeningSessionId,
     legacyAssessmentId: canonical?.legacyAssessmentId || (screeningSessionId?.startsWith?.('A-') ? screeningSessionId : null),
-    screeningSessionStartedAt: canonical?.startedAt || screeningSessionStartedAt,
+    screeningSessionStartedAt: canonical?.screeningSessionStartedAt || screeningSessionStartedAt,
     sessionMode: canonical?.sessionMode || sessionMode,
     identificationMode: canonical?.participantId || participantId ? 'canonical_browser_session' : 'unidentified'
   };
@@ -3598,10 +3611,16 @@ function currentSpeechVersions() {
 
 function sanitizedSpeechMicrophoneRuntime() {
   const runtime = cloneSpeechResearchValue(microphoneRuntime || {}) || {};
+  const appMode = window.QuickStrokeAppMode?.resolveMode?.() || 'public';
+  const standardized = window.QuickStrokeResearchPolicy?.standardizeMicrophoneRuntime?.(runtime, {
+    includeRawLabel: appMode === 'dev'
+  });
+  if (standardized) return standardized;
   if (runtime.settings) {
     delete runtime.settings.deviceId;
     delete runtime.settings.groupId;
   }
+  if (appMode !== 'dev') delete runtime.label;
   return runtime;
 }
 

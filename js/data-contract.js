@@ -1,4 +1,4 @@
-/* QuickStroke shared data contract — v0.1.0
+/* QuickStroke shared data contract — v0.2.0
  *
  * Purpose:
  * - canonical identifiers and session context
@@ -15,14 +15,16 @@
 
   if (global.QuickStrokeDataContract) return;
 
-  const CONTRACT_VERSION = 'quickstroke-common-data-0.1.0';
-  const MANIFEST_VERSION = 'quickstroke-baseline-manifest-0.1.0';
+  const CONTRACT_VERSION = 'quickstroke-common-data-0.2.0';
+  const MANIFEST_VERSION = 'quickstroke-baseline-manifest-0.2.0';
   const TECHNICAL_CODE_REGISTRY_VERSION = 'quickstroke-technical-codes-0.1.0';
   const TECHNICAL_EVENT_SCHEMA_VERSION = 'technical-event-0.1.0';
-  const LOCAL_STORAGE_SCHEMA_VERSION = 'quickstroke-local-store-0.1.1';
+  const LOCAL_STORAGE_SCHEMA_VERSION = 'quickstroke-local-store-0.2.0';
   const RESULT_POLICY_VERSION = 'result-policy-1.1.0';
-  const RESULT_DIAGNOSTICS_VERSION = 'result-dev-diagnostics-1.2.0';
-  const RESULT_PROJECTION_SCHEMA_VERSION = 'quickstroke-result-projection-0.1.1';
+  const RESULT_DIAGNOSTICS_VERSION = 'result-dev-diagnostics-1.3.0';
+  const RESULT_PROJECTION_SCHEMA_VERSION = 'quickstroke-result-projection-0.2.0';
+  const SELECTION_POLICY_VERSION = 'quickstroke-selection-policy-1.0.0';
+  const APP_MODE_VERSION = 'quickstroke-app-mode-1.0.0';
 
   const MODULES = Object.freeze(['face', 'arm', 'speech']);
   const MEASUREMENT_TARGETS = Object.freeze([
@@ -34,9 +36,8 @@
 
   const SESSION_STATUS = Object.freeze([
     'active',
-    'completed',
-    'aborted',
-    'expired'
+    'protocol_completed',
+    'finalized'
   ]);
 
   const MODULE_RUN_STATUS = Object.freeze([
@@ -112,12 +113,18 @@
     legacyCompatibilitySessionId: 'fast_assessment_id',
     legacyAssessmentId: 'fast_legacy_assessment_id',
     screeningStartedAt: 'fast_started_at',
-    screeningCompletedAt: 'fast_completed_at',
+    protocolCompletedAt: 'fast_protocol_completed_at',
+    screeningCompletedAt: 'fast_protocol_completed_at',
+    finalizedAt: 'fast_finalized_at',
     sessionStatus: 'fast_session_status',
     sessionCompletionReason: 'fast_session_completion_reason',
+    finalizationMetadata: 'fast_session_finalization_metadata',
     sessionSchemaVersion: 'fast_session_schema_version',
     manifestVersion: 'fast_baseline_manifest_version',
     sessionMode: 'fast_mode',
+    appMode: 'fast_session_app_mode',
+    analysisRole: 'fast_session_analysis_role',
+    researchMetadata: 'fast_session_research_metadata',
     resultSource: 'fast_result_source',
     pendingModuleRetry: 'fast_pending_module_retry'
   });
@@ -223,36 +230,47 @@
     }
   }
 
+  function safeParseJson(value) {
+    try { return JSON.parse(value); } catch (error) { return null; }
+  }
+
   function getSessionContext() {
     const store = sessionStore();
     if (!store) {
       return Object.freeze({
-        participantId: null,
-        screeningSessionId: null,
-        legacyAssessmentId: null,
-        screeningSessionStartedAt: null,
-        screeningSessionCompletedAt: null,
-        sessionStatus: null,
-        sessionMode: null,
+        participantId: null, screeningSessionId: null, legacyAssessmentId: null,
+        screeningSessionStartedAt: null, protocolCompletedAt: null,
+        screeningSessionCompletedAt: null, finalizedAt: null,
+        sessionStatus: null, sessionMode: null, appMode: 'public',
+        analysisRole: 'public_ephemeral', researchMetadata: null,
         identificationMode: 'unidentified'
       });
     }
-
     const participantId = store.getItem(SESSION_KEYS.participantId);
     const canonicalSessionId = store.getItem(SESSION_KEYS.screeningSessionId);
     const compatibilitySessionId = store.getItem(SESSION_KEYS.legacyCompatibilitySessionId);
     const screeningSessionId = canonicalSessionId || compatibilitySessionId;
     const legacyAssessmentId = store.getItem(SESSION_KEYS.legacyAssessmentId)
       || (screeningSessionId?.startsWith('A-') ? screeningSessionId : null);
-
+    const appModeApi = global.QuickStrokeAppMode || null;
+    const appMode = store.getItem(SESSION_KEYS.appMode) || appModeApi?.resolveMode?.() || 'public';
+    const analysisRole = store.getItem(SESSION_KEYS.analysisRole) || appModeApi?.getAnalysisRole?.(appMode)
+      || (appMode === 'dev' ? 'engineering_only' : appMode === 'research' ? 'research_candidate' : 'public_ephemeral');
+    const protocolCompletedAt = store.getItem(SESSION_KEYS.protocolCompletedAt);
     return Object.freeze({
       participantId,
       screeningSessionId,
       legacyAssessmentId,
       screeningSessionStartedAt: store.getItem(SESSION_KEYS.screeningStartedAt),
-      screeningSessionCompletedAt: store.getItem(SESSION_KEYS.screeningCompletedAt),
+      protocolCompletedAt,
+      screeningSessionCompletedAt: protocolCompletedAt,
+      finalizedAt: store.getItem(SESSION_KEYS.finalizedAt),
       sessionStatus: store.getItem(SESSION_KEYS.sessionStatus),
       sessionMode: store.getItem(SESSION_KEYS.sessionMode),
+      appMode,
+      analysisRole,
+      researchMetadata: safeParseJson(store.getItem(SESSION_KEYS.researchMetadata)),
+      finalizationMetadata: safeParseJson(store.getItem(SESSION_KEYS.finalizationMetadata)),
       identificationMode: !participantId || !screeningSessionId
         ? 'unidentified'
         : screeningSessionId.startsWith('A-')
@@ -281,90 +299,57 @@
   function clearMutableProjections(store) {
     if (!store) return;
     [
-      'fast_face',
-      'fast_arm',
-      'fast_speech',
-      SESSION_KEYS.sessionMode,
-      SESSION_KEYS.resultSource,
-      SESSION_KEYS.screeningCompletedAt,
-      SESSION_KEYS.sessionCompletionReason
+      'fast_face', 'fast_arm', 'fast_speech',
+      SESSION_KEYS.sessionMode, SESSION_KEYS.resultSource,
+      SESSION_KEYS.protocolCompletedAt, SESSION_KEYS.finalizedAt,
+      SESSION_KEYS.sessionCompletionReason, SESSION_KEYS.finalizationMetadata,
+      SESSION_KEYS.pendingModuleRetry
     ].forEach((key) => store.removeItem(key));
   }
 
   function ensureScreeningContext(options = {}) {
-    const {
-      forceNewParticipant = false,
-      forceNewSession = false,
-      mode = null
-    } = options;
-
+    const { forceNewParticipant = false, forceNewSession = false, mode = null } = options;
     const store = sessionStore();
-    if (!store) {
-      throw new Error('QuickStroke requires sessionStorage for the current screening context.');
-    }
-
+    if (!store) throw new Error('QuickStroke requires sessionStorage for the current screening context.');
+    const appModeApi = global.QuickStrokeAppMode || null;
     let participantId = store.getItem(SESSION_KEYS.participantId);
     let screeningSessionId = store.getItem(SESSION_KEYS.screeningSessionId);
     let compatibilitySessionId = store.getItem(SESSION_KEYS.legacyCompatibilitySessionId);
-
     if (forceNewParticipant || !participantId) {
       participantId = createId('participant');
       store.setItem(SESSION_KEYS.participantId, participantId);
     }
-
-    const mustCreateSession = forceNewParticipant
-      || forceNewSession
-      || (!screeningSessionId && !compatibilitySessionId);
-
+    const mustCreateSession = forceNewParticipant || forceNewSession || (!screeningSessionId && !compatibilitySessionId);
     if (mustCreateSession) {
       screeningSessionId = createId('screeningSession');
       compatibilitySessionId = screeningSessionId;
       store.removeItem(SESSION_KEYS.legacyAssessmentId);
-      store.setItem(SESSION_KEYS.screeningStartedAt, nowIso());
-      store.removeItem(SESSION_KEYS.screeningCompletedAt);
-      store.setItem(SESSION_KEYS.sessionStatus, 'active');
       clearMutableProjections(store);
       resetScopedSequences(store);
+      appModeApi?.clearSessionSnapshot?.();
+      if (mode && ['public','research','dev'].includes(mode)) appModeApi?.setMode?.(mode, { source:'data_contract_new_session' });
+      appModeApi?.applySessionSnapshot?.({ force:true, source:'data_contract_new_session' });
+      store.setItem(SESSION_KEYS.screeningStartedAt, nowIso());
+      store.setItem(SESSION_KEYS.sessionStatus, 'active');
     } else if (!screeningSessionId && compatibilitySessionId) {
-      // Preserve an active legacy A- session rather than changing identity mid-flow.
       screeningSessionId = compatibilitySessionId;
-      if (compatibilitySessionId.startsWith('A-')) {
-        store.setItem(SESSION_KEYS.legacyAssessmentId, compatibilitySessionId);
-      }
+      if (compatibilitySessionId.startsWith('A-')) store.setItem(SESSION_KEYS.legacyAssessmentId, compatibilitySessionId);
+      if (!store.getItem(SESSION_KEYS.appMode)) appModeApi?.applySessionSnapshot?.({ force:true, source:'legacy_session_upgrade' });
     }
-
     store.setItem(SESSION_KEYS.screeningSessionId, screeningSessionId);
-    // Existing module pages still read fast_assessment_id. Keep it synchronized.
     store.setItem(SESSION_KEYS.legacyCompatibilitySessionId, screeningSessionId);
     store.setItem(SESSION_KEYS.sessionSchemaVersion, CONTRACT_VERSION);
     store.setItem(SESSION_KEYS.manifestVersion, MANIFEST_VERSION);
-    if (mode) store.setItem(SESSION_KEYS.sessionMode, mode);
-
+    if (mode && ['full','individual'].includes(mode)) store.setItem(SESSION_KEYS.sessionMode, mode);
     return getSessionContext();
   }
 
   function createScreeningSessionRecord(options = {}) {
-    const {
-      context = ensureScreeningContext(),
-      sessionMode = null,
-      createdAt = null,
-      completionReasonCode = null
-    } = options;
-
-    if (!context?.participantId || !context?.screeningSessionId) {
-      throw new TypeError('A valid screening context is required.');
-    }
-
-    const store = sessionStore();
-    const sessionStatus = SESSION_STATUS.includes(context.sessionStatus)
-      ? context.sessionStatus
-      : 'active';
+    const { context = ensureScreeningContext(), sessionMode = null, createdAt = null, completionReasonCode = null } = options;
+    if (!context?.participantId || !context?.screeningSessionId) throw new TypeError('A valid screening context is required.');
     const startedAt = context.screeningSessionStartedAt || nowIso();
-    const completedAt = context.screeningSessionCompletedAt || null;
-    const resolvedCompletionReason = completionReasonCode
-      || store?.getItem(SESSION_KEYS.sessionCompletionReason)
-      || null;
-
+    const status = SESSION_STATUS.includes(context.sessionStatus) ? context.sessionStatus : 'active';
+    const metadata = context.researchMetadata || null;
     const record = {
       schemaVersion: CONTRACT_VERSION,
       recordType: 'screening_session',
@@ -372,43 +357,72 @@
       screeningSessionId: context.screeningSessionId,
       legacyAssessmentId: context.legacyAssessmentId || null,
       identificationMode: context.identificationMode || null,
-      sessionStatus,
+      sessionStatus: status,
       sessionMode: sessionMode || context.sessionMode || 'undetermined',
+      appMode: context.appMode || 'public',
+      analysisRole: context.analysisRole || 'public_ephemeral',
+      researchProfile: metadata?.researchProfile || null,
+      researchMetadata: metadata,
+      selectionPolicyVersion: SELECTION_POLICY_VERSION,
       startedAt,
-      completedAt,
-      completionReasonCode: resolvedCompletionReason,
+      protocolCompletedAt: context.protocolCompletedAt || null,
+      completedAt: context.protocolCompletedAt || null,
+      finalizedAt: context.finalizedAt || null,
+      completionReasonCode: completionReasonCode || context.finalizationMetadata?.reasonCode || null,
+      finalizationMetadata: context.finalizationMetadata || null,
+      uploadState: context.appMode === 'research' ? 'not_configured' : 'not_applicable',
+      exportState: context.appMode === 'research' ? 'not_exported' : 'not_applicable',
       createdAt: createdAt || startedAt,
-      finalizedAt: sessionStatus === 'active' ? null : (completedAt || nowIso()),
       versionSnapshot: createVersionSnapshot(),
       runtimeSnapshot: getCoarseRuntimeSnapshot()
     };
-
     const validation = validateCommonRecord(record);
-    if (!validation.valid) {
-      throw new Error(`Invalid screening session record: ${validation.errors.join('; ')}`);
-    }
+    if (!validation.valid) throw new Error(`Invalid screening session record: ${validation.errors.join('; ')}`);
     return Object.freeze(record);
   }
 
-  function completeScreeningSession(completionReason = 'FULL_SCREENING_COMPLETED') {
+  function markProtocolCompleted(completedAt = nowIso(), reasonCode = 'FULL_PROTOCOL_FIRST_COMPLETION') {
     const store = sessionStore();
     if (!store) return getSessionContext();
-    store.setItem(SESSION_KEYS.sessionStatus, 'completed');
-    store.setItem(SESSION_KEYS.screeningCompletedAt, nowIso());
-    store.setItem(SESSION_KEYS.sessionCompletionReason, String(completionReason));
+    const current = getSessionContext();
+    if (current.sessionStatus === 'finalized') return current;
+    const firstCompletedAt = current.protocolCompletedAt || completedAt;
+    store.setItem(SESSION_KEYS.protocolCompletedAt, firstCompletedAt);
+    store.setItem(SESSION_KEYS.sessionStatus, 'protocol_completed');
+    if (reasonCode) store.setItem(SESSION_KEYS.sessionCompletionReason, String(reasonCode));
     return getSessionContext();
   }
 
-  function closeScreeningSession(status, reasonCode) {
-    if (!SESSION_STATUS.includes(status) || status === 'active') {
-      throw new TypeError(`Invalid closing session status: ${String(status)}`);
-    }
+  function finalizeScreeningSession(options = {}) {
     const store = sessionStore();
     if (!store) return getSessionContext();
-    store.setItem(SESSION_KEYS.sessionStatus, status);
-    store.setItem(SESSION_KEYS.screeningCompletedAt, nowIso());
-    if (reasonCode) store.setItem(SESSION_KEYS.sessionCompletionReason, String(reasonCode));
+    const current = getSessionContext();
+    if (current.sessionStatus === 'finalized') return current;
+    const finalizedAt = options.finalizedAt || nowIso();
+    const metadata = {
+      finalizationType: options.finalizationType || 'research_operator_finalize',
+      reasonCode: options.reasonCode || 'SESSION_FINALIZED',
+      finalizedByRole: options.finalizedByRole || current.researchMetadata?.operatorRole || null,
+      finalizedByOperatorId: options.finalizedByOperatorId || current.researchMetadata?.operatorId || null,
+      integrityPolicyVersion: options.integrityPolicyVersion || null,
+      integrityReportHash: options.integrityReportHash || null,
+      amendmentRequiredForChanges: true
+    };
+    store.setItem(SESSION_KEYS.sessionStatus, 'finalized');
+    store.setItem(SESSION_KEYS.finalizedAt, finalizedAt);
+    store.setItem(SESSION_KEYS.sessionCompletionReason, metadata.reasonCode);
+    store.setItem(SESSION_KEYS.finalizationMetadata, JSON.stringify(metadata));
     return getSessionContext();
+  }
+
+  function completeScreeningSession(completionReason = 'FULL_PROTOCOL_FIRST_COMPLETION') {
+    return markProtocolCompleted(nowIso(), completionReason);
+  }
+
+  function closeScreeningSession(statusOrReason, reasonCode = null) {
+    const legacyStatus = String(statusOrReason || '');
+    const resolvedReason = reasonCode || (legacyStatus && !SESSION_STATUS.includes(legacyStatus) ? legacyStatus : `LEGACY_CLOSE_${legacyStatus || 'UNKNOWN'}`);
+    return finalizeScreeningSession({ finalizationType:'administrative_close', reasonCode:resolvedReason });
   }
 
   function nextScopedSequence(scopeKey) {
@@ -441,6 +455,7 @@
     }
 
     const context = ensureScreeningContext();
+    if (context.sessionStatus === 'finalized') throw new Error('Cannot create a module run in a finalized session.');
     const moduleRunId = createId('moduleRun');
     const moduleRunSequenceNo = nextScopedSequence(
       `fast_module_run_sequence_${context.screeningSessionId}_${module}`
@@ -464,8 +479,19 @@
       runContextMode: runContextMode || (context.sessionMode === 'full' ? 'full_flow' : 'individual_flow'),
       localeUsed: localeUsed || null,
       moduleRunStatus: 'in_progress',
+      appMode: context.appMode,
+      analysisRole: context.analysisRole,
+      researchProfile: context.researchMetadata?.researchProfile || null,
+      protocolPhase: context.appMode === 'dev'
+        ? 'engineering_override'
+        : moduleRunSequenceNo === 1
+          ? 'initial_protocol'
+          : moduleRunSequenceNo <= Number(global.QS_CONFIG?.research?.retryLimits?.[module]?.maxProtocolModuleRuns || 2)
+            ? 'protocol_retry'
+            : 'post_protocol_repeatability',
+      selectionPolicyVersion: SELECTION_POLICY_VERSION,
       targetOrder: Array.isArray(targetOrder) ? [...targetOrder] : null,
-      attemptCount: null,
+      attemptCount: 0,
       startedAt,
       completedAt: null,
       createdAt: startedAt,
@@ -550,6 +576,10 @@
     return Object.freeze({
       schemaVersion: CONTRACT_VERSION,
       recordType: 'test_attempt',
+      appMode: context.appMode,
+      analysisRole: context.analysisRole,
+      researchProfile: context.researchMetadata?.researchProfile || null,
+      selectionPolicyVersion: SELECTION_POLICY_VERSION,
       participantId: context.participantId,
       screeningSessionId: context.screeningSessionId,
       legacyAssessmentId: context.legacyAssessmentId,
@@ -598,6 +628,10 @@
     return Object.freeze({
       schemaVersion: CONTRACT_VERSION,
       recordType: 'module_measurement',
+      appMode: context.appMode,
+      analysisRole: context.analysisRole,
+      researchProfile: context.researchMetadata?.researchProfile || null,
+      selectionPolicyVersion: SELECTION_POLICY_VERSION,
       participantId: context.participantId,
       screeningSessionId: context.screeningSessionId,
       legacyAssessmentId: context.legacyAssessmentId,
@@ -761,6 +795,9 @@
       localStorageSchemaVersion: LOCAL_STORAGE_SCHEMA_VERSION,
       resultPolicyVersion: RESULT_POLICY_VERSION,
       resultDiagnosticsVersion: RESULT_DIAGNOSTICS_VERSION,
+      appModeVersion: APP_MODE_VERSION,
+      selectionPolicyVersion: SELECTION_POLICY_VERSION,
+      researchPolicyVersion: global.QuickStrokeResearchPolicy?.version || null,
       localePackVersion: config.assetVersions?.localePack || null,
       languageRegistryVersion: config.assetVersions?.languageRegistry || null,
       module: module || null,
@@ -842,6 +879,16 @@
     if (!record.schemaVersion) errors.push('schemaVersion is required.');
     if (!record.participantId) errors.push('participantId is required.');
     if (!record.screeningSessionId) errors.push('screeningSessionId is required.');
+
+
+    if (record.recordType === 'screening_session') {
+      if (!SESSION_STATUS.includes(record.sessionStatus)) errors.push('sessionStatus is invalid.');
+      if (record.sessionStatus === 'active' && record.protocolCompletedAt) errors.push('active session cannot have protocolCompletedAt.');
+      if (record.sessionStatus === 'protocol_completed' && !record.protocolCompletedAt) errors.push('protocol_completed requires protocolCompletedAt.');
+      if (record.sessionStatus === 'finalized' && !record.finalizedAt) errors.push('finalized requires finalizedAt.');
+      if (!['public','research','dev'].includes(record.appMode)) errors.push('appMode is invalid.');
+      if (record.appMode === 'dev' && record.analysisRole !== 'engineering_only') errors.push('Dev records require analysisRole=engineering_only.');
+    }
 
     if (record.recordType === 'module_run' || record.recordType === 'test_attempt' || record.recordType === 'module_measurement') {
       if (!record.moduleRunId) errors.push('moduleRunId is required.');
@@ -1066,7 +1113,9 @@
       localStorageSchema: LOCAL_STORAGE_SCHEMA_VERSION,
       resultPolicy: RESULT_POLICY_VERSION,
       resultDiagnostics: RESULT_DIAGNOSTICS_VERSION,
-      resultProjectionSchema: RESULT_PROJECTION_SCHEMA_VERSION
+      resultProjectionSchema: RESULT_PROJECTION_SCHEMA_VERSION,
+      selectionPolicy: SELECTION_POLICY_VERSION,
+      appMode: APP_MODE_VERSION
     }),
     enums: Object.freeze({
       modules: MODULES,
@@ -1091,6 +1140,8 @@
     getSessionContext,
     ensureScreeningContext,
     createScreeningSessionRecord,
+    markProtocolCompleted,
+    finalizeScreeningSession,
     completeScreeningSession,
     closeScreeningSession,
     createModuleRun,

@@ -1,14 +1,14 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.20",
-  buildId: "20260731-dev-urgent-retry-v1",
-  configVersion: "quickstroke-config-1.0.20",
+  version: "1.0.21",
+  buildId: "20260801-clinic-feasibility-v1",
+  configVersion: "quickstroke-config-1.0.21",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20260731-arm-side-sticky-result-v1",
+    localePack: "20260801-clinic-feasibility-v1",
     languageRegistry: "20260720-language-registry-v1"
   },
 
@@ -31,16 +31,41 @@ window.QS_CONFIG = {
     version: "result-policy-1.1.0",
     combinedDecisionBasis: "categorical_module_status_only",
     repeatedRunSelectionPolicy: "any_valid_abnormal_within_session_sticky",
+    selectionPolicyVersion: "quickstroke-selection-policy-1.0.0",
     weightedScoreUse: "research_only_not_user_facing"
   },
 
   resultDiagnostics: {
-    version: "result-dev-diagnostics-1.2.0",
+    version: "result-dev-diagnostics-1.3.0",
     enabledQuery: "dev=1",
     globalDevModeKey: "quickstroke_dev_mode",
-    globalDevModeVersion: "quickstroke-dev-mode-0.1.0",
+    globalDevModeVersion: "quickstroke-dev-mode-0.3.0",
     sanitized: true,
     rawPayloadIncluded: false
+  },
+
+  appModes: {
+    version: "quickstroke-app-mode-1.0.0",
+    defaultMode: "public",
+    allowedModes: ["public", "research", "dev"]
+  },
+
+  research: {
+    policyVersion: "quickstroke-research-policy-1.0.0",
+    selectionPolicyVersion: "quickstroke-selection-policy-1.0.0",
+    integrityPolicyVersion: "quickstroke-integrity-policy-1.0.0",
+    microphonePrivacyVersion: "quickstroke-microphone-privacy-1.0.0",
+    activeProfile: "clinic_supervised",
+    profiles: {
+      clinic_supervised: { enabled: true, dataCollectionEnabled: true },
+      community_remote_qr: { enabled: false, dataCollectionEnabled: false }
+    },
+    retryLimits: {
+      face: { maxProtocolModuleRuns: 2 },
+      arm: { maxProtocolModuleRuns: 2 },
+      speech: { maxProtocolModuleRuns: 2 }
+    },
+    upload: { enabled: false, endpoint: null }
   },
 
   thresholds: {

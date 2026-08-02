@@ -198,6 +198,30 @@
   }
   .clear-zone{padding:10px 22px 0}
 
+
+  .mode-zone{padding:14px 22px 0}
+  .mode-card{padding:16px;border-radius:22px;background:#fff;border:1px solid var(--line);box-shadow:0 7px 22px rgba(31,50,69,.06)}
+  .mode-heading{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .mode-title{font-size:16px;font-weight:800;color:var(--ink)}
+  .mode-badge{padding:5px 9px;border-radius:999px;background:#EAF3FF;color:var(--clinical-deep);font:800 11px/1.2 'Manrope',sans-serif;letter-spacing:.05em;text-transform:uppercase}
+  .mode-options{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:12px}
+  .mode-option{min-height:48px;border:1.5px solid var(--line);border-radius:15px;background:#fff;color:var(--ink-soft);font-family:inherit;font-size:14px;font-weight:800;cursor:pointer}
+  .mode-option.active{border-color:var(--clinical);background:#EAF3FF;color:var(--clinical-deep)}
+  .mode-description{margin-top:10px;color:var(--ink-soft);font-size:13px;font-weight:650;line-height:1.5}
+  .research-setup{display:none;margin-top:13px;padding-top:13px;border-top:1px solid var(--line)}
+  .research-setup.show{display:block}
+  .research-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+  .research-field{display:flex;flex-direction:column;gap:5px;min-width:0}
+  .research-field.full{grid-column:1/-1}
+  .research-field label{font-size:12px;font-weight:800;color:var(--ink-soft)}
+  .research-field input,.research-field select{width:100%;min-height:44px;padding:9px 10px;border:1.5px solid var(--line);border-radius:13px;background:#fff;color:var(--ink);font:700 14px/1.3 inherit}
+  .research-field input:focus,.research-field select:focus{outline:2px solid rgba(43,125,233,.18);border-color:var(--clinical)}
+  .research-profile-note{margin:10px 0;padding:9px 10px;border-radius:13px;background:#F3F7FB;color:var(--ink-soft);font-size:12px;font-weight:700;line-height:1.45}
+  .research-actions{display:flex;gap:9px;align-items:center;margin-top:11px}
+  .research-save{flex:1;min-height:46px;border:0;border-radius:14px;background:var(--clinical);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer}
+  .research-validation{min-height:18px;margin-top:8px;font-size:12px;font-weight:750;line-height:1.4;color:var(--coral)}
+  .research-validation.ok{color:var(--mint-deep)}
+
   .dev-zone{padding:14px 22px 0}
   .dev-card{
     padding:14px;border-radius:20px;display:flex;align-items:center;justify-content:space-between;gap:12px;
@@ -345,9 +369,11 @@
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 <script src="config.js"></script>
-<script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
-<script src="./js/research-store.js?v=20260726-research-store-v3"></script>
-<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
+<script src="./js/app-mode.js?v=20260801-app-mode-v1"></script>
+<script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
+<script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
+<script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
+<script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
 </head>
 <body>
 <div class="app-shell">
@@ -437,6 +463,35 @@
         data-i18n="index.newPersonButton"
       >เริ่มรายใหม่</button>
     </div>
+
+
+    <section class="mode-zone" aria-labelledby="app-mode-title">
+      <div class="mode-card">
+        <div class="mode-heading">
+          <div class="mode-title" id="app-mode-title">รูปแบบการใช้งาน</div>
+          <div class="mode-badge" id="app-mode-badge">PUBLIC</div>
+        </div>
+        <div class="mode-options" role="group" aria-label="Application mode">
+          <button type="button" class="mode-option" id="mode-public" onclick="selectPublicMode()">Public Mode</button>
+          <button type="button" class="mode-option" id="mode-research" onclick="showResearchSetup()">Research Mode</button>
+        </div>
+        <div class="mode-description" id="app-mode-description">ไม่เก็บข้อมูลวิจัยระยะยาวโดยค่าเริ่มต้น</div>
+        <div class="research-setup" id="research-setup">
+          <div class="research-grid">
+            <div class="research-field full"><label for="research-study-id">Study ID *</label><input id="research-study-id" autocomplete="off" maxlength="64" placeholder="เช่น QS-0001"></div>
+            <div class="research-field"><label for="research-consent-status">Consent status *</label><select id="research-consent-status"><option value="pending">Pending</option><option value="consented">Consented</option><option value="declined">Declined</option><option value="withdrawn">Withdrawn</option></select></div>
+            <div class="research-field"><label for="research-consent-version">Consent version *</label><input id="research-consent-version" autocomplete="off" maxlength="64" placeholder="เช่น ICF-1.0"></div>
+            <div class="research-field"><label for="research-recruitment-source">Recruitment source *</label><select id="research-recruitment-source"><option value="">เลือก</option><option value="clinic_outpatient">Clinic outpatient</option><option value="clinic_inpatient">Clinic inpatient</option><option value="emergency_department">Emergency department</option><option value="stroke_unit">Stroke unit</option><option value="other">Other</option></select></div>
+            <div class="research-field"><label for="research-operator-role">Operator role *</label><select id="research-operator-role"><option value="">เลือก</option><option value="research_assistant">Research assistant</option><option value="nurse">Nurse</option><option value="physician">Physician</option><option value="allied_health">Allied health</option><option value="other">Other</option></select></div>
+            <div class="research-field"><label for="research-site-code">Site code</label><input id="research-site-code" autocomplete="off" maxlength="40"></div>
+            <div class="research-field"><label for="research-operator-id">Operator ID</label><input id="research-operator-id" autocomplete="off" maxlength="64"></div>
+          </div>
+          <div class="research-profile-note"><b>Profile:</b> clinic_supervised (เปิดใช้) · community_remote_qr (เตรียมโครงสร้างแล้ว แต่ปิดการเก็บข้อมูลจริง)</div>
+          <div class="research-actions"><button type="button" class="research-save" onclick="activateResearchMode()">บันทึกและเริ่ม Research Mode</button></div>
+          <div class="research-validation" id="research-validation" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
 
     <section class="dev-zone" aria-labelledby="dev-mode-title">
       <div class="dev-card">
@@ -529,6 +584,8 @@ const MODULES = Object.freeze(['face', 'arm', 'speech']);
 const DATA_CONTRACT = window.QuickStrokeDataContract;
 const RESEARCH_STORE = window.QuickStrokeResearchStore;
 const DEV_MODE = window.QuickStrokeDevMode;
+const APP_MODE = window.QuickStrokeAppMode;
+const RESEARCH_POLICY = window.QuickStrokeResearchPolicy;
 const LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze({ th:'th-TH', en:'en-US', ja:'ja-JP' });
 
 if (!DATA_CONTRACT) {
@@ -564,7 +621,7 @@ function markResearchStoreStatus(status, error = null) {
 }
 
 async function persistScreeningSessionIfNeeded(context) {
-  if (!RESEARCH_STORE || !context?.screeningSessionId) return null;
+  if (!RESEARCH_STORE || !context?.screeningSessionId || RESEARCH_STORE.isPersistenceEnabled?.() !== true) return null;
 
   try {
     const existing = await RESEARCH_STORE.get(
@@ -587,40 +644,21 @@ async function persistScreeningSessionIfNeeded(context) {
   }
 }
 
-async function finalizePersistedSession(context, status, reasonCode) {
-  if (!RESEARCH_STORE || !context?.screeningSessionId) return null;
-
+async function finalizePersistedSession(context, reasonCode = 'SESSION_REPLACED') {
+  if (!RESEARCH_STORE || !context?.screeningSessionId || RESEARCH_STORE.isPersistenceEnabled?.() !== true) {
+    DATA_CONTRACT.finalizeScreeningSession({ finalizationType:'public_ephemeral_reset', reasonCode });
+    return null;
+  }
   try {
-    const existing = await RESEARCH_STORE.get(
-      RESEARCH_STORE.stores.screeningSessions,
-      context.screeningSessionId
-    );
-
-    if (!existing) {
-      const finalRecord = DATA_CONTRACT.createScreeningSessionRecord({
-        context,
-        completionReasonCode: reasonCode
-      });
-      const persisted = await RESEARCH_STORE.addScreeningSession(finalRecord);
-      markResearchStoreStatus('ready');
-      return persisted;
-    }
-
-    if (existing.sessionStatus !== 'active') return existing;
-
-    const finalized = await RESEARCH_STORE.finalizeScreeningSession(
-      context.screeningSessionId,
-      {
-        sessionStatus: status,
-        completedAt: context.screeningSessionCompletedAt || DATA_CONTRACT.nowIso(),
-        completionReasonCode: reasonCode
-      }
-    );
+    const result = await RESEARCH_STORE.finalizeAdministrativeSession(context.screeningSessionId, {
+      reasonCode,
+      finalizationType:'administrative_abandonment'
+    });
     markResearchStoreStatus('ready');
-    return finalized;
+    return result?.finalizedSession || null;
   } catch (error) {
     markResearchStoreStatus('failed', error);
-    console.error('Unable to finalize screening session.', error);
+    console.error('Unable to administratively finalize screening session.', error);
     return null;
   }
 }
@@ -634,7 +672,14 @@ function resolvePersistedSessionMode(currentMode, requestedMode) {
 }
 
 async function prepareScreeningSession(mode) {
+  const currentAppMode = APP_MODE?.resolveMode?.() || 'public';
+  if (currentAppMode === 'research' && mode !== 'full') {
+    throw new Error('Research Mode clinic_supervised requires the full Face–Arm–Speech protocol.');
+  }
   const context = ensureScreeningSession(false, mode);
+  if (context.sessionStatus === 'finalized') {
+    throw new Error('This session is finalized. Start a new participant before collecting more data.');
+  }
   const persisted = await persistScreeningSessionIfNeeded(context);
   if (persisted && RESEARCH_STORE?.updateActiveScreeningSession && persisted.sessionStatus === 'active') {
     const nextMode = resolvePersistedSessionMode(persisted.sessionMode, mode);
@@ -650,29 +695,147 @@ async function prepareScreeningSession(mode) {
   return context;
 }
 
+function currentSessionHasData() {
+  return MODULES.some((module) => Boolean(sessionStorage.getItem(`fast_${module}`))) || screeningState.attemptedCount > 0;
+}
+
+function fillResearchForm() {
+  const meta = APP_MODE?.getResearchMetadata?.() || {};
+  const values = {
+    'research-study-id': meta.studyId,
+    'research-consent-status': meta.consentStatus || 'pending',
+    'research-consent-version': meta.consentVersion,
+    'research-recruitment-source': meta.recruitmentSource,
+    'research-operator-role': meta.operatorRole,
+    'research-site-code': meta.siteCode,
+    'research-operator-id': meta.operatorId
+  };
+  Object.entries(values).forEach(([id,value]) => { const el=document.getElementById(id); if(el && value != null) el.value=value; });
+}
+
+function updateAppModeUi() {
+  const mode = APP_MODE?.resolveMode?.() || 'public';
+  document.getElementById('app-mode-badge').textContent = mode.toUpperCase();
+  document.getElementById('mode-public')?.classList.toggle('active', mode === 'public');
+  document.getElementById('mode-research')?.classList.toggle('active', mode === 'research');
+  document.getElementById('research-setup')?.classList.toggle('show', mode === 'research');
+  const description = document.getElementById('app-mode-description');
+  if (description) description.textContent = mode === 'research'
+    ? 'clinic_supervised · ใช้ Full FAST protocol · ข้อมูลต้องผ่าน integrity check และ finalize'
+    : mode === 'dev'
+      ? 'Engineering only · verbose diagnostics · แยกจาก research dataset'
+      : 'ไม่มี Study ID · ไม่ upload research data · เก็บเฉพาะใน session ของแท็บนี้';
+  const individualToggle = document.getElementById('individual-toggle');
+  if (individualToggle) individualToggle.hidden = mode === 'research';
+  if (mode === 'research' && indOpen) setIndividualOpen(false);
+  fillResearchForm();
+}
+
+async function closeCurrentSessionForModeChange(reasonCode) {
+  const context = DATA_CONTRACT.getSessionContext();
+  if (!context?.screeningSessionId || context.sessionStatus === 'finalized') return true;
+  if (context.appMode === 'research' && context.sessionStatus === 'protocol_completed') {
+    alert('Research session นี้ทำ protocol ครบแล้ว กรุณาเปิดหน้าผลและกด “จบการเก็บข้อมูลผู้เข้าร่วมรายนี้” ก่อนเปลี่ยนโหมด');
+    return false;
+  }
+  await finalizePersistedSession(context, reasonCode);
+  return true;
+}
+
+async function createFreshSessionForCurrentMode() {
+  const nextContext = ensureScreeningSession(true);
+  await persistScreeningSessionIfNeeded(nextContext);
+  resetScreeningUiState();
+  setIndividualOpen(false);
+  updateProgress();
+  updateAppModeUi();
+  return nextContext;
+}
+
+async function selectPublicMode() {
+  if (APP_MODE?.resolveMode?.() === 'public') { updateAppModeUi(); return; }
+  if (!(await closeCurrentSessionForModeChange('APP_MODE_CHANGED_TO_PUBLIC'))) return;
+  DEV_MODE?.disable?.({ source:'public_mode_button' });
+  APP_MODE?.setMode?.('public', { source:'index_public_mode' });
+  APP_MODE?.clearResearchContext?.();
+  await createFreshSessionForCurrentMode();
+}
+
+function showResearchSetup() {
+  document.getElementById('research-setup')?.classList.add('show');
+  fillResearchForm();
+  document.getElementById('research-study-id')?.focus();
+}
+
+function researchFormValues() {
+  return {
+    researchProfile:'clinic_supervised',
+    studyId:document.getElementById('research-study-id')?.value,
+    consentStatus:document.getElementById('research-consent-status')?.value,
+    consentVersion:document.getElementById('research-consent-version')?.value,
+    recruitmentSource:document.getElementById('research-recruitment-source')?.value,
+    operatorRole:document.getElementById('research-operator-role')?.value,
+    siteCode:document.getElementById('research-site-code')?.value,
+    operatorId:document.getElementById('research-operator-id')?.value,
+    source:'index_research_setup'
+  };
+}
+
+async function activateResearchMode() {
+  const status = document.getElementById('research-validation');
+  try {
+    const normalizedStudyId = APP_MODE.normalizeStudyId(researchFormValues().studyId);
+    const input = { ...researchFormValues(), studyId:normalizedStudyId };
+    const preview = {
+      researchProfile:input.researchProfile,
+      researchProfileEnabled:true,
+      studyId:input.studyId,
+      consentStatus:input.consentStatus,
+      consentVersion:String(input.consentVersion || '').trim() || null,
+      recruitmentSource:input.recruitmentSource || null,
+      operatorRole:input.operatorRole || null,
+      siteCode:String(input.siteCode || '').trim() || null,
+      operatorId:String(input.operatorId || '').trim() || null
+    };
+    const validation = APP_MODE.validateResearchMetadata(preview, { requireConsented:true });
+    if (!validation.valid) throw new Error(validation.errors.join(', '));
+    const currentContext = DATA_CONTRACT.getSessionContext();
+    if (currentContext?.screeningSessionId && currentContext.sessionStatus !== 'finalized') {
+      const reasonCode = currentContext.appMode === 'research'
+        ? 'RESEARCH_CONTEXT_RECONFIGURED'
+        : 'APP_MODE_CHANGED_TO_RESEARCH';
+      if (!(await closeCurrentSessionForModeChange(reasonCode))) return;
+    }
+    DEV_MODE?.disable?.({ source:'research_mode_activation' });
+    APP_MODE.configureResearchContext(input);
+    await createFreshSessionForCurrentMode();
+    if (status) { status.className='research-validation ok'; status.textContent='Research Mode พร้อมใช้งาน'; }
+  } catch (error) {
+    if (status) { status.className='research-validation'; status.textContent=`ยังเริ่ม Research Mode ไม่ได้: ${error.message}`; }
+  }
+}
+
 function updateGlobalDevModeUi() {
   const enabled = DEV_MODE?.isEnabled?.() === true;
   const button = document.getElementById('dev-mode-toggle');
   const status = document.getElementById('dev-mode-status');
   if (button) {
     button.setAttribute('aria-pressed', String(enabled));
-    button.textContent = enabled
-      ? tr('index.devModeDisable', 'ปิด')
-      : tr('index.devModeEnable', 'เปิด');
+    button.textContent = enabled ? tr('index.devModeDisable', 'ปิด') : tr('index.devModeEnable', 'เปิด');
   }
-  if (status) {
-    status.textContent = enabled
-      ? tr('index.devModeOn', 'โหมดผู้พัฒนาเปิดอยู่ทุกหน้า')
-      : tr('index.devModeOff', 'โหมดผู้พัฒนาปิดอยู่');
-  }
+  if (status) status.textContent = enabled
+    ? tr('index.devModeOn', 'Engineering only · แยกจาก research dataset')
+    : tr('index.devModeOff', 'โหมดผู้พัฒนาปิดอยู่');
+  updateAppModeUi();
 }
 
-function toggleGlobalDevMode() {
-  if (!DEV_MODE) {
-    console.error('QuickStrokeDevMode failed to load.');
-    return;
-  }
-  DEV_MODE.toggle({ source:'index_button' });
+async function toggleGlobalDevMode() {
+  if (!DEV_MODE) { console.error('QuickStrokeDevMode failed to load.'); return; }
+  const enabling = !DEV_MODE.isEnabled();
+  const reasonCode = enabling ? 'APP_MODE_CHANGED_TO_DEV' : 'APP_MODE_CHANGED_FROM_DEV';
+  if (!(await closeCurrentSessionForModeChange(reasonCode))) return;
+  DEV_MODE.setEnabled(enabling, { source:'index_button' });
+  await createFreshSessionForCurrentMode();
   updateGlobalDevModeUi();
 }
 
@@ -816,8 +979,12 @@ async function handlePrimaryAction() {
     return;
   }
 
-  await prepareScreeningSession('full');
-  location.href = `${screeningState.nextModule}-test.html`;
+  try {
+    await prepareScreeningSession('full');
+    location.href = `${screeningState.nextModule}-test.html`;
+  } catch (error) {
+    alert(error.message || 'Unable to start screening.');
+  }
 }
 
 function toggleIndividual() {
@@ -827,9 +994,17 @@ function toggleIndividual() {
 
 async function goTest(moduleName) {
   if (!MODULES.includes(moduleName)) return;
+  if ((APP_MODE?.resolveMode?.() || 'public') === 'research') {
+    alert('Research Mode ใช้ Full FAST protocol เท่านั้น');
+    return;
+  }
   sessionStorage.setItem('fast_lang', lang);
-  await prepareScreeningSession('individual');
-  location.href = `${moduleName}-test.html`;
+  try {
+    await prepareScreeningSession('individual');
+    location.href = `${moduleName}-test.html`;
+  } catch (error) {
+    alert(error.message || 'Unable to start module.');
+  }
 }
 
 function goResult() {
@@ -939,26 +1114,16 @@ function resetScreeningUiState() {
 
 async function startNewPerson() {
   const currentContext = DATA_CONTRACT.getSessionContext();
-
-  if (currentContext.screeningSessionId && currentContext.sessionStatus === 'active') {
-    const closedContext = DATA_CONTRACT.closeScreeningSession(
-      'aborted',
-      'NEW_PARTICIPANT_STARTED'
-    );
-    await finalizePersistedSession(
-      closedContext,
-      'aborted',
-      'NEW_PARTICIPANT_STARTED'
-    );
+  if (currentContext.appMode === 'research' && currentContext.sessionStatus === 'protocol_completed') {
+    closeNewPersonDialog();
+    alert('กรุณา finalize Research session ปัจจุบันจากหน้าผลก่อนเริ่มผู้เข้าร่วมรายใหม่');
+    return;
   }
-
-  const nextContext = ensureScreeningSession(true);
-  await persistScreeningSessionIfNeeded(nextContext);
-
-  resetScreeningUiState();
+  if (currentContext.screeningSessionId && currentContext.sessionStatus !== 'finalized') {
+    await finalizePersistedSession(currentContext, 'NEW_PARTICIPANT_STARTED');
+  }
+  await createFreshSessionForCurrentMode();
   closeNewPersonDialog();
-  setIndividualOpen(false);
-  updateProgress();
   document.getElementById('primary-action')?.focus();
 }
 
@@ -974,6 +1139,7 @@ function acceptDisclaimer() {
 }
 
 window.addEventListener('quickstroke:dev-mode-change', updateGlobalDevModeUi);
+window.addEventListener('quickstroke:app-mode-change', updateAppModeUi);
 
 window.addEventListener('quickstroke:research-store-error', (event) => {
   const detail = event?.detail || {};
@@ -1006,6 +1172,7 @@ window.addEventListener('quickstroke:research-store-error', (event) => {
   ]);
 
   updateGlobalDevModeUi();
+  updateAppModeUi();
   showDisclaimerIfNeeded();
 })();
 </script>

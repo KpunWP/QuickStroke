@@ -801,12 +801,30 @@
        scroll-behavior: auto !important
      }
    }
+
+   .finalization-panel{margin-top:14px;padding:16px;border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:0 8px 24px rgba(31,50,69,.06)}
+   .finalization-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+   .finalization-title{font-size:17px;font-weight:850;color:var(--ink)}
+   .finalization-badge{padding:5px 9px;border-radius:999px;background:#EAF3FF;color:#1457A6;font-size:11px;font-weight:850;letter-spacing:.04em;text-transform:uppercase}
+   .finalization-meta{margin-top:9px;color:var(--ink-soft);font-size:13px;font-weight:650;line-height:1.55}
+   .integrity-box{margin-top:12px;padding:11px 12px;border-radius:14px;background:#F3F7FB;color:var(--ink-soft);font-size:13px;font-weight:700;line-height:1.5}
+   .integrity-box.ok{background:#EAF8EF;color:#17663A}
+   .integrity-box.error{background:#FFF0EE;color:#A33A2F}
+   .integrity-list{margin:7px 0 0;padding-left:18px;font-size:12px;font-weight:650}
+   .finalization-actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}
+   .finalization-actions button{min-height:44px;padding:10px 14px;border-radius:13px;font-family:inherit;font-size:13px;font-weight:850;cursor:pointer}
+   .finalize-button{border:0;background:#1F7A4D;color:#fff;flex:1 1 220px}
+   .finalize-button:disabled{opacity:.45;cursor:not-allowed}
+   .export-button{border:1.5px solid var(--line);background:#fff;color:var(--ink);flex:1 1 150px}
+   .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
   </style>
   <script src="config.js">
   </script>
-  <script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
-  <script src="./js/research-store.js?v=20260726-research-store-v3"></script>
-<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
+  <script src="./js/app-mode.js?v=20260801-app-mode-v1"></script>
+<script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
+<script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
+  <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
+<script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
   <script src="./js/languages.js?v=20260717-lang-v1"></script>
   <script src="./js/i18n.js">
   </script>
@@ -877,6 +895,22 @@
      </div>
     </details>
    </section>
+
+   <section class="finalization-panel" hidden id="finalization-panel" aria-labelledby="finalization-title">
+    <div class="finalization-header">
+     <div>
+      <div class="finalization-title" id="finalization-title">Research session finalization</div>
+      <div class="finalization-meta" id="finalization-meta"></div>
+     </div>
+     <div class="finalization-badge" id="finalization-badge">ACTIVE</div>
+    </div>
+    <div class="integrity-box" id="integrity-box">กำลังตรวจสอบความครบถ้วนของข้อมูล…</div>
+    <div class="finalization-actions">
+     <button class="finalize-button" id="finalize-session" type="button" disabled>จบการเก็บข้อมูลผู้เข้าร่วมรายนี้</button>
+     <button class="export-button" id="export-research-session" type="button">ส่งออก session JSON</button>
+    </div>
+    <div class="finalization-status" id="finalization-status" aria-live="polite"></div>
+   </section>
    <section class="dev-panel" hidden="" id="dev-panel">
     <div class="dev-card">
      <div class="dev-header">
@@ -920,9 +954,12 @@
    });
    const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
    const QUERY_PARAMS = new URLSearchParams(location.search);
-   const DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
-   const RESEARCH_MODE = DEV_MODE || QUERY_PARAMS.get('research') === '1' || window
-     .QS_CONFIG?.researchMode === true;
+   const RESULT_APP_MODE = window.QuickStrokeAppMode || null;
+   const RESULT_RESEARCH_POLICY = window.QuickStrokeResearchPolicy || null;
+   const APP_MODE_NAME = RESULT_APP_MODE?.resolveMode?.() || (window.QuickStrokeDevMode?.isEnabled?.() ? 'dev' : 'public');
+   const DEV_MODE = APP_MODE_NAME === 'dev' && window.QuickStrokeDevMode?.isEnabled?.() === true;
+   const RESEARCH_MODE = APP_MODE_NAME === 'research';
+   const DETAIL_MODE = RESEARCH_MODE || DEV_MODE;
    const RESULT_DIAGNOSTIC_VERSION = window.QS_CONFIG?.resultDiagnostics?.version ||
      'result-dev-diagnostics-1.2.0';
    const RESULT_CONTRACT = window.QuickStrokeDataContract || null;
@@ -1381,7 +1418,7 @@
        moduleSources: {}
      };
 
-     if (!RESULT_RESEARCH_STORE || !identity.screeningSessionId) {
+     if (!RESULT_RESEARCH_STORE || RESULT_RESEARCH_STORE.isPersistenceEnabled?.() !== true || !identity.screeningSessionId) {
        integrity.warnings.push('CANONICAL_STORE_UNAVAILABLE');
        integrity.status = 'warning';
        MODULES.forEach(name => {
@@ -1420,6 +1457,14 @@
      if (!bundle.session) {
        integrity.errors.push('SCREENING_SESSION_RECORD_MISSING');
      } else {
+       if (bundle.session.sessionStatus === 'protocol_completed' && bundle.session.protocolCompletedAt) {
+         RESULT_CONTRACT?.markProtocolCompleted?.(bundle.session.protocolCompletedAt, bundle.session.protocolCompletionReasonCode || 'FULL_PROTOCOL_FIRST_COMPLETION');
+       } else if (bundle.session.sessionStatus === 'finalized' && bundle.session.finalizedAt) {
+         RESULT_CONTRACT?.finalizeScreeningSession?.({
+           ...(bundle.session.finalizationMetadata || {}),
+           finalizedAt:bundle.session.finalizedAt
+         });
+       }
        if (bundle.session.screeningSessionId !== identity.screeningSessionId) {
          integrity.errors.push('SCREENING_SESSION_IDENTITY_MISMATCH');
        }
@@ -1884,8 +1929,8 @@
 
    function renderResearch(r) {
      const panel = document.getElementById('research-panel');
-     panel.hidden = !RESEARCH_MODE;
-     if (!RESEARCH_MODE) return;
+     panel.hidden = !DETAIL_MODE;
+     if (!DETAIL_MODE) return;
      document.getElementById('technical-title').textContent = T.technicalTitle;
      document.getElementById('technical-disclaimer').textContent = T.technicalDisclaimer;
      const grid = document.getElementById('technical-grid');
@@ -2342,7 +2387,153 @@
        action(retry, '', null, true);
      }
 
+     const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
+     if (RESEARCH_MODE && sessionStatus === 'finalized') {
+       action(primary, T.home || 'กลับหน้าหลัก', goHome);
+       action(secondary, '', null, true);
+       action(retry, '', null, true);
+     }
      document.getElementById('legal-note').textContent = T.safetyNote;
+   }
+
+   function safeFilenamePart(value) {
+     return String(value || 'session').replace(/[^a-zA-Z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80) || 'session';
+   }
+
+   async function exportCurrentResearchSession() {
+     const status = document.getElementById('finalization-status');
+     const button = document.getElementById('export-research-session');
+     const sessionId = RESULT_DATA_CONTEXT?.session?.screeningSessionId || currentSessionIdentity().screeningSessionId;
+     if (!RESULT_RESEARCH_STORE?.exportSession || !sessionId) return;
+     button.disabled = true;
+     if (status) status.textContent = 'กำลังเตรียมไฟล์ส่งออก…';
+     try {
+       const payload = await RESULT_RESEARCH_STORE.exportSession(sessionId);
+       const studyId = payload?.screeningSession?.researchMetadata?.studyId || 'QuickStroke';
+       const filename = `${safeFilenamePart(studyId)}-${safeFilenamePart(sessionId)}-1.0.21.json`;
+       const blob = new Blob([JSON.stringify(payload, null, 2)], { type:'application/json;charset=utf-8' });
+       const file = typeof File === 'function' ? new File([blob], filename, { type:blob.type }) : null;
+       let exportMethod = 'download';
+       if (file && navigator.share && navigator.canShare?.({ files:[file] })) {
+         await navigator.share({ files:[file], title:'QuickStroke research session' });
+         exportMethod = 'web_share';
+         if (status) status.textContent = `ส่งออกแล้ว: ${filename}`;
+       } else {
+         const url = URL.createObjectURL(blob);
+         const link = document.createElement('a');
+         link.href = url; link.download = filename; document.body.appendChild(link); link.click(); link.remove();
+         setTimeout(() => URL.revokeObjectURL(url), 1500);
+         if (status) status.textContent = `ดาวน์โหลดแล้ว: ${filename}`;
+       }
+       try {
+         await RESULT_RESEARCH_STORE.addAuditEvent?.(sessionId, 'SESSION_EXPORTED_LOCALLY', {
+           reasonCode:'LOCAL_RESEARCH_EXPORT',
+           details:{ filename, exportMethod, exportedAt:new Date().toISOString() }
+         });
+       } catch (auditError) {
+         console.warn('Research export succeeded but export audit event could not be stored.', auditError);
+         if (status) status.textContent += ' · คำเตือน: บันทึก audit event ไม่สำเร็จ';
+       }
+     } catch (error) {
+       if (error?.name === 'AbortError') {
+         if (status) status.textContent = 'ยกเลิกการส่งออก';
+       } else {
+         console.error('Research export failed.', error);
+         if (status) status.textContent = `ส่งออกไม่สำเร็จ: ${error.message || error}`;
+       }
+     } finally { button.disabled = false; }
+   }
+
+   async function finalizeCurrentResearchSession() {
+     const button = document.getElementById('finalize-session');
+     const status = document.getElementById('finalization-status');
+     const session = RESULT_DATA_CONTEXT?.session;
+     if (!RESEARCH_MODE || !session?.screeningSessionId || !RESULT_RESEARCH_STORE?.finalizeResearchSession) return;
+     if (!confirm('หลัง finalize แล้ว จะไม่สามารถเพิ่มหรือแก้ข้อมูลใน session นี้ได้ ยืนยันจบการเก็บข้อมูลหรือไม่?')) return;
+     button.disabled = true;
+     if (status) status.textContent = 'กำลังตรวจ integrity และ finalize…';
+     try {
+       await RESULT_RESEARCH_STORE.finalizeResearchSession(session.screeningSessionId, {
+         reasonCode:'PARTICIPANT_DATA_COLLECTION_ENDED',
+         finalizedByRole:session.researchMetadata?.operatorRole || null,
+         finalizedByOperatorId:session.researchMetadata?.operatorId || null
+       });
+       RESULT_DATA_CONTEXT = null;
+       await ensureResultDataContext({ force:true });
+       await buildResult();
+       if (status) status.textContent = 'Finalize สำเร็จ ข้อมูล session ถูกล็อกแล้ว';
+     } catch (error) {
+       console.error('Research finalization failed.', error);
+       if (status) status.textContent = `Finalize ไม่สำเร็จ: ${error.message || error}`;
+       button.disabled = false;
+     }
+   }
+
+   async function renderResearchFinalization(r) {
+     const panel = document.getElementById('finalization-panel');
+     if (!panel) return;
+     panel.hidden = !RESEARCH_MODE;
+     if (!RESEARCH_MODE) return;
+     const session = RESULT_DATA_CONTEXT?.session;
+     const meta = document.getElementById('finalization-meta');
+     const badge = document.getElementById('finalization-badge');
+     const box = document.getElementById('integrity-box');
+     const finalizeButton = document.getElementById('finalize-session');
+     const exportButton = document.getElementById('export-research-session');
+     const status = document.getElementById('finalization-status');
+     exportButton.onclick = exportCurrentResearchSession;
+     finalizeButton.onclick = finalizeCurrentResearchSession;
+     if (!session) {
+       badge.textContent = 'NO SESSION';
+       box.className = 'integrity-box error';
+       box.textContent = 'ไม่พบ canonical research session จึงยัง finalize ไม่ได้';
+       finalizeButton.disabled = true;
+       exportButton.disabled = true;
+       return;
+     }
+     const studyId = session.researchMetadata?.studyId || '—';
+     meta.textContent = `Study ID: ${studyId} · Profile: ${session.researchProfile || 'clinic_supervised'} · Upload: ${session.uploadState || 'not_configured'} · Export: ${session.exportState || 'not_exported'}`;
+     badge.textContent = String(session.sessionStatus || 'active').toUpperCase();
+     if (session.sessionStatus === 'finalized') {
+       box.className = 'integrity-box ok';
+       box.textContent = `Finalized: ${session.finalizedAt || '—'} · การแก้ภายหลังต้องใช้ amendment/audit trail`;
+       finalizeButton.disabled = true;
+       finalizeButton.textContent = 'Session finalized แล้ว';
+       exportButton.disabled = false;
+       if (status) status.textContent = '';
+       return;
+     }
+     let integrity = null;
+     try {
+       integrity = await RESULT_RESEARCH_STORE.validateSessionIntegrity(session.screeningSessionId, {
+         requireProtocolComplete:true,
+         requireResearch:true
+       });
+     } catch (error) {
+       integrity = { canFinalize:false, errors:[error.message || String(error)], warnings:[] };
+     }
+     const errors = integrity?.errors || [];
+     const warnings = integrity?.warnings || [];
+     box.className = `integrity-box ${integrity?.canFinalize ? 'ok' : 'error'}`;
+     box.innerHTML = '';
+     const summary = document.createElement('div');
+     summary.textContent = integrity?.canFinalize
+       ? `Integrity ผ่าน · ${integrity.counts?.moduleRuns ?? 0} module runs · ${integrity.counts?.testAttempts ?? 0} attempts`
+       : `Integrity ยังไม่ผ่าน (${errors.length} error${errors.length === 1 ? '' : 's'})`;
+     box.appendChild(summary);
+     if (errors.length || warnings.length) {
+       const list = document.createElement('ul'); list.className = 'integrity-list';
+       [...errors.map((value) => `ERROR: ${value}`), ...warnings.slice(0,5).map((value) => `WARN: ${value}`)].forEach((value) => {
+         const item = document.createElement('li'); item.textContent = value; list.appendChild(item);
+       });
+       box.appendChild(list);
+     }
+     finalizeButton.textContent = 'จบการเก็บข้อมูลผู้เข้าร่วมรายนี้';
+     finalizeButton.disabled = !integrity?.canFinalize || session.sessionStatus !== 'protocol_completed';
+     exportButton.disabled = false;
+     if (status) status.textContent = session.sessionStatus === 'active'
+       ? 'ต้องทำ Face, Arm และ Speech ครบตาม protocol ก่อน finalize'
+       : integrity?.canFinalize ? 'พร้อม finalize' : 'กรุณาแก้ integrity errors ก่อน finalize';
    }
 
    async function buildResult() {
@@ -2354,12 +2545,15 @@
      renderNext(CURRENT);
      renderReminder(CURRENT);
      renderResearch(CURRENT);
+     await renderResearchFinalization(CURRENT);
      renderDevDiagnostics(CURRENT);
      renderActions(CURRENT);
      void persistResultDecisionTrace(CURRENT)
    }
 
    function retryModule(name) {
+     const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
+     if (sessionStatus === 'finalized') { alert('Session นี้ finalize แล้ว ไม่สามารถ retry ได้'); return; }
      const currentRunId = CURRENT?.data?.[name]?.moduleRunId || null;
      const canonicalSessionMode = RESULT_DATA_CONTEXT?.session?.sessionMode || null;
      const storedSessionMode = sessionStorage.getItem('fast_mode');
@@ -2368,12 +2562,38 @@
        : 'individual';
 
      sessionStorage.removeItem(`fast_${name}`);
+     const retryRequestedAt = new Date().toISOString();
+     const identity = currentSessionIdentity();
+     if (RESULT_RESEARCH_STORE?.addTechnicalEvent && RESULT_CONTRACT && identity.screeningSessionId) {
+       void RESULT_RESEARCH_STORE.addTechnicalEvent({
+         technicalEventId:RESULT_CONTRACT.createId('technicalEvent'),
+         recordType:'technical_event',
+         schemaVersion:RESULT_CONTRACT.versions?.technicalEventSchema || 'technical-event-0.1.0',
+         participantId:identity.participantId,
+         screeningSessionId:identity.screeningSessionId,
+         legacyAssessmentId:RESULT_CONTRACT.getSessionContext?.().legacyAssessmentId || null,
+         module:name,
+         moduleRunId:currentRunId,
+         testAttemptId:null,
+         eventCode:'MODULE_RETRY_REQUESTED',
+         category:'retry_lifecycle',
+         severity:'info',
+         phase:'RESULT_ACTION',
+         occurredAt:retryRequestedAt,
+         recordedAt:retryRequestedAt,
+         sourceComponent:'result-page',
+         sourceVersion:RESULT_DIAGNOSTIC_VERSION,
+         recovered:false,
+         details:{sessionMode,previousModuleRunId:currentRunId},
+         versionSnapshot:RESULT_CONTRACT.createVersionSnapshot?.(name) || null
+       }).catch(error => console.warn('Unable to persist retry technical event.', error));
+     }
      sessionStorage.setItem('fast_pending_module_retry', JSON.stringify({
        module: name,
        previousModuleRunId: currentRunId,
        previousModuleRunSequenceNo: CURRENT?.data?.[name]?.moduleRunSequenceNo || null,
        currentModuleRunIdAtRequest: RESULT_CONTRACT?.getCurrentModuleRunId?.(name) || null,
-       requestedAt: new Date().toISOString(),
+       requestedAt: retryRequestedAt,
        sessionMode,
        resultScope: sessionMode === 'full' ? 'combined' : 'individual'
      }));
@@ -2392,6 +2612,8 @@
    }
 
    function continueTests() {
+     const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
+     if (sessionStatus === 'finalized') { alert('Session นี้ finalize แล้ว กรุณาเริ่มผู้เข้าร่วมรายใหม่'); return; }
      sessionStorage.setItem('fast_mode', 'full');
      sessionStorage.removeItem('fast_result_source');
      sessionStorage.setItem('fast_lang', LANG);
@@ -2399,6 +2621,8 @@
    }
 
    function retryAll() {
+     const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
+     if (sessionStatus === 'finalized') { alert('Session นี้ finalize แล้ว ไม่สามารถ retry ได้'); return; }
      if (!T || !confirm(T.retryConfirm)) {
        return;
      }

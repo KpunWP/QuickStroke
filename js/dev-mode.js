@@ -1,4 +1,4 @@
-/* QuickStroke global developer mode — v0.2.0
+/* QuickStroke global developer mode — v0.3.0
  *
  * Load after config.js, data-contract.js and research-store.js.
  * Developer mode changes visibility and logging only. It must never change
@@ -9,7 +9,7 @@
 
   if (global.QuickStrokeDevMode) return;
 
-  const VERSION = 'quickstroke-dev-mode-0.2.0';
+  const VERSION = 'quickstroke-dev-mode-0.3.0';
   const STORAGE_KEY = 'quickstroke_dev_mode';
   const LEGACY_STORAGE_KEY = 'fast_dev_mode';
   const CHANGE_EVENT = 'quickstroke:dev-mode-change';
@@ -18,6 +18,8 @@
 
   const CONTRACT = global.QuickStrokeDataContract || null;
   const RESEARCH_STORE = global.QuickStrokeResearchStore || null;
+  const APP_MODE = global.QuickStrokeAppMode || null;
+  const RESEARCH_POLICY = global.QuickStrokeResearchPolicy || null;
 
   function safeSessionStorage() {
     try {
@@ -155,6 +157,12 @@
     }
   }
 
+  function isEssentialResearchEvent(eventCode) {
+    const exact = RESEARCH_POLICY?.essentialTechnicalEvents || [];
+    if (exact.includes(eventCode)) return true;
+    return /(?:STORAGE_WRITE_FAILED|MODULE_RUN_STARTED|ATTEMPT_STARTED|ATTEMPT_FINALIZED|SIDE_USER_CONFIRMED|PERMISSION_DENIED|SENSOR_UNAVAILABLE|SENSOR_STALE|PAGE_HIDDEN|RETRY_REQUESTED|UPLOAD_FAILED|UPLOAD_SUCCEEDED)$/.test(eventCode);
+  }
+
   function buildTechnicalEvent(eventCode, details = {}) {
     if (!CONTRACT) return null;
     const context = CONTRACT.getSessionContext?.() || {};
@@ -163,10 +171,15 @@
     const module = details.module || inferModule();
     const eventModule = ['face', 'arm', 'speech'].includes(module) ? module : null;
     const occurredAt = CONTRACT.nowIso?.() || new Date().toISOString();
+    const researchEvent = context.appMode === 'research';
 
     return {
       technicalEventId: CONTRACT.createId('technicalEvent'),
       recordType: 'technical_event',
+      appMode: context.appMode || 'public',
+      analysisRole: researchEvent ? 'research_candidate' : 'engineering_only',
+      researchProfile: researchEvent ? context.researchMetadata?.researchProfile || null : null,
+      essentialForResearch: researchEvent,
       schemaVersion: CONTRACT.versions?.technicalEventSchema || 'technical-event-0.1.0',
       participantId: context.participantId,
       screeningSessionId: context.screeningSessionId,
@@ -175,12 +188,12 @@
       moduleRunId: details.moduleRunId || (eventModule ? CONTRACT.getCurrentModuleRunId?.(eventModule) : null) || null,
       testAttemptId: details.testAttemptId || null,
       eventCode,
-      category: details.category || 'developer_mode',
+      category: details.category || (researchEvent ? 'research_essential' : 'developer_mode'),
       severity: details.severity || 'info',
       phase: details.phase || null,
       occurredAt,
       recordedAt: occurredAt,
-      sourceComponent: 'global-dev-mode',
+      sourceComponent: researchEvent ? 'technical-event-router' : 'global-dev-mode',
       sourceVersion: VERSION,
       recovered: false,
       recoveredAt: null,
@@ -200,13 +213,21 @@
     };
   }
 
+  function contextIsFinalized() {
+    return CONTRACT?.getSessionContext?.()?.sessionStatus === 'finalized';
+  }
+
   function logEvent(eventCode, details = {}) {
-    if (!enabled && eventCode !== 'DEV_MODE_DISABLED') return Promise.resolve(null);
     const safeCode = String(eventCode || 'DEV_EVENT').trim().toUpperCase().replace(/[^A-Z0-9_]/g, '_');
+    const context = CONTRACT?.getSessionContext?.() || {};
+    const researchEssential = context.appMode === 'research' && isEssentialResearchEvent(safeCode);
+    const engineeringVerbose = enabled && context.appMode === 'dev';
+    if (!researchEssential && !engineeringVerbose && eventCode !== 'DEV_MODE_DISABLED') return Promise.resolve(null);
     const event = buildTechnicalEvent(safeCode, details);
 
-    console.info(`[QuickStrokeDevMode] ${safeCode}`, sanitizeValue(details));
+    if (engineeringVerbose) console.info(`[QuickStrokeDevMode] ${safeCode}`, sanitizeValue(details));
     if (!event || !RESEARCH_STORE?.addTechnicalEvent) return Promise.resolve(event);
+    if (!['dev', 'research'].includes(event.appMode) || contextIsFinalized()) return Promise.resolve(event);
 
     return RESEARCH_STORE.addTechnicalEvent(event).catch((error) => {
       console.warn('[QuickStrokeDevMode] Unable to persist technical event.', error);
@@ -229,6 +250,8 @@
 
     enabled = next;
     writeStoredState(enabled);
+    if (enabled) APP_MODE?.setMode?.('dev', { source:`dev_mode:${source}` });
+    else if (APP_MODE?.getSelectedMode?.() === 'dev') APP_MODE?.setMode?.('public', { source:`dev_mode:${source}` });
     applyDomState();
     dispatchChange(source);
 
