@@ -3,8 +3,9 @@
     "locale": "en-US",
     "nativeName": "English",
     "direction": "ltr",
-    "packVersion": "0.7.0",
-    "status": "developer-reference-language"
+    "packVersion": "0.9.2",
+    "status": "developer-reference-language",
+    "version": "20260731-arm-side-sticky-result-v1"
   },
   "index": {
     "title": "Check for Stroke Signs",
@@ -38,7 +39,11 @@
     "statusDone": "Complete",
     "statusRetry": "Retry",
     "statusCaution": "Caution",
-    "statusDetected": "Sign found"
+    "statusDetected": "Sign found",
+    "devModeEnable": "Enable",
+    "devModeDisable": "Disable",
+    "devModeOn": "Developer mode is active on every page",
+    "devModeOff": "Developer mode is off"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",
@@ -246,8 +251,17 @@
         "title": "Hold still",
         "subtitle": "The test will start automatically",
         "voice": "Hold still. The test will start automatically."
+      },
+      "arm_side_not_confirmed": {
+        "title": "Confirm the correct arm",
+        "subtitle": "Use the arm shown on screen, then tap the confirmation button",
+        "voice": "Please confirm the correct arm"
       }
-    }
+    },
+    "btnConfirmStart_left": "Confirm left arm and start",
+    "btnConfirmStart_right": "Confirm right arm and start",
+    "btnConfirmRetry_left": "Confirm left arm and retry",
+    "btnConfirmRetry_right": "Confirm right arm and retry"
   },
   "speech": {
     "langCode": "en-US",
@@ -275,13 +289,13 @@
     "noiseGo": "Continue",
     "noisyTag": "⚠ SNR below 10 dB; background noise may affect the result",
     "topTitle": "FAST · Speech",
-    "accuracy": "Words",
+    "accuracy": "Phrase match",
     "ready": "Ready",
     "rate": "Speed",
     "pending": "Waiting",
-    "wordAccuracy": "Correct words",
+    "wordAccuracy": "Phrase similarity",
     "speechRate": "Speed",
-    "volumeStability": "Voice consistency",
+    "volumeStability": "Voice variability",
     "noiseMetric": "Noise",
     "snrMetric": "SNR",
     "calibrating": "Preparing...",
@@ -295,8 +309,8 @@
     "noVoice": "No voice",
     "voiceButNoText": "Voice detected, but not recognized in the selected language",
     "noSpeechSegment": "No speech segment detected",
-    "wordMismatch": "Sentence mismatch",
-    "issueWord": "words do not match",
+    "wordMismatch": "Phrase does not match",
+    "issueWord": "phrase does not match",
     "issueSlow": "slow speech",
     "issueUnstable": "uneven voice",
     "deadMicFailed": "⚠️ Microphone is not responding. Please wait a moment and start again.",
@@ -311,7 +325,31 @@
     "subInvalid": "The speech check could not be completed. Please try again.",
     "retryingNoVoice": "No voice was detected. Retrying once…",
     "retryingNoText": "Speech was detected, but the words were not recognized. Retrying once…",
-    "micSessionReset": "Resetting the microphone for a new attempt…"
+    "micSessionReset": "Resetting the microphone for a new attempt…",
+    "phraseExact": "✓ Match",
+    "phraseSimilarity": "{{percent}}% match",
+    "phraseNoMatch": "✗ No match",
+    "displayNoAlertTitle": "No item to flag",
+    "displayAttentionTitle": "Further review suggested",
+    "displayIndeterminateTitle": "Unable to assess",
+    "displayNoAlertSummary": "No item needs attention",
+    "displayAttentionSummary": "{{count}} item(s) need attention",
+    "displayAsrIncompleteSummary": "The transcript was incomplete. Please test again.",
+    "domainPhraseLabel": "Speech",
+    "domainRateLabel": "Speed",
+    "domainQualityLabel": "Audio data",
+    "statusPhraseExact": "Matches the phrase",
+    "statusPhraseAttention": "Needs attention",
+    "statusPhraseUnavailable": "Unable to assess",
+    "statusRateWithin": "Within reference range",
+    "statusRateSlow": "Below reference range",
+    "statusRateFast": "Above reference range",
+    "statusRateUnavailable": "Unable to assess",
+    "statusQualityAcceptable": "Usable",
+    "statusQualityLimited": "Limited",
+    "detailsShow": "View details",
+    "detailsHide": "Hide details",
+    "detailsResearchNote": "The values below are retained for pre-pilot development and analysis. They are not a diagnosis."
   },
   "result": {
     "pageTitle": "QuickStroke · Screening Result",
@@ -359,7 +397,7 @@
     "retryAll": "Start over",
     "retryConfirm": "Clear all results and start over?",
     "startModule": "Start",
-    "retryModule": "Try again",
+    "retryModule": "Test again",
     "retryCurrent": "Try this check again",
     "emergencyThailand": "Call Thailand EMS · 1669",
     "emergencyLocal": "Contact local emergency services now",
@@ -368,7 +406,7 @@
     "technicalTitle": "Research details",
     "technicalDisclaimer": "Internal scores are for system analysis only. They are not a risk percentage or diagnosis.",
     "moduleScore": "{module} score",
-    "internalWeightedScore": "Internal weighted score",
+    "internalWeightedScore": "Research-only weighted score",
     "basedOn": "based on {n}/3 checks",
     "languageUnavailable": "Language unavailable",
     "moduleValidity": "{module} · Result validity",
@@ -379,7 +417,8 @@
     "technicalDegraded": "Degraded",
     "technicalError": "Error",
     "invalidReason": "Invalid reason",
-    "qualityFlags": "Quality flags"
+    "qualityFlags": "Quality flags",
+    "modulePriorAbnormal": "Abnormal finding retained from an earlier test"
   },
   "permissions": {
     "checking": "Checking permissions...",

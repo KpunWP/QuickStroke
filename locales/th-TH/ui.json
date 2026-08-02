@@ -3,8 +3,9 @@
     "locale": "th-TH",
     "nativeName": "ภาษาไทย",
     "direction": "ltr",
-    "packVersion": "0.7.0",
-    "status": "primary-research-language"
+    "packVersion": "0.9.2",
+    "status": "primary-research-language",
+    "version": "20260731-arm-side-sticky-result-v1"
   },
   "index": {
     "title": "เช็กสัญญาณสโตรก",
@@ -38,7 +39,11 @@
     "statusDone": "เสร็จแล้ว",
     "statusRetry": "ลองใหม่",
     "statusCaution": "ควรระวัง",
-    "statusDetected": "พบสัญญาณ"
+    "statusDetected": "พบสัญญาณ",
+    "devModeEnable": "เปิด",
+    "devModeDisable": "ปิด",
+    "devModeOn": "โหมดผู้พัฒนาเปิดอยู่ทุกหน้า",
+    "devModeOff": "โหมดผู้พัฒนาปิดอยู่"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",
@@ -246,8 +251,17 @@
         "title": "ถือนิ่งๆ",
         "subtitle": "ระบบจะเริ่มให้อัตโนมัติ",
         "voice": "ถือนิ่งๆ ระบบจะเริ่มให้อัตโนมัติ"
+      },
+      "arm_side_not_confirmed": {
+        "title": "ยืนยันแขนให้ถูกข้าง",
+        "subtitle": "กดปุ่มเริ่มของแขนที่ระบุ แล้วถือโทรศัพท์ด้วยแขนข้างนั้น",
+        "voice": "กรุณายืนยันแขนให้ถูกข้าง"
       }
-    }
+    },
+    "btnConfirmStart_left": "ยืนยันแขนซ้ายและเริ่ม",
+    "btnConfirmStart_right": "ยืนยันแขนขวาและเริ่ม",
+    "btnConfirmRetry_left": "ยืนยันแขนซ้ายและทดสอบใหม่",
+    "btnConfirmRetry_right": "ยืนยันแขนขวาและทดสอบใหม่"
   },
   "speech": {
     "langCode": "th-TH",
@@ -273,13 +287,13 @@
     "noiseGo": "ทำต่อ",
     "noisyTag": "⚠ SNR ต่ำกว่า 10 dB ผลอาจคลาดเคลื่อนจากเสียงรบกวน",
     "topTitle": "FAST · การพูด",
-    "accuracy": "คำพูด",
+    "accuracy": "ความตรง",
     "ready": "พร้อม",
     "rate": "ความเร็ว",
     "pending": "รอ",
-    "wordAccuracy": "คำที่พูดถูก",
+    "wordAccuracy": "ความตรงของคำพูด",
     "speechRate": "ความเร็ว",
-    "volumeStability": "เสียงสม่ำเสมอ",
+    "volumeStability": "ความแปรปรวนของเสียง",
     "noiseMetric": "เสียงรบกวน",
     "snrMetric": "SNR",
     "calibrating": "กำลังเตรียม...",
@@ -293,8 +307,8 @@
     "noVoice": "ไม่มีเสียง",
     "voiceButNoText": "มีเสียงพูด แต่ระบบจำคำตามภาษาที่เลือกไม่ได้",
     "noSpeechSegment": "ไม่พบช่วงสัญญาณเสียง",
-    "wordMismatch": "คำไม่ตรงประโยค",
-    "issueWord": "คำไม่ตรง",
+    "wordMismatch": "คำพูดไม่ตรงตามประโยค",
+    "issueWord": "คำพูดไม่ตรงตามประโยค",
     "issueSlow": "พูดช้า",
     "issueUnstable": "เสียงไม่คงที่",
     "deadMicFailed": "⚠️ ไมค์ไม่ตอบสนอง กรุณารอสักครู่แล้วกดเริ่มใหม่",
@@ -309,7 +323,31 @@
     "subInvalid": "ยังประเมินการพูดไม่ได้ กรุณาลองใหม่",
     "retryingNoVoice": "ยังไม่พบเสียงพูด กำลังลองใหม่ให้อีก 1 ครั้ง…",
     "retryingNoText": "พบเสียงพูด แต่ยังจำคำไม่ได้ กำลังลองใหม่ให้อีก 1 ครั้ง…",
-    "micSessionReset": "กำลังรีเซ็ตไมโครโฟนสำหรับรอบใหม่…"
+    "micSessionReset": "กำลังรีเซ็ตไมโครโฟนสำหรับรอบใหม่…",
+    "phraseExact": "✓ ตรง",
+    "phraseSimilarity": "ใกล้เคียง {{percent}}%",
+    "phraseNoMatch": "✗ ไม่ตรง",
+    "displayNoAlertTitle": "ไม่พบสิ่งที่ควรเตือน",
+    "displayAttentionTitle": "ควรประเมินเพิ่มเติม",
+    "displayIndeterminateTitle": "ประเมินไม่ได้",
+    "displayNoAlertSummary": "ไม่พบจุดที่ควรสังเกต",
+    "displayAttentionSummary": "พบ {{count}} จุดที่ควรสังเกต",
+    "displayAsrIncompleteSummary": "ระบบอ่านข้อความได้ไม่ครบ กรุณาทดสอบอีกครั้ง",
+    "domainPhraseLabel": "คำพูด",
+    "domainRateLabel": "ความเร็ว",
+    "domainQualityLabel": "ข้อมูลเสียง",
+    "statusPhraseExact": "ตรงตามประโยค",
+    "statusPhraseAttention": "ควรสังเกต",
+    "statusPhraseUnavailable": "ประเมินไม่ได้",
+    "statusRateWithin": "อยู่ในช่วงอ้างอิง",
+    "statusRateSlow": "ช้ากว่าช่วงอ้างอิง",
+    "statusRateFast": "เร็วกว่าช่วงอ้างอิง",
+    "statusRateUnavailable": "ประเมินไม่ได้",
+    "statusQualityAcceptable": "ใช้ได้",
+    "statusQualityLimited": "มีข้อจำกัด",
+    "detailsShow": "ดูรายละเอียด",
+    "detailsHide": "ซ่อนรายละเอียด",
+    "detailsResearchNote": "ค่าด้านล่างเก็บไว้เพื่อการพัฒนาและวิเคราะห์ในระยะพรีไพลอต ไม่ใช่ผลวินิจฉัย"
   },
   "result": {
     "pageTitle": "QuickStroke · ผลการคัดกรอง",
@@ -357,7 +395,7 @@
     "retryAll": "เริ่มใหม่ทั้งหมด",
     "retryConfirm": "ล้างผลทั้งหมดและเริ่มใหม่?",
     "startModule": "เริ่ม",
-    "retryModule": "ลองใหม่",
+    "retryModule": "ทดสอบใหม่",
     "retryCurrent": "ลองรายการนี้ใหม่",
     "emergencyThailand": "โทร 1669 ทันที",
     "emergencyLocal": "ติดต่อบริการฉุกเฉินในพื้นที่ทันที",
@@ -366,7 +404,7 @@
     "technicalTitle": "รายละเอียดสำหรับงานวิจัย",
     "technicalDisclaimer": "คะแนนภายในใช้วิเคราะห์ระบบเท่านั้น ไม่ใช่เปอร์เซ็นต์ความเสี่ยงหรือผลวินิจฉัย",
     "moduleScore": "คะแนน{module}",
-    "internalWeightedScore": "คะแนนรวมภายใน",
+    "internalWeightedScore": "คะแนนรวมเพื่อการวิจัยเท่านั้น",
     "basedOn": "จาก {n}/3 รายการ",
     "languageUnavailable": "ไม่สามารถโหลดภาษาได้",
     "moduleValidity": "{module} · ความใช้ได้ของผล",
@@ -377,7 +415,8 @@
     "technicalDegraded": "ลดระดับ",
     "technicalError": "ผิดพลาด",
     "invalidReason": "เหตุผลที่ประเมินไม่ได้",
-    "qualityFlags": "ธงคุณภาพ"
+    "qualityFlags": "ธงคุณภาพ",
+    "modulePriorAbnormal": "เคยพบความผิดปกติในครั้งก่อน"
   },
   "permissions": {
     "checking": "กำลังตรวจสอบสิทธิ์...",

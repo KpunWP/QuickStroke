@@ -1376,6 +1376,29 @@
     display:flex!important;
   }
 
+  /* QUICKSTROKE FACE UX STATE FIX — v0.1.2
+     Hide the redundant start instruction only while the Start button is ready.
+     Restore short instructions and warnings throughout the active test. */
+  body.start-ready #status-msg,
+  body.start-ready #pose-warn-msg,
+  body.start-ready #smile-prompt{
+    display:none!important;
+  }
+
+  body.screening-active:not(.result-visible) #status-msg:not(:empty){
+    display:flex!important;
+  }
+  body.screening-active.smile-prompt-visible #status-msg,
+  body.screening-active.pose-warning-visible #status-msg{
+    display:none!important;
+  }
+  body.screening-active.smile-prompt-visible #smile-prompt{
+    display:block!important;
+  }
+  body.screening-active.pose-warning-visible #pose-warn-msg:not(:empty){
+    display:flex!important;
+  }
+
   @media (min-width:620px){
     #face-status-row{
       left:50%!important;
@@ -1562,8 +1585,69 @@
     #face-home-btn{left:12px!important;right:auto!important;}
     #top-bar{left:68px!important;right:12px!important;width:auto!important;}
   }
+
+
+  /* QUICKSTROKE FACE ICON-ONLY STATUS CARDS — data capture v0.1.1
+     Status is communicated by the icon and card state; secondary copy is hidden. */
+  .s-card{
+    grid-template-columns:34px minmax(0,1fr)!important;
+    grid-template-rows:1fr!important;
+    align-items:center!important;
+  }
+  .s-card-icon{grid-row:1!important}
+  .s-card-main{align-self:center!important}
+  .s-card-sub{display:none!important}
+  .s-card.active .s-card-icon{
+    animation:face-status-icon-pulse 1.15s ease-in-out infinite;
+  }
+  @keyframes face-status-icon-pulse{
+    0%,100%{transform:scale(1);}
+    50%{transform:scale(1.08);}
+  }
+
+
+  /* QUICKSTROKE FACE NOTICE STATE — data capture v0.1.6
+     All short instructions use one physical surface (#status-msg).
+     This removes cross-element state races between smile/status prompts. */
+  body:not(.result-visible) #status-msg,
+  body:not(.result-visible) #pose-warn-msg,
+  body:not(.result-visible) #smile-prompt{
+    display:none!important;
+  }
+
+  body.notice-status:not(.result-visible) #status-msg:not(:empty),
+  body.notice-smile:not(.result-visible) #status-msg:not(:empty){
+    display:flex!important;
+  }
+  body.notice-pose:not(.result-visible) #pose-warn-msg:not(:empty){
+    display:flex!important;
+  }
+
+  /* The legacy smile element is intentionally retired from visible UX. */
+  #smile-prompt{
+    display:none!important;
+  }
+
+  body.notice-status #pose-warn-msg,
+  body.notice-pose #status-msg,
+  body.notice-smile #pose-warn-msg{
+    display:none!important;
+  }
+
+  /* Keep the structural dashboard completely transparent during screening. */
+  body:not(.result-visible) #dashboard{
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
+    backdrop-filter:none!important;
+    -webkit-backdrop-filter:none!important;
+  }
+
 </style>
-<script src="config.js"></script>
+<script src="config.js?v=20260725-face-contract-v2"></script>
+<script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
+<script src="./js/research-store.js?v=20260726-research-store-v3"></script>
+<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
@@ -1587,8 +1671,8 @@
   <canvas id="canvas"></canvas>
 
   <div id="face-status-row" aria-label="Face test status">
-    <div class="s-card active" id="face-card-face"><span class="s-card-icon" id="face-ico-face">🙂</span><span class="s-card-main" id="face-main-face">ใบหน้า</span><span class="s-card-sub" id="face-sub-face">รอ</span></div>
-    <div class="s-card" id="face-card-smile"><span class="s-card-icon" id="face-ico-smile">😄</span><span class="s-card-main" id="face-main-smile">ยิ้ม</span><span class="s-card-sub" id="face-sub-smile">รอ</span></div>
+    <div class="s-card active" id="face-card-face"><span class="s-card-icon" id="face-ico-face" aria-hidden="true">🙂</span><span class="s-card-main" id="face-main-face">ใบหน้า</span><span class="s-card-sub" id="face-sub-face"></span></div>
+    <div class="s-card" id="face-card-smile"><span class="s-card-icon" id="face-ico-smile" aria-hidden="true">⏳</span><span class="s-card-main" id="face-main-smile">ยิ้ม</span><span class="s-card-sub" id="face-sub-smile"></span></div>
   </div>
 
   <div id="progress-dots">
@@ -1646,6 +1730,12 @@
     <span class="dbg-row"><span class="dbg-lbl">phase</span><span class="dbg-val" id="dbg-phase">—</span></span>
     <span class="dbg-row"><span class="dbg-lbl">mouthVisible</span><span class="dbg-val" id="dbg-mouthvis">—</span></span>
     <span class="dbg-row"><span class="dbg-lbl">mouthScore</span><span class="dbg-val" id="dbg-mouthscore">—</span></span>
+
+    <div class="dbg-section">🧪 RESEARCH PAYLOAD</div>
+    <div style="display:flex;gap:8px;margin-top:7px">
+      <button type="button" onclick="downloadFaceResearchJson()" style="flex:1;border:1px solid rgba(0,255,160,.35);background:rgba(0,255,160,.12);color:#A8F5C3;border-radius:9px;padding:8px 6px;font-size:10px;font-weight:800;cursor:pointer">Download JSON</button>
+      <button type="button" onclick="copyFaceResearchJson()" style="flex:1;border:1px solid rgba(255,213,79,.35);background:rgba(255,213,79,.10);color:#FFD54F;border-radius:9px;padding:8px 6px;font-size:10px;font-weight:800;cursor:pointer">Copy JSON</button>
+    </div>
   </div>
 </div>
 
@@ -1674,8 +1764,8 @@
 <script type="module">
 'use strict';
 
-// Developer UI is hidden in production. Open face-test.html?dev=1 to enable it.
-const FACE_DEV_MODE = new URLSearchParams(window.location.search).get('dev') === '1';
+// Developer UI follows the global Dev Mode switch on Index; ?dev=1 remains a fallback.
+const FACE_DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
 document.body.classList.toggle('dev-mode', FACE_DEV_MODE);
 
 // tasks-vision is imported dynamically inside loadModel() so that a failed/blocked
@@ -1709,7 +1799,7 @@ function getPreferredFaceLang() {
 }
 
 /* ═══ BUILD MARKER: ใช้เช็คว่าเบราว์เซอร์โหลดไฟล์เวอร์ชันไหนอยู่ ═══ */
-const FACE_TEST_BUILD = 'face-prepilot-1.1.0 / 2026-07-20';
+const FACE_TEST_BUILD = 'face-prepilot-1.4.0-contract-migration / 2026-07-25';
 console.log('%c✅ face-test build: ' + FACE_TEST_BUILD + ' (validity codes + research telemetry + timeout gates)',
   'color:#1FA98F;font-weight:bold;font-size:13px');
 window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD ใน console ได้เลย
@@ -1718,12 +1808,11 @@ window.FACE_TEST_BUILD = FACE_TEST_BUILD;   // พิมพ์ FACE_TEST_BUILD �
 const videoEl = document.getElementById('video');
 
 /* ═══════════════ DEV MESH OVERLAY (demo/debug only) ═══════════════
- * เปิดด้วย ?dev=1 หรือ ?mesh=1 ใน URL — ไม่กระทบผู้ใช้ปกติ
+ * เปิดจาก Global Dev Mode หรือใช้ ?mesh=1 เฉพาะ mesh — ไม่กระทบผู้ใช้ปกติ
  * ใช้สำหรับอัดคลิป demo + debug landmark ระหว่างเฟสพัฒนา
  * ตอน deploy production จริง (เก็บข้อมูลผู้ป่วย) ให้ลบบล็อกนี้ออก
  */
-const DEV_MESH = new URLSearchParams(location.search).has('dev')
-              || new URLSearchParams(location.search).has('mesh');
+const DEV_MESH = FACE_DEV_MODE || new URLSearchParams(location.search).has('mesh');
 let meshOn = DEV_MESH; // เปิด mesh ทันทีถ้าอยู่ใน dev mode
 const meshCanvas = document.getElementById('canvas');
 const meshCtx = meshCanvas ? meshCanvas.getContext('2d') : null;
@@ -1812,9 +1901,9 @@ let mouthCtx = null;
 
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
-const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.2.0";
-const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.0.0";
-const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.0.1";
+const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.4.0";
+const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.2.0";
+const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.3.0";
 
 function stableStringify(value) {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
@@ -1835,10 +1924,14 @@ function fnv1aHash(text) {
 
 const FACE_CONFIG_HASH = `fnv1a-${fnv1aHash(stableStringify(FACE_CFG))}`;
 
+const FACE_DATA_CONTRACT = window.QuickStrokeDataContract || null;
+const FACE_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
+
 const CALIBRATION_SECONDS = FACE_CFG.calibrationSeconds ?? 3;       // short "get ready" before smiling
 const ACTION_DURATION_MS = FACE_CFG.actionDurationMs ?? 4000;       // length of the smile-recording window
 const MAX_ASSESS_ATTEMPTS = FACE_CFG.maxAssessAttempts ?? 3;        // auto-retry "unable to assess"
 const RETRY_DELAY_MS = FACE_CFG.retryDelayMs ?? 2500;               // pause before each auto-retry
+const SMILE_NUDGE_MIN_MS = FACE_CFG.smileNudgeMinMs ?? 2500;      // keep “smile wider” visible long enough to read
 const WEAK_SIDE_RATIO_BAD = FACE_CFG.weakSideRatioBad ?? 0.45;      // active result threshold
 const WEAK_SIDE_RATIO_SHADOW = FACE_CFG.weakSideRatioShadow ?? 0.30; // research-only; never changes result
 
@@ -1849,6 +1942,8 @@ const REAL_MOVE_MIN = FACE_CFG.realMoveMin ?? 0.0025;
 const CLOSED_SMILE_RISE_MIN = FACE_CFG.closedSmileRiseMin ?? 0.003;
 const SMILE_REAL_MIN = FACE_CFG.smileRealMin ?? 0.045;
 
+// v1.1 policy: threshold values are unchanged. The logic now prevents
+// normalized geometry from confirming a smile without blendshape support.
 const MIN_VALID_SMILE_FRAMES = FACE_CFG.minValidSmileFrames ?? 2;
 const MIN_VISIBLE_MOUTH_FRAMES = FACE_CFG.minVisibleMouthFrames ?? 5;
 const MIN_MOUTH_VISIBILITY_SCORE = FACE_CFG.minMouthVisibilityScore ?? 0.052;
@@ -1875,8 +1970,18 @@ const POSE_BAD_TRIP_FRAMES = FACE_CFG.poseBadTripFrames ?? 3;      // หลุ�
 const POSE_GOOD_RESUME_FRAMES = FACE_CFG.poseGoodResumeFrames ?? 8; // นิ่งติดกันกี่เฟรมถึงไปต่อ
 const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
 const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
+const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioMin ?? 0.25;
+const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.3.0';
 
-const IDX_L_EYE = 133, IDX_R_EYE = 362;
+// Stable eye-corner pairs from MediaPipe Face Landmarker.
+// Centers are deterministic midpoints of x/y landmarks; iris and landmark z are not used.
+const IDX_L_EYE_OUTER = 33, IDX_L_EYE_INNER = 133;
+const IDX_R_EYE_INNER = 362, IDX_R_EYE_OUTER = 263;
+
+// Legacy inner-eye anchors retained only for the existing mouth pixel-visibility ROI.
+const IDX_L_EYE = IDX_L_EYE_INNER, IDX_R_EYE = IDX_R_EYE_INNER;
+
 const IDX_NOSE = 4, IDX_FOREHEAD = 10, IDX_CHIN = 152;
 const IDX_ML = 61, IDX_MR = 291;
 const IDX_LIP_TOP = 13, IDX_LIP_BOTTOM = 14;
@@ -1895,9 +2000,13 @@ let noFaceCount = 0;
 let poseBadFrames = 0;   // hysteresis: กันเตือน pose เพราะค่าเด้งแค่เฟรมเดียว
 let poseGoodFrames = 0;  // debounce: ต้องนิ่งติดกันหลายเฟรมก่อนกลับมาทดสอบต่อ
 
-let restCornerAsymSamples = [];   // resting |mLy-mRy|/eyeWidth
+let restCornerAsymSamples = [];   // resting asymmetry in normalized eye frame
 let restCornerL = [], restCornerR = [], restEyeW = [];
+let restRawMouthLeftY = [], restRawMouthRightY = [];
+let restEyeCenterX = [], restEyeCenterY = [], restEyeLineRollDeg = [];
 let baseL = null, baseR = null, baseEyeW = null;
+let baseRawMouthLeftY = null, baseRawMouthRightY = null;
+let baseEyeCenterX = null, baseEyeCenterY = null, baseEyeLineRollDeg = null;
 let criticalFired = false;
 
 let smileStartMs = null;
@@ -1909,9 +2018,12 @@ let mouthBlockedSinceMs = null;
 let smileEverDetected = false;
 let actionWaitStartMs = null;
 let lastSmileVoiceMs = 0;
+let smileNudgeUntilMs = 0;
 let lastRepAsym = 0;
-// per-side PEAK activation during the smile window (the core stroke signal)
+// Blendshape peaks remain diagnostic. Geometry scoring now uses robust
+// aggregation of signed displacement across valid smile frames.
 let peakSmileL = 0, peakSmileR = 0, peakRiseL = 0, peakRiseR = 0;
+let validSignedRiseL = [], validSignedRiseR = [];
 let visibleMouthFrames = 0;
 let mouthVisibilityScores = [];
 let lastMouthVisibilityScore = 0;
@@ -1924,6 +2036,13 @@ let retryTimer = null;
 let poseInterruptedSmile = false;   // true เมื่อ pose/no-face ขัดจังหวะช่วงยิ้ม → ต้องเริ่ม smile window ใหม่
 
 let screeningStartedAtMs = null;
+let faceTestAttemptId = null;
+let faceAttemptSequenceNo = null;
+let faceModuleRunRecord = null;
+let activeFaceAttemptRecord = null;
+let lastCompletedFaceAttemptRecord = null;
+let facePersistenceChain = Promise.resolve();
+let facePersistenceErrors = [];
 let baselineWaitStartMs = null;
 let attemptStartedAtMs = null;
 let attemptRecords = [];
@@ -2010,62 +2129,778 @@ function showCenterCountdown(v){
 }
 function hideCenterCountdown(){ __lastCountdownShown = null; centerCD.style.display = 'none'; }
 function average(arr){ return arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null; }
+function median(values){
+  const finite = values.filter((value) => Number.isFinite(value)).sort((a,b)=>a-b);
+  if (!finite.length) return null;
+  const middle = Math.floor(finite.length / 2);
+  return finite.length % 2
+    ? finite[middle]
+    : (finite[middle - 1] + finite[middle]) / 2;
+}
 function roundMetric(value, digits=4){
   return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
 }
-function currentAttemptNo(){ return Math.max(1, assessAttempts + 1); }
+function standardDeviation(values){
+  const finite = values.filter((value) => Number.isFinite(value));
+  if (finite.length < 2) return null;
+  const mean = average(finite);
+  const variance = finite.reduce((sum,value) => sum + Math.pow(value - mean, 2), 0) / finite.length;
+  return Math.sqrt(variance);
+}
+function pearsonCorrelationFromFrames(frames, xAccessor, yAccessor){
+  const pairs = frames
+    .map((frame) => [Number(xAccessor(frame)), Number(yAccessor(frame))])
+    .filter(([x,y]) => Number.isFinite(x) && Number.isFinite(y));
+  if (pairs.length < 3) return null;
+  const xs = pairs.map(([x]) => x);
+  const ys = pairs.map(([,y]) => y);
+  const meanX = average(xs);
+  const meanY = average(ys);
+  let covariance = 0, varianceX = 0, varianceY = 0;
+  for (let i=0; i<pairs.length; i++){
+    const dx = xs[i] - meanX;
+    const dy = ys[i] - meanY;
+    covariance += dx * dy;
+    varianceX += dx * dx;
+    varianceY += dy * dy;
+  }
+  const denominator = Math.sqrt(varianceX * varianceY);
+  return denominator > 1e-12 ? covariance / denominator : null;
+}
+function createResearchId(prefix='id'){
+  try {
+    if (FACE_DATA_CONTRACT && prefix === 'face-attempt') return FACE_DATA_CONTRACT.createId('testAttempt');
+    if (window.crypto?.randomUUID) return `${prefix}-${window.crypto.randomUUID()}`;
+    if (window.crypto?.getRandomValues) {
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      const token = Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('');
+      return `${prefix}-${token}`;
+    }
+  } catch (error) {
+    console.warn('Unable to create cryptographic research id; using fallback', error);
+  }
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+function getFaceScreeningContext(){
+  if (FACE_DATA_CONTRACT) return FACE_DATA_CONTRACT.getSessionContext();
+  let participantId = null;
+  let screeningSessionId = null;
+  let screeningSessionStartedAt = null;
+  let sessionMode = null;
+  try {
+    participantId = sessionStorage.getItem('fast_participant_id');
+    screeningSessionId = sessionStorage.getItem('fast_screening_session_id') || sessionStorage.getItem('fast_assessment_id');
+    screeningSessionStartedAt = sessionStorage.getItem('fast_started_at');
+    sessionMode = sessionStorage.getItem('fast_mode');
+  } catch (error) {
+    console.warn('Unable to read common screening context', error);
+  }
+  return {
+    participantId,
+    screeningSessionId,
+    screeningSessionStartedAt,
+    sessionMode,
+    identificationMode: participantId ? 'legacy_browser_session' : 'unidentified'
+  };
+}
+function queueFacePersistence(label, operation){
+  if (!FACE_RESEARCH_STORE || typeof operation !== 'function') return facePersistenceChain;
+  facePersistenceChain = facePersistenceChain.then(async()=>{
+    try {
+      return await operation();
+    } catch (error) {
+      runtimeQualityFlags.add('STORAGE_WRITE_FAILED');
+      facePersistenceErrors.push({
+        label,
+        code:error?.code || 'STORAGE_WRITE_FAILED',
+        message:error?.message || String(error),
+        occurredAt:new Date().toISOString()
+      });
+      console.error(`[Face persistence] ${label}`, error);
+      return null;
+    }
+  });
+  return facePersistenceChain;
+}
+async function flushFaceResearchPersistence(){
+  try { await facePersistenceChain; } catch (error) {}
+  return facePersistenceErrors.length === 0;
+}
+function pendingFaceModuleRetry(){
+  return FACE_DATA_CONTRACT?.getPendingModuleRetry?.('face') || null;
+}
+function faceModuleRunTrigger(previousPhase){
+  if (pendingFaceModuleRetry()) return 'result_retry';
+  if (previousPhase === 'FACE_DONE' || previousPhase === 'CRITICAL_ASYMMETRY') return 'result_retry';
+  if (['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(previousPhase)) return 'resume_existing_session';
+  return sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_start';
+}
+function finalizeOpenFaceLifecycle(reasonCode='USER_ABORTED'){
+  if (activeFaceAttemptRecord?.attemptStatus === 'in_progress') {
+    let finalized = null;
+    try {
+      finalized = FACE_DATA_CONTRACT?.finalizeAttempt(activeFaceAttemptRecord, {
+        attemptStatus:'aborted',
+        validityStatus:'invalid',
+        technicalValidity:runtimeQualityFlags.size ? 'degraded' : 'full',
+        observationStatus:'indeterminate',
+        qualityStatus:'unusable',
+        qualityFlags:[...runtimeQualityFlags],
+        invalidReasonCode:reasonCode,
+        completionReasonCode:reasonCode
+      }) || {...activeFaceAttemptRecord, attemptStatus:'aborted', validityStatus:'invalid', invalidReasonCode:reasonCode, completedAt:new Date().toISOString()};
+    } catch (error) {
+      console.warn('Unable to finalize open Face attempt', error);
+    }
+    if (finalized && FACE_RESEARCH_STORE) {
+      queueFacePersistence('abort Face attempt', ()=>FACE_RESEARCH_STORE.finalizeTestAttempt(finalized.testAttemptId, finalized));
+    }
+    lastCompletedFaceAttemptRecord = finalized || activeFaceAttemptRecord;
+    faceTestAttemptId = lastCompletedFaceAttemptRecord?.testAttemptId || faceTestAttemptId;
+    faceAttemptSequenceNo = lastCompletedFaceAttemptRecord?.attemptSequenceNo || faceAttemptSequenceNo;
+    activeFaceAttemptRecord = null;
+  }
+  if (faceModuleRunRecord?.moduleRunStatus === 'in_progress') {
+    const moduleRunId = faceModuleRunRecord.moduleRunId;
+    const completedAt = new Date().toISOString();
+    if (FACE_RESEARCH_STORE) {
+      queueFacePersistence('abort Face module run', ()=>FACE_RESEARCH_STORE.finalizeModuleRun(moduleRunId, {
+        moduleRunStatus:'aborted',
+        completedAt,
+        completionReasonCode:reasonCode
+      }));
+    }
+    faceModuleRunRecord = {...faceModuleRunRecord, moduleRunStatus:'aborted', completedAt, completionReasonCode:reasonCode};
+  }
+}
+function beginFaceAttempt({trigger='initial_attempt', retryOfAttemptId=null, triggerReasonCode=null, startedAt=null, stage='baseline'}={}){
+  if (!faceModuleRunRecord) throw new Error('Face module run must exist before creating an attempt.');
+  let attempt;
+  if (FACE_DATA_CONTRACT) {
+    attempt = FACE_DATA_CONTRACT.createTestAttempt({
+      moduleRunId:faceModuleRunRecord.moduleRunId,
+      module:'face',
+      measurementTarget:'face',
+      trigger,
+      retryOfAttemptId,
+      triggerReasonCode,
+      startedAt:startedAt || new Date().toISOString()
+    });
+  } else {
+    const seq = (lastCompletedFaceAttemptRecord?.attemptSequenceNo || 0) + 1;
+    attempt = {
+      schemaVersion:'quickstroke-common-data-0.1.0', recordType:'test_attempt',
+      ...getFaceScreeningContext(), moduleRunId:faceModuleRunRecord.moduleRunId,
+      testAttemptId:createResearchId('face-attempt'), attemptSequenceNo:seq,
+      targetAttemptSequenceNo:seq, module:'face', measurementTarget:'face',
+      attemptTrigger:trigger, retryOfAttemptId, triggerReasonCode,
+      attemptStatus:'in_progress', startedAt:startedAt || new Date().toISOString()
+    };
+  }
+  activeFaceAttemptRecord = {...attempt, attemptStageAtStart:stage};
+  const attemptForStorage = activeFaceAttemptRecord;
+  faceTestAttemptId = attemptForStorage.testAttemptId;
+  faceAttemptSequenceNo = attemptForStorage.attemptSequenceNo;
+  if (FACE_RESEARCH_STORE) {
+    queueFacePersistence('add Face attempt', ()=>FACE_RESEARCH_STORE.addTestAttempt(attemptForStorage));
+  }
+  return attemptForStorage;
+}
+function beginFaceModuleRun(previousPhase='BEFORE_START', startedAt=null){
+  const previousModuleRunId = faceModuleRunRecord?.moduleRunId || null;
+  if (faceModuleRunRecord?.moduleRunStatus === 'in_progress') {
+    finalizeOpenFaceLifecycle('USER_RESTARTED_MODULE');
+  }
+  const trigger = faceModuleRunTrigger(previousPhase);
+  if (FACE_DATA_CONTRACT) {
+    const pendingRetry = pendingFaceModuleRetry();
+    faceModuleRunRecord = FACE_DATA_CONTRACT.createModuleRun({
+      module:'face',
+      trigger,
+      targetOrder:['face'],
+      retryOfModuleRunId:trigger === 'result_retry'
+        ? FACE_DATA_CONTRACT.resolveRetryParentModuleRunId?.('face', previousModuleRunId)
+          || pendingRetry?.previousModuleRunId
+          || previousModuleRunId
+        : null,
+      runContextMode:sessionStorage.getItem('fast_mode') === 'full' ? 'full_flow' : 'individual_flow',
+      localeUsed:document.documentElement.lang || sessionStorage.getItem('fast_lang') || null,
+      startedAt:startedAt || new Date().toISOString()
+    });
+  } else {
+    faceModuleRunRecord = {
+      schemaVersion:'quickstroke-common-data-0.1.0', recordType:'module_run',
+      ...getFaceScreeningContext(), moduleRunId:createResearchId('face-run'),
+      moduleRunSequenceNo:null, module:'face', moduleRunTrigger:trigger,
+      moduleRunStatus:'in_progress', targetOrder:['face'],
+      startedAt:startedAt || new Date().toISOString(), completedAt:null
+    };
+  }
+  activeFaceAttemptRecord = null;
+  lastCompletedFaceAttemptRecord = null;
+  faceTestAttemptId = null;
+  faceAttemptSequenceNo = null;
+  const moduleRunForStorage = faceModuleRunRecord;
+  if (FACE_RESEARCH_STORE) {
+    const context = getFaceScreeningContext();
+    queueFacePersistence('ensure Face screening session', async()=>{
+      const storeName = FACE_RESEARCH_STORE.stores.screeningSessions;
+      const existing = await FACE_RESEARCH_STORE.get(storeName, context.screeningSessionId);
+      if (!existing && FACE_DATA_CONTRACT) {
+        await FACE_RESEARCH_STORE.addScreeningSession(FACE_DATA_CONTRACT.createScreeningSessionRecord({context}));
+      }
+    });
+    queueFacePersistence('add Face module run', ()=>FACE_RESEARCH_STORE.addModuleRun(moduleRunForStorage));
+  }
+  return beginFaceAttempt({trigger:'initial_attempt', startedAt:moduleRunForStorage.startedAt, stage:'baseline'});
+}
+function ensureFaceTestAttemptIdentity({forceNew=false, trigger='initial_attempt', retryOfAttemptId=null, triggerReasonCode=null, stage='action'}={}){
+  if (!faceModuleRunRecord) beginFaceModuleRun('BEFORE_START', new Date().toISOString());
+  if (forceNew || !activeFaceAttemptRecord) {
+    return beginFaceAttempt({trigger, retryOfAttemptId, triggerReasonCode, stage});
+  }
+  faceTestAttemptId = activeFaceAttemptRecord.testAttemptId;
+  faceAttemptSequenceNo = activeFaceAttemptRecord.attemptSequenceNo;
+  return faceTestAttemptId;
+}
+function currentAttemptNo(){
+  return activeFaceAttemptRecord?.attemptSequenceNo || lastCompletedFaceAttemptRecord?.attemptSequenceNo || Math.max(1, assessAttempts + 1);
+}
+function faceAttemptStatus(validityStatus){
+  if (validityStatus === 'valid') return 'completed_valid';
+  if (validityStatus === 'invalid') return 'completed_invalid';
+  if (validityStatus === 'error' || validityStatus === 'not_evaluable') return 'technical_error';
+  if (validityStatus === 'aborted') return 'aborted';
+  return 'unknown';
+}
+function faceQualityStatus(validityStatus, flags=[]){
+  if (validityStatus === 'invalid' || validityStatus === 'error' || validityStatus === 'not_evaluable' || validityStatus === 'aborted') return 'invalid';
+  return flags.length ? 'warning' : 'acceptable';
+}
+function canonicalFaceObservationStatus(riskLevel, validityStatus){
+  if (validityStatus === 'error' || validityStatus === 'not_evaluable') return 'not_available';
+  if (validityStatus !== 'valid') return 'indeterminate';
+  if (riskLevel === 'bad') return 'abnormal';
+  if (riskLevel === 'warn') return 'attention';
+  return 'no_alert';
+}
+function currentFaceBaselineSnapshot(){
+  return {
+    sampleCount:restCornerL.length,
+    baseLeft:roundMetric(baseL), baseRight:roundMetric(baseR), baseEyeDistance:roundMetric(baseEyeW),
+    baseRawMouthLeftY:roundMetric(baseRawMouthLeftY), baseRawMouthRightY:roundMetric(baseRawMouthRightY),
+    baseEyeCenterX:roundMetric(baseEyeCenterX), baseEyeCenterY:roundMetric(baseEyeCenterY),
+    baseEyeLineRollDeg:roundMetric(baseEyeLineRollDeg,2),
+    restAsymMean:roundMetric(average(restCornerAsymSamples)),
+    restAsymMax:roundMetric(restCornerAsymSamples.length ? Math.max(...restCornerAsymSamples) : null),
+    criticalTriggered:criticalFired, criticalRestAsym:roundMetric(criticalRestAsym)
+  };
+}
+function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
+  if (!finalizedAttempt || !FACE_RESEARCH_STORE) return;
+  const baselineSnapshot = currentFaceBaselineSnapshot();
+  const legacySnapshot = JSON.parse(JSON.stringify(legacyRecord || null));
+  const frameSnapshot = frames.map((frame)=>({...frame}));
+  queueFacePersistence('finalize Face attempt', async()=>{
+    await FACE_RESEARCH_STORE.finalizeTestAttempt(finalizedAttempt.testAttemptId, finalizedAttempt);
+    if (FACE_DATA_CONTRACT) {
+      const measurement = FACE_DATA_CONTRACT.createModuleMeasurement({
+        moduleRunId:finalizedAttempt.moduleRunId,
+        testAttemptId:finalizedAttempt.testAttemptId,
+        module:'face',
+        measurementTarget:'face',
+        measuredAt:finalizedAttempt.completedAt,
+        payload:{
+          attemptSummary:legacySnapshot,
+          baseline:baselineSnapshot,
+          frameCount:frameSnapshot.length,
+          storesImagesOrVideo:false
+        }
+      });
+      await FACE_RESEARCH_STORE.addModuleMeasurement(measurement);
+    }
+    if (frameSnapshot.length) {
+      const context = finalizedAttempt;
+      const observations = frameSnapshot.map((frame,index)=>{
+        const {moduleRunId, testAttemptId, attemptSequenceNo, ...sample} = frame;
+        const observedAt = screeningStartedAtMs && Number.isFinite(frame.tMs)
+          ? new Date(screeningStartedAtMs + frame.tMs).toISOString()
+          : finalizedAttempt.completedAt;
+        return {
+          schemaVersion:'face-observation-0.1.0', recordType:'sensor_observation',
+          participantId:context.participantId, screeningSessionId:context.screeningSessionId,
+          legacyAssessmentId:context.legacyAssessmentId || null,
+          moduleRunId:finalizedAttempt.moduleRunId, testAttemptId:finalizedAttempt.testAttemptId,
+          module:'face', measurementTarget:'face', sampleSequenceNo:index + 1,
+          observedAt, tMs:frame.tMs, phase:frame.phase, payload:sample
+        };
+      });
+      await FACE_RESEARCH_STORE.appendSensorObservations(observations);
+    }
+  });
+}
+function finalizeCanonicalFaceAttempt(outcome, reasonCode, legacyRecord, extra={}){
+  ensureFaceTestAttemptIdentity();
+  const current = activeFaceAttemptRecord;
+  if (!current) return null;
+  const qualityFlags = [...runtimeQualityFlags];
+  const validityStatus = outcome === 'valid' ? 'valid' : outcome === 'not_evaluable' ? 'not_evaluable' : 'invalid';
+  const technicalValidity = validityStatus === 'not_evaluable' ? 'failed' : (qualityFlags.length ? 'degraded' : 'full');
+  const observationStatus = extra.observationStatus || canonicalFaceObservationStatus(extra.riskLevel, validityStatus);
+  let finalized;
+  if (FACE_DATA_CONTRACT) {
+    finalized = FACE_DATA_CONTRACT.finalizeAttempt(current, {
+      attemptStatus:outcome === 'aborted' ? 'aborted' : 'completed',
+      validityStatus,
+      technicalValidity,
+      observationStatus,
+      qualityStatus:validityStatus === 'valid' ? (qualityFlags.length ? 'limited' : 'acceptable') : 'unusable',
+      qualityFlags,
+      invalidReasonCode:validityStatus === 'valid' ? null : reasonCode,
+      completionReasonCode:reasonCode || null,
+      selectedForModuleResult:extra.selectedForModuleResult === true,
+      result:{
+        outcome,
+        riskLevel:extra.riskLevel || null,
+        representativeAsym:extra.representativeAsym ?? null,
+        stage:legacyRecord?.stage || null
+      }
+    });
+  } else {
+    finalized = {...current, attemptStatus:'completed', validityStatus, technicalValidity,
+      observationStatus, qualityStatus:validityStatus === 'valid' ? 'acceptable' : 'unusable',
+      qualityFlags, invalidReasonCode:validityStatus === 'valid' ? null : reasonCode,
+      completedAt:new Date().toISOString()};
+  }
+  const attemptFrames = getAllAttemptFrames(finalized.testAttemptId);
+  persistCanonicalFaceAttempt(finalized, legacyRecord, attemptFrames);
+  activeFaceAttemptRecord = null;
+  lastCompletedFaceAttemptRecord = finalized;
+  faceTestAttemptId = finalized.testAttemptId;
+  faceAttemptSequenceNo = finalized.attemptSequenceNo;
+  return finalized;
+}
+function finalizeFaceModuleRun(payload){
+  if (!faceModuleRunRecord || faceModuleRunRecord.moduleRunStatus !== 'in_progress') return;
+  const completedAt = payload.completedAt || new Date().toISOString();
+  const selectedTestAttemptId = payload.selectedTestAttemptId || payload.testAttemptId || null;
+  const moduleRunId = faceModuleRunRecord.moduleRunId;
+  const projectionContext = payload.screeningContext || getFaceScreeningContext();
+  if (FACE_RESEARCH_STORE) {
+    queueFacePersistence('finalize Face module run', async()=>{
+      await FACE_RESEARCH_STORE.finalizeModuleRun(moduleRunId, {
+        moduleRunStatus:'completed', completedAt,
+        completionReasonCode:payload.validityStatus === 'valid' ? 'FACE_RESULT_COMPLETED' : 'FACE_RESULT_NOT_EVALUABLE',
+        selectedTestAttemptId,
+        validityStatus:payload.canonicalValidityStatus || payload.validityStatus,
+        observationStatus:payload.observationStatus || canonicalFaceObservationStatus(payload.riskLevel, payload.validityStatus)
+      });
+      await FACE_RESEARCH_STORE.putProjection({
+        projectionId:`${projectionContext.screeningSessionId}:face`,
+        schemaVersion:FACE_RESULT_SCHEMA_VERSION,
+        participantId:projectionContext.participantId,
+        screeningSessionId:projectionContext.screeningSessionId,
+        module:'face', selectedModuleRunId:moduleRunId, selectedTestAttemptId,
+        updatedAt:completedAt, payload
+      });
+    });
+  }
+  faceModuleRunRecord = {...faceModuleRunRecord, moduleRunStatus:'completed', completedAt, selectedTestAttemptId};
+}
+function persistFacePayload(payload, {writeLegacyResult=true}={}){
+  if (!payload || typeof payload !== 'object') return payload;
+  const json = JSON.stringify(payload);
+  try {
+    if (writeLegacyResult) sessionStorage.setItem('fast_face', json);
+    sessionStorage.setItem('fast_face_research_latest', json);
+
+    let history = [];
+    try {
+      const parsed = JSON.parse(sessionStorage.getItem('fast_face_research_history') || '[]');
+      if (Array.isArray(parsed)) history = parsed;
+    } catch (error) {
+      console.warn('Unable to parse Face research history; starting a new history', error);
+    }
+    const duplicateIndex = history.findIndex((item) => item?.moduleRunId === payload.moduleRunId);
+    if (duplicateIndex >= 0) history.splice(duplicateIndex, 1);
+    history.push(payload);
+    sessionStorage.setItem('fast_face_research_history', JSON.stringify(history));
+  } catch (error) {
+    console.warn('Unable to persist Face research payload', error);
+  }
+  window.FACE_RESEARCH_RESULT = payload;
+  finalizeFaceModuleRun(payload);
+  return payload;
+}
+function latestFaceResearchPayload(){
+  if (window.FACE_RESEARCH_RESULT) return window.FACE_RESEARCH_RESULT;
+  try {
+    return JSON.parse(sessionStorage.getItem('fast_face_research_latest') || 'null');
+  } catch (error) {
+    console.warn('Unable to read latest Face research payload', error);
+    return null;
+  }
+}
+function downloadFaceResearchJson(){
+  if (!FACE_DEV_MODE) return;
+  const payload = latestFaceResearchPayload();
+  if (!payload) {
+    alert('No Face research payload is available yet.');
+    return;
+  }
+  const json = JSON.stringify(payload, null, 2);
+  const blob = new Blob([json], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  const safeId = String(payload.testAttemptId || 'latest').replace(/[^a-zA-Z0-9_-]/g, '_');
+  link.href = url;
+  link.download = `quickstroke-face-${safeId}.json`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function copyFaceResearchJson(){
+  if (!FACE_DEV_MODE) return;
+  const payload = latestFaceResearchPayload();
+  if (!payload) {
+    alert('No Face research payload is available yet.');
+    return;
+  }
+  const json = JSON.stringify(payload, null, 2);
+  try {
+    await navigator.clipboard.writeText(json);
+    alert('Face research JSON copied.');
+  } catch (error) {
+    const area = document.createElement('textarea');
+    area.value = json;
+    area.style.position = 'fixed';
+    area.style.opacity = '0';
+    document.body.appendChild(area);
+    area.select();
+    const copied = document.execCommand('copy');
+    area.remove();
+    if (copied) alert('Face research JSON copied.');
+    else alert('Unable to copy JSON. Use Download JSON instead.');
+  }
+}
 function recordResearchFrame(data={}){
   if (!screeningStartedAtMs) return;
+  // Telemetry belongs only to the active measurement lifecycle. Once a terminal
+  // state is reached, the result payload must remain unchanged even if the camera
+  // preview and low-rate detection loop continue running behind the result UI.
+  if (['FACE_DONE','CRITICAL_ASYMMETRY','ABORTED'].includes(phase)) return;
   const now = Date.now();
   if (now - lastResearchFrameAtMs < RESEARCH_SAMPLE_INTERVAL_MS) return;
   lastResearchFrameAtMs = now;
+  const attempt = activeFaceAttemptRecord || lastCompletedFaceAttemptRecord;
   researchFrames.push({
     tMs: now - screeningStartedAtMs,
-    attemptNo: currentAttemptNo(),
+    moduleRunId:faceModuleRunRecord?.moduleRunId || null,
+    testAttemptId:attempt?.testAttemptId || faceTestAttemptId,
+    attemptSequenceNo:attempt?.attemptSequenceNo || currentAttemptNo(),
+    attemptNo:attempt?.attemptSequenceNo || currentAttemptNo(),
     phase,
     ...data
   });
 }
-function getAttemptFrames(attemptNo){
-  return researchFrames.filter((frame) => frame.attemptNo === attemptNo && String(frame.phase).startsWith('ACTION'));
+function getAllAttemptFrames(attemptReference){
+  return researchFrames.filter((frame) => typeof attemptReference === 'string'
+    ? frame.testAttemptId === attemptReference
+    : frame.attemptNo === attemptReference);
 }
-function captureAttempt(outcome, invalidReasonCode=null, extra={}){
-  const attemptNo = currentAttemptNo();
-  const frames = getAttemptFrames(attemptNo);
+function getAttemptFrames(attemptReference){
+  return getAllAttemptFrames(attemptReference).filter((frame) => String(frame.phase).startsWith('ACTION'));
+}
+function currentGeometryRiseAggregation(){
+  const aggregatedSignedRiseLeft = median(validSignedRiseL) ?? 0;
+  const aggregatedSignedRiseRight = median(validSignedRiseR) ?? 0;
+
+  // Downward movement remains available in the signed values. It becomes zero
+  // only here, after robust aggregation, when deriving the clinical rise metric.
+  const effectiveRiseLeft = Math.max(0, aggregatedSignedRiseLeft);
+  const effectiveRiseRight = Math.max(0, aggregatedSignedRiseRight);
+  const strongEffectiveRise = Math.max(effectiveRiseLeft, effectiveRiseRight);
+  const weakEffectiveRise = Math.min(effectiveRiseLeft, effectiveRiseRight);
+  const geometryRiseSum = effectiveRiseLeft + effectiveRiseRight;
+  const geometryRiseUsable = geometryRiseSum > 0.05;
+
+  return {
+    aggregationMethod:'median-signed-valid-smile-frames',
+    frameCount:Math.min(validSignedRiseL.length, validSignedRiseR.length),
+    aggregatedSignedRiseLeft,
+    aggregatedSignedRiseRight,
+    effectiveRiseLeft,
+    effectiveRiseRight,
+    strongEffectiveRise,
+    weakEffectiveRise,
+    geometryRiseSum,
+    geometryRiseUsable
+  };
+}
+
+function summarizeAttemptFrames(frames){
+  const total = frames.length;
   const count = (predicate) => frames.filter(predicate).length;
+  const ratio = (n) => total ? n / total : null;
+  const mouthAssessableFrameCount = count((f) => f.mouthAssessable === true);
+  const handOverlapFrameCount = count((f) => f.handMouthOverlap === true);
+  const mouthVisibilityScores = frames
+    .map((f) => Number(f.mouthVisibilityScore))
+    .filter((value) => Number.isFinite(value));
+  const eyeDistances = frames
+    .map((f) => Number(f.eyeDistance))
+    .filter((value) => Number.isFinite(value));
+  const eyeDistanceRatios = frames
+    .map((f) => Number(f.eyeDistanceRatioFromBaseline))
+    .filter((value) => Number.isFinite(value));
+  const blendSmileEvidenceFrameCount = count((f) => f.blendSmileEvidence === true);
+  const geometrySmileEvidenceFrameCount = count((f) => f.geometrySmileEvidence === true);
+  return {
+    sampledFrames: total,
+    faceDetectedRatio: ratio(count((f) => f.faceDetected === true)),
+    poseValidRatio: ratio(count((f) => f.poseValid === true)),
+    mouthAssessableFrameCount,
+    mouthAssessableRatio: ratio(mouthAssessableFrameCount),
+    handOverlapFrameCount,
+    handOverlapRatio: ratio(handOverlapFrameCount),
+    avgMouthVisibilityScore: mouthVisibilityScores.length ? average(mouthVisibilityScores) : null,
+    avgEyeDistance: eyeDistances.length ? average(eyeDistances) : null,
+    minEyeDistanceRatioFromBaseline: eyeDistanceRatios.length ? Math.min(...eyeDistanceRatios) : null,
+    maxEyeDistanceRatioFromBaseline: eyeDistanceRatios.length ? Math.max(...eyeDistanceRatios) : null,
+    blendSmileEvidenceFrameCount,
+    geometrySmileEvidenceFrameCount
+  };
+}
+function summarizeSignedCompensationGroup(frames){
+  const usable = frames.filter((frame) =>
+    frame.poseValid === true &&
+    Number.isFinite(Number(frame.rollDeg)) &&
+    Number.isFinite(Number(frame.eyeDistanceRatioFromBaseline)) &&
+    Number.isFinite(Number(frame.rawSignedDisplacementLeft)) &&
+    Number.isFinite(Number(frame.rawSignedDisplacementRight)) &&
+    Number.isFinite(Number(frame.normalizedSignedDisplacementLeft)) &&
+    Number.isFinite(Number(frame.normalizedSignedDisplacementRight))
+  );
+
+  const values = (accessor) => usable
+    .map(accessor)
+    .map(Number)
+    .filter((value) => Number.isFinite(value));
+
+  const rawSideDifference = values((frame) =>
+    Number(frame.rawSignedDisplacementLeft) - Number(frame.rawSignedDisplacementRight)
+  );
+  const normalizedSideDifference = values((frame) =>
+    Number(frame.normalizedSignedDisplacementLeft) - Number(frame.normalizedSignedDisplacementRight)
+  );
+  const rawMeanDisplacement = values((frame) =>
+    (Number(frame.rawSignedDisplacementLeft) + Number(frame.rawSignedDisplacementRight)) / 2
+  );
+  const normalizedMeanDisplacement = values((frame) =>
+    (Number(frame.normalizedSignedDisplacementLeft) + Number(frame.normalizedSignedDisplacementRight)) / 2
+  );
+  const rolls = values((frame) => Number(frame.rollDeg));
+  const eyeRatios = values((frame) => Number(frame.eyeDistanceRatioFromBaseline));
+
+  return {
+    frameCount:usable.length,
+    rollDegMin:rolls.length ? Math.min(...rolls) : null,
+    rollDegMax:rolls.length ? Math.max(...rolls) : null,
+    meanAbsRollDeg:rolls.length ? average(rolls.map(Math.abs)) : null,
+    eyeDistanceRatioMin:eyeRatios.length ? Math.min(...eyeRatios) : null,
+    eyeDistanceRatioMax:eyeRatios.length ? Math.max(...eyeRatios) : null,
+
+    rawSideDifferenceStd:standardDeviation(rawSideDifference),
+    normalizedSideDifferenceStd:standardDeviation(normalizedSideDifference),
+    rawMeanDisplacementStd:standardDeviation(rawMeanDisplacement),
+    normalizedMeanDisplacementStd:standardDeviation(normalizedMeanDisplacement),
+
+    rollVsRawSideDifferenceCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.rollDeg),
+      (frame) => Number(frame.rawSignedDisplacementLeft) - Number(frame.rawSignedDisplacementRight)
+    ),
+    rollVsNormalizedSideDifferenceCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.rollDeg),
+      (frame) => Number(frame.normalizedSignedDisplacementLeft) - Number(frame.normalizedSignedDisplacementRight)
+    ),
+    absRollVsAbsRawSideDifferenceCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Math.abs(Number(frame.rollDeg)),
+      (frame) => Math.abs(
+        Number(frame.rawSignedDisplacementLeft) - Number(frame.rawSignedDisplacementRight)
+      )
+    ),
+    absRollVsAbsNormalizedSideDifferenceCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Math.abs(Number(frame.rollDeg)),
+      (frame) => Math.abs(
+        Number(frame.normalizedSignedDisplacementLeft) - Number(frame.normalizedSignedDisplacementRight)
+      )
+    ),
+
+    eyeDistanceRatioVsRawMeanDisplacementCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.eyeDistanceRatioFromBaseline),
+      (frame) => (
+        Number(frame.rawSignedDisplacementLeft) +
+        Number(frame.rawSignedDisplacementRight)
+      ) / 2
+    ),
+    eyeDistanceRatioVsNormalizedMeanDisplacementCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.eyeDistanceRatioFromBaseline),
+      (frame) => (
+        Number(frame.normalizedSignedDisplacementLeft) +
+        Number(frame.normalizedSignedDisplacementRight)
+      ) / 2
+    ),
+    eyeCenterYVsRawMeanDisplacementCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.rawEyeCenterY),
+      (frame) => (
+        Number(frame.rawSignedDisplacementLeft) +
+        Number(frame.rawSignedDisplacementRight)
+      ) / 2
+    ),
+    eyeCenterYVsNormalizedMeanDisplacementCorrelation:pearsonCorrelationFromFrames(
+      usable,
+      (frame) => Number(frame.rawEyeCenterY),
+      (frame) => (
+        Number(frame.normalizedSignedDisplacementLeft) +
+        Number(frame.normalizedSignedDisplacementRight)
+      ) / 2
+    )
+  };
+}
+
+function summarizeCompensationFrames(frames){
+  const actionPoseValid = frames.filter((frame) => frame.poseValid === true);
+  return {
+    method:'signed-direction-preserving-comparison',
+    allActionFrames:summarizeSignedCompensationGroup(actionPoseValid),
+    noSmileEvidenceFrames:summarizeSignedCompensationGroup(
+      actionPoseValid.filter((frame) => frame.blendSmileEvidence !== true)
+    ),
+    smileEvidenceFrames:summarizeSignedCompensationGroup(
+      actionPoseValid.filter((frame) => frame.blendSmileEvidence === true)
+    )
+  };
+}
+function resolveAttemptInvalidReason(requestedReasonCode, summary){
+  if (!requestedReasonCode) return null;
+  const reasonCanUseAttemptSummary = [
+    'HAND_OCCLUSION',
+    'MOUTH_NOT_VISIBLE',
+    'NO_SMILE_DETECTED',
+    'INSUFFICIENT_VALID_FRAMES'
+  ].includes(requestedReasonCode);
+  if (!reasonCanUseAttemptSummary) return requestedReasonCode;
+
+  // A single final frame must not decide the entire attempt. Use sustained hand
+  // overlap and the full attempt's mouth signal instead.
+  const sustainedHandOverlap = summary.handOverlapRatio !== null &&
+    summary.handOverlapRatio >= ATTEMPT_HAND_OVERLAP_RATIO_MIN;
+  if (sustainedHandOverlap) return 'HAND_OCCLUSION';
+
+  const visualMouthSignalPresent = summary.avgMouthVisibilityScore !== null &&
+    summary.avgMouthVisibilityScore >= MIN_MOUTH_VISIBILITY_SCORE;
+
+  const assessableMouthSignalPresent = visualMouthSignalPresent &&
+    summary.mouthAssessableRatio !== null &&
+    summary.mouthAssessableRatio >= ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN;
+
+  // mouthAssessable also includes the mouth-line heuristic. A neutral,
+  // closed mouth can therefore have a low assessable ratio even while the
+  // mouth region is plainly visible. Do not mislabel that as MOUTH_NOT_VISIBLE.
+  if (requestedReasonCode === 'MOUTH_NOT_VISIBLE' && visualMouthSignalPresent){
+    return smileEverDetected ? 'INSUFFICIENT_VALID_FRAMES' : 'NO_SMILE_DETECTED';
+  }
+  if (requestedReasonCode === 'HAND_OCCLUSION' && assessableMouthSignalPresent){
+    return smileEverDetected ? 'INSUFFICIENT_VALID_FRAMES' : 'NO_SMILE_DETECTED';
+  }
+  return requestedReasonCode;
+}
+function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
+  ensureFaceTestAttemptIdentity();
+  const activeAttempt = activeFaceAttemptRecord;
+  const attemptNo = activeAttempt?.attemptSequenceNo || currentAttemptNo();
+  const attemptId = activeAttempt?.testAttemptId || faceTestAttemptId;
+  const frames = getAttemptFrames(attemptId || attemptNo);
+  const summary = summarizeAttemptFrames(frames);
+  const compensation = summarizeCompensationFrames(frames);
+  const riseAggregation = currentGeometryRiseAggregation();
+  const invalidReasonCode = outcome === 'invalid'
+    ? resolveAttemptInvalidReason(requestedInvalidReasonCode, summary)
+    : (outcome === 'not_evaluable' || outcome === 'aborted' ? requestedInvalidReasonCode : null);
+  const completedAt = new Date().toISOString();
+  const canonicalStartedAt = activeAttempt?.startedAt || (screeningStartedAtMs ? new Date(screeningStartedAtMs).toISOString() : null);
+  const stage = attemptStartedAtMs ? 'action' : (extra.stage || 'baseline');
   const record = {
+    moduleRunId:faceModuleRunRecord?.moduleRunId || null,
+    testAttemptId:attemptId,
     attemptNo,
-    startedAt: attemptStartedAtMs ? new Date(attemptStartedAtMs).toISOString() : null,
-    completedAt: new Date().toISOString(),
-    durationMs: attemptStartedAtMs ? Date.now() - attemptStartedAtMs : null,
+    attemptSequenceNo:attemptNo,
+    attemptTrigger:activeAttempt?.attemptTrigger || null,
+    retryOfAttemptId:activeAttempt?.retryOfAttemptId || null,
+    stage,
+    startedAt:canonicalStartedAt,
+    actionStartedAt:attemptStartedAtMs ? new Date(attemptStartedAtMs).toISOString() : null,
+    completedAt,
+    durationMs:canonicalStartedAt ? Math.max(0, Date.parse(completedAt) - Date.parse(canonicalStartedAt)) : null,
+    actionDurationMs:attemptStartedAtMs ? Date.now() - attemptStartedAtMs : null,
     outcome,
     invalidReasonCode,
+    requestedInvalidReasonCode:outcome === 'valid' ? null : requestedInvalidReasonCode,
+    reasonResolution:outcome === 'invalid' && invalidReasonCode !== requestedInvalidReasonCode
+      ? 'attempt_summary_normalized'
+      : 'direct',
     quality: {
-      sampledFrames: frames.length,
-      faceDetectedRatio: frames.length ? count((f) => f.faceDetected === true) / frames.length : null,
-      poseValidRatio: frames.length ? count((f) => f.poseValid === true) / frames.length : null,
-      mouthAssessableRatio: frames.length ? count((f) => f.mouthAssessable === true) / frames.length : null,
-      handOverlapRatio: frames.length ? count((f) => f.handMouthOverlap === true) / frames.length : null
+      ...summary,
+      avgMouthVisibilityScore: roundMetric(summary.avgMouthVisibilityScore),
+      avgEyeDistance: roundMetric(summary.avgEyeDistance),
+      minEyeDistanceRatioFromBaseline: roundMetric(summary.minEyeDistanceRatioFromBaseline),
+      maxEyeDistanceRatioFromBaseline: roundMetric(summary.maxEyeDistanceRatioFromBaseline)
     },
+    compensationAnalysis: JSON.parse(JSON.stringify(compensation, (key,value) =>
+      Number.isFinite(value) ? roundMetric(value) : value
+    )),
     metrics: {
       validSmileFrames,
       smileFrameCount,
       validSmileRatio: validSmileFrames / Math.max(1, smileFrameCount),
+      smileWindowVisibleMouthFrames: visibleMouthFrames,
       visibleMouthFrames,
       lastMouthVisibilityScore: roundMetric(lastMouthVisibilityScore),
       lastMouthDarkRatio: roundMetric(lastMouthDarkRatio),
-      smileEverDetected
+      smileEverDetected,
+      peakSmileLeft: roundMetric(peakSmileL),
+      peakSmileRight: roundMetric(peakSmileR),
+      peakNormalizedRiseLeft: roundMetric(peakRiseL),
+      peakNormalizedRiseRight: roundMetric(peakRiseR),
+      riseAggregationMethod: riseAggregation.aggregationMethod,
+      aggregatedSignedRiseLeft: roundMetric(riseAggregation.aggregatedSignedRiseLeft),
+      aggregatedSignedRiseRight: roundMetric(riseAggregation.aggregatedSignedRiseRight),
+      effectiveRiseLeft: roundMetric(riseAggregation.effectiveRiseLeft),
+      effectiveRiseRight: roundMetric(riseAggregation.effectiveRiseRight),
+      geometryRiseUsable: riseAggregation.geometryRiseUsable
     },
     ...extra
   };
   attemptRecords.push(record);
+  finalizeCanonicalFaceAttempt(outcome, invalidReasonCode, record, extra);
   return record;
 }
 function resultRuntimeMetadata(){
+  const coarseRuntime = FACE_DATA_CONTRACT?.getCoarseRuntimeSnapshot?.() || {
+    platform:navigator.userAgentData?.platform || navigator.platform || null,
+    language:navigator.language || null
+  };
   return {
-    userAgent: navigator.userAgent,
-    platform: navigator.userAgentData?.platform || navigator.platform || null,
-    language: navigator.language || null,
+    ...coarseRuntime,
     camera: cameraRuntime,
     permission: permissionRuntime,
     faceDelegate: faceDelegateUsed,
@@ -2073,16 +2908,49 @@ function resultRuntimeMetadata(){
     handModelAvailable: !!handLandmarker,
     degradedMode: handLandmarker ? null : 'VISUAL_MOUTH_GATE_ONLY',
     qualityFlags: [...runtimeQualityFlags],
+    persistenceErrors:[...facePersistenceErrors],
     faceDetectErrorCount,
     handDetectErrorCount
   };
 }
 function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, passed, invalidReasonCode=null, breakdown={}}){
   const completedAtMs = Date.now();
+  const selectedAttempt = lastCompletedFaceAttemptRecord || activeFaceAttemptRecord;
+  if (!selectedAttempt) ensureFaceTestAttemptIdentity();
+  const resolvedAttempt = lastCompletedFaceAttemptRecord || activeFaceAttemptRecord;
+  const qualityFlags = [...runtimeQualityFlags];
+  const canonicalValidityStatus = FACE_DATA_CONTRACT?.normalizeValidityStatus(validityStatus) || (validityStatus === 'error' ? 'not_evaluable' : validityStatus);
+  const observationStatus = canonicalFaceObservationStatus(riskLevel, validityStatus);
+  // Snapshot mutable arrays before exposing the payload through window/sessionStorage.
+  // This prevents post-result camera frames from changing JSON copied later in dev mode.
+  const attemptSnapshot = attemptRecords.map((record) => ({
+    ...record,
+    quality: record.quality ? { ...record.quality } : record.quality,
+    compensationAnalysis: record.compensationAnalysis
+      ? JSON.parse(JSON.stringify(record.compensationAnalysis))
+      : record.compensationAnalysis,
+    metrics: record.metrics ? { ...record.metrics } : record.metrics
+  }));
+  const frameSnapshot = researchFrames.map((frame) => ({ ...frame }));
   return {
     schemaVersion: FACE_RESULT_SCHEMA_VERSION,
+    researchPayloadVersion: FACE_RESEARCH_PAYLOAD_VERSION,
     module: 'face',
+    faceBuildMarker: FACE_TEST_BUILD,
+    moduleRunId: faceModuleRunRecord?.moduleRunId || null,
+    moduleRunSequenceNo: faceModuleRunRecord?.moduleRunSequenceNo || null,
+    selectedTestAttemptId: resolvedAttempt?.testAttemptId || faceTestAttemptId,
+    testAttemptId: resolvedAttempt?.testAttemptId || faceTestAttemptId,
+    attemptSequenceNo: resolvedAttempt?.attemptSequenceNo || faceAttemptSequenceNo,
+    attemptTrigger: resolvedAttempt?.attemptTrigger || null,
+    retryOfAttemptId: resolvedAttempt?.retryOfAttemptId || null,
+    attemptStatus: faceAttemptStatus(validityStatus),
+    qualityStatus: faceQualityStatus(validityStatus, qualityFlags),
+    qualityFlags,
+    screeningContext: getFaceScreeningContext(),
     validityStatus,
+    canonicalValidityStatus,
+    observationStatus,
     clinicalResult,
     technicalValidity: validityStatus === 'error'
       ? 'error'
@@ -2102,8 +2970,15 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
     localeUsed: FACE_LOCALE_MAP[activeFaceLang] || document.documentElement.lang || null,
     versions: {
       appVersion: window.QS_CONFIG?.version || null,
+      buildId: window.QS_CONFIG?.buildId || null,
+      configVersion: window.QS_CONFIG?.configVersion || null,
+      commonDataModelVersion: FACE_DATA_CONTRACT?.version || null,
+      baselineManifestVersion: FACE_DATA_CONTRACT?.versions?.baselineManifest || null,
+      faceMeasurementDictionaryVersion: FACE_DATA_CONTRACT?.moduleVersionFallbacks?.face?.measurementDictionaryVersion || 'face-measurement-0.1.0',
       faceModuleVersion: FACE_MODULE_VERSION,
       algorithmVersion: FACE_ALGORITHM_VERSION,
+      resultSchemaVersion: FACE_RESULT_SCHEMA_VERSION,
+      researchPayloadVersion: FACE_RESEARCH_PAYLOAD_VERSION,
       configHash: FACE_CONFIG_HASH,
       localePackVersion: activeLocalePackVersion,
       faceModelAsset: '/models/face_landmarker.task',
@@ -2114,79 +2989,178 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       weakSideRatioShadow: WEAK_SIDE_RATIO_SHADOW,
       smileAsymWarn: SMILE_ASYM_WARN,
       smileAsymBad: SMILE_ASYM_BAD,
-      restAsymCritical: REST_ASYM_CRITICAL
+      restAsymCritical: REST_ASYM_CRITICAL,
+      smileDetectMin: SMILE_DETECT_MIN,
+      smileDetectSide: SMILE_DETECT_SIDE,
+      smileValidStrength: SMILE_VALID_STRENGTH,
+      smileRealMin: SMILE_REAL_MIN,
+      closedSmileRiseMin: CLOSED_SMILE_RISE_MIN,
+      geometryFrameDisplacement: FACE_CFG.geometryFrameDisplacement || 'signed-baseline-minus-current',
+      geometryRiseAggregation: FACE_CFG.geometryRiseAggregation || 'median-of-valid-smile-frames',
+      geometryEffectiveRisePolicy: FACE_CFG.geometryEffectiveRisePolicy || 'max-zero-after-aggregation',
+      geometryPerFrameClamp: FACE_CFG.geometryPerFrameClamp ?? false,
+      attemptMouthAssessableRatioMin: ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN,
+      attemptHandOverlapRatioMin: ATTEMPT_HAND_OVERLAP_RATIO_MIN
     },
     runtime: resultRuntimeMetadata(),
+    geometry: {
+      normalizationVersion: 'eye-frame-2d-1.0.0',
+      normalizationMethod: 'eye-centered-translation-scale-roll',
+      telemetryComparisonMethod: 'legacy-image-frame-vs-normalized-eye-frame',
+      rawCoordinateFrame: 'mediapipe-image-normalized-xy',
+      rawRiseScaling: 'divide-by-baseline-eye-distance-for-comparison-only',
+      signedDisplacementSemantics: 'baseline-minus-current-positive-is-upward',
+      perFrameClampApplied: false,
+      riseAggregation: 'median-of-valid-smile-frames',
+      effectiveRisePolicy: 'max-zero-after-aggregation',
+      deprecatedPositiveAliases: [
+        'rawRiseLeft',
+        'rawRiseRight',
+        'normalizedRiseLeft',
+        'normalizedRiseRight'
+      ],
+      leftEyeCornerLandmarks: [IDX_L_EYE_OUTER, IDX_L_EYE_INNER],
+      rightEyeCornerLandmarks: [IDX_R_EYE_INNER, IDX_R_EYE_OUTER],
+      usesLandmarkZ: false,
+      yawPitchPolicy: 'quality_gate_only',
+      smileConfirmationPolicy: 'blendshape_required_geometry_support_allowed'
+    },
     baseline: {
       sampleCount: restCornerL.length,
       baseLeft: roundMetric(baseL),
       baseRight: roundMetric(baseR),
+      baseEyeDistance: roundMetric(baseEyeW),
+      // Deprecated compatibility alias; now represents center-to-center eye distance.
       baseEyeWidth: roundMetric(baseEyeW),
+      baseRawMouthLeftY: roundMetric(baseRawMouthLeftY),
+      baseRawMouthRightY: roundMetric(baseRawMouthRightY),
+      baseEyeCenterX: roundMetric(baseEyeCenterX),
+      baseEyeCenterY: roundMetric(baseEyeCenterY),
+      baseEyeLineRollDeg: roundMetric(baseEyeLineRollDeg,2),
+      rawCoordinateFrame: 'mediapipe-image-normalized-xy',
+      coordinateFrame: 'eye-centered-2d-roll-scale',
       restAsymMean: roundMetric(average(restCornerAsymSamples)),
       restAsymMax: roundMetric(restCornerAsymSamples.length ? Math.max(...restCornerAsymSamples) : null),
       criticalTriggered: criticalFired,
       criticalRestAsym: roundMetric(criticalRestAsym)
     },
-    attempts: [...attemptRecords],
+    attempts: attemptSnapshot,
     research: {
       sampleIntervalMs: RESEARCH_SAMPLE_INTERVAL_MS,
       storesImagesOrVideo: false,
-      frames: researchFrames
+      frames: frameSnapshot
     },
     breakdown
   };
 }
+const FACE_NOTICE_CLASSES = Object.freeze([
+  'notice-status',
+  'notice-pose',
+  'notice-smile'
+]);
+
+function setFaceNoticeMode(kind='none'){
+  FACE_NOTICE_CLASSES.forEach((className) => document.body.classList.remove(className));
+  if (kind === 'status') document.body.classList.add('notice-status');
+  else if (kind === 'pose') document.body.classList.add('notice-pose');
+  else if (kind === 'smile') document.body.classList.add('notice-smile');
+}
+
 function clearBottomPanels(){
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
   if (statusMsg) statusMsg.style.display = 'none';
   if (poseWarnMsg) poseWarnMsg.style.display = 'none';
+
+  setFaceNoticeMode('none');
   document.body.classList.remove('smile-prompt-visible','pose-warning-visible');
+
   activeNoticeKind = 'none';
   activeNoticeText = '';
 }
+
 function hideSmilePrompt(){
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
-  document.body.classList.remove('smile-prompt-visible');
-  if (activeNoticeKind === 'smile') { activeNoticeKind = 'none'; activeNoticeText = ''; }
+  document.body.classList.remove('smile-prompt-visible','notice-smile');
+
+  if (activeNoticeKind === 'smile') {
+    if (statusMsg) {
+      statusMsg.textContent = '';
+      statusMsg.style.display = 'none';
+    }
+    setFaceNoticeMode('none');
+    activeNoticeKind = 'none';
+    activeNoticeText = '';
+  }
 }
+
 function showStatusPanel(text){
-  if (!text) { clearBottomPanels(); return; }
+  if (!text) {
+    clearBottomPanels();
+    return;
+  }
+
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
+
+  poseWarnMsg.textContent = '';
   poseWarnMsg.style.display = 'none';
+
   statusMsg.textContent = text;
-  statusMsg.style.display = 'block';
+  statusMsg.style.display = 'flex';
+
   document.body.classList.remove('smile-prompt-visible','pose-warning-visible');
+  setFaceNoticeMode('status');
+
   activeNoticeKind = 'status';
   activeNoticeText = text;
 }
+
 function showPosePanel(text){
-  if (!text) { clearBottomPanels(); return; }
+  if (!text) {
+    clearBottomPanels();
+    return;
+  }
+
   const sp = document.getElementById('smile-prompt');
   if (sp) sp.style.display = 'none';
+
+  statusMsg.textContent = '';
   statusMsg.style.display = 'none';
+
   poseWarnMsg.textContent = text;
-  poseWarnMsg.style.display = 'block';
+  poseWarnMsg.style.display = 'flex';
+
   document.body.classList.remove('smile-prompt-visible');
   document.body.classList.add('pose-warning-visible');
+  setFaceNoticeMode('pose');
+
   activeNoticeKind = 'pose';
   activeNoticeText = text;
 }
-function showSmilePrompt(text){
-  const sp = document.getElementById('smile-prompt');
-  if (!sp) return;
-  const msg = text || FL.smilePrompt;
-  const box = sp.querySelector('div');
-  if (box) box.textContent = msg;
 
-  // Only one bottom message panel should be visible at a time.
+function showSmilePrompt(text){
+  const msg = text || FL.smilePrompt;
+  const sp = document.getElementById('smile-prompt');
+
+  // Keep the legacy element hidden. All visible instructions use statusMsg.
+  if (sp) {
+    const box = sp.querySelector('div');
+    if (box) box.textContent = msg;
+    sp.style.display = 'none';
+  }
+
+  poseWarnMsg.textContent = '';
   poseWarnMsg.style.display = 'none';
-  statusMsg.style.display = 'none';
+
+  statusMsg.textContent = msg;
+  statusMsg.style.display = 'flex';
+
   document.body.classList.remove('pose-warning-visible');
   document.body.classList.add('smile-prompt-visible');
-  sp.style.display = 'block';
+  setFaceNoticeMode('smile');
+
   activeNoticeKind = 'smile';
   activeNoticeText = msg;
 }
@@ -2380,47 +3354,92 @@ function setFaceCard(key, state, main, sub, icon){
   if(iconEl && icon!==undefined) iconEl.textContent=icon;
 }
 function updateFaceStatusCards(){
+  const blank = '';
+
   if(phase==='BEFORE_START'){
-    setFaceCard('face','active',FL.cardFace,FL.cardReady,'🙂');
-    setFaceCard('smile','',FL.cardSmile,FL.cardPending,'😄');
+    // Before start, the cards carry the status visually. No duplicate “press start”
+    // instruction is needed above the single primary Start button.
+    setFaceCard('face','active',FL.cardFace,blank,'🙂');
+    setFaceCard('smile','',FL.cardSmile,blank,'⏳');
+    return;
+  }
 
-  } else if(phase==='RESTING_PHASE'){
-    setFaceCard('face','active',FL.cardFace,FL.cardAligning,'🙂');
-    setFaceCard('smile','',FL.cardSmile,FL.cardPending,'😄');
+  if(phase==='RESTING_PHASE'){
+    setFaceCard('face','active',FL.cardFace,blank,'🙂');
+    setFaceCard('smile','',FL.cardSmile,blank,'⏳');
+    return;
+  }
 
-  } else if(phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE'){
-    setFaceCard('face','pass',FL.cardFace,FL.cardAligned,'✅');
-    setFaceCard('smile','active',FL.cardSmile,FL.cardTesting,'😄');
+  if(phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE'){
+    setFaceCard('face','pass',FL.cardFace,blank,'✅');
+    setFaceCard('smile','active',FL.cardSmile,blank,'😄');
+    return;
+  }
 
-  } else if(phase==='FACE_DONE'){
-    let risk='ok';
-    try{
-      risk = (JSON.parse(sessionStorage.getItem('fast_face') || '{}').riskLevel) || 'ok';
-    }catch(e){}
+  if(phase==='RETRYING'){
+    setFaceCard('face','pass',FL.cardFace,blank,'✅');
+    setFaceCard('smile','warn',FL.cardSmile,blank,'⏳');
+    return;
+  }
 
-    const state = risk==='bad'
-      ? 'fail'
-      : (risk==='warn' || risk==='invalid' ? 'warn' : 'pass');
+  if(phase==='CRITICAL_ASYMMETRY'){
+    setFaceCard('face','fail',FL.cardFace,blank,'🚨');
+    setFaceCard('smile','',FL.cardSmile,blank,'—');
+    return;
+  }
 
-    setFaceCard(
-      'face',
-      state,
-      FL.cardFace,
-      risk==='ok' ? FL.cardPassed : (risk==='invalid' ? FL.cardUnable : FL.cardCheck),
-      risk==='bad' ? '⚠️' : '✅'
-    );
+  if(phase==='FACE_DONE'){
+    let saved = {};
+    try{ saved = JSON.parse(sessionStorage.getItem('fast_face') || '{}'); }catch(e){}
 
-    setFaceCard(
-      'smile',
-      state,
-      FL.cardSmile,
-      risk==='ok' ? FL.cardNormal : (risk==='invalid' ? FL.cardUnable : FL.cardAbnormal),
-      risk==='bad' ? '🚨' : '😄'
-    );
+    const risk = saved.riskLevel || 'invalid';
+    const reasonCode = saved.invalidReasonCode || saved.breakdown?.reasonCode || null;
+    const method = saved.breakdown?.method || '';
+    const baselineFailureCodes = new Set([
+      'NO_FACE_TIMEOUT',
+      'BASELINE_INSUFFICIENT',
+      'POSE_ALIGNMENT_TIMEOUT',
+      'CAMERA_PERMISSION_DENIED',
+      'CAMERA_NOT_AVAILABLE',
+      'CAMERA_STREAM_FAILED',
+      'CAMERA_IN_USE',
+      'INSECURE_CONTEXT',
+      'MODEL_LOAD_FAILED',
+      'FACE_MODEL_LOAD_FAILED'
+    ]);
 
-  } else if(phase==='CRITICAL_ASYMMETRY'){
-    setFaceCard('face','fail',FL.cardFace,FL.cardUrgent,'🚨');
-    setFaceCard('smile','fail',FL.cardSmile,FL.cardAbnormal,'⚠️');
+    if(risk==='ok'){
+      setFaceCard('face','pass',FL.cardFace,blank,'✅');
+      setFaceCard('smile','pass',FL.cardSmile,blank,'✅');
+      return;
+    }
+
+    if(risk==='warn'){
+      setFaceCard('face','pass',FL.cardFace,blank,'✅');
+      setFaceCard('smile','warn',FL.cardSmile,blank,'⚠️');
+      return;
+    }
+
+    if(risk==='bad'){
+      if(String(method).startsWith('resting_asymmetry')){
+        setFaceCard('face','fail',FL.cardFace,blank,'🚨');
+        setFaceCard('smile','',FL.cardSmile,blank,'—');
+      } else {
+        setFaceCard('face','pass',FL.cardFace,blank,'✅');
+        setFaceCard('smile','fail',FL.cardSmile,blank,'🚨');
+      }
+      return;
+    }
+
+    // Invalid/technical outcomes: identify whether the failure happened before the
+    // smile stage, otherwise keep Face completed and flag the Smile card.
+    if(baselineFailureCodes.has(reasonCode)){
+      setFaceCard('face','warn',FL.cardFace,blank,'⚠️');
+      setFaceCard('smile','',FL.cardSmile,blank,'—');
+    } else {
+      setFaceCard('face','pass',FL.cardFace,blank,'✅');
+      setFaceCard('smile','warn',FL.cardSmile,blank,'⚠️');
+    }
   }
 }
 
@@ -2448,25 +3467,131 @@ function goBackHome(){
 window.switchFaceLang = switchFaceLang;
 window.toggleDebug = toggleDebug;
 window.goBackHome = goBackHome;
+window.downloadFaceResearchJson = downloadFaceResearchJson;
+window.copyFaceResearchJson = copyFaceResearchJson;
 
-/* ───────────── pose & geometry from landmarks ───────────── */
+/* ───────────── pose & 2D eye-frame geometry from landmarks ───────────── */
+function midpoint2D(a,b){
+  return { x:(a.x+b.x)/2, y:(a.y+b.y)/2 };
+}
+
+function buildEyeFrame2D(lm){
+  const leftEyeCenter = midpoint2D(lm[IDX_L_EYE_OUTER], lm[IDX_L_EYE_INNER]);
+  const rightEyeCenter = midpoint2D(lm[IDX_R_EYE_INNER], lm[IDX_R_EYE_OUTER]);
+
+  const centerX = (leftEyeCenter.x + rightEyeCenter.x) / 2;
+  const centerY = (leftEyeCenter.y + rightEyeCenter.y) / 2;
+  const dx = rightEyeCenter.x - leftEyeCenter.x;
+  const dy = rightEyeCenter.y - leftEyeCenter.y;
+  const eyeDistance = Math.hypot(dx,dy) + 1e-6;
+  const rollRad = Math.atan2(dy,dx);
+  const cosR = Math.cos(-rollRad);
+  const sinR = Math.sin(-rollRad);
+
+  // 2D similarity transform only:
+  // translation by eye midpoint, roll compensation, then scale by eye distance.
+  // MediaPipe landmark z is deliberately not read.
+  const normalize = (pt)=>{
+    const x = pt.x - centerX;
+    const y = pt.y - centerY;
+    return {
+      x:(x*cosR - y*sinR) / eyeDistance,
+      y:(x*sinR + y*cosR) / eyeDistance
+    };
+  };
+
+  return {
+    leftEyeCenter,
+    rightEyeCenter,
+    centerX,
+    centerY,
+    eyeDistance,
+    rollRad,
+    rollDeg:rollRad * 180/Math.PI,
+    normalize
+  };
+}
+
 function computePose(lm){
-  const lEye=lm[IDX_L_EYE], rEye=lm[IDX_R_EYE], nose=lm[IDX_NOSE], forehead=lm[IDX_FOREHEAD], chin=lm[IDX_CHIN];
-  const mL=lm[IDX_ML], mR=lm[IDX_MR];
-  // roll: rEye - lEye (raw image coords) → ~0° when level
-  const dx = rEye.x - lEye.x, dy = rEye.y - lEye.y;
-  const rollDeg = Math.atan2(dy, dx) * 180/Math.PI;
-  const cosR = Math.cos(-rollDeg*Math.PI/180), sinR = Math.sin(-rollDeg*Math.PI/180);
-  const rotY = (pt,ref)=> ref.y + ((pt.x-ref.x)*sinR + (pt.y-ref.y)*cosR);
-  const mLy = rotY(mL,lEye), mRy = rotY(mR,lEye);
-  const foreY = rotY(forehead,lEye), chinY = rotY(chin,lEye), noseY = rotY(nose,lEye);
-  const faceLen = Math.abs(chinY - foreY) + 1e-6;
-  const ratio = (noseY - foreY)/faceLen;
+  const eyeFrame = buildEyeFrame2D(lm);
+  const nose=lm[IDX_NOSE], forehead=lm[IDX_FOREHEAD], chin=lm[IDX_CHIN];
+  const mouthLeft = eyeFrame.normalize(lm[IDX_ML]);
+  const mouthRight = eyeFrame.normalize(lm[IDX_MR]);
+  const foreheadNorm = eyeFrame.normalize(forehead);
+  const chinNorm = eyeFrame.normalize(chin);
+  const noseNorm = eyeFrame.normalize(nose);
+
+  // Pitch/yaw remain 2D quality gates only. They are not compensated clinically.
+  const faceLen = Math.abs(chinNorm.y - foreheadNorm.y) + 1e-6;
+  const ratio = (noseNorm.y - foreheadNorm.y) / faceLen;
   if (pitchNeutralRatio === null) pitchNeutralRatio = 0.355;
   const pitchDeg = (ratio - pitchNeutralRatio) * 95;
-  const eyeW = Math.hypot(lEye.x-rEye.x, lEye.y-rEye.y) + 1e-6;
-  const yawDeg = (nose.x - (lEye.x+rEye.x)/2)/eyeW * -90;
-  return { mLy, mRy, rollDeg, yawDeg, pitchDeg, eyeW };
+  const yawDeg = noseNorm.x * -90;
+
+  const rawMouthLeft = lm[IDX_ML];
+  const rawMouthRight = lm[IDX_MR];
+
+  return {
+    // Compatibility names: these are normalized eye-frame y coordinates.
+    mLy:mouthLeft.y,
+    mRy:mouthRight.y,
+
+    // Raw MediaPipe image-normalized x/y inputs used by the transform.
+    rawLeftEyeCenterX:eyeFrame.leftEyeCenter.x,
+    rawLeftEyeCenterY:eyeFrame.leftEyeCenter.y,
+    rawRightEyeCenterX:eyeFrame.rightEyeCenter.x,
+    rawRightEyeCenterY:eyeFrame.rightEyeCenter.y,
+    rawEyeCenterX:eyeFrame.centerX,
+    rawEyeCenterY:eyeFrame.centerY,
+    rawMouthLeftX:rawMouthLeft.x,
+    rawMouthLeftY:rawMouthLeft.y,
+    rawMouthRightX:rawMouthRight.x,
+    rawMouthRightY:rawMouthRight.y,
+
+    // Output after translation, roll compensation and scale normalization.
+    normalizedMouthLeftX:mouthLeft.x,
+    normalizedMouthLeftY:mouthLeft.y,
+    normalizedMouthRightX:mouthRight.x,
+    normalizedMouthRightY:mouthRight.y,
+
+    // Exact parameters applied in this frame.
+    translationCompensationX:-eyeFrame.centerX,
+    translationCompensationY:-eyeFrame.centerY,
+    rollCompensationAppliedDeg:-eyeFrame.rollDeg,
+    scaleNormalizationFactor:1 / eyeFrame.eyeDistance,
+
+    rollDeg:eyeFrame.rollDeg,
+    yawDeg,
+    pitchDeg,
+    eyeW:eyeFrame.eyeDistance,
+    eyeCenterX:eyeFrame.centerX,
+    eyeCenterY:eyeFrame.centerY
+  };
+}
+
+function evaluateSmileEvidence(smileL, smileR, riseL, riseR, mode='valid'){
+  const smileStrength = (smileL + smileR) / 2;
+  const strongBlend = Math.max(smileL, smileR);
+  const strongRise = Math.max(riseL, riseR);
+
+  // Existing thresholds only. Geometry is allowed to support a closed-mouth
+  // smile only when blendshape already supplies at least minimal real-smile evidence.
+  const blendSmileEvidence = strongBlend >= SMILE_REAL_MIN;
+  const geometrySmileEvidence = strongRise >= CLOSED_SMILE_RISE_MIN;
+  const directBlendThreshold = mode === 'start'
+    ? (smileStrength >= SMILE_DETECT_MIN || strongBlend >= SMILE_DETECT_SIDE)
+    : (smileStrength >= SMILE_VALID_STRENGTH || strongBlend >= SMILE_DETECT_SIDE);
+  const blendSupportedGeometry = blendSmileEvidence && geometrySmileEvidence;
+
+  return {
+    smileStrength,
+    strongBlend,
+    strongRise,
+    blendSmileEvidence,
+    geometrySmileEvidence,
+    blendSupportedGeometry,
+    confirmed:directBlendThreshold || blendSupportedGeometry
+  };
 }
 
 function bs(blend, name){
@@ -2685,12 +3810,21 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
   const db=document.getElementById('dashboard');
   if(db){ db.style.background=glassColor; db.classList.toggle('pulse',pulse); }
   document.body.classList.toggle('result-visible', !!showScore);
+
+  const screeningActive = ['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(phase);
+  const startReady = phase==='BEFORE_START' && showStart && !showScore;
+  document.body.classList.toggle('screening-active', screeningActive && !showScore);
+  document.body.classList.toggle('start-ready', startReady);
   document.body.classList.toggle('pose-warning-visible', !!poseWarn && !showScore);
 
+  const hideRedundantStartStatus = startReady;
   if(showScore){
     clearBottomPanels();
   } else if(poseWarn){
     showPosePanel(poseWarn);
+  } else if(hideRedundantStartStatus){
+    // The Start button is self-explanatory; avoid a second “press start” box.
+    clearBottomPanels();
   } else if(msg){
     showStatusPanel(msg);
   } else {
@@ -2720,8 +3854,13 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
 
 /* ───────────── calibration / phase control ───────────── */
 function startScreening(){
+  const previousPhase = phase;
+  const nextScreeningStartedAtMs = Date.now();
   sessionStorage.removeItem('fast_face');
-  screeningStartedAtMs=Date.now();
+  runtimeQualityFlags.delete('STORAGE_WRITE_FAILED');
+  facePersistenceErrors = [];
+  beginFaceModuleRun(previousPhase, new Date(nextScreeningStartedAtMs).toISOString());
+  screeningStartedAtMs=nextScreeningStartedAtMs;
   baselineWaitStartMs=screeningStartedAtMs;
   attemptStartedAtMs=null;
   attemptRecords=[];
@@ -2731,12 +3870,16 @@ function startScreening(){
   criticalRestAsym=null;
   criticalNoticeUntilMs=0;
   restCornerAsymSamples=[]; restCornerL=[]; restCornerR=[]; restEyeW=[];
+  restRawMouthLeftY=[]; restRawMouthRightY=[];
+  restEyeCenterX=[]; restEyeCenterY=[]; restEyeLineRollDeg=[];
   baseL=null; baseR=null; baseEyeW=null;
+  baseRawMouthLeftY=null; baseRawMouthRightY=null;
+  baseEyeCenterX=null; baseEyeCenterY=null; baseEyeLineRollDeg=null;
   criticalFired=false; noFaceCount=0; poseBadFrames=0; poseGoodFrames=0;
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
-  actionWaitStartMs=null; lastSmileVoiceMs=0; lastRepAsym=0;
-  peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
+  actionWaitStartMs=null; lastSmileVoiceMs=0; smileNudgeUntilMs=0; lastRepAsym=0;
+  peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0; validSignedRiseL=[]; validSignedRiseR=[];
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   lastHandMouthOverlap=false; lastHandCount=0;
   assessAttempts=0;
@@ -2779,17 +3922,32 @@ function calibrationTick(){
   baseL = average(restCornerL);
   baseR = average(restCornerR);
   baseEyeW = average(restEyeW) || 0.1;
+  baseRawMouthLeftY = average(restRawMouthLeftY);
+  baseRawMouthRightY = average(restRawMouthRightY);
+  baseEyeCenterX = average(restEyeCenterX);
+  baseEyeCenterY = average(restEyeCenterY);
+  baseEyeLineRollDeg = average(restEyeLineRollDeg);
   startActionPhase();
 }
 
 function startActionPhase(){
+  if (!activeFaceAttemptRecord) {
+    const retryOfAttemptId = lastCompletedFaceAttemptRecord?.testAttemptId || faceTestAttemptId;
+    beginFaceAttempt({
+      trigger:retryOfAttemptId ? 'automatic_retry' : 'initial_attempt',
+      retryOfAttemptId:retryOfAttemptId || null,
+      triggerReasonCode:lastInvalidReasonCode,
+      startedAt:new Date().toISOString(),
+      stage:'action'
+    });
+  }
   phase='ACTION_PHASE';
   attemptStartedAtMs=Date.now();
   poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
-  peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0;
+  peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0; validSignedRiseL=[]; validSignedRiseR=[];
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
-  actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now();
+  actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now(); smileNudgeUntilMs=0;
   setUI({glassColor:'var(--col-green-glass)', msg:'', showReset:true, showHud:true});
   showSmilePrompt(FL.smilePrompt);
   speakFace(FL.smileVoice, {force:true});
@@ -2815,6 +3973,8 @@ function resetSmileAttemptAfterPose(){
   peakSmileR=0;
   peakRiseL=0;
   peakRiseR=0;
+  validSignedRiseL=[];
+  validSignedRiseR=[];
   visibleMouthFrames=0;
   mouthVisibilityScores=[];
   lastMouthVisibilityScore=0;
@@ -2823,6 +3983,7 @@ function resetSmileAttemptAfterPose(){
   lastHandMouthOverlap=false; lastHandCount=0;
   // Keep the original actionWaitStartMs so no-face/pose/occlusion cannot loop forever.
   lastSmileVoiceMs=Date.now();
+  smileNudgeUntilMs=0;
   hideCenterCountdown();
   poseWarnMsg.style.display='none';
   statusMsg.style.display='none';
@@ -2842,6 +4003,8 @@ function clearSmileCaptureWindow(){
   peakSmileR = 0;
   peakRiseL = 0;
   peakRiseR = 0;
+  validSignedRiseL = [];
+  validSignedRiseR = [];
   visibleMouthFrames = 0;
   mouthVisibilityScores = [];
   lastRepAsym = 0;
@@ -2856,7 +4019,11 @@ function resetSmileWindowToAction(reasonText, voiceText, opts={}){
   smileEverDetected = false;
   hideCenterCountdown();
   hideSmilePrompt();
-  setUI({glassColor:'var(--col-orange-glass)', msg: reasonText || FL.noSmileWarn, showReset:true, showHud:true});
+  const resolvedReasonText = reasonText || FL.noSmileWarn;
+  setUI({glassColor:'var(--col-orange-glass)', msg: resolvedReasonText, showReset:true, showHud:true});
+  if (resolvedReasonText === FL.noSmileWarn) {
+    smileNudgeUntilMs = now + SMILE_NUDGE_MIN_MS;
+  }
   if (voiceText) speakFace(voiceText, {minGap:6500, sameTextGap:12000});
   lastSmileVoiceMs = now;
   // Do NOT reset actionWaitStartMs here. Repeated quick smiles / covering the
@@ -2898,7 +4065,19 @@ function onResults(results, handResults=null){
   const lm = lmArr[0];
   drawFaceMesh(lm);  // dev mesh overlay (ทำงานเฉพาะ ?dev=1)
   const blend = (blendArr && blendArr.length) ? blendArr[0] : null;
-  const { mLy, mRy, rollDeg, yawDeg, pitchDeg, eyeW } = computePose(lm);
+  const {
+    mLy, mRy,
+    rawLeftEyeCenterX, rawLeftEyeCenterY,
+    rawRightEyeCenterX, rawRightEyeCenterY,
+    rawEyeCenterX, rawEyeCenterY,
+    rawMouthLeftX, rawMouthLeftY,
+    rawMouthRightX, rawMouthRightY,
+    normalizedMouthLeftX, normalizedMouthLeftY,
+    normalizedMouthRightX, normalizedMouthRightY,
+    translationCompensationX, translationCompensationY,
+    rollCompensationAppliedDeg, scaleNormalizationFactor,
+    rollDeg, yawDeg, pitchDeg, eyeW
+  } = computePose(lm);
 
   // blendshape smile (subject's anatomical left/right; magnitude is what matters)
   const smileL = bs(blend,'mouthSmileLeft');
@@ -2907,17 +4086,42 @@ function onResults(results, handResults=null){
   const smileStrength = smileTotal / 2;
   const smileAsym = smileTotal > 0.05 ? Math.abs(smileL - smileR) / smileTotal : 0;
 
-  // geometry corner rise (relative to neutral baseline), normalized by eye width
-  let geomAsym = 0, riseLn = 0, riseRn = 0;
+  // Preserve direction on every frame:
+  // positive = mouth corner rose; negative = mouth corner moved downward.
+  // No per-frame clamping is allowed in the clinical geometry path.
+  let signedRiseLn = 0, signedRiseRn = 0;
   if (baseL !== null && baseR !== null){
-    riseLn = Math.max(0, baseL - mLy) / baseEyeW;
-    riseRn = Math.max(0, baseR - mRy) / baseEyeW;
-    const riseSum = riseLn + riseRn;
-    if (riseSum > 0.05) geomAsym = Math.abs(riseLn - riseRn) / riseSum;
+    signedRiseLn = baseL - mLy;
+    signedRiseRn = baseR - mRy;
   }
-  const frameAsym = Math.max(smileAsym, geomAsym);
+
+  // Pilot comparison in the former image coordinate frame, also signed.
+  // It is never used for scoring.
+  let rawSignedRiseLn = 0, rawSignedRiseRn = 0;
+  if (baseRawMouthLeftY !== null && baseRawMouthRightY !== null && baseEyeW){
+    rawSignedRiseLn = (baseRawMouthLeftY - rawMouthLeftY) / baseEyeW;
+    rawSignedRiseRn = (baseRawMouthRightY - rawMouthRightY) / baseEyeW;
+  }
+
+  const normalizedSideDifference = signedRiseLn - signedRiseRn;
+  const normalizedMeanDisplacement = (signedRiseLn + signedRiseRn) / 2;
+  const rawSideDifference = rawSignedRiseLn - rawSignedRiseRn;
+  const rawMeanDisplacement = (rawSignedRiseLn + rawSignedRiseRn) / 2;
+
+  // Per-frame clinical asymmetry is deliberately not derived from clipped rise.
+  // Final geometry asymmetry is calculated after robust smile-window aggregation.
+  const geomAsym = 0;
+  const frameAsym = smileAsym;
 
   const inActionPhase = (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE');
+  const eyeDistanceRatioFromBaseline = baseEyeW ? eyeW / baseEyeW : null;
+  const smileEvidence = evaluateSmileEvidence(
+    smileL,
+    smileR,
+    signedRiseLn,
+    signedRiseRn,
+    phase === 'ACTION_PHASE' ? 'start' : 'valid'
+  );
 
   // ⚡ getMouthVisibility ทำ drawImage + getImageData (pixel readback) ทุกครั้งที่เรียก
   //    ซึ่งแพงมากบนมือถือ — เดิมรัน "ทุกเฟรม ทุก phase" แม้ตอนหน้าจอผลลัพธ์
@@ -2938,10 +4142,55 @@ function onResults(results, handResults=null){
     yawDeg:roundMetric(yawDeg,2),
     pitchDeg:roundMetric(pitchDeg,2),
     rollDeg:roundMetric(rollDeg,2),
+    eyeLineRollDeg:roundMetric(rollDeg,2),
+    eyeDistance:roundMetric(eyeW),
+    eyeDistanceRatioFromBaseline:roundMetric(eyeDistanceRatioFromBaseline),
+
+    rawLeftEyeCenterX:roundMetric(rawLeftEyeCenterX),
+    rawLeftEyeCenterY:roundMetric(rawLeftEyeCenterY),
+    rawRightEyeCenterX:roundMetric(rawRightEyeCenterX),
+    rawRightEyeCenterY:roundMetric(rawRightEyeCenterY),
+    rawEyeCenterX:roundMetric(rawEyeCenterX),
+    rawEyeCenterY:roundMetric(rawEyeCenterY),
+    rawMouthLeftX:roundMetric(rawMouthLeftX),
+    rawMouthLeftY:roundMetric(rawMouthLeftY),
+    rawMouthRightX:roundMetric(rawMouthRightX),
+    rawMouthRightY:roundMetric(rawMouthRightY),
+
+    translationCompensationX:roundMetric(translationCompensationX),
+    translationCompensationY:roundMetric(translationCompensationY),
+    rollCompensationAppliedDeg:roundMetric(rollCompensationAppliedDeg,2),
+    scaleNormalizationFactor:roundMetric(scaleNormalizationFactor),
+
+    normalizedMouthLeftX:roundMetric(normalizedMouthLeftX),
+    normalizedMouthLeftY:roundMetric(normalizedMouthLeftY),
+    normalizedMouthRightX:roundMetric(normalizedMouthRightX),
+    normalizedMouthRightY:roundMetric(normalizedMouthRightY),
+
+    rawSignedDisplacementLeft:roundMetric(rawSignedRiseLn),
+    rawSignedDisplacementRight:roundMetric(rawSignedRiseRn),
+    normalizedSignedDisplacementLeft:roundMetric(signedRiseLn),
+    normalizedSignedDisplacementRight:roundMetric(signedRiseRn),
+    rawSideDifference:roundMetric(rawSideDifference),
+    normalizedSideDifference:roundMetric(normalizedSideDifference),
+    rawMeanDisplacement:roundMetric(rawMeanDisplacement),
+    normalizedMeanDisplacement:roundMetric(normalizedMeanDisplacement),
+
+    // Deprecated positive-only aliases retained for temporary log compatibility.
+    // They are not used by scoring or compensation analysis.
+    rawRiseLeft:roundMetric(Math.max(0, rawSignedRiseLn)),
+    rawRiseRight:roundMetric(Math.max(0, rawSignedRiseRn)),
+    normalizedRiseLeft:roundMetric(Math.max(0, signedRiseLn)),
+    normalizedRiseRight:roundMetric(Math.max(0, signedRiseRn)),
+    rawGeometryAsymmetry:null,
+    normalizedGeometryAsymmetry:null,
+
     smileLeft:roundMetric(smileL),
     smileRight:roundMetric(smileR),
-    riseLeft:roundMetric(riseLn),
-    riseRight:roundMetric(riseRn),
+    riseLeft:roundMetric(signedRiseLn),
+    riseRight:roundMetric(signedRiseRn),
+    blendSmileEvidence:inActionPhase ? smileEvidence.blendSmileEvidence : null,
+    geometrySmileEvidence:inActionPhase ? smileEvidence.geometrySmileEvidence : null,
     mouthVisibilityScore:roundMetric(mouthVis.score),
     mouthDarkRatio:roundMetric(mouthVis.darkRatio),
     mouthCentralDarkRatio:roundMetric(mouthVis.centralDarkRatio),
@@ -2955,7 +4204,7 @@ function onResults(results, handResults=null){
     const setDbg=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
     setDbg('dbg-sml', smileL.toFixed(2)); setDbg('dbg-smr', smileR.toFixed(2));
     setDbg('dbg-smstr', smileStrength.toFixed(2)); setDbg('dbg-smasym', smileAsym.toFixed(2));
-    setDbg('dbg-geomasym', geomAsym.toFixed(2)); setDbg('dbg-frasym', frameAsym.toFixed(2));
+    setDbg('dbg-geomasym', normalizedSideDifference.toFixed(2)); setDbg('dbg-frasym', frameAsym.toFixed(2));
     setDbg('dbg-pkl', peakSmileL.toFixed(2)); setDbg('dbg-pkr', peakSmileR.toFixed(2));
     setDbg('dbg-roll', rollDeg.toFixed(1)+'°'); setDbg('dbg-yaw', yawDeg.toFixed(1)+'°'); setDbg('dbg-pitch', pitchDeg.toFixed(1)+'°');
     setDbg('dbg-vf', validSmileFrames); setDbg('dbg-rep', lastRepAsym.toFixed(2)); setDbg('dbg-phase', phase);
@@ -3016,7 +4265,12 @@ function onResults(results, handResults=null){
   /* ── RESTING: collect neutral baseline + resting-droop check ── */
   if (phase==='RESTING_PHASE'){
     restCornerL.push(mLy); restCornerR.push(mRy); restEyeW.push(eyeW);
-    const restAsym = Math.abs(mLy - mRy) / eyeW;
+    restRawMouthLeftY.push(rawMouthLeftY);
+    restRawMouthRightY.push(rawMouthRightY);
+    restEyeCenterX.push(rawEyeCenterX);
+    restEyeCenterY.push(rawEyeCenterY);
+    restEyeLineRollDeg.push(rollDeg);
+    const restAsym = Math.abs(mLy - mRy);
     restCornerAsymSamples = [...restCornerAsymSamples.slice(-7), restAsym];
     if (restCornerAsymSamples.length >= 8){
       const avg = average(restCornerAsymSamples);
@@ -3060,19 +4314,28 @@ function onResults(results, handResults=null){
       return;
     }
 
-    // Keep only the smile prompt visible while waiting for a smile.
-    if (activeNoticeKind !== 'smile' || activeNoticeText !== FL.smilePrompt) showSmilePrompt(FL.smilePrompt);
+    // Keep the stronger “smile wider” nudge visible for a readable minimum
+    // duration. Detection continues normally; only the text is held.
+    const smileNudgeActive =
+      now < smileNudgeUntilMs &&
+      activeNoticeText === FL.noSmileWarn;
 
-    // A smile has begun if blendshape rises OR mouth corners rise from baseline.
-    // The geometry path is what lets closed-mouth smiles be measured without teeth.
-    const closedSmileStart = Math.max(riseLn, riseRn) >= CLOSED_SMILE_RISE_MIN;
-    if (smileStrength >= SMILE_DETECT_MIN || Math.max(smileL, smileR) >= SMILE_DETECT_SIDE || closedSmileStart){
+    if (!smileNudgeActive &&
+        (activeNoticeKind !== 'smile' || activeNoticeText !== FL.smilePrompt)) {
+      showSmilePrompt(FL.smilePrompt);
+    }
+
+    // Blendshape is required to confirm that a smile began. Normalized geometry
+    // may support a closed-mouth smile, but geometry alone can never open the window.
+    const startEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, 'start');
+    if (startEvidence.confirmed){
       clearSmileCaptureWindow();
       smileEverDetected = true;
       smileStartMs = now;
       smileLostSinceMs = null;
       mouthBlockedSinceMs = null;
       phase = 'ACTION_WAIT_SMILE';
+      smileNudgeUntilMs = 0;
       hideSmilePrompt();
       return;
     }
@@ -3080,6 +4343,7 @@ function onResults(results, handResults=null){
     if (now - lastSmileVoiceMs > 7000){
       speakFace(FL.noSmileWarn, {minGap:6500, sameTextGap:12000});
       lastSmileVoiceMs = now;
+      smileNudgeUntilMs = now + SMILE_NUDGE_MIN_MS;
       showSmilePrompt(FL.noSmileWarn);
     }
     if (now - actionWaitStartMs > MAX_WAIT_FOR_SMILE_MS){ finishInvalid('NO_SMILE_DETECTED'); }
@@ -3099,27 +4363,8 @@ function onResults(results, handResults=null){
 
     // ใช้ "ข้างที่ขยับมากที่สุด" เป็นตัวตรวจว่ามีความพยายามยิ้ม
     // เพราะ stroke-like smile อาจขยับชัดแค่ข้างเดียว
-    const strongBlendNow = Math.max(smileL, smileR);
-    const strongRiseNow  = Math.max(riseLn, riseRn);
-    
-    const realMove =
-      strongRiseNow > REAL_MOVE_MIN ||
-      strongBlendNow >= SMILE_DETECT_SIDE;
-    
-    const geometrySmile =
-      strongRiseNow >= CLOSED_SMILE_RISE_MIN;
-    
-    const oneSideBlendSmile =
-      strongBlendNow >= SMILE_DETECT_SIDE;
-    
-    const twoSideAverageSmile =
-      smileStrength >= SMILE_VALID_STRENGTH;
-    
-    const hasSmileSignal =
-      oneSideBlendSmile || twoSideAverageSmile || geometrySmile;
-    
-    const validSmileNow =
-      hasSmileSignal && realMove && mouthAssessable;
+    const validEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, 'valid');
+    const validSmileNow = validEvidence.confirmed && mouthAssessable;
 
     // If a hand covers the mouth or the mouth becomes unassessable after the
     // smile window has started, discard everything recorded so far. Otherwise a
@@ -3144,10 +4389,13 @@ function onResults(results, handResults=null){
       smileLostSinceMs = null;
       validSmileFrames++;
       frameAsymScores.push(frameAsym);
+      validSignedRiseL.push(signedRiseLn);
+      validSignedRiseR.push(signedRiseRn);
       peakSmileL = Math.max(peakSmileL, smileL);
       peakSmileR = Math.max(peakSmileR, smileR);
-      peakRiseL  = Math.max(peakRiseL, riseLn);
-      peakRiseR  = Math.max(peakRiseR, riseRn);
+      // Diagnostic peak only; clinical geometry uses the median aggregation.
+      peakRiseL  = Math.max(peakRiseL, signedRiseLn);
+      peakRiseR  = Math.max(peakRiseR, signedRiseRn);
     } else if (mouthAssessable) {
       if (smileLostSinceMs === null) smileLostSinceMs = now;
       if (now - smileLostSinceMs >= SMILE_LOST_GRACE_MS){
@@ -3190,10 +4438,15 @@ function finishFace(){
   // Gate 1: the stronger side must have produced a REAL smile, otherwise we never
   // truly saw the person smile (weak attempt / occlusion) → unable to assess.
   const strongBlend = Math.max(peakSmileL, peakSmileR);
-  const strongRise = Math.max(peakRiseL, peakRiseR);
-  // Closed-mouth smiles may have modest blendshape scores, so combine blendshape
-  // with actual mouth-corner rise. This removes the accidental "must show teeth" behavior.
-  const strongSide = Math.max(strongBlend, strongRise * 6.0);
+  const riseAggregation = currentGeometryRiseAggregation();
+  const aggregatedSignedRiseL = riseAggregation.aggregatedSignedRiseLeft;
+  const aggregatedSignedRiseR = riseAggregation.aggregatedSignedRiseRight;
+  const effectiveRiseL = riseAggregation.effectiveRiseLeft;
+  const effectiveRiseR = riseAggregation.effectiveRiseRight;
+  const strongRise = riseAggregation.strongEffectiveRise;
+  // Geometry alone cannot prove that a smile occurred. Closed-mouth smiles remain
+  // supported through the earlier blend-supported-geometry path, but final validity
+  // still requires the existing minimum blendshape evidence.
   const avgMouthVisibility = average(mouthVisibilityScores) || 0;
   const validSmileRatio = validSmileFrames / Math.max(1, smileFrameCount);
   if (visibleMouthFrames < MIN_VISIBLE_MOUTH_FRAMES || avgMouthVisibility < MIN_MOUTH_VISIBILITY_SCORE){
@@ -3204,7 +4457,7 @@ function finishFace(){
     finishInvalid('INSUFFICIENT_VALID_FRAMES');
     return;
   }
-  if (strongSide < SMILE_REAL_MIN){
+  if (strongBlend < SMILE_REAL_MIN){
     finishInvalid('SMILE_TOO_WEAK');
     return;
   }
@@ -3212,24 +4465,28 @@ function finishFace(){
   // Asymmetry magnitudes (continuous, 0 = symmetric, 1 = fully one-sided).
   const blendAsym = (peakSmileL + peakSmileR) > 0.05
     ? Math.abs(peakSmileL - peakSmileR) / (peakSmileL + peakSmileR) : 0;
-  const riseAsym = (peakRiseL + peakRiseR) > 0.05
-    ? Math.abs(peakRiseL - peakRiseR) / (peakRiseL + peakRiseR) : 0;
+  const riseAsym = riseAggregation.geometryRiseUsable
+    ? Math.abs(effectiveRiseL - effectiveRiseR) /
+      (effectiveRiseL + effectiveRiseR)
+    : 0;
 
-  // How much did the WEAKER side move compared with the stronger side?
-  // This is the clinical "one side isn't working" signal — but as a smooth ratio,
-  // not a brittle on/off threshold, so a slightly uneven normal smile isn't flagged.
-  const weakRise   = Math.min(peakRiseL, peakRiseR);
-  const weakRatio  = strongRise > 0 ? weakRise / strongRise : 0;
+  // Weak-side ratio is derived only after robust aggregation. If total geometry
+  // movement is too small for the existing 0.05 usability rule, do not manufacture
+  // a weak-side failure from near-zero landmark noise; rely on blendshape asymmetry.
+  const weakRise = riseAggregation.weakEffectiveRise;
+  const weakRatio = riseAggregation.geometryRiseUsable && strongRise > 0
+    ? weakRise / strongRise
+    : null;
 
   let rep = Math.max(blendAsym, riseAsym);
   let riskLevel;
 
-  if (weakRatio < WEAK_SIDE_RATIO_BAD){
-    // weak side moved below the configured active ratio → abnormal
+  if (riseAggregation.geometryRiseUsable &&
+      weakRatio !== null &&
+      weakRatio < WEAK_SIDE_RATIO_BAD){
     riskLevel = 'bad';
     rep = Math.max(rep, 0.55);
   } else {
-    // both sides moved meaningfully → grade by how uneven the smile was
     riskLevel = rep >= SMILE_ASYM_BAD ? 'bad' : rep >= SMILE_ASYM_WARN ? 'warn' : 'ok';
   }
 
@@ -3237,17 +4494,36 @@ function finishFace(){
   if (criticalFired) riskLevel = 'bad';
   const score = criticalFired ? Math.min(asymToScore(rep), 30) : asymToScore(rep);
 
-  captureAttempt('valid', null, {weakRatio:roundMetric(weakRatio), representativeAsym:roundMetric(rep)});
+  captureAttempt('valid', null, {
+    weakRatio:roundMetric(weakRatio),
+    representativeAsym:roundMetric(rep),
+    geometryRiseUsable:riseAggregation.geometryRiseUsable,
+    riskLevel,
+    observationStatus:canonicalFaceObservationStatus(riskLevel, 'valid')
+  });
   saveAndShow(score, riskLevel, {
     representativeAsym: rep, blendAsym, riseAsym, weakRatio,
+    geometryRiseUsable:riseAggregation.geometryRiseUsable,
+    riseAggregationMethod:riseAggregation.aggregationMethod,
+    aggregatedSignedRiseLeft:aggregatedSignedRiseL,
+    aggregatedSignedRiseRight:aggregatedSignedRiseR,
+    effectiveRiseLeft:effectiveRiseL,
+    effectiveRiseRight:effectiveRiseR,
     activeWeakSideRatioBad: WEAK_SIDE_RATIO_BAD,
     shadowWeakSideRatioBad: WEAK_SIDE_RATIO_SHADOW,
     shadowWouldFlagWeakSide: weakRatio < WEAK_SIDE_RATIO_SHADOW,
     restingCriticalTriggered: criticalFired,
     restAsym: criticalRestAsym,
     peakSmileL, peakSmileR, peakRiseL, peakRiseR,
-    validSmileFrames, smileFrameCount, validSmileRatio, visibleMouthFrames, avgMouthVisibility,
-    method: 'continuous_smile_hold_with_hand_occlusion_reset'
+    validSmileFrames, smileFrameCount, validSmileRatio, smileWindowVisibleMouthFrames:visibleMouthFrames, visibleMouthFrames, avgMouthVisibility,
+    geometryNormalization: 'eye-centered-2d-roll-scale',
+    geometryFrameDisplacement: 'signed-baseline-minus-current',
+    geometryRiseAggregation: 'median-of-valid-smile-frames',
+    geometryEffectiveRisePolicy: 'max-zero-after-aggregation',
+    geometryPerFrameClamp: false,
+    usesLandmarkZ: false,
+    smileConfirmation: 'blendshape_required_geometry_support_allowed',
+    method: 'continuous_blend_confirmed_smile_with_signed_median_2d_geometry'
   });
 }
 
@@ -3289,6 +4565,7 @@ function finalizeInvalidResult(reasonCode, detail={}){
       validSmileFrames,
       smileFrameCount,
       validSmileRatio:(validSmileFrames/Math.max(1,smileFrameCount)),
+      smileWindowVisibleMouthFrames:visibleMouthFrames,
       visibleMouthFrames,
       lastMouthVisibilityScore,
       lastMouthDarkRatio,
@@ -3299,7 +4576,7 @@ function finalizeInvalidResult(reasonCode, detail={}){
     }
   });
 
-  sessionStorage.setItem('fast_face', JSON.stringify(payload));
+  persistFacePayload(payload);
   sessionStorage.setItem('fast_result_source', 'face');
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
   const reasonText = invalidDisplayText(reasonCode);
@@ -3327,9 +4604,10 @@ function finishInvalid(reasonCode='UNABLE_TO_ASSESS', options={}){
   hideSmilePrompt();
   lastInvalidReasonCode = reasonCode;
 
-  const hadActionAttempt = !!attemptStartedAtMs || allowAutoRetry;
+  const hadActionAttempt = !!activeFaceAttemptRecord || !!attemptStartedAtMs || allowAutoRetry;
   if (hadActionAttempt){
-    captureAttempt('invalid', reasonCode, detail);
+    const attemptRecord = captureAttempt('invalid', reasonCode, detail);
+    reasonCode = attemptRecord.invalidReasonCode || reasonCode;
     assessAttempts++;
   }
 
@@ -3372,7 +4650,9 @@ function addNavButton(){
     let target = 'result.html';
     let bg = '#1FA98F';
 
-    if (mode === 'full') {
+    const returningFromResultRetry = faceModuleRunRecord?.moduleRunTrigger === 'result_retry'
+      || Boolean(pendingFaceModuleRetry());
+    if (mode === 'full' && !returningFromResultRetry) {
       label = FL.navNext;
       target = 'arm-test.html';
       bg = '#2B7DE9';
@@ -3380,7 +4660,14 @@ function addNavButton(){
     const btn=document.createElement('button');
     btn.id='fast-nav-btn'; btn.className='action-btn';
     btn.style.cssText=`background:${bg};border-color:rgba(255,255,255,0.25);color:#fff;font-weight:700;box-shadow:0 4px 12px rgba(43,125,233,0.35);width:100%;padding:13px 16px;border-radius:14px;`;
-    btn.textContent=label; btn.onclick=()=>window.location.href=target;
+    btn.textContent=label; btn.onclick=async()=>{
+      btn.disabled=true;
+      await Promise.race([
+        flushFaceResearchPersistence(),
+        new Promise((resolve)=>setTimeout(resolve, 1200))
+      ]);
+      window.location.href=target;
+    };
     const row=document.getElementById('btn-row');
     if (row) row.appendChild(btn);
   }, 400);
@@ -3397,7 +4684,7 @@ function saveAndShow(score, riskLevel, breakdown){
     passed:riskLevel === 'ok',
     breakdown
   });
-  sessionStorage.setItem('fast_face', JSON.stringify(payload));
+  persistFacePayload(payload);
   sessionStorage.setItem('fast_result_source', 'face');
   const pf=document.getElementById('prog-face'); if(pf){ pf.classList.remove('active'); pf.classList.add('done'); }
 
@@ -3464,7 +4751,15 @@ function detectLoop(){
 
 function saveTechnicalInvalid(reasonCode, message, detail={}){
   if (!screeningStartedAtMs) screeningStartedAtMs = Date.now();
-  runtimeQualityFlags.add(reasonCode);
+  if (!faceModuleRunRecord) beginFaceModuleRun('BEFORE_START', new Date(screeningStartedAtMs).toISOString());
+  if (activeFaceAttemptRecord) {
+    captureAttempt('not_evaluable', reasonCode, {
+      stage:attemptStartedAtMs ? 'action' : 'technical_startup',
+      technicalError:true,
+      detail
+    });
+    assessAttempts++;
+  }
   const payload = makeResultPayload({
     validityStatus:'error',
     clinicalResult:null,
@@ -3474,7 +4769,7 @@ function saveTechnicalInvalid(reasonCode, message, detail={}){
     invalidReasonCode:reasonCode,
     breakdown:{reasonCode, method:'technical_error', detail}
   });
-  sessionStorage.setItem('fast_face', JSON.stringify(payload));
+  persistFacePayload(payload);
   sessionStorage.setItem('fast_result_source', 'face');
   phase='FACE_DONE';
   if (FL) {
@@ -3762,19 +5057,19 @@ startBtn.addEventListener('click', ()=>{
   if (['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE','RETRYING'].includes(phase)) return;
   primeSpeech();
   if (!isCameraRunning) {
-    document.body.classList.remove('result-visible');
+    document.body.classList.remove('result-visible','start-ready','notice-status','notice-pose','notice-smile');
     setUI({glassColor:'var(--col-blue-glass)', msg:FL.loading, showStart:false, showReset:false, showHud:false});
     startCamera();
     return;
   }
   if (!modelReady) {
-    document.body.classList.remove('result-visible');
+    document.body.classList.remove('result-visible','start-ready','notice-status','notice-pose','notice-smile');
     showStatusPanel(FL.loadingModel);
     startBtn.classList.add('hidden');
     loadModel();
     return;
   }
-  document.body.classList.remove('result-visible');
+  document.body.classList.remove('result-visible','start-ready','notice-status','notice-pose','notice-smile');
   const oldNav=document.getElementById('fast-nav-btn'); if(oldNav) oldNav.remove();
   startBtn.classList.add('hidden');
   startScreening();
@@ -3789,6 +5084,9 @@ resetBtn.addEventListener('click', ()=>{
 });
 
 window.addEventListener('beforeunload', ()=>{
+  if (activeFaceAttemptRecord || faceModuleRunRecord?.moduleRunStatus === 'in_progress') {
+    finalizeOpenFaceLifecycle('PAGE_HIDDEN');
+  }
   isCameraRunning=false;
   if (countdownTimer){ clearInterval(countdownTimer); countdownTimer=null; }
   if (retryTimer){ clearTimeout(retryTimer); retryTimer=null; }

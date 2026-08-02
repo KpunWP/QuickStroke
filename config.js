@@ -1,12 +1,14 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.4",
+  version: "1.0.20",
+  buildId: "20260731-dev-urgent-retry-v1",
+  configVersion: "quickstroke-config-1.0.20",
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20260721-speech-review-v1",
+    localePack: "20260731-arm-side-sticky-result-v1",
     languageRegistry: "20260720-language-registry-v1"
   },
 
@@ -17,23 +19,42 @@ window.QS_CONFIG = {
   },
 
   scoring: {
+    // Retained only for research summaries. These weights do not determine
+    // the user-facing combined result in result-policy-1.1.0.
     faceWeight: 0.4,
     armWeight: 0.4,
     speechWeight: 0.2,
     singlePositiveOverride: true
   },
 
+  resultPolicy: {
+    version: "result-policy-1.1.0",
+    combinedDecisionBasis: "categorical_module_status_only",
+    repeatedRunSelectionPolicy: "any_valid_abnormal_within_session_sticky",
+    weightedScoreUse: "research_only_not_user_facing"
+  },
+
+  resultDiagnostics: {
+    version: "result-dev-diagnostics-1.2.0",
+    enabledQuery: "dev=1",
+    globalDevModeKey: "quickstroke_dev_mode",
+    globalDevModeVersion: "quickstroke-dev-mode-0.1.0",
+    sanitized: true,
+    rawPayloadIncluded: false
+  },
+
   thresholds: {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
-      version: "face-prepilot-1.2.0",
-      algorithmVersion: "face-asymmetry-1.0.0",
-      resultSchemaVersion: "face-result-1.0.1",
-
+      version: "face-prepilot-1.4.0",
+      algorithmVersion: "face-asymmetry-1.2.0",
+      resultSchemaVersion: "face-result-1.3.0",
+      researchPayloadVersion: "face-research-0.3.0",
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
       retryDelayMs: 2500,
+      smileNudgeMinMs: 2500,
 
       // Active pre-pilot threshold. A higher value is more sensitive because
       // weakRatio < threshold is classified as abnormal.
@@ -48,6 +69,22 @@ window.QS_CONFIG = {
       realMoveMin: 0.0018,
       closedSmileRiseMin: 0.0018,
       smileRealMin: 0.018,
+
+      // v1.1 algorithm policy:
+      // - blendshape must support smile confirmation
+      // - 2D normalized geometry may support/grade symmetry but cannot confirm alone
+      // - x/y only; landmark z is not used
+      geometryNormalization: "eye-centered-2d-roll-scale",
+      geometryUsesLandmarkZ: false,
+      yawPitchPolicy: "quality-gate-only",
+
+      // v1.2 geometry policy:
+      // keep signed displacement on every frame; do not clamp downward movement.
+      // Aggregate valid smile frames robustly, then derive positive effective rise.
+      geometryFrameDisplacement: "signed-baseline-minus-current",
+      geometryRiseAggregation: "median-of-valid-smile-frames",
+      geometryEffectiveRisePolicy: "max-zero-after-aggregation",
+      geometryPerFrameClamp: false,
 
       minValidSmileFrames: 2,
       minVisibleMouthFrames: 5,
@@ -80,10 +117,25 @@ window.QS_CONFIG = {
       enforceHandModel: false,
 
       // Compact research telemetry. No image or video is stored.
-      researchSampleIntervalMs: 100
+      researchSampleIntervalMs: 100,
+
+      // Attempt-level invalid-reason normalization. These values classify why an
+      // attempt was invalid; they do not change the clinical score or thresholds.
+      attemptMouthAssessableRatioMin: 0.25,
+      attemptHandOverlapRatioMin: 0.15
     },
 
     arm: {
+      // Formal data-contract identifiers. These label the existing pre-pilot
+      // algorithm and do not imply clinical validation.
+      version: "arm-prepilot-1.1.0",
+      algorithmVersion: "arm-drift-1.0.0",
+      resultSchemaVersion: "arm-result-1.0.1",
+      researchPayloadVersion: "arm-research-1.0.1",
+      sensorCapturePolicyVersion: "arm-sensor-capture-1.0.0",
+      researchSampleIntervalMs: 100,
+      sensorGapThresholdMs: 250,
+
       // ระยะเวลาวัดแขนแต่ละข้าง
       measureSec: 10,
     
@@ -128,7 +180,7 @@ window.QS_CONFIG = {
 
     // Readiness/configuration layer แยกจาก arm-drift algorithm เดิม
     armReadiness: {
-      version: "arm-readiness-1.0.1",
+      version: "arm-readiness-1.1.0",
       sampleFreshMs: 2000,
       sensorWaitTimeoutMs: 6000,
       preMeasureMaxDeltaDeg: 5,
@@ -137,16 +189,64 @@ window.QS_CONFIG = {
       // Hard gates ที่ใช้ในรอบนี้
       enforcePortraitScreen: true,
 
-      // Shadow mode: เก็บค่าและ log แต่ยังไม่ปฏิเสธ measurement
-      enforceTopUp: false,
+      // Hard gate: after correcting the iOS gravity-axis sign, reject upside-down posture.
+      enforceTopUp: true,
       enforceMovedFromRest: false
     },
 
     speech: {
       // Version identifiers stored with every Speech result.
-      version: "speech-prepilot-1.3.0",
-      algorithmVersion: "speech-browser-asr-1.0.0",
-      resultSchemaVersion: "speech-result-1.0.0",
+      version: "speech-prepilot-1.8.0",
+      algorithmVersion: "speech-browser-asr-1.4.0",
+      resultSchemaVersion: "speech-result-1.4.1",
+      researchPayloadVersion: "speech-research-0.5.1",
+
+      // Speech phrase scoring v1.1:
+      // - browser ASR confidence is stored as a raw observation only
+      // - phrase score comes from normalized transcript similarity against accepted variants
+      // - an exact accepted variant receives 100
+      phraseScoringPolicy: "normalized_levenshtein_similarity",
+      asrConfidencePolicy: "raw_observation_only",
+
+      // Pre-pilot result policy v1.3.1:
+      // - no combined numeric score is shown or used as the primary decision
+      // - phrase, rate, and technical quality are surfaced independently
+      // - all numeric scores remain research variables for patient-data analysis
+      // - interim-only ASR with coverage below 0.60 is indeterminate, not a phrase alert
+      decisionPolicy: "unvalidated_domain_observation_v1_2",
+      phraseAlertPolicy: "exact_variant_no_alert_else_attention",
+      rateReferencePolicy: "outside_exploratory_range_attention",
+      rateMinTranscriptCoverage: 0.60,
+      combinedScorePolicy: "research_only_not_displayed",
+      stabilityPolicy: "research_only",
+
+      // Speech-rate scoring v1.2:
+      // - rate is calculated independently from phrase correctness
+      // - the fixed target phrase unit count is divided by the resolved active-speech duration
+      // - ASR speech-start confirms onset; calibrated time-domain mic activity trims both ends
+      rateScoringPolicy: "target_phrase_units_per_resolved_active_speech_duration",
+      rateSpeechUnitSource: "target_phrase_fixed",
+      rateTimingPolicy: "asr_mic_hybrid_v1_1",
+      asrStartPrerollMs: 120,
+      micStartPrerollMs: 80,
+      micEndPostrollMs: 80,
+      micOnsetHoldMs: 100,
+      micHangoverMs: 180,
+      micSignalOnsetMultiplier: 8,
+      micSignalOffsetMultiplier: 4,
+      micSignalOnsetMin: 0.018,
+      micSignalOffsetMin: 0.010,
+      speechPrerollBufferMs: 400,
+
+      // iOS microphone streams can contain startup transients or prompt leakage.
+      // Discard a short warm-up window, estimate the quiet baseline from a
+      // low percentile, and cap only the technical time-domain VAD thresholds.
+      micCalibrationPolicyVersion: "speech-mic-calibration-ios-robust-1.0.0",
+      micCalibrationWarmupMs: 400,
+      micCalibrationQuietPercentile: 0.35,
+      micCalibrationHighPercentile: 0.90,
+      micSignalOnsetMax: 0.12,
+      micSignalOffsetMax: 0.06,
 
       calibrationMs: 300,
       noiseMultiplier: 2.5,
@@ -164,7 +264,9 @@ window.QS_CONFIG = {
       flatnessMax: 0.78,
       maxNoiseFlatness: 0.78,
       
-      minSpeechDurationSec: 1.2,
+      // A 6-unit phrase at the configured normal maximum (6 units/s) lasts 1.0 s.
+      // Keep this as a technical minimum below the valid rate range so fast normal speech is not invalidated.
+      minSpeechDurationSec: 0.6,
       minEnergyFrames: 10,
 
       // One automatic retry is allowed for no voice / voice not recognized.

@@ -3,8 +3,9 @@
     "locale": "ja-JP",
     "nativeName": "日本語",
     "direction": "ltr",
-    "packVersion": "0.7.0",
-    "status": "developer-reference-language"
+    "packVersion": "0.9.2",
+    "status": "developer-reference-language",
+    "version": "20260731-arm-side-sticky-result-v1"
   },
   "index": {
     "title": "脳卒中のサインをチェック",
@@ -38,7 +39,11 @@
     "statusDone": "完了",
     "statusRetry": "再試行",
     "statusCaution": "注意",
-    "statusDetected": "サインあり"
+    "statusDetected": "サインあり",
+    "devModeEnable": "オン",
+    "devModeDisable": "オフ",
+    "devModeOn": "開発者モードは全ページで有効です",
+    "devModeOff": "開発者モードはオフです"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",
@@ -246,8 +251,17 @@
         "title": "動かさないでください",
         "subtitle": "自動的に開始します",
         "voice": "動かさないでください。自動的に開始します。"
+      },
+      "arm_side_not_confirmed": {
+        "title": "正しい腕を確認してください",
+        "subtitle": "画面に表示された腕で持ち、確認ボタンを押してください",
+        "voice": "正しい腕を確認してください"
       }
-    }
+    },
+    "btnConfirmStart_left": "左腕を確認して開始",
+    "btnConfirmStart_right": "右腕を確認して開始",
+    "btnConfirmRetry_left": "左腕を確認して再テスト",
+    "btnConfirmRetry_right": "右腕を確認して再テスト"
   },
   "speech": {
     "langCode": "ja-JP",
@@ -277,13 +291,13 @@
     "noiseGo": "続ける",
     "noisyTag": "⚠ SNRが10 dB未満のため、騒音で結果が不正確な可能性があります",
     "topTitle": "FAST · 発話",
-    "accuracy": "言葉",
+    "accuracy": "文の一致",
     "ready": "準備完了",
     "rate": "速さ",
     "pending": "待機",
-    "wordAccuracy": "正しい言葉",
+    "wordAccuracy": "例文との一致度",
     "speechRate": "話す速さ",
-    "volumeStability": "声の安定",
+    "volumeStability": "声の変動",
     "noiseMetric": "騒音",
     "snrMetric": "SNR",
     "calibrating": "準備中...",
@@ -298,7 +312,7 @@
     "voiceButNoText": "音声は検出されましたが、選択した言語として認識できません",
     "noSpeechSegment": "音声区間が検出されません",
     "wordMismatch": "文が一致しません",
-    "issueWord": "言葉が不一致",
+    "issueWord": "文が一致しません",
     "issueSlow": "発話が遅い",
     "issueUnstable": "声が不安定",
     "deadMicFailed": "⚠️ マイクが応答していません。少し待ってからもう一度開始してください。",
@@ -313,7 +327,31 @@
     "subInvalid": "発話の判定を完了できませんでした。もう一度お試しください。",
     "retryingNoVoice": "音声を検出できませんでした。1回だけ自動で再試行します…",
     "retryingNoText": "音声は検出しましたが、言葉を認識できませんでした。1回だけ自動で再試行します…",
-    "micSessionReset": "新しい試行のためマイクを再設定しています…"
+    "micSessionReset": "新しい試行のためマイクを再設定しています…",
+    "phraseExact": "✓ 一致",
+    "phraseSimilarity": "{{percent}}% 一致",
+    "phraseNoMatch": "✗ 不一致",
+    "displayNoAlertTitle": "注意項目はありません",
+    "displayAttentionTitle": "追加の確認を推奨",
+    "displayIndeterminateTitle": "評価できません",
+    "displayNoAlertSummary": "注意が必要な項目はありません",
+    "displayAttentionSummary": "確認したい項目が{{count}}件あります",
+    "displayAsrIncompleteSummary": "文字起こしが不完全です。もう一度お試しください",
+    "domainPhraseLabel": "発話",
+    "domainRateLabel": "速さ",
+    "domainQualityLabel": "音声データ",
+    "statusPhraseExact": "例文と一致",
+    "statusPhraseAttention": "確認が必要",
+    "statusPhraseUnavailable": "評価できません",
+    "statusRateWithin": "参照範囲内",
+    "statusRateSlow": "参照範囲より遅い",
+    "statusRateFast": "参照範囲より速い",
+    "statusRateUnavailable": "評価できません",
+    "statusQualityAcceptable": "使用可能",
+    "statusQualityLimited": "制限あり",
+    "detailsShow": "詳細を見る",
+    "detailsHide": "詳細を閉じる",
+    "detailsResearchNote": "以下の値はプレパイロットの開発・解析用に保存されます。診断結果ではありません。"
   },
   "result": {
     "pageTitle": "QuickStroke · チェック結果",
@@ -361,7 +399,7 @@
     "retryAll": "最初から",
     "retryConfirm": "結果を消去して最初から始めますか？",
     "startModule": "開始",
-    "retryModule": "もう一度",
+    "retryModule": "再テスト",
     "retryCurrent": "この項目をもう一度",
     "emergencyThailand": "タイの救急医療 1669へ電話",
     "emergencyLocal": "地域の救急サービスへ連絡してください",
@@ -370,7 +408,7 @@
     "technicalTitle": "研究用の詳細",
     "technicalDisclaimer": "内部スコアはシステム分析用です。リスクの割合や診断結果ではありません。",
     "moduleScore": "{module}スコア",
-    "internalWeightedScore": "内部加重スコア",
+    "internalWeightedScore": "研究専用の加重スコア",
     "basedOn": "{n}/3項目に基づく",
     "languageUnavailable": "言語を読み込めません",
     "moduleValidity": "{module}・結果の有効性",
@@ -381,7 +419,8 @@
     "technicalDegraded": "低下",
     "technicalError": "エラー",
     "invalidReason": "判定不可の理由",
-    "qualityFlags": "品質フラグ"
+    "qualityFlags": "品質フラグ",
+    "modulePriorAbnormal": "以前の検査で異常を検出"
   },
   "permissions": {
     "checking": "権限を確認しています...",

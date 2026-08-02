@@ -357,6 +357,11 @@
      transform: scale(.98)
    }
 
+   .module-tile[role="button"]:focus-visible {
+     outline: 3px solid rgba(23, 111, 209, .28);
+     outline-offset: 2px
+   }
+
    .module-icon {
      width: 43px;
      height: 43px;
@@ -545,6 +550,88 @@
      text-align: right
    }
 
+   .dev-panel {
+     margin-top: 12px
+   }
+
+   .dev-card {
+     border: 1.5px solid #75879A;
+     border-radius: 18px;
+     background: #101923;
+     color: #E8F0F8;
+     overflow: hidden
+   }
+
+   .dev-header {
+     min-height: 54px;
+     padding: 10px 12px 10px 15px;
+     display: flex;
+     align-items: center;
+     justify-content: space-between;
+     gap: 12px;
+     border-bottom: 1px solid rgba(255,255,255,.13)
+   }
+
+   .dev-title {
+     font-family: 'Manrope';
+     font-size: 15px;
+     font-weight: 800;
+     letter-spacing: .1px
+   }
+
+   .dev-copy-button {
+     min-height: 38px;
+     padding: 0 13px;
+     border: 1px solid rgba(255,255,255,.28);
+     border-radius: 11px;
+     background: rgba(255,255,255,.10);
+     color: #fff;
+     font-family: 'Manrope';
+     font-size: 13px;
+     font-weight: 800;
+     cursor: pointer
+   }
+
+   .dev-copy-button:active {
+     transform: scale(.97)
+   }
+
+   .dev-integrity-summary {
+     margin: 10px 0 4px;
+     padding: 9px 11px;
+     border-radius: 12px;
+     border: 1px solid rgba(255,255,255,.14);
+     background: rgba(255,255,255,.06);
+     color: #DCE8F5;
+     font: 700 11px/1.45 ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;
+   }
+
+   .dev-integrity-summary.ok { color: #8FF0BE; }
+   .dev-integrity-summary.warning { color: #FFD37A; }
+   .dev-integrity-summary.error { color: #FF9C98; }
+
+   .dev-copy-status {
+     min-height: 20px;
+     padding: 6px 15px 0;
+     color: #A9E8D8;
+     font-size: 13px;
+     font-weight: 700
+   }
+
+   .dev-log {
+     width: 100%;
+     max-height: 440px;
+     margin: 0;
+     padding: 12px 15px 16px;
+     overflow: auto;
+     white-space: pre-wrap;
+     overflow-wrap: anywhere;
+     color: #D9E6F2;
+     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+     font-size: 12px;
+     line-height: 1.55
+   }
+
    .actions {
      margin-top: 13px;
      display: flex;
@@ -717,6 +804,9 @@
   </style>
   <script src="config.js">
   </script>
+  <script src="./js/data-contract.js?v=20260731-retry-parent-v1"></script>
+  <script src="./js/research-store.js?v=20260726-research-store-v3"></script>
+<script src="./js/dev-mode.js?v=20260726-global-dev-v1"></script>
   <script src="./js/languages.js?v=20260717-lang-v1"></script>
   <script src="./js/i18n.js">
   </script>
@@ -787,6 +877,22 @@
      </div>
     </details>
    </section>
+   <section class="dev-panel" hidden="" id="dev-panel">
+    <div class="dev-card">
+     <div class="dev-header">
+      <div class="dev-title">Result decision diagnostic</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end">
+       <button class="dev-copy-button" id="copy-dev-log" type="button">Copy result</button>
+       <button class="dev-copy-button" id="copy-session-log" type="button">Copy session</button>
+       <button class="dev-copy-button" id="share-session-log" type="button">Share session TXT</button>
+       <button class="dev-copy-button" id="download-session-log" type="button">Download session TXT</button>
+      </div>
+     </div>
+     <div aria-live="polite" class="dev-integrity-summary" id="dev-integrity-summary"></div>
+     <div aria-live="polite" class="dev-copy-status" id="dev-copy-status"></div>
+     <pre class="dev-log" id="dev-log"></pre>
+    </div>
+   </section>
    <div class="actions">
     <button class="btn-primary" id="primary-action" type="button">
     </button>
@@ -813,8 +919,18 @@
      speech: RESULT_CFG.speechWeight ?? .20
    });
    const SINGLE_POSITIVE_OVERRIDE = RESULT_CFG.singlePositiveOverride ?? true;
-   const RESEARCH_MODE = new URLSearchParams(location.search).get('research') === '1' || window
+   const QUERY_PARAMS = new URLSearchParams(location.search);
+   const DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
+   const RESEARCH_MODE = DEV_MODE || QUERY_PARAMS.get('research') === '1' || window
      .QS_CONFIG?.researchMode === true;
+   const RESULT_DIAGNOSTIC_VERSION = window.QS_CONFIG?.resultDiagnostics?.version ||
+     'result-dev-diagnostics-1.2.0';
+   const RESULT_CONTRACT = window.QuickStrokeDataContract || null;
+   const RESULT_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
+   let CURRENT_DEV_LOG = '';
+   let RESULT_DATA_CONTEXT = null;
+   let RESULT_DATA_CONTEXT_PROMISE = null;
+   let RESULT_DECISION_TRACE_HASH = null;
    const REQUIRED = Object.freeze([
      'pageTitle',
      'summaryKicker',
@@ -953,11 +1069,11 @@
      document.documentElement.lang = locale;
      document.title = T.pageTitle;
      setLangButtons(code);
-     buildResult();
+     await buildResult();
      return true
    }
 
-   function readModule(name) {
+   function readLegacyModule(name) {
      const raw = sessionStorage.getItem(`fast_${name}`);
      if (!raw) return null;
      try {
@@ -967,52 +1083,470 @@
        console.warn(e);
        return {
          module: name,
-         validityStatus: 'error',
+         validityStatus: 'not_evaluable',
          clinicalResult: null,
          clinicalScore: null,
          scoreUsable: false,
          riskLevel: 'invalid',
-         invalidReasonCode: 'RESULT_DATA_PARSE_ERROR'
+         invalidReasonCode: 'RESULT_DATA_PARSE_ERROR',
+         resultDataSource: 'legacy_parse_error'
        }
      }
    }
 
-   function riskClass(score) {
-     if (score >= 70) return 'ok';
-     if (score >= 45) return 'warn';
-     return 'bad'
+   function numberOrNull(value) {
+     const number = Number(value);
+     return Number.isFinite(number) ? number : null
    }
 
+   function timestampValue(value) {
+     const parsed = Date.parse(value || '');
+     return Number.isFinite(parsed) ? parsed : 0
+   }
+
+   function uniqueStrings(values) {
+     return [...new Set((values || []).filter(Boolean).map(String))]
+   }
+
+   function observationRiskLevel(status) {
+     if (status === 'abnormal') return 'bad';
+     if (status === 'attention') return 'warn';
+     if (status === 'no_alert') return 'ok';
+     return 'invalid'
+   }
+
+   function observationClinicalResult(status) {
+     if (status === 'abnormal') return 'abnormal';
+     if (status === 'attention') return 'warning';
+     if (status === 'no_alert') return 'normal';
+     return null
+   }
+
+   function projectionView(projection, moduleName) {
+     if (!projection || typeof projection !== 'object') return null;
+     if (!projection.payload || typeof projection.payload !== 'object') return projection;
+     if (!RESULT_CONTRACT?.createLightweightProjectionPayload) return projection.payload;
+     return {
+       ...RESULT_CONTRACT.createLightweightProjectionPayload(moduleName, {
+         ...projection.payload,
+         moduleRunId: projection.selectedModuleRunId || projection.payload.moduleRunId || null,
+         selectedTestAttemptId: projection.selectedTestAttemptId || projection.payload.selectedTestAttemptId || projection.payload.testAttemptId || null,
+         selectedTestAttemptIds: projection.selectedTestAttemptIds || projection.payload.selectedTestAttemptIds || null
+       }),
+       projectionId: projection.projectionId || null,
+       participantId: projection.participantId || projection.payload.participantId || null,
+       screeningSessionId: projection.screeningSessionId || projection.payload.screeningSessionId || null,
+       selectedModuleRunId: projection.selectedModuleRunId || projection.payload.moduleRunId || null,
+       updatedAt: projection.updatedAt || projection.payload.completedAt || null
+     }
+   }
+
+   function sortModuleRunsDescending(a, b) {
+     const sequenceDelta = Number(b?.moduleRunSequenceNo || 0) - Number(a?.moduleRunSequenceNo || 0);
+     if (sequenceDelta) return sequenceDelta;
+     return timestampValue(b?.completedAt || b?.finalizedAt || b?.startedAt) -
+       timestampValue(a?.completedAt || a?.finalizedAt || a?.startedAt)
+   }
+
+   function selectedIdsForRun(run, moduleName) {
+     if (!run) return [];
+     if (moduleName === 'arm') {
+       return uniqueStrings([
+         run.selectedTestAttemptIds?.left,
+         run.selectedTestAttemptIds?.right
+       ])
+     }
+     return uniqueStrings([run.selectedTestAttemptId])
+   }
+
+   function aggregateTechnicalValidity(attempts, fallback = 'not_assessed') {
+     const values = attempts.map(attempt => attempt?.technicalValidity).filter(Boolean);
+     if (values.includes('failed')) return 'failed';
+     if (values.includes('degraded')) return 'degraded';
+     if (values.includes('full')) return 'full';
+     return fallback || 'not_assessed'
+   }
+
+   function aggregateQualityStatus(attempts, fallback = 'not_assessed') {
+     const values = attempts.map(attempt => attempt?.qualityStatus).filter(Boolean);
+     if (values.includes('unusable')) return 'unusable';
+     if (values.includes('limited')) return 'limited';
+     if (values.includes('acceptable')) return 'acceptable';
+     return fallback || 'not_assessed'
+   }
+
+   function legacyResearchScore(legacy) {
+     if (!legacy || typeof legacy !== 'object') return null;
+     return numberOrNull(
+       legacy.researchMetrics?.legacyWeightedScore ??
+       legacy.researchMetrics?.legacyFaceScore ??
+       legacy.researchMetrics?.legacyArmScore ??
+       legacy.clinicalScore ??
+       legacy.score
+     )
+   }
+
+   function buildCanonicalModule(name, bundle, legacy, integrity) {
+     const completedRuns = bundle.moduleRuns
+       .filter(run => run?.module === name && run?.moduleRunStatus === 'completed')
+       .sort(sortModuleRunsDescending);
+     const latestRun = completedRuns[0] || null;
+     const rawProjection = bundle.projections.find(item => item?.module === name) || null;
+     const projection = projectionView(rawProjection, name);
+     const attemptsById = bundle.attemptsById;
+
+     if (!latestRun) {
+       if (legacy) {
+         integrity.warnings.push(`${name.toUpperCase()}_CANONICAL_RUN_MISSING_LEGACY_FALLBACK`);
+         return { ...legacy, module: name, resultDataSource: 'legacy_fallback' }
+       }
+       return null
+     }
+
+     const selectedIds = selectedIdsForRun(latestRun, name);
+     const selectedAttempts = selectedIds.map(id => attemptsById.get(id)).filter(Boolean);
+     let selectionIntegrityFailed = false;
+     selectedIds.forEach(id => {
+       const attempt = attemptsById.get(id);
+       if (!attempt) {
+         selectionIntegrityFailed = true;
+         integrity.errors.push(`${name.toUpperCase()}_SELECTED_ATTEMPT_MISSING:${id}`);
+       } else if (attempt.moduleRunId !== latestRun.moduleRunId || attempt.module !== name) {
+         selectionIntegrityFailed = true;
+         integrity.errors.push(`${name.toUpperCase()}_SELECTED_ATTEMPT_IDENTITY_MISMATCH:${id}`);
+       }
+     });
+
+     if (name === 'arm') {
+       if (!latestRun.selectedTestAttemptIds?.left) {
+         selectionIntegrityFailed = true;
+         integrity.errors.push('ARM_LEFT_SELECTED_ATTEMPT_MISSING')
+       }
+       if (!latestRun.selectedTestAttemptIds?.right) {
+         selectionIntegrityFailed = true;
+         integrity.errors.push('ARM_RIGHT_SELECTED_ATTEMPT_MISSING')
+       }
+     } else if (!latestRun.selectedTestAttemptId) {
+       selectionIntegrityFailed = true;
+       integrity.errors.push(`${name.toUpperCase()}_SELECTED_ATTEMPT_MISSING`)
+     }
+
+     const projectionMatchesRun = projection?.selectedModuleRunId === latestRun.moduleRunId ||
+       projection?.moduleRunId === latestRun.moduleRunId;
+     if (!projection) {
+       integrity.warnings.push(`${name.toUpperCase()}_PROJECTION_MISSING`);
+     } else if (!projectionMatchesRun) {
+       integrity.warnings.push(`${name.toUpperCase()}_PROJECTION_STALE`);
+     }
+
+     if (projectionMatchesRun) {
+       const projectionIds = name === 'arm'
+         ? uniqueStrings([projection.selectedTestAttemptIds?.left, projection.selectedTestAttemptIds?.right])
+         : uniqueStrings([projection.selectedTestAttemptId]);
+       if (selectedIds.join('|') !== projectionIds.join('|')) {
+         integrity.warnings.push(`${name.toUpperCase()}_PROJECTION_SELECTION_MISMATCH`);
+       }
+     }
+
+     const validityStatus = selectionIntegrityFailed
+       ? 'not_evaluable'
+       : latestRun.validityStatus || projection?.validityStatus || 'not_evaluable';
+     const latestObservationStatus = selectionIntegrityFailed
+       ? 'not_available'
+       : latestRun.observationStatus || projection?.observationStatus ||
+         (validityStatus === 'valid' ? 'indeterminate' : 'not_available');
+     const abnormalHistoryRuns = completedRuns.filter(run =>
+       run?.validityStatus === 'valid' && run?.observationStatus === 'abnormal'
+     );
+     const historicalAbnormalRetained = latestObservationStatus !== 'abnormal' && abnormalHistoryRuns.length > 0;
+     // A later normal retry updates the latest measurement but cannot silently
+     // erase a prior valid abnormal finding in the same screening session.
+     const observationStatus = historicalAbnormalRetained ? 'abnormal' : latestObservationStatus;
+     const qualityFlags = uniqueStrings([
+       ...(projection?.qualityFlags || []),
+       ...selectedAttempts.flatMap(attempt => attempt?.qualityFlags || [])
+     ]);
+     const technicalValidity = selectionIntegrityFailed
+       ? 'failed'
+       : aggregateTechnicalValidity(
+           selectedAttempts,
+           projection?.technicalValidity || (validityStatus === 'valid' ? 'full' : 'not_assessed')
+         );
+     const qualityStatus = aggregateQualityStatus(
+       selectedAttempts,
+       projection?.qualityStatus || (validityStatus === 'valid' ? (qualityFlags.length ? 'limited' : 'acceptable') : 'unusable')
+     );
+     const invalidReasonCode = validityStatus === 'valid'
+       ? null
+       : selectionIntegrityFailed
+         ? 'RESULT_SELECTION_INTEGRITY_ERROR'
+         : selectedAttempts.find(attempt => attempt?.invalidReasonCode)?.invalidReasonCode ||
+           projection?.invalidReasonCode || null;
+     const researchScore = numberOrNull(projection?.researchSummary?.legacyScore) ?? legacyResearchScore(legacy);
+
+     return {
+       module: name,
+       participantId: latestRun.participantId || projection?.participantId || null,
+       screeningSessionId: latestRun.screeningSessionId || projection?.screeningSessionId || null,
+       moduleRunId: latestRun.moduleRunId,
+       moduleRunSequenceNo: latestRun.moduleRunSequenceNo ?? null,
+       selectedTestAttemptId: name === 'arm' ? null : latestRun.selectedTestAttemptId || null,
+       selectedTestAttemptIds: name === 'arm' ? { ...latestRun.selectedTestAttemptIds } : null,
+       testAttemptId: name === 'arm' ? null : latestRun.selectedTestAttemptId || null,
+       attemptSequenceNo: name === 'arm'
+         ? null
+         : selectedAttempts[0]?.attemptSequenceNo ?? null,
+       attemptTrigger: name === 'arm'
+         ? null
+         : selectedAttempts[0]?.attemptTrigger ?? null,
+       startedAt: latestRun.startedAt || null,
+       completedAt: latestRun.completedAt || latestRun.finalizedAt || projection?.completedAt || null,
+       validityStatus,
+       technicalValidity,
+       observationStatus,
+       latestObservationStatus,
+       historicalAbnormalRetained,
+       abnormalHistoryCount:abnormalHistoryRuns.length,
+       abnormalHistoryModuleRunIds:abnormalHistoryRuns.map(run => run.moduleRunId),
+       qualityStatus,
+       qualityFlags,
+       invalidReasonCode,
+       screeningDisplayStatus: observationStatus,
+       displayStatus: observationStatus,
+       clinicalResult: observationClinicalResult(observationStatus),
+       riskLevel: observationRiskLevel(observationStatus),
+       passed: observationStatus === 'no_alert',
+       clinicalScore: researchScore,
+       score: researchScore,
+       scoreUsable: researchScore !== null,
+       domainSummary: projectionMatchesRun ? projection?.domainSummary || null : null,
+       versions: latestRun.versionSnapshot?.moduleVersions || null,
+       screeningContext: {
+         participantId: latestRun.participantId || null,
+         screeningSessionId: latestRun.screeningSessionId || null
+       },
+       resultDataSource: projectionMatchesRun ? 'canonical_projection' : 'canonical_module_run',
+       canonicalSelection: name === 'arm'
+         ? { ...latestRun.selectedTestAttemptIds }
+         : latestRun.selectedTestAttemptId || null
+     }
+   }
+
+   function currentSessionIdentity() {
+     const context = RESULT_CONTRACT?.getSessionContext?.() || {};
+     return {
+       participantId: context.participantId || sessionStorage.getItem('fast_participant_id') || null,
+       screeningSessionId: context.screeningSessionId ||
+         sessionStorage.getItem('fast_screening_session_id') ||
+         sessionStorage.getItem('fast_assessment_id') || null
+     }
+   }
+
+   async function readCanonicalBundle(screeningSessionId) {
+     const stores = RESULT_RESEARCH_STORE?.stores;
+     if (!RESULT_RESEARCH_STORE || !stores || !screeningSessionId) return null;
+     const [session, moduleRuns, attempts, projections] = await Promise.all([
+       RESULT_RESEARCH_STORE.get(stores.screeningSessions, screeningSessionId),
+       RESULT_RESEARCH_STORE.getAllByIndex(stores.moduleRuns, 'screeningSessionId', screeningSessionId),
+       RESULT_RESEARCH_STORE.getAllByIndex(stores.testAttempts, 'screeningSessionId', screeningSessionId),
+       RESULT_RESEARCH_STORE.getAllByIndex(stores.resultProjections, 'screeningSessionId', screeningSessionId)
+     ]);
+     return {
+       session,
+       moduleRuns: Array.isArray(moduleRuns) ? moduleRuns : [],
+       attempts: Array.isArray(attempts) ? attempts : [],
+       projections: Array.isArray(projections) ? projections : [],
+       attemptsById: new Map((attempts || []).map(attempt => [attempt.testAttemptId, attempt]))
+     }
+   }
+
+   function canonicalPersistenceCaughtUp(bundle, legacyModules) {
+     if (!bundle) return false;
+     return MODULES.every(name => {
+       const legacyRunId = legacyModules[name]?.moduleRunId;
+       if (!legacyRunId) return true;
+       return bundle.moduleRuns.some(run => run?.moduleRunId === legacyRunId && run?.moduleRunStatus === 'completed')
+     })
+   }
+
+   async function loadResultDataContext() {
+     const legacyModules = Object.fromEntries(MODULES.map(name => [name, readLegacyModule(name)]));
+     const identity = currentSessionIdentity();
+     const integrity = {
+       status: 'ok',
+       errors: [],
+       warnings: [],
+       sessionIdentity: identity,
+       canonicalRecordCounts: { moduleRuns: 0, attempts: 0, projections: 0 },
+       moduleSources: {}
+     };
+
+     if (!RESULT_RESEARCH_STORE || !identity.screeningSessionId) {
+       integrity.warnings.push('CANONICAL_STORE_UNAVAILABLE');
+       integrity.status = 'warning';
+       MODULES.forEach(name => {
+         integrity.moduleSources[name] = legacyModules[name] ? 'legacy_fallback' : 'missing'
+       });
+       return { source: 'legacy', session: null, modules: legacyModules, integrity }
+     }
+
+     let bundle = null;
+     const delays = [0, 120, 300, 650];
+     for (const delay of delays) {
+       if (delay) await new Promise(resolve => setTimeout(resolve, delay));
+       try {
+         bundle = await readCanonicalBundle(identity.screeningSessionId);
+       } catch (error) {
+         integrity.warnings.push(`CANONICAL_READ_FAILED:${error?.code || error?.name || 'ERROR'}`);
+         break
+       }
+       if (canonicalPersistenceCaughtUp(bundle, legacyModules)) break
+     }
+
+     if (!bundle) {
+       integrity.status = 'warning';
+       MODULES.forEach(name => {
+         integrity.moduleSources[name] = legacyModules[name] ? 'legacy_fallback' : 'missing'
+       });
+       return { source: 'legacy', session: null, modules: legacyModules, integrity }
+     }
+
+     integrity.canonicalRecordCounts = {
+       moduleRuns: bundle.moduleRuns.length,
+       attempts: bundle.attempts.length,
+       projections: bundle.projections.length
+     };
+
+     if (!bundle.session) {
+       integrity.errors.push('SCREENING_SESSION_RECORD_MISSING');
+     } else {
+       if (bundle.session.screeningSessionId !== identity.screeningSessionId) {
+         integrity.errors.push('SCREENING_SESSION_IDENTITY_MISMATCH');
+       }
+       if (identity.participantId && bundle.session.participantId !== identity.participantId) {
+         integrity.errors.push('PARTICIPANT_IDENTITY_MISMATCH');
+       }
+     }
+
+     if (integrity.errors.some(code => [
+       'SCREENING_SESSION_RECORD_MISSING',
+       'SCREENING_SESSION_IDENTITY_MISMATCH',
+       'PARTICIPANT_IDENTITY_MISMATCH'
+     ].includes(code))) {
+       integrity.status = 'error';
+       MODULES.forEach(name => {
+         integrity.moduleSources[name] = legacyModules[name] ? 'legacy_identity_fallback' : 'missing'
+       });
+       return {
+         source: 'legacy',
+         session: bundle.session,
+         modules: legacyModules,
+         integrity,
+         canonicalBundle: bundle
+       }
+     }
+
+     const modules = {};
+     MODULES.forEach(name => {
+       const moduleData = buildCanonicalModule(name, bundle, legacyModules[name], integrity);
+       modules[name] = moduleData;
+       integrity.moduleSources[name] = moduleData?.resultDataSource || 'missing';
+     });
+
+     const pendingRetry = (() => {
+       try { return JSON.parse(sessionStorage.getItem('fast_pending_module_retry') || 'null') }
+       catch (error) { return null }
+     })();
+     if (pendingRetry?.module && MODULES.includes(pendingRetry.module)) {
+       const current = modules[pendingRetry.module];
+       if (current?.moduleRunId === pendingRetry.previousModuleRunId) {
+         modules[pendingRetry.module] = null;
+         integrity.warnings.push(`${pendingRetry.module.toUpperCase()}_RETRY_PENDING`);
+         integrity.moduleSources[pendingRetry.module] = 'pending_retry'
+       } else if (current?.moduleRunId && current.moduleRunId !== pendingRetry.previousModuleRunId) {
+         sessionStorage.removeItem('fast_pending_module_retry')
+       }
+     }
+
+     const sourceValues = Object.values(integrity.moduleSources);
+     const hasCanonical = sourceValues.some(value => String(value).startsWith('canonical_'));
+     const hasLegacy = sourceValues.some(value => value === 'legacy_fallback');
+     integrity.status = integrity.errors.length ? 'error' : integrity.warnings.length ? 'warning' : 'ok';
+
+     return {
+       source: hasCanonical && hasLegacy ? 'mixed' : hasCanonical ? 'canonical' : 'legacy',
+       session: bundle.session,
+       modules,
+       integrity,
+       canonicalBundle: bundle
+     }
+   }
+
+   async function ensureResultDataContext({ force = false } = {}) {
+     if (RESULT_DATA_CONTEXT && !force) return RESULT_DATA_CONTEXT;
+     if (RESULT_DATA_CONTEXT_PROMISE && !force) return RESULT_DATA_CONTEXT_PROMISE;
+     RESULT_DATA_CONTEXT_PROMISE = loadResultDataContext()
+       .then(context => {
+         RESULT_DATA_CONTEXT = context;
+         return context
+       })
+       .finally(() => {
+         RESULT_DATA_CONTEXT_PROMISE = null
+       });
+     return RESULT_DATA_CONTEXT_PROMISE
+   }
+
+   // Numeric module scores remain available for research summaries only.
+   // They must never determine the user-facing combined result.
    function moduleScore(d) {
      if (!d || typeof d !== 'object') return null;
-     const raw = d.clinicalScore ?? d.score;
+     const raw = d.clinicalScore ?? d.score ?? d.researchSummary?.legacyScore;
      const value = Number(raw);
      return Number.isFinite(value) ? value : null
    }
 
-   function moduleIsUsable(d) {
-     if (!d || typeof d !== 'object') return false;
-     if (typeof d.validityStatus === 'string' && d.validityStatus !== 'valid') return false;
-     if (d.scoreUsable === false) return false;
-     if (d.riskLevel === 'invalid') return false;
-     return moduleScore(d) !== null
-   }
-
    function moduleClass(d) {
-     if (!moduleIsUsable(d)) return 'na';
+     if (!d || typeof d !== 'object') return 'na';
+     if (typeof d.validityStatus === 'string' && d.validityStatus !== 'valid') return 'na';
+     if (['failed', 'error'].includes(d.technicalValidity)) return 'na';
+     if (['technical_error', 'completed_invalid', 'aborted'].includes(d.attemptStatus)) return 'na';
+     if (d.riskLevel === 'invalid') return 'na';
 
+     const displayMap = {
+       no_alert: 'ok',
+       normal: 'ok',
+       attention: 'warn',
+       warning: 'warn',
+       abnormal: 'bad'
+     };
      const clinicalMap = {
        normal: 'ok',
        warning: 'warn',
        abnormal: 'bad'
      };
+
+     if (displayMap[d.observationStatus]) return displayMap[d.observationStatus];
+     if (displayMap[d.screeningDisplayStatus]) return displayMap[d.screeningDisplayStatus];
+     if (displayMap[d.displayStatus]) return displayMap[d.displayStatus];
      if (clinicalMap[d.clinicalResult]) return clinicalMap[d.clinicalResult];
      if (['ok', 'warn', 'bad'].includes(d.riskLevel)) return d.riskLevel;
-     return riskClass(moduleScore(d))
+     if (typeof d.passed === 'boolean') return d.passed ? 'ok' : 'bad';
+
+     return 'na'
+   }
+
+   function moduleIsUsable(d) {
+     return moduleClass(d) !== 'na'
+   }
+
+   function moduleResearchScoreIsUsable(d) {
+     if (!moduleIsUsable(d)) return false;
+     if (d.scoreUsable === false) return false;
+     return moduleScore(d) !== null
    }
 
    function requestedResultSource(data) {
-     const querySource = new URLSearchParams(location.search).get('module');
+     const querySource = QUERY_PARAMS.get('module');
      const storedSource = sessionStorage.getItem('fast_result_source');
      const explicitSource = MODULES.includes(querySource)
        ? querySource
@@ -1020,23 +1554,17 @@
          ? storedSource
          : null;
 
-     if (explicitSource) {
-       return explicitSource;
-     }
+     if (explicitSource) return explicitSource;
 
      const mode = sessionStorage.getItem('fast_mode');
      const attempted = MODULES.filter(name => data[name]);
-
-     if (mode === 'individual' && attempted.length === 1) {
-       return attempted[0];
-     }
-
-     return null;
+     if (mode === 'individual' && attempted.length === 1) return attempted[0];
+     return null
    }
 
    function calculate() {
-     const data = Object.fromEntries(
-       MODULES.map(name => [name, readModule(name)])
+     const data = RESULT_DATA_CONTEXT?.modules || Object.fromEntries(
+       MODULES.map(name => [name, readLegacyModule(name)])
      );
      const attempted = MODULES.filter(name => !!data[name]);
      const valid = MODULES.filter(name => moduleIsUsable(data[name]));
@@ -1045,53 +1573,40 @@
      const bad = valid.filter(name => moduleClass(data[name]) === 'bad');
      const warn = valid.filter(name => moduleClass(data[name]) === 'warn');
 
+     const researchScoreModules = valid.filter(name => moduleResearchScoreIsUsable(data[name]));
      let totalWeight = 0;
      let weightedSum = 0;
-
-     valid.forEach(name => {
+     researchScoreModules.forEach(name => {
        totalWeight += WEIGHTS[name];
-       weightedSum += moduleScore(data[name]) * WEIGHTS[name];
+       weightedSum += moduleScore(data[name]) * WEIGHTS[name]
      });
+     const weighted = totalWeight > 0 ? Math.round(weightedSum / totalWeight) : null;
 
-     const weighted = totalWeight > 0
-       ? Math.round(weightedSum / totalWeight)
-       : null;
-
-     const mode = sessionStorage.getItem('fast_mode') || 'full';
+     const mode = sessionStorage.getItem('fast_mode') || RESULT_DATA_CONTEXT?.session?.sessionMode || 'full';
      const source = requestedResultSource(data);
-     const scope = mode === 'individual' && source
-       ? 'individual'
-       : 'combined';
-
+     const scope = mode === 'individual' && source ? 'individual' : 'combined';
      let state;
 
      if (scope === 'individual') {
        const sourceData = data[source];
        const sourceClass = moduleClass(sourceData);
-
-       if (!sourceData) {
-         state = 'noData';
-       } else if (sourceClass === 'na') {
-         state = 'incomplete';
-       } else if (sourceClass === 'bad') {
-         state = 'urgent';
-       } else if (sourceClass === 'warn') {
-         state = 'review';
-       } else {
-         state = 'ok';
-       }
+       if (!sourceData) state = 'noData';
+       else if (sourceClass === 'na') state = 'incomplete';
+       else if (sourceClass === 'bad') state = 'urgent';
+       else if (sourceClass === 'warn') state = 'review';
+       else state = 'ok'
      } else if (SINGLE_POSITIVE_OVERRIDE && bad.length) {
-       state = 'urgent';
+       state = 'urgent'
      } else if (!attempted.length) {
-       state = 'noData';
+       state = 'noData'
      } else if (valid.length < 3) {
-       state = 'incomplete';
-     } else if (warn.length || riskClass(weighted) === 'warn') {
-       state = 'review';
-     } else if (riskClass(weighted) === 'bad') {
-       state = 'urgent';
+       state = 'incomplete'
+     } else if (bad.length) {
+       state = 'urgent'
+     } else if (warn.length) {
+       state = 'review'
      } else {
-       state = 'ok';
+       state = 'ok'
      }
 
      return {
@@ -1103,13 +1618,17 @@
        bad,
        warn,
        weighted,
+       researchScoreModules,
        mode,
        scope,
        source,
        state,
-       attention: [...bad, ...warn].length
-     };
+       attention: [...bad, ...warn].length,
+       resultDataSource: RESULT_DATA_CONTEXT?.source || 'legacy',
+       integrity: RESULT_DATA_CONTEXT?.integrity || null
+     }
    }
+
 
    function emergencyPhone() {
      const emergencyConfig = window.QS_CONFIG?.emergency;
@@ -1257,9 +1776,11 @@
      const cls = moduleClass(d);
      return {
        cls,
-       text: cls === 'ok' ? T.moduleOk : cls === 'warn' ? T.moduleReview : T.moduleBad,
-       action: '',
-       actionable: false
+       text: d.historicalAbnormalRetained
+         ? (T.modulePriorAbnormal || T.moduleBad)
+         : cls === 'ok' ? T.moduleOk : cls === 'warn' ? T.moduleReview : T.moduleBad,
+       action: T.retryModule,
+       actionable: true
      }
    }
 
@@ -1277,10 +1798,13 @@
          `<div class="module-icon">${ICONS[name]}</div><div class="module-name"></div><div class="module-status"></div><div class="module-action"></div>`;
        el.querySelector('.module-name').textContent = T[name];
        el.querySelector('.module-status').textContent = s.text;
-       if (s.actionable && r.state !== 'urgent') {
+       const devUrgentRetryEnabled = DEV_MODE && r.state === 'urgent';
+       if (s.actionable && (r.state !== 'urgent' || devUrgentRetryEnabled)) {
          el.setAttribute('role', 'button');
          el.tabIndex = 0;
-         el.querySelector('.module-action').textContent = s.action;
+         el.querySelector('.module-action').textContent = devUrgentRetryEnabled
+           ? `DEV · ${s.action}`
+           : s.action;
          const go = () => retryModule(name);
          el.onclick = go;
          el.onkeydown = e => {
@@ -1352,8 +1876,9 @@
    function technicalValidityText(d) {
      if (!d) return '—';
      if (d.technicalValidity === 'degraded') return T.technicalDegraded;
-     if (d.technicalValidity === 'error') return T.technicalError;
+     if (['failed', 'error'].includes(d.technicalValidity)) return T.technicalError;
      if (d.technicalValidity === 'invalid') return T.validityInvalid;
+     if (d.technicalValidity === 'not_assessed') return '—';
      return T.technicalFull
    }
 
@@ -1369,10 +1894,11 @@
      MODULES.forEach(name => {
        const d = r.data[name];
        const usable = moduleIsUsable(d);
+       const researchScore = moduleScore(d);
        appendTechnicalRow(
          grid,
          T.moduleScore.replace('{module}', T[name]),
-         usable ? String(moduleScore(d)) : '—'
+         usable && researchScore !== null ? String(researchScore) : '—'
        );
        appendTechnicalRow(
          grid,
@@ -1412,8 +1938,357 @@
        grid,
        T.internalWeightedScore,
        r.weighted === null ? '—' :
-         `${r.weighted} · ${T.basedOn.replace('{n}',r.valid.length)}`
+         `${r.weighted} · ${T.basedOn.replace('{n}',r.researchScoreModules.length)}`
      )
+   }
+
+   function diagnosticQualityFlags(d) {
+     if (!d || typeof d !== 'object') return [];
+     if (Array.isArray(d.qualityFlags)) return d.qualityFlags.map(String);
+     if (Array.isArray(d.runtime?.qualityFlags)) return d.runtime.qualityFlags.map(String);
+     return []
+   }
+
+   function moduleDiagnostic(name, d) {
+     if (!d || typeof d !== 'object') {
+       return {
+         module: name,
+         dataSource: RESULT_DATA_CONTEXT?.integrity?.moduleSources?.[name] || 'missing',
+         present: false,
+         derivedClass: 'na',
+         userFacingUsable: false,
+         researchScoreUsable: false
+       }
+     }
+
+     const versions = d.versions && typeof d.versions === 'object'
+       ? d.versions
+       : {
+           moduleVersion: d.moduleVersion ?? null,
+           algorithmVersion: d.algorithmVersion ?? null,
+           resultSchemaVersion: d.resultSchemaVersion ?? d.schemaVersion ?? null,
+           researchPayloadVersion: d.researchPayloadVersion ?? null
+         };
+
+     return {
+       module: name,
+       dataSource: d.resultDataSource || RESULT_DATA_CONTEXT?.integrity?.moduleSources?.[name] || 'unknown',
+       present: true,
+       identity: {
+         participantId: d.screeningContext?.participantId ?? d.participantId ?? null,
+         screeningSessionId: d.screeningContext?.screeningSessionId ?? d.screeningSessionId ?? null,
+         moduleRunId: d.moduleRunId ?? null,
+         selectedTestAttemptId: d.selectedTestAttemptId ?? d.testAttemptId ?? d.attemptId ?? null,
+         selectedTestAttemptIds: d.selectedTestAttemptIds ?? null,
+         attemptSequenceNo: d.attemptSequenceNo ?? null,
+         attemptTrigger: d.attemptTrigger ?? null
+       },
+       timing: {
+         startedAt: d.startedAt ?? d.startedAtUtc ?? null,
+         completedAt: d.completedAt ?? d.endedAtUtc ?? null
+       },
+       statusFields: {
+         observationStatus: d.observationStatus ?? null,
+         latestObservationStatus: d.latestObservationStatus ?? null,
+         historicalAbnormalRetained: d.historicalAbnormalRetained === true,
+         abnormalHistoryCount: d.abnormalHistoryCount ?? 0,
+         validityStatus: d.validityStatus ?? null,
+         technicalValidity: d.technicalValidity ?? null,
+         qualityStatus: d.qualityStatus ?? null,
+         invalidReasonCode: d.invalidReasonCode ?? d.invalidReason ?? null
+       },
+       scoreFieldsResearchOnly: {
+         selectedNumericScore: moduleScore(d),
+         scoreUsableFlag: d.scoreUsable ?? null
+       },
+       domainSummary: d.domainSummary ?? null,
+       derivedClass: moduleClass(d),
+       userFacingUsable: moduleIsUsable(d),
+       researchScoreUsable: moduleResearchScoreIsUsable(d),
+       qualityFlags: diagnosticQualityFlags(d),
+       versions
+     }
+   }
+
+
+   function decisionRuleApplied(r) {
+     if (r.scope === 'individual') {
+       const sourceData = r.data[r.source];
+       const sourceClass = moduleClass(sourceData);
+       if (!sourceData) return 'individual:no_data';
+       if (sourceClass === 'na') return 'individual:invalid_or_unusable';
+       if (sourceClass === 'bad') return 'individual:categorical_abnormal';
+       if (sourceClass === 'warn') return 'individual:categorical_warning';
+       return 'individual:categorical_normal'
+     }
+
+     if (SINGLE_POSITIVE_OVERRIDE && r.bad.length) {
+       return 'combined:single_positive_override_categorical_abnormal'
+     }
+     if (!r.attempted.length) return 'combined:no_data';
+     if (r.valid.length < MODULES.length) return 'combined:incomplete';
+     if (r.bad.length) return 'combined:categorical_abnormal';
+     if (r.warn.length) return 'combined:categorical_warning';
+     return 'combined:all_categorical_normal'
+   }
+
+   function buildDecisionTrace(r) {
+     return {
+       policyVersion: window.QS_CONFIG?.resultPolicy?.version || 'result-policy-1.1.0',
+       decisionBasis: window.QS_CONFIG?.resultPolicy?.combinedDecisionBasis || 'categorical_module_status_only',
+       dataSource: r.resultDataSource,
+       attemptedModules: [...r.attempted],
+       validModules: [...r.valid],
+       invalidModules: [...r.invalid],
+       missingModules: [...r.missing],
+       abnormalModules: [...r.bad],
+       historicalAbnormalRetainedModules: MODULES.filter(name => r.data[name]?.historicalAbnormalRetained === true),
+       devUrgentRetryControlsEnabled: DEV_MODE && r.state === 'urgent',
+       warningModules: [...r.warn],
+       scope: r.scope,
+       sourceModule: r.source,
+       finalUserFacingState: r.state,
+       ruleApplied: decisionRuleApplied(r),
+       weightedScoreUsedForUserFacingDecision: false,
+       selectedModuleRuns: Object.fromEntries(MODULES.map(name => [
+         name,
+         r.data[name]?.moduleRunId || null
+       ])),
+       selectedAttempts: Object.fromEntries(MODULES.map(name => [
+         name,
+         r.data[name]?.selectedTestAttemptIds || r.data[name]?.selectedTestAttemptId || null
+       ])),
+       integrityStatus: r.integrity?.status || 'unknown'
+     }
+   }
+
+   async function persistResultDecisionTrace(r) {
+     const trace = buildDecisionTrace(r);
+     const traceHash = RESULT_CONTRACT?.hashObject?.(trace) || JSON.stringify(trace);
+     if (traceHash === RESULT_DECISION_TRACE_HASH || traceHash === sessionStorage.getItem('fast_result_decision_trace_hash')) {
+       return trace
+     }
+     RESULT_DECISION_TRACE_HASH = traceHash;
+     sessionStorage.setItem('fast_result_decision_trace', JSON.stringify(trace));
+     sessionStorage.setItem('fast_result_decision_trace_hash', traceHash);
+
+     const identity = currentSessionIdentity();
+     const now = new Date().toISOString();
+     try {
+       if (RESULT_RESEARCH_STORE?.updateActiveScreeningSession && identity.screeningSessionId) {
+         await RESULT_RESEARCH_STORE.updateActiveScreeningSession(identity.screeningSessionId, {
+           lastActivityAt: now,
+           lastResultViewedAt: now
+         })
+       }
+       if (RESULT_RESEARCH_STORE?.addTechnicalEvent && RESULT_CONTRACT && identity.participantId && identity.screeningSessionId) {
+         await RESULT_RESEARCH_STORE.addTechnicalEvent({
+           technicalEventId: RESULT_CONTRACT.createId('technicalEvent'),
+           recordType: 'technical_event',
+           schemaVersion: RESULT_CONTRACT.versions?.technicalEventSchema || 'technical-event-0.1.0',
+           participantId: identity.participantId,
+           screeningSessionId: identity.screeningSessionId,
+           legacyAssessmentId: RESULT_CONTRACT.getSessionContext?.().legacyAssessmentId || null,
+           module: null,
+           moduleRunId: null,
+           testAttemptId: null,
+           eventCode: 'RESULT_DECISION_EVALUATED',
+           category: 'result_decision',
+           severity: r.integrity?.status === 'error' ? 'error' : r.integrity?.status === 'warning' ? 'warning' : 'info',
+           phase: 'RESULT_RENDER',
+           occurredAt: now,
+           recordedAt: now,
+           sourceComponent: 'result-page',
+           sourceVersion: RESULT_DIAGNOSTIC_VERSION,
+           recovered: false,
+           recoveredAt: null,
+           recoveryAction: null,
+           messageKey: null,
+           details: trace,
+           versionSnapshot: RESULT_CONTRACT.createVersionSnapshot?.() || null
+         })
+       }
+     } catch (error) {
+       console.warn('[QuickStroke result] Unable to persist decision trace.', error)
+     }
+     return trace
+   }
+
+   function buildDevDiagnostic(r) {
+     const resultPolicy = window.QS_CONFIG?.resultPolicy || {};
+     const canonicalSession = RESULT_DATA_CONTEXT?.session || null;
+     return {
+       diagnostic: {
+         version: RESULT_DIAGNOSTIC_VERSION,
+         generatedAt: new Date().toISOString(),
+         sanitized: true,
+         excludes: [
+           'speech transcript',
+           'raw audio',
+           'raw sensor time series',
+           'face landmarks',
+           'full module payloads'
+         ]
+       },
+       application: {
+         appName: window.QS_CONFIG?.appName ?? 'QuickStroke',
+         appVersion: window.QS_CONFIG?.version ?? null,
+         buildId: window.QS_CONFIG?.buildId ?? null,
+         resultPolicyVersion: resultPolicy.version ?? null,
+         combinedDecisionBasis: resultPolicy.combinedDecisionBasis ?? 'categorical_module_status_only',
+         weightedScoreUse: resultPolicy.weightedScoreUse ?? 'research_only_not_user_facing',
+         language: LANG,
+         developerMode: DEV_MODE,
+         resultDataSource: r.resultDataSource
+       },
+       session: {
+         participantId: canonicalSession?.participantId || sessionStorage.getItem('fast_participant_id'),
+         screeningSessionId: canonicalSession?.screeningSessionId || sessionStorage.getItem('fast_screening_session_id') || sessionStorage.getItem('fast_assessment_id'),
+         startedAt: canonicalSession?.startedAt || sessionStorage.getItem('fast_started_at'),
+         completedAt: canonicalSession?.completedAt || sessionStorage.getItem('fast_completed_at'),
+         screeningMode: canonicalSession?.sessionMode || sessionStorage.getItem('fast_mode'),
+         requestedResultSource: sessionStorage.getItem('fast_result_source'),
+         lastActivityAt: canonicalSession?.lastActivityAt || null,
+         lastModuleCompletedAt: canonicalSession?.lastModuleCompletedAt || null,
+         lastCompletedModule: canonicalSession?.lastCompletedModule || null
+       },
+       canonicalIntegrity: r.integrity || null,
+       modules: Object.fromEntries(MODULES.map(name => [name, moduleDiagnostic(name, r.data[name])])),
+       categoricalDecision: buildDecisionTrace(r),
+       researchOnlySummary: {
+         weights: WEIGHTS,
+         scoreModules: r.researchScoreModules,
+         weightedScore: r.weighted,
+         usedForUserFacingDecision: false
+       }
+     }
+   }
+
+
+   async function copyText(text) {
+     if (navigator.clipboard?.writeText && window.isSecureContext) {
+       await navigator.clipboard.writeText(text);
+       return
+     }
+
+     const textarea = document.createElement('textarea');
+     textarea.value = text;
+     textarea.setAttribute('readonly', '');
+     textarea.style.position = 'fixed';
+     textarea.style.opacity = '0';
+     document.body.appendChild(textarea);
+     textarea.select();
+     const copied = document.execCommand('copy');
+     textarea.remove();
+     if (!copied) throw new Error('copy-command-failed')
+   }
+
+   function renderDevDiagnostics(r) {
+     const panel = document.getElementById('dev-panel');
+     panel.hidden = !DEV_MODE;
+     if (!DEV_MODE) return;
+
+     const diagnostic = buildDevDiagnostic(r);
+     CURRENT_DEV_LOG = JSON.stringify(diagnostic, null, 2);
+     window.QS_RESULT_DEV_DIAGNOSTIC = diagnostic;
+     window.QS_RESULT_DEV_LOG = CURRENT_DEV_LOG;
+
+     const logElement = document.getElementById('dev-log');
+     const integrityElement = document.getElementById('dev-integrity-summary');
+     const statusElement = document.getElementById('dev-copy-status');
+     const copyButton = document.getElementById('copy-dev-log');
+     const copySessionButton = document.getElementById('copy-session-log');
+     const shareSessionButton = document.getElementById('share-session-log');
+     const downloadSessionButton = document.getElementById('download-session-log');
+     logElement.textContent = CURRENT_DEV_LOG;
+     const integrity = r.integrity || { status: 'unknown', errors: [], warnings: [] };
+     integrityElement.className = `dev-integrity-summary ${integrity.status || 'warning'}`;
+     integrityElement.textContent = [
+       `Canonical data: ${(integrity.status || 'unknown').toUpperCase()}`,
+       `source=${r.resultDataSource || 'unknown'}`,
+       `runs=${integrity.canonicalRecordCounts?.moduleRuns ?? 0}`,
+       `attempts=${integrity.canonicalRecordCounts?.attempts ?? 0}`,
+       `projections=${integrity.canonicalRecordCounts?.projections ?? 0}`,
+       integrity.errors?.length ? `errors=${integrity.errors.length}` : null,
+       integrity.warnings?.length ? `warnings=${integrity.warnings.length}` : null
+     ].filter(Boolean).join(' · ');
+     statusElement.textContent = '';
+     copyButton.textContent = 'Copy result';
+     copyButton.onclick = async () => {
+       try {
+         await copyText(CURRENT_DEV_LOG);
+         copyButton.textContent = 'Copied';
+         statusElement.textContent = 'Result diagnostic copied to clipboard.';
+       } catch (error) {
+         console.error('[QuickStroke result diagnostic] Copy failed', error);
+         copyButton.textContent = 'Copy failed';
+         statusElement.textContent = 'Copy failed. Select the log text manually.';
+       }
+     };
+
+     copySessionButton.textContent = 'Copy session';
+     copySessionButton.onclick = async () => {
+       try {
+         await window.QuickStrokeDevMode.copyCurrentSessionLog();
+         copySessionButton.textContent = 'Copied';
+         statusElement.textContent = 'Full session research log copied to clipboard.';
+       } catch (error) {
+         console.error('[QuickStroke session export] Copy failed', error);
+         copySessionButton.textContent = 'Copy failed';
+         statusElement.textContent = 'Session log is unavailable or could not be copied.';
+       }
+     };
+
+
+     shareSessionButton.textContent = 'Share session TXT';
+     shareSessionButton.onclick = async () => {
+       shareSessionButton.disabled = true;
+       shareSessionButton.textContent = 'Preparing…';
+       statusElement.textContent = 'Preparing the full session TXT file…';
+       try {
+         const result = await window.QuickStrokeDevMode.shareCurrentSessionFile();
+         shareSessionButton.textContent = 'Shared';
+         statusElement.textContent = `Session TXT shared: ${result.filename}`;
+       } catch (error) {
+         if (error?.name === 'AbortError') {
+           shareSessionButton.textContent = 'Share session TXT';
+           statusElement.textContent = 'Sharing was cancelled.';
+         } else if (error?.code === 'FILE_SHARE_UNSUPPORTED') {
+           console.warn('[QuickStroke session export] File sharing unsupported', error);
+           shareSessionButton.textContent = 'Share unavailable';
+           statusElement.textContent = 'This browser cannot share a file. Use Download session TXT instead.';
+         } else {
+           console.error('[QuickStroke session export] Share failed', error);
+           shareSessionButton.textContent = 'Share failed';
+           statusElement.textContent = 'The session TXT file could not be shared. Use Download session TXT instead.';
+         }
+       } finally {
+         shareSessionButton.disabled = false;
+       }
+     };
+
+     downloadSessionButton.textContent = 'Download session TXT';
+     downloadSessionButton.onclick = async () => {
+       downloadSessionButton.disabled = true;
+       downloadSessionButton.textContent = 'Preparing…';
+       statusElement.textContent = 'Preparing the full session TXT file…';
+       try {
+         const result = await window.QuickStrokeDevMode.downloadCurrentSessionFile();
+         downloadSessionButton.textContent = 'Downloaded';
+         statusElement.textContent = `Session TXT downloaded: ${result.filename}`;
+       } catch (error) {
+         console.error('[QuickStroke session export] Download failed', error);
+         downloadSessionButton.textContent = 'Download failed';
+         statusElement.textContent = 'The session TXT file could not be downloaded.';
+       } finally {
+         downloadSessionButton.disabled = false;
+       }
+     };
+
+     console.groupCollapsed('[QuickStroke result diagnostic]');
+     console.info('Weighted score used for user-facing decision:', false);
+     console.info(diagnostic);
+     console.groupEnd()
    }
 
    function action(button, label, handler, hidden = false) {
@@ -1470,21 +2345,44 @@
      document.getElementById('legal-note').textContent = T.safetyNote;
    }
 
-   function buildResult() {
+   async function buildResult() {
      if (!T) return;
+     await ensureResultDataContext();
      CURRENT = calculate();
      renderSummary(CURRENT);
      renderModules(CURRENT);
      renderNext(CURRENT);
      renderReminder(CURRENT);
      renderResearch(CURRENT);
-     renderActions(CURRENT)
+     renderDevDiagnostics(CURRENT);
+     renderActions(CURRENT);
+     void persistResultDecisionTrace(CURRENT)
    }
 
    function retryModule(name) {
+     const currentRunId = CURRENT?.data?.[name]?.moduleRunId || null;
+     const canonicalSessionMode = RESULT_DATA_CONTEXT?.session?.sessionMode || null;
+     const storedSessionMode = sessionStorage.getItem('fast_mode');
+     const sessionMode = canonicalSessionMode === 'full' || storedSessionMode === 'full'
+       ? 'full'
+       : 'individual';
+
      sessionStorage.removeItem(`fast_${name}`);
-     sessionStorage.setItem('fast_mode', 'individual');
-     sessionStorage.setItem('fast_result_source', name);
+     sessionStorage.setItem('fast_pending_module_retry', JSON.stringify({
+       module: name,
+       previousModuleRunId: currentRunId,
+       previousModuleRunSequenceNo: CURRENT?.data?.[name]?.moduleRunSequenceNo || null,
+       currentModuleRunIdAtRequest: RESULT_CONTRACT?.getCurrentModuleRunId?.(name) || null,
+       requestedAt: new Date().toISOString(),
+       sessionMode,
+       resultScope: sessionMode === 'full' ? 'combined' : 'individual'
+     }));
+     sessionStorage.setItem('fast_mode', sessionMode);
+     if (sessionMode === 'full') {
+       sessionStorage.removeItem('fast_result_source');
+     } else {
+       sessionStorage.setItem('fast_result_source', name);
+     }
      sessionStorage.setItem('fast_lang', LANG);
      location.href = `${name}-test.html`;
    }
@@ -1510,7 +2408,10 @@
        'fast_arm',
        'fast_speech',
        'fast_mode',
-       'fast_result_source'
+       'fast_result_source',
+       'fast_pending_module_retry',
+       'fast_result_decision_trace',
+       'fast_result_decision_trace_hash'
      ].forEach(key => {
        sessionStorage.removeItem(key);
      });
