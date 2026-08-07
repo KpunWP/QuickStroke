@@ -216,6 +216,8 @@
   .research-field label{font-size:12px;font-weight:800;color:var(--ink-soft)}
   .research-field input,.research-field select{width:100%;min-height:44px;padding:9px 10px;border:1.5px solid var(--line);border-radius:13px;background:#fff;color:var(--ink);font:700 14px/1.3 inherit}
   .research-field input:focus,.research-field select:focus{outline:2px solid rgba(43,125,233,.18);border-color:var(--clinical)}
+  .research-field input[readonly]{background:#F3F7FB;color:var(--clinical-deep);font-family:'Manrope',ui-monospace,SFMono-Regular,Menlo,monospace;letter-spacing:.35px;cursor:default}
+  .research-field-note{font-size:11.5px;font-weight:650;line-height:1.45;color:var(--ink-faint)}
   .research-profile-note{margin:10px 0;padding:9px 10px;border-radius:13px;background:#F3F7FB;color:var(--ink-soft);font-size:12px;font-weight:700;line-height:1.45}
   .research-actions{display:flex;gap:9px;align-items:center;margin-top:11px}
   .research-save{flex:1;min-height:46px;border:0;border-radius:14px;background:var(--clinical);color:#fff;font-family:inherit;font-size:14px;font-weight:800;cursor:pointer}
@@ -369,7 +371,7 @@
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
 <script src="config.js"></script>
-<script src="./js/app-mode.js?v=20260801-app-mode-v1"></script>
+<script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
 <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
@@ -478,7 +480,7 @@
         <div class="mode-description" id="app-mode-description">ไม่เก็บข้อมูลวิจัยระยะยาวโดยค่าเริ่มต้น</div>
         <div class="research-setup" id="research-setup">
           <div class="research-grid">
-            <div class="research-field full"><label for="research-study-id">Study ID *</label><input id="research-study-id" autocomplete="off" maxlength="64" placeholder="เช่น QS-0001"></div>
+            <div class="research-field full"><label for="research-study-id">Study ID (สร้างอัตโนมัติ)</label><input id="research-study-id" autocomplete="off" maxlength="64" readonly aria-readonly="true"><div class="research-field-note">ระบบสร้างรหัสสุ่มที่ไม่ฝังชื่อ HN หรือวันเวลา ผู้เก็บข้อมูลไม่ต้องกรอกเอง</div></div>
             <div class="research-field"><label for="research-consent-status">Consent status *</label><select id="research-consent-status"><option value="pending">Pending</option><option value="consented">Consented</option><option value="declined">Declined</option><option value="withdrawn">Withdrawn</option></select></div>
             <div class="research-field"><label for="research-consent-version">Consent version *</label><input id="research-consent-version" autocomplete="off" maxlength="64" placeholder="เช่น ICF-1.0"></div>
             <div class="research-field"><label for="research-recruitment-source">Recruitment source *</label><select id="research-recruitment-source"><option value="">เลือก</option><option value="clinic_outpatient">Clinic outpatient</option><option value="clinic_inpatient">Clinic inpatient</option><option value="emergency_department">Emergency department</option><option value="stroke_unit">Stroke unit</option><option value="other">Other</option></select></div>
@@ -699,8 +701,8 @@ function currentSessionHasData() {
   return MODULES.some((module) => Boolean(sessionStorage.getItem(`fast_${module}`))) || screeningState.attemptedCount > 0;
 }
 
-function fillResearchForm() {
-  const meta = APP_MODE?.getResearchMetadata?.() || {};
+function fillResearchForm(options = {}) {
+  const meta = options.metadata || APP_MODE?.getResearchMetadata?.({ preferSession:false }) || {};
   const values = {
     'research-study-id': meta.studyId,
     'research-consent-status': meta.consentStatus || 'pending',
@@ -711,6 +713,31 @@ function fillResearchForm() {
     'research-operator-id': meta.operatorId
   };
   Object.entries(values).forEach(([id,value]) => { const el=document.getElementById(id); if(el && value != null) el.value=value; });
+  const studyIdInput = document.getElementById('research-study-id');
+  if (studyIdInput && (options.forceNewStudyId || !APP_MODE?.normalizeStudyId?.(studyIdInput.value))) {
+    studyIdInput.value = APP_MODE?.generateStudyId?.() || '';
+  }
+}
+
+function prepareNextResearchParticipant(previousMetadata = {}) {
+  APP_MODE?.clearResearchContext?.();
+  const nextMetadata = {
+    studyId: APP_MODE?.generateStudyId?.() || '',
+    consentStatus:'pending',
+    consentVersion:previousMetadata?.consentVersion || '',
+    recruitmentSource:'',
+    operatorRole:previousMetadata?.operatorRole || '',
+    siteCode:previousMetadata?.siteCode || '',
+    operatorId:previousMetadata?.operatorId || ''
+  };
+  fillResearchForm({ metadata:nextMetadata, forceNewStudyId:false });
+  const status = document.getElementById('research-validation');
+  if (status) {
+    status.className='research-validation';
+    status.textContent='สร้าง Study ID สำหรับผู้เข้าร่วมรายใหม่แล้ว กรุณายืนยัน consent และข้อมูลการรับเข้าโครงการ';
+  }
+  document.getElementById('research-setup')?.classList.add('show');
+  document.getElementById('research-consent-status')?.focus();
 }
 
 function updateAppModeUi() {
@@ -728,7 +755,7 @@ function updateAppModeUi() {
   const individualToggle = document.getElementById('individual-toggle');
   if (individualToggle) individualToggle.hidden = mode === 'research';
   if (mode === 'research' && indOpen) setIndividualOpen(false);
-  fillResearchForm();
+  if (mode === 'research') fillResearchForm();
 }
 
 async function closeCurrentSessionForModeChange(reasonCode) {
@@ -764,7 +791,7 @@ async function selectPublicMode() {
 function showResearchSetup() {
   document.getElementById('research-setup')?.classList.add('show');
   fillResearchForm();
-  document.getElementById('research-study-id')?.focus();
+  document.getElementById('research-consent-status')?.focus();
 }
 
 function researchFormValues() {
@@ -784,19 +811,15 @@ function researchFormValues() {
 async function activateResearchMode() {
   const status = document.getElementById('research-validation');
   try {
-    const normalizedStudyId = APP_MODE.normalizeStudyId(researchFormValues().studyId);
-    const input = { ...researchFormValues(), studyId:normalizedStudyId };
-    const preview = {
-      researchProfile:input.researchProfile,
-      researchProfileEnabled:true,
-      studyId:input.studyId,
-      consentStatus:input.consentStatus,
-      consentVersion:String(input.consentVersion || '').trim() || null,
-      recruitmentSource:input.recruitmentSource || null,
-      operatorRole:input.operatorRole || null,
-      siteCode:String(input.siteCode || '').trim() || null,
-      operatorId:String(input.operatorId || '').trim() || null
+    const form = researchFormValues();
+    const generatedStudyId = APP_MODE.normalizeStudyId(form.studyId) || APP_MODE.generateStudyId();
+    const input = {
+      ...form,
+      studyId:generatedStudyId,
+      studyIdSource:'system_generated_random'
     };
+    const preview = APP_MODE.normalizeResearchMetadata(input);
+    document.getElementById('research-study-id').value = preview.studyId;
     const validation = APP_MODE.validateResearchMetadata(preview, { requireConsented:true });
     if (!validation.valid) throw new Error(validation.errors.join(', '));
     const currentContext = DATA_CONTRACT.getSessionContext();
@@ -1119,8 +1142,14 @@ async function startNewPerson() {
     alert('กรุณา finalize Research session ปัจจุบันจากหน้าผลก่อนเริ่มผู้เข้าร่วมรายใหม่');
     return;
   }
+  const previousResearchMetadata = currentContext.appMode === 'research' ? currentContext.researchMetadata || {} : {};
   if (currentContext.screeningSessionId && currentContext.sessionStatus !== 'finalized') {
     await finalizePersistedSession(currentContext, 'NEW_PARTICIPANT_STARTED');
+  }
+  if (currentContext.appMode === 'research') {
+    closeNewPersonDialog();
+    prepareNextResearchParticipant(previousResearchMetadata);
+    return;
   }
   await createFreshSessionForCurrentMode();
   closeNewPersonDialog();

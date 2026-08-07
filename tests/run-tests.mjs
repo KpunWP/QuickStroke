@@ -166,19 +166,21 @@ test('Public Mode is ephemeral and has no Study ID snapshot', () => {
   assert.equal(record.exportState, 'not_applicable');
 });
 
-test('Research Mode snapshots clinic metadata and lifecycle is monotonic', () => {
+test('Research Mode auto-generates Study ID, snapshots clinic metadata, and lifecycle is monotonic', () => {
   const c = loadCurrent();
   const app = c.QuickStrokeAppMode;
   const dc = c.QuickStrokeDataContract;
   app.configureResearchContext({
-    researchProfile: 'clinic_supervised', studyId: 'qs 0001', consentStatus: 'consented',
+    researchProfile: 'clinic_supervised', consentStatus: 'consented',
     consentVersion: 'ICF-1.0', recruitmentSource: 'clinic_outpatient', operatorRole: 'research_assistant',
     operatorId: 'RA-01', siteCode: 'SITE-A'
   });
   let ctx = dc.ensureScreeningContext({ forceNewParticipant: true, forceNewSession: true, mode: 'full' });
   assert.equal(ctx.appMode, 'research');
   assert.equal(ctx.analysisRole, 'research_candidate');
-  assert.equal(ctx.researchMetadata.studyId, 'QS-0001');
+  assert.match(ctx.researchMetadata.studyId, /^QS-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/);
+  assert.equal(ctx.researchMetadata.studyIdSource, 'system_generated_random');
+  assert.equal(ctx.researchMetadata.studyIdGenerationPolicyVersion, 'quickstroke-study-id-random-1.0.0');
   assert.equal(ctx.sessionStatus, 'active');
 
   const first = dc.createModuleRun({ module: 'face', trigger: 'full_flow' });
@@ -198,6 +200,26 @@ test('Research Mode snapshots clinic metadata and lifecycle is monotonic', () =>
   assert.equal(ctx.sessionStatus, 'finalized');
   assert.ok(ctx.finalizedAt);
   assert.throws(() => dc.createModuleRun({ module: 'face' }), /finalized session/i);
+});
+
+
+test('Study ID generator uses secure random IDs with stable non-time format', () => {
+  const c = loadCurrent();
+  const app = c.QuickStrokeAppMode;
+  const ids = Array.from({ length: 256 }, () => app.generateStudyId());
+  assert.equal(new Set(ids).size, ids.length);
+  for (const id of ids) assert.match(id, /^QS-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}$/);
+  assert.equal(app.studyIdPolicyVersion, 'quickstroke-study-id-random-1.0.0');
+  const invalid = app.validateResearchMetadata({
+    researchProfile:'clinic_supervised', studyId:'QS-BAD', studyIdSource:'system_generated_random',
+    studyIdGenerationPolicyVersion:app.studyIdPolicyVersion, consentStatus:'consented', consentVersion:'ICF-1',
+    recruitmentSource:'clinic_outpatient', operatorRole:'nurse'
+  });
+  assert.equal(invalid.valid, false);
+  assert.ok(invalid.errors.includes('STUDY_ID_FORMAT_INVALID'));
+  const source = fs.readFileSync(path.join(ROOT, 'js/app-mode.js'), 'utf8');
+  assert.match(source, /cryptoApi\?\.randomUUID|cryptoApi\?\.getRandomValues/);
+  assert.doesNotMatch(source, /Math\.random\s*\(/);
 });
 
 test('Dev Mode records are engineering_only', () => {
@@ -357,6 +379,9 @@ test('static mode isolation and finalization controls are present', () => {
   assert.match(index, /clinic_supervised/);
   assert.match(index, /community_remote_qr/);
   assert.match(index, /RESEARCH_CONTEXT_RECONFIGURED/);
+  assert.match(index, /id="research-study-id"[^>]*readonly/);
+  assert.match(index, /prepareNextResearchParticipant/);
+  assert.match(index, /studyIdSource:'system_generated_random'/);
   const speech = fs.readFileSync(path.join(ROOT, 'speech-test.html'), 'utf8');
   assert.match(speech, /ensure Speech screening session/);
   assert.match(speech, /createScreeningSessionRecord\(\{ context \}\)/);

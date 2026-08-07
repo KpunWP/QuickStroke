@@ -1,7 +1,7 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20260801-clinic-feasibility-v1",
+  buildId: "20260807-clinic-feasibility-study-id-auto-v2",
   configVersion: "quickstroke-config-1.0.21",
 
   defaultLang: "th",
@@ -45,7 +45,8 @@ window.QS_CONFIG = {
   },
 
   appModes: {
-    version: "quickstroke-app-mode-1.0.0",
+    version: "quickstroke-app-mode-1.0.1",
+    studyIdPolicyVersion: "quickstroke-study-id-random-1.0.0",
     defaultMode: "public",
     allowedModes: ["public", "research", "dev"]
   },

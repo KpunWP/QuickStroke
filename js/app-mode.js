@@ -1,4 +1,4 @@
-/* QuickStroke application-mode controller — v1.0.0
+/* QuickStroke application-mode controller — v1.0.1
  *
  * Separates Public, Research, and Dev operation. The selected mode is used only
  * for the next session; every created session receives an immutable mode and
@@ -8,7 +8,8 @@
   'use strict';
   if (global.QuickStrokeAppMode) return;
 
-  const VERSION = 'quickstroke-app-mode-1.0.0';
+  const VERSION = 'quickstroke-app-mode-1.0.1';
+  const STUDY_ID_POLICY_VERSION = 'quickstroke-study-id-random-1.0.0';
   const MODES = Object.freeze(['public', 'research', 'dev']);
   const PROFILES = Object.freeze({
     clinic_supervised: Object.freeze({ enabled: true, dataCollectionEnabled: true }),
@@ -38,6 +39,22 @@
   }
   function normalizeStudyId(value) {
     return String(value || '').trim().toUpperCase().replace(/\s+/g, '-').slice(0, 64);
+  }
+  function secureRandomHex(byteLength = 8) {
+    const cryptoApi = global.crypto || null;
+    if (cryptoApi?.randomUUID) {
+      return cryptoApi.randomUUID().replace(/-/g, '').slice(0, byteLength * 2).toUpperCase();
+    }
+    if (cryptoApi?.getRandomValues && typeof global.Uint8Array === 'function') {
+      const bytes = new global.Uint8Array(byteLength);
+      cryptoApi.getRandomValues(bytes);
+      return Array.from(bytes, (value) => value.toString(16).padStart(2, '0')).join('').toUpperCase();
+    }
+    throw new Error('Secure random generation is unavailable.');
+  }
+  function generateStudyId() {
+    const hex = secureRandomHex(12);
+    return `QS-${hex.slice(0,4)}-${hex.slice(4,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20,24)}`;
   }
   function selectedFromQuery() {
     try {
@@ -98,7 +115,15 @@
     const profileConfig = PROFILES[profile];
     if (!profileConfig) errors.push('RESEARCH_PROFILE_UNSUPPORTED');
     else if (!profileConfig.enabled || !profileConfig.dataCollectionEnabled) errors.push('RESEARCH_PROFILE_DISABLED');
-    if (!normalizeStudyId(source.studyId)) errors.push('STUDY_ID_REQUIRED');
+    const normalizedStudyId = normalizeStudyId(source.studyId);
+    if (!normalizedStudyId) errors.push('STUDY_ID_REQUIRED');
+    if (source.studyIdSource && !['system_generated_random','externally_assigned'].includes(source.studyIdSource)) errors.push('STUDY_ID_SOURCE_INVALID');
+    if (source.studyIdSource === 'system_generated_random') {
+      if (!/^QS-(?:[0-9A-F]{4}-){5}[0-9A-F]{4}$/.test(normalizedStudyId)) errors.push('STUDY_ID_FORMAT_INVALID');
+      if (source.studyIdGenerationPolicyVersion !== STUDY_ID_POLICY_VERSION) errors.push('STUDY_ID_POLICY_VERSION_MISMATCH');
+    } else if (!source.studyIdSource) {
+      warnings.push('STUDY_ID_SOURCE_NOT_RECORDED');
+    }
     if (!['pending', 'consented', 'declined', 'withdrawn'].includes(source.consentStatus)) errors.push('CONSENT_STATUS_INVALID');
     if (options.requireConsented !== false && source.consentStatus !== 'consented') errors.push('CONSENT_NOT_CONFIRMED');
     if (!String(source.consentVersion || '').trim()) errors.push('CONSENT_VERSION_REQUIRED');
@@ -111,11 +136,16 @@
   function normalizeResearchMetadata(input = {}) {
     const profile = String(input.researchProfile || 'clinic_supervised');
     const config = PROFILES[profile] || null;
+    const normalizedInputStudyId = normalizeStudyId(input.studyId);
+    const studyId = normalizedInputStudyId || generateStudyId();
+    const studyIdSource = String(input.studyIdSource || 'system_generated_random');
     return Object.freeze({
       researchProfile: profile,
       researchProfileEnabled: config?.enabled === true,
       dataCollectionEnabled: config?.dataCollectionEnabled === true,
-      studyId: normalizeStudyId(input.studyId),
+      studyId,
+      studyIdSource,
+      studyIdGenerationPolicyVersion: studyIdSource === 'system_generated_random' ? STUDY_ID_POLICY_VERSION : null,
       consentStatus: String(input.consentStatus || 'pending'),
       consentVersion: String(input.consentVersion || '').trim() || null,
       consentRecordedAt: input.consentRecordedAt || (input.consentStatus === 'consented' ? new Date().toISOString() : null),
@@ -188,11 +218,14 @@
 
   const api = Object.freeze({
     version: VERSION,
+    studyIdPolicyVersion: STUDY_ID_POLICY_VERSION,
     modes: MODES,
     profiles: PROFILES,
     analysisRoles: ANALYSIS_ROLE,
     keys: KEYS,
     normalizeStudyId,
+    generateStudyId,
+    normalizeResearchMetadata,
     getSelectedMode,
     resolveMode,
     getAnalysisRole,
