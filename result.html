@@ -1844,7 +1844,10 @@
        el.querySelector('.module-name').textContent = T[name];
        el.querySelector('.module-status').textContent = s.text;
        const devUrgentRetryEnabled = DEV_MODE && r.state === 'urgent';
-       if (s.actionable && (r.state !== 'urgent' || devUrgentRetryEnabled)) {
+       const researchUrgentRetryEnabled = RESEARCH_MODE && r.state === 'urgent' && researchProtocolRetryAllowed(name);
+       const urgentRetryEnabled = devUrgentRetryEnabled || researchUrgentRetryEnabled;
+       const researchRetryBlocked = RESEARCH_MODE && !researchProtocolRetryAllowed(name);
+       if (s.actionable && !researchRetryBlocked && (r.state !== 'urgent' || urgentRetryEnabled)) {
          el.setAttribute('role', 'button');
          el.tabIndex = 0;
          el.querySelector('.module-action').textContent = devUrgentRetryEnabled
@@ -2342,6 +2345,30 @@
      button.onclick = hidden ? null : handler
    }
 
+   function researchProtocolRetryAllowed(name) {
+     if (!RESEARCH_MODE) return true;
+     const session = RESULT_DATA_CONTEXT?.session;
+     if (!session || session.sessionStatus === 'finalized') return false;
+     const selection = session.moduleSelection?.[name] || null;
+     const configuredLimit = Number(
+       selection?.protocolRetryLimit ??
+       window.QS_CONFIG?.research?.retryLimits?.[name]?.maxProtocolModuleRuns ??
+       2
+     );
+     const eligibleCount = Array.isArray(selection?.protocolEligibleModuleRunIds)
+       ? selection.protocolEligibleModuleRunIds.length
+       : Number(CURRENT?.data?.[name]?.moduleRunSequenceNo || 0);
+     return eligibleCount < configuredLimit;
+   }
+
+   function canRetryModule(name) {
+     const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
+     if (sessionStatus === 'finalized') return false;
+     if (DEV_MODE) return true;
+     if (RESEARCH_MODE) return researchProtocolRetryAllowed(name);
+     return true;
+   }
+
    function renderActions(r) {
      const primary = document.getElementById('primary-action');
      const secondary = document.getElementById('secondary-action');
@@ -2358,7 +2385,11 @@
          action(retry, '', null, true);
        } else if (r.state === 'urgent') {
          action(primary, T.home, goHome);
-         action(secondary, '', null, true);
+         if (canRetryModule(r.source)) {
+           action(secondary, T.retryCurrent, () => retryModule(r.source));
+         } else {
+           action(secondary, '', null, true);
+         }
          action(retry, '', null, true);
        } else if (hasRemaining) {
          action(primary, T.checkRemaining, continueTests);
@@ -2379,7 +2410,12 @@
        action(retry, T.retryAll, retryAll, false);
      } else if (r.state === 'urgent') {
        action(primary, T.home, goHome);
-       action(secondary, '', null, true);
+       const retryableAbnormalModule = (r.bad || []).find(name => canRetryModule(name));
+       if (retryableAbnormalModule) {
+         action(secondary, T.retryCurrent, () => retryModule(retryableAbnormalModule));
+       } else {
+         action(secondary, '', null, true);
+       }
        action(retry, '', null, true);
      } else {
        action(primary, T.home, goHome);
@@ -2554,6 +2590,10 @@
    function retryModule(name) {
      const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
      if (sessionStatus === 'finalized') { alert('Session นี้ finalize แล้ว ไม่สามารถ retry ได้'); return; }
+     if (RESEARCH_MODE && !researchProtocolRetryAllowed(name)) {
+       alert('Module นี้ครบจำนวน retry ตาม research protocol แล้ว');
+       return;
+     }
      const currentRunId = CURRENT?.data?.[name]?.moduleRunId || null;
      const canonicalSessionMode = RESULT_DATA_CONTEXT?.session?.sessionMode || null;
      const storedSessionMode = sessionStorage.getItem('fast_mode');

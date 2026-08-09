@@ -374,6 +374,16 @@ test('Research mode setup highlights Research immediately and consent version is
   assert.match(index, /id="research-consent-version"[^>]*readonly/);
   assert.match(config, /consent:\s*\{[\s\S]*version:\s*"PRE_IRB_TEST_ONLY"[\s\S]*source:\s*"deployment_config"/);
 });
+
+test('Research urgent abnormal result permits protocol-limited module retry', () => {
+  const result = fs.readFileSync(path.join(ROOT, 'result.html'), 'utf8');
+  assert.match(result, /function researchProtocolRetryAllowed\(name\)/);
+  assert.match(result, /RESEARCH_MODE && r\.state === 'urgent' && researchProtocolRetryAllowed\(name\)/);
+  assert.match(result, /retryableAbnormalModule = \(r\.bad \|\| \[\]\)\.find\(name => canRetryModule\(name\)\)/);
+  assert.match(result, /if \(RESEARCH_MODE && !researchProtocolRetryAllowed\(name\)\)/);
+  assert.match(result, /ครบจำนวน retry ตาม research protocol แล้ว/);
+});
+
 test('static mode isolation and finalization controls are present', () => {
   const store = fs.readFileSync(path.join(ROOT, 'js/research-store.js'), 'utf8');
   assert.match(store, /quickstroke_research/);

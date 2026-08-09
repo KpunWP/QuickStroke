@@ -1,7 +1,7 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20260809-clinic-feasibility-mode-consent-ui-v3",
+  buildId: "20260809-clinic-feasibility-research-urgent-retry-v4",
   configVersion: "quickstroke-config-1.0.21",
 
   defaultLang: "th",
