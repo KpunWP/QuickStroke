@@ -482,7 +482,7 @@
           <div class="research-grid">
             <div class="research-field full"><label for="research-study-id">Study ID (สร้างอัตโนมัติ)</label><input id="research-study-id" autocomplete="off" maxlength="64" readonly aria-readonly="true"><div class="research-field-note">ระบบสร้างรหัสสุ่มที่ไม่ฝังชื่อ HN หรือวันเวลา ผู้เก็บข้อมูลไม่ต้องกรอกเอง</div></div>
             <div class="research-field"><label for="research-consent-status">Consent status *</label><select id="research-consent-status"><option value="pending">Pending</option><option value="consented">Consented</option><option value="declined">Declined</option><option value="withdrawn">Withdrawn</option></select></div>
-            <div class="research-field"><label for="research-consent-version">Consent version *</label><input id="research-consent-version" autocomplete="off" maxlength="64" placeholder="เช่น ICF-1.0"></div>
+            <div class="research-field"><label for="research-consent-version">Consent version</label><input id="research-consent-version" autocomplete="off" maxlength="64" readonly aria-readonly="true"><div class="research-field-note">กำหนดอัตโนมัติจาก config ของโครงการ · ก่อนเก็บผู้ป่วยจริงต้องเปลี่ยนเป็น version ของเอกสารยินยอมที่ IRB/REC อนุมัติ</div></div>
             <div class="research-field"><label for="research-recruitment-source">Recruitment source *</label><select id="research-recruitment-source"><option value="">เลือก</option><option value="clinic_outpatient">Clinic outpatient</option><option value="clinic_inpatient">Clinic inpatient</option><option value="emergency_department">Emergency department</option><option value="stroke_unit">Stroke unit</option><option value="other">Other</option></select></div>
             <div class="research-field"><label for="research-operator-role">Operator role *</label><select id="research-operator-role"><option value="">เลือก</option><option value="research_assistant">Research assistant</option><option value="nurse">Nurse</option><option value="physician">Physician</option><option value="allied_health">Allied health</option><option value="other">Other</option></select></div>
             <div class="research-field"><label for="research-site-code">Site code</label><input id="research-site-code" autocomplete="off" maxlength="40"></div>
@@ -603,6 +603,7 @@ let screeningState = {
   nextModule: 'face'
 };
 let dialogReturnFocus = null;
+let pendingModeSelection = null;
 
 function ensureScreeningSession(forceNew = false, mode = null) {
   return DATA_CONTRACT.ensureScreeningContext({
@@ -701,12 +702,16 @@ function currentSessionHasData() {
   return MODULES.some((module) => Boolean(sessionStorage.getItem(`fast_${module}`))) || screeningState.attemptedCount > 0;
 }
 
+function configuredConsentVersion() {
+  return String(window.QS_CONFIG?.research?.consent?.version || '').trim();
+}
+
 function fillResearchForm(options = {}) {
   const meta = options.metadata || APP_MODE?.getResearchMetadata?.({ preferSession:false }) || {};
   const values = {
     'research-study-id': meta.studyId,
     'research-consent-status': meta.consentStatus || 'pending',
-    'research-consent-version': meta.consentVersion,
+    'research-consent-version': configuredConsentVersion() || meta.consentVersion,
     'research-recruitment-source': meta.recruitmentSource,
     'research-operator-role': meta.operatorRole,
     'research-site-code': meta.siteCode,
@@ -724,7 +729,7 @@ function prepareNextResearchParticipant(previousMetadata = {}) {
   const nextMetadata = {
     studyId: APP_MODE?.generateStudyId?.() || '',
     consentStatus:'pending',
-    consentVersion:previousMetadata?.consentVersion || '',
+    consentVersion:configuredConsentVersion() || previousMetadata?.consentVersion || '',
     recruitmentSource:'',
     operatorRole:previousMetadata?.operatorRole || '',
     siteCode:previousMetadata?.siteCode || '',
@@ -742,20 +747,24 @@ function prepareNextResearchParticipant(previousMetadata = {}) {
 
 function updateAppModeUi() {
   const mode = APP_MODE?.resolveMode?.() || 'public';
-  document.getElementById('app-mode-badge').textContent = mode.toUpperCase();
-  document.getElementById('mode-public')?.classList.toggle('active', mode === 'public');
-  document.getElementById('mode-research')?.classList.toggle('active', mode === 'research');
-  document.getElementById('research-setup')?.classList.toggle('show', mode === 'research');
+  const uiMode = pendingModeSelection || mode;
+  const isResearchSetup = pendingModeSelection === 'research' && mode !== 'research';
+  document.getElementById('app-mode-badge').textContent = isResearchSetup ? 'RESEARCH SETUP' : mode.toUpperCase();
+  document.getElementById('mode-public')?.classList.toggle('active', uiMode === 'public');
+  document.getElementById('mode-research')?.classList.toggle('active', uiMode === 'research');
+  document.getElementById('research-setup')?.classList.toggle('show', uiMode === 'research');
   const description = document.getElementById('app-mode-description');
-  if (description) description.textContent = mode === 'research'
-    ? 'clinic_supervised · ใช้ Full FAST protocol · ข้อมูลต้องผ่าน integrity check และ finalize'
-    : mode === 'dev'
-      ? 'Engineering only · verbose diagnostics · แยกจาก research dataset'
-      : 'ไม่มี Study ID · ไม่ upload research data · เก็บเฉพาะใน session ของแท็บนี้';
+  if (description) description.textContent = isResearchSetup
+    ? 'กำลังตั้งค่า clinic_supervised · Research Mode จะเริ่มเมื่อข้อมูลที่จำเป็นครบและกดบันทึก'
+    : mode === 'research'
+      ? 'clinic_supervised · ใช้ Full FAST protocol · ข้อมูลต้องผ่าน integrity check และ finalize'
+      : mode === 'dev'
+        ? 'Engineering only · verbose diagnostics · แยกจาก research dataset'
+        : 'ไม่มี Study ID · ไม่ upload research data · เก็บเฉพาะใน session ของแท็บนี้';
   const individualToggle = document.getElementById('individual-toggle');
-  if (individualToggle) individualToggle.hidden = mode === 'research';
-  if (mode === 'research' && indOpen) setIndividualOpen(false);
-  if (mode === 'research') fillResearchForm();
+  if (individualToggle) individualToggle.hidden = uiMode === 'research';
+  if (uiMode === 'research' && indOpen) setIndividualOpen(false);
+  if (uiMode === 'research') fillResearchForm();
 }
 
 async function closeCurrentSessionForModeChange(reasonCode) {
@@ -780,6 +789,7 @@ async function createFreshSessionForCurrentMode() {
 }
 
 async function selectPublicMode() {
+  pendingModeSelection = null;
   if (APP_MODE?.resolveMode?.() === 'public') { updateAppModeUi(); return; }
   if (!(await closeCurrentSessionForModeChange('APP_MODE_CHANGED_TO_PUBLIC'))) return;
   DEV_MODE?.disable?.({ source:'public_mode_button' });
@@ -789,7 +799,8 @@ async function selectPublicMode() {
 }
 
 function showResearchSetup() {
-  document.getElementById('research-setup')?.classList.add('show');
+  pendingModeSelection = 'research';
+  updateAppModeUi();
   fillResearchForm();
   document.getElementById('research-consent-status')?.focus();
 }
@@ -799,7 +810,7 @@ function researchFormValues() {
     researchProfile:'clinic_supervised',
     studyId:document.getElementById('research-study-id')?.value,
     consentStatus:document.getElementById('research-consent-status')?.value,
-    consentVersion:document.getElementById('research-consent-version')?.value,
+    consentVersion:configuredConsentVersion() || document.getElementById('research-consent-version')?.value,
     recruitmentSource:document.getElementById('research-recruitment-source')?.value,
     operatorRole:document.getElementById('research-operator-role')?.value,
     siteCode:document.getElementById('research-site-code')?.value,
@@ -831,6 +842,7 @@ async function activateResearchMode() {
     }
     DEV_MODE?.disable?.({ source:'research_mode_activation' });
     APP_MODE.configureResearchContext(input);
+    pendingModeSelection = null;
     await createFreshSessionForCurrentMode();
     if (status) { status.className='research-validation ok'; status.textContent='Research Mode พร้อมใช้งาน'; }
   } catch (error) {

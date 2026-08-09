@@ -363,6 +363,17 @@ test('integrity validator catches attempt counts, orphans, and microphone privac
   assert.ok(report.errors.includes('PROTOCOL_NOT_COMPLETED'));
 });
 
+
+
+test('Research mode setup highlights Research immediately and consent version is deployment-configured', () => {
+  const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const config = fs.readFileSync(path.join(ROOT, 'config.js'), 'utf8');
+  assert.match(index, /pendingModeSelection\s*=\s*'research'/);
+  assert.match(index, /RESEARCH SETUP/);
+  assert.match(index, /configuredConsentVersion\(\)/);
+  assert.match(index, /id="research-consent-version"[^>]*readonly/);
+  assert.match(config, /consent:\s*\{[\s\S]*version:\s*"PRE_IRB_TEST_ONLY"[\s\S]*source:\s*"deployment_config"/);
+});
 test('static mode isolation and finalization controls are present', () => {
   const store = fs.readFileSync(path.join(ROOT, 'js/research-store.js'), 'utf8');
   assert.match(store, /quickstroke_research/);

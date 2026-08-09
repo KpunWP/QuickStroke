@@ -1,7 +1,7 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20260807-clinic-feasibility-study-id-auto-v2",
+  buildId: "20260809-clinic-feasibility-mode-consent-ui-v3",
   configVersion: "quickstroke-config-1.0.21",
 
   defaultLang: "th",
@@ -56,6 +56,11 @@ window.QS_CONFIG = {
     selectionPolicyVersion: "quickstroke-selection-policy-1.0.0",
     integrityPolicyVersion: "quickstroke-integrity-policy-1.0.0",
     microphonePrivacyVersion: "quickstroke-microphone-privacy-1.0.0",
+    consent: {
+      version: "PRE_IRB_TEST_ONLY",
+      source: "deployment_config",
+      status: "pre_irb_device_test"
+    },
     activeProfile: "clinic_supervised",
     profiles: {
       clinic_supervised: { enabled: true, dataCollectionEnabled: true },
