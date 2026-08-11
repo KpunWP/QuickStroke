@@ -420,7 +420,8 @@
     "technicalError": "エラー",
     "invalidReason": "判定不可の理由",
     "qualityFlags": "品質フラグ",
-    "modulePriorAbnormal": "以前の検査で異常を検出"
+    "modulePriorAbnormal": "以前の検査で異常を検出",
+    "historicalAbnormalSummary": "このセッションでは、最新結果が変わっていても以前の検査で異常が検出されています。"
   },
   "permissions": {
     "checking": "権限を確認しています...",

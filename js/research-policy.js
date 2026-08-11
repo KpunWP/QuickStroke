@@ -83,7 +83,12 @@
         .filter((run) => run.observationStatus === 'abnormal')
         .map((run) => run.moduleRunId)),
       historicalAbnormalWarning: Boolean(firstAbnormal),
+      // Backward-compatible alias retained for old exports. This is a
+      // selection-eligibility limit, not an execution/retry block.
       protocolRetryLimit: RETRY_LIMITS[module].maxProtocolModuleRuns,
+      protocolSelectionRunLimit: RETRY_LIMITS[module].maxProtocolModuleRuns,
+      retryExecutionLimit: null,
+      postProtocolRepeatabilityAllowed: true,
       protocolEligibleModuleRunIds: Object.freeze(protocolEligible.map((run) => run.moduleRunId))
     });
   }
@@ -97,7 +102,8 @@
         clinicalMeasurement: 'first_valid_within_protocol_retry_limit',
         repeatability: 'all_valid_module_runs',
         safety: 'any_valid_abnormal_within_session_sticky_until_finalize',
-        currentResult: 'latest_completed_eligible_run_with_historical_abnormal_warning',
+        currentResult: 'latest_completed_run_with_historical_abnormal_warning',
+        retryExecution: 'allowed_until_finalize_protocol_limit_controls_selection_not_execution',
         prohibited: 'best_result_or_unplanned_latest_as_primary_without_policy'
       }),
       byModule: Object.freeze(byModule)

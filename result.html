@@ -957,6 +957,7 @@
    const RESULT_APP_MODE = window.QuickStrokeAppMode || null;
    const RESULT_RESEARCH_POLICY = window.QuickStrokeResearchPolicy || null;
    const APP_MODE_NAME = RESULT_APP_MODE?.resolveMode?.() || (window.QuickStrokeDevMode?.isEnabled?.() ? 'dev' : 'public');
+   const PUBLIC_MODE = APP_MODE_NAME === 'public';
    const DEV_MODE = APP_MODE_NAME === 'dev' && window.QuickStrokeDevMode?.isEnabled?.() === true;
    const RESEARCH_MODE = APP_MODE_NAME === 'research';
    const DETAIL_MODE = RESEARCH_MODE || DEV_MODE;
@@ -1110,12 +1111,59 @@
      return true
    }
 
+   const PUBLIC_ABNORMAL_HISTORY_PREFIX = 'fast_public_abnormal_history_v1_';
+
+   function publicAbnormalHistoryKey() {
+     const identity = currentSessionIdentity();
+     return `${PUBLIC_ABNORMAL_HISTORY_PREFIX}${identity.screeningSessionId || 'session'}`;
+   }
+
+   function readPublicAbnormalHistory() {
+     if (!PUBLIC_MODE) return {};
+     try {
+       const parsed = JSON.parse(sessionStorage.getItem(publicAbnormalHistoryKey()) || '{}');
+       return parsed && typeof parsed === 'object' ? parsed : {};
+     } catch (error) {
+       return {};
+     }
+   }
+
+   function rememberPublicAbnormal(name, data) {
+     if (!PUBLIC_MODE || !MODULES.includes(name) || !data || typeof data !== 'object') return;
+     if (!moduleIsUsable(data) || moduleClass(data) !== 'bad') return;
+     const history = readPublicAbnormalHistory();
+     const previous = history[name] && typeof history[name] === 'object' ? history[name] : {};
+     const fingerprint = data.moduleRunId || data.completedAt || data.startedAt || `${name}:abnormal`;
+     history[name] = {
+       firstDetectedAt: previous.firstDetectedAt || data.completedAt || new Date().toISOString(),
+       lastDetectedAt: data.completedAt || new Date().toISOString(),
+       count: Number(previous.count || 0) + (previous.lastFingerprint === fingerprint ? 0 : 1),
+       lastModuleRunId: data.moduleRunId || previous.lastModuleRunId || null,
+       lastFingerprint:fingerprint
+     };
+     try { sessionStorage.setItem(publicAbnormalHistoryKey(), JSON.stringify(history)); }
+     catch (error) { console.warn('Unable to retain Public abnormal history.', error); }
+   }
+
+   function applyPublicAbnormalHistory(name, data) {
+     if (!PUBLIC_MODE || !data || typeof data !== 'object') return data;
+     const prior = readPublicAbnormalHistory()[name];
+     if (!prior) return data;
+     const latestClass = moduleClass(data);
+     return {
+       ...data,
+       historicalAbnormalRetained: latestClass !== 'bad',
+       abnormalHistoryCount: Number(prior.count || 1),
+       publicAbnormalHistoryRetained: true
+     };
+   }
+
    function readLegacyModule(name) {
      const raw = sessionStorage.getItem(`fast_${name}`);
      if (!raw) return null;
      try {
        const d = JSON.parse(raw);
-       return d && typeof d === 'object' ? d : null
+       return d && typeof d === 'object' ? applyPublicAbnormalHistory(name, d) : null
      } catch (e) {
        console.warn(e);
        return {
@@ -1296,9 +1344,10 @@
        run?.validityStatus === 'valid' && run?.observationStatus === 'abnormal'
      );
      const historicalAbnormalRetained = latestObservationStatus !== 'abnormal' && abnormalHistoryRuns.length > 0;
-     // A later normal retry updates the latest measurement but cannot silently
-     // erase a prior valid abnormal finding in the same screening session.
-     const observationStatus = historicalAbnormalRetained ? 'abnormal' : latestObservationStatus;
+     // Current Result follows the latest completed eligible run. A prior valid
+     // abnormal is retained separately as a historical safety warning rather
+     // than silently rewriting the latest measurement back to abnormal.
+     const observationStatus = latestObservationStatus;
      const qualityFlags = uniqueStrings([
        ...(projection?.qualityFlags || []),
        ...selectedAttempts.flatMap(attempt => attempt?.qualityFlags || [])
@@ -1760,6 +1809,10 @@
        const [title, desc] = stateCopy(r.state);
        titleElement.textContent = title;
        descElement.textContent = desc;
+       const retainedModules = MODULES.filter(name => r.data[name]?.historicalAbnormalRetained === true);
+       if (retainedModules.length && r.state !== 'urgent') {
+         descElement.textContent = `${desc} ${T.historicalAbnormalSummary || 'A prior test in this session found an abnormal result.'}`;
+       }
 
        const complete = r.valid.length === 3;
        const urgentPartial = r.state === 'urgent' && !complete;
@@ -1820,7 +1873,7 @@
      };
      const cls = moduleClass(d);
      return {
-       cls,
+       cls: d.historicalAbnormalRetained && cls === 'ok' ? 'warn' : cls,
        text: d.historicalAbnormalRetained
          ? (T.modulePriorAbnormal || T.moduleBad)
          : cls === 'ok' ? T.moduleOk : cls === 'warn' ? T.moduleReview : T.moduleBad,
@@ -1832,6 +1885,12 @@
    function renderModules(r) {
      const grid = document.getElementById('module-grid');
      grid.innerHTML = '';
+     // Public Mode keeps only ephemeral in-session safety history. Recording it
+     // here preserves a prior valid abnormal across later retries without
+     // changing the frozen result-calculation logic.
+     if (PUBLIC_MODE && r?.data) {
+       MODULES.forEach(name => rememberPublicAbnormal(name, r.data[name]));
+     }
      MODULES.forEach(name => {
        const s = moduleStatus(name, r.data[name]);
        const el = document.createElement('div');
@@ -1843,14 +1902,11 @@
          `<div class="module-icon">${ICONS[name]}</div><div class="module-name"></div><div class="module-status"></div><div class="module-action"></div>`;
        el.querySelector('.module-name').textContent = T[name];
        el.querySelector('.module-status').textContent = s.text;
-       const devUrgentRetryEnabled = DEV_MODE && r.state === 'urgent';
-       const researchUrgentRetryEnabled = RESEARCH_MODE && r.state === 'urgent' && researchProtocolRetryAllowed(name);
-       const urgentRetryEnabled = devUrgentRetryEnabled || researchUrgentRetryEnabled;
-       const researchRetryBlocked = RESEARCH_MODE && !researchProtocolRetryAllowed(name);
-       if (s.actionable && !researchRetryBlocked && (r.state !== 'urgent' || urgentRetryEnabled)) {
+       const retryAllowed = canRetryModule(name);
+       if (s.actionable && retryAllowed) {
          el.setAttribute('role', 'button');
          el.tabIndex = 0;
-         el.querySelector('.module-action').textContent = devUrgentRetryEnabled
+         el.querySelector('.module-action').textContent = DEV_MODE && r.state === 'urgent'
            ? `DEV · ${s.action}`
            : s.action;
          const go = () => retryModule(name);
@@ -2345,28 +2401,39 @@
      button.onclick = hidden ? null : handler
    }
 
-   function researchProtocolRetryAllowed(name) {
-     if (!RESEARCH_MODE) return true;
-     const session = RESULT_DATA_CONTEXT?.session;
-     if (!session || session.sessionStatus === 'finalized') return false;
-     const selection = session.moduleSelection?.[name] || null;
+   function researchProtocolSelectionStatus(name) {
+     const selection = RESULT_DATA_CONTEXT?.session?.moduleSelection?.[name] || null;
      const configuredLimit = Number(
+       selection?.protocolSelectionRunLimit ??
        selection?.protocolRetryLimit ??
        window.QS_CONFIG?.research?.retryLimits?.[name]?.maxProtocolModuleRuns ??
        2
      );
-     const eligibleCount = Array.isArray(selection?.protocolEligibleModuleRunIds)
-       ? selection.protocolEligibleModuleRunIds.length
-       : Number(CURRENT?.data?.[name]?.moduleRunSequenceNo || 0);
-     return eligibleCount < configuredLimit;
+     const latestSequence = Number(
+       selection?.latestModuleRunId && CURRENT?.data?.[name]?.moduleRunSequenceNo
+         ? CURRENT.data[name].moduleRunSequenceNo
+         : CURRENT?.data?.[name]?.moduleRunSequenceNo || 0
+     );
+     const nextSequence = Math.max(1, latestSequence + 1);
+     return {
+       configuredLimit,
+       nextSequence,
+       protocolSelectionEligible: nextSequence <= configuredLimit,
+       protocolPhase: nextSequence <= 1
+         ? 'initial_protocol'
+         : nextSequence <= configuredLimit
+           ? 'protocol_retry'
+           : 'post_protocol_repeatability'
+     };
    }
 
    function canRetryModule(name) {
+     if (!MODULES.includes(name)) return false;
      const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
-     if (sessionStatus === 'finalized') return false;
-     if (DEV_MODE) return true;
-     if (RESEARCH_MODE) return researchProtocolRetryAllowed(name);
-     return true;
+     // Retry execution is allowed in Public, Research and Dev until finalization.
+     // In Research, the protocol run limit controls selection eligibility only;
+     // runs beyond that limit remain available as post-protocol repeatability runs.
+     return sessionStatus !== 'finalized';
    }
 
    function renderActions(r) {
@@ -2590,10 +2657,9 @@
    function retryModule(name) {
      const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
      if (sessionStatus === 'finalized') { alert('Session นี้ finalize แล้ว ไม่สามารถ retry ได้'); return; }
-     if (RESEARCH_MODE && !researchProtocolRetryAllowed(name)) {
-       alert('Module นี้ครบจำนวน retry ตาม research protocol แล้ว');
-       return;
-     }
+     if (!canRetryModule(name)) return;
+     if (PUBLIC_MODE) rememberPublicAbnormal(name, CURRENT?.data?.[name]);
+     const researchSelection = RESEARCH_MODE ? researchProtocolSelectionStatus(name) : null;
      const currentRunId = CURRENT?.data?.[name]?.moduleRunId || null;
      const canonicalSessionMode = RESULT_DATA_CONTEXT?.session?.sessionMode || null;
      const storedSessionMode = sessionStorage.getItem('fast_mode');
@@ -2624,7 +2690,13 @@
          sourceComponent:'result-page',
          sourceVersion:RESULT_DIAGNOSTIC_VERSION,
          recovered:false,
-         details:{sessionMode,previousModuleRunId:currentRunId},
+         details:{
+           sessionMode,
+           previousModuleRunId:currentRunId,
+           protocolSelectionEligibleForNextRun:researchSelection?.protocolSelectionEligible ?? null,
+           nextProtocolPhase:researchSelection?.protocolPhase ?? null,
+           protocolSelectionRunLimit:researchSelection?.configuredLimit ?? null
+         },
          versionSnapshot:RESULT_CONTRACT.createVersionSnapshot?.(name) || null
        }).catch(error => console.warn('Unable to persist retry technical event.', error));
      }
@@ -2665,6 +2737,9 @@
      if (sessionStatus === 'finalized') { alert('Session นี้ finalize แล้ว ไม่สามารถ retry ได้'); return; }
      if (!T || !confirm(T.retryConfirm)) {
        return;
+     }
+     if (PUBLIC_MODE && CURRENT?.data) {
+       MODULES.forEach(name => rememberPublicAbnormal(name, CURRENT.data[name]));
      }
 
      [

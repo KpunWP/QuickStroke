@@ -482,6 +482,8 @@
       appMode: context.appMode,
       analysisRole: context.analysisRole,
       researchProfile: context.researchMetadata?.researchProfile || null,
+      // Research runs beyond maxProtocolModuleRuns remain executable and
+      // are classified as post-protocol repeatability rather than blocked.
       protocolPhase: context.appMode === 'dev'
         ? 'engineering_override'
         : moduleRunSequenceNo === 1

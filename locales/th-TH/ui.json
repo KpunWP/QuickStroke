@@ -416,7 +416,8 @@
     "technicalError": "ผิดพลาด",
     "invalidReason": "เหตุผลที่ประเมินไม่ได้",
     "qualityFlags": "ธงคุณภาพ",
-    "modulePriorAbnormal": "เคยพบความผิดปกติในครั้งก่อน"
+    "modulePriorAbnormal": "เคยพบความผิดปกติในครั้งก่อน",
+    "historicalAbnormalSummary": "เคยพบความผิดปกติในการทดสอบก่อนหน้านี้ใน session เดียวกัน แม้ผลล่าสุดจะเปลี่ยนไป"
   },
   "permissions": {
     "checking": "กำลังตรวจสอบสิทธิ์...",

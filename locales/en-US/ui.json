@@ -418,7 +418,8 @@
     "technicalError": "Error",
     "invalidReason": "Invalid reason",
     "qualityFlags": "Quality flags",
-    "modulePriorAbnormal": "Abnormal finding retained from an earlier test"
+    "modulePriorAbnormal": "Abnormal finding retained from an earlier test",
+    "historicalAbnormalSummary": "An earlier test in this session found an abnormal result, even if the latest result has changed."
   },
   "permissions": {
     "checking": "Checking permissions...",

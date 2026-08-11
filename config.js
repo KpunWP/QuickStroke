@@ -1,7 +1,7 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20260809-clinic-feasibility-research-urgent-retry-v4",
+  buildId: "20260811-clinic-feasibility-retry-selection-v5",
   configVersion: "quickstroke-config-1.0.21",
 
   defaultLang: "th",
@@ -66,6 +66,8 @@ window.QS_CONFIG = {
       clinic_supervised: { enabled: true, dataCollectionEnabled: true },
       community_remote_qr: { enabled: false, dataCollectionEnabled: false }
     },
+    // maxProtocolModuleRuns limits protocol-selection eligibility only.
+    // It does not block additional retries; later runs are repeatability runs.
     retryLimits: {
       face: { maxProtocolModuleRuns: 2 },
       arm: { maxProtocolModuleRuns: 2 },

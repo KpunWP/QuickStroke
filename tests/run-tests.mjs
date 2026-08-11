@@ -250,6 +250,24 @@ test('selection policy locks feasibility, clinical, repeatability, safety, and c
   assert.equal(selected.historicalAbnormalWarning, true);
 });
 
+test('Post-protocol valid runs remain repeatability/current but cannot become primary clinical measurement', () => {
+  const c = loadCurrent();
+  const policy = c.QuickStrokeResearchPolicy;
+  const runs = [
+    { module:'arm', moduleRunId:'R1', moduleRunSequenceNo:1, moduleRunStatus:'completed', validityStatus:'invalid', observationStatus:'indeterminate', completedAt:'2026-08-01T10:01:00Z', analysisRole:'research_candidate' },
+    { module:'arm', moduleRunId:'R2', moduleRunSequenceNo:2, moduleRunStatus:'completed', validityStatus:'invalid', observationStatus:'indeterminate', completedAt:'2026-08-01T10:02:00Z', analysisRole:'research_candidate' },
+    { module:'arm', moduleRunId:'R3', moduleRunSequenceNo:3, moduleRunStatus:'completed', validityStatus:'valid', observationStatus:'no_alert', protocolPhase:'post_protocol_repeatability', completedAt:'2026-08-01T10:03:00Z', analysisRole:'research_candidate' }
+  ];
+  const selected = policy.deriveModuleSelection('arm', {}, runs);
+  assert.equal(selected.clinicalMeasurementRunId, null);
+  assert.equal(selected.currentResultModuleRunId, 'R3');
+  assert.deepEqual([...selected.repeatabilityValidModuleRunIds], ['R3']);
+  assert.deepEqual([...selected.protocolEligibleModuleRunIds], ['R1','R2']);
+  assert.equal(selected.protocolSelectionRunLimit, 2);
+  assert.equal(selected.retryExecutionLimit, null);
+  assert.equal(selected.postProtocolRepeatabilityAllowed, true);
+});
+
 test('Research microphone payload excludes raw label and device IDs', () => {
   const c = loadCurrent();
   const policy = c.QuickStrokeResearchPolicy;
@@ -375,13 +393,27 @@ test('Research mode setup highlights Research immediately and consent version is
   assert.match(config, /consent:\s*\{[\s\S]*version:\s*"PRE_IRB_TEST_ONLY"[\s\S]*source:\s*"deployment_config"/);
 });
 
-test('Research urgent abnormal result permits protocol-limited module retry', () => {
+test('Retry execution is allowed until finalize while Research protocol limit controls selection only', () => {
   const result = fs.readFileSync(path.join(ROOT, 'result.html'), 'utf8');
-  assert.match(result, /function researchProtocolRetryAllowed\(name\)/);
-  assert.match(result, /RESEARCH_MODE && r\.state === 'urgent' && researchProtocolRetryAllowed\(name\)/);
-  assert.match(result, /retryableAbnormalModule = \(r\.bad \|\| \[\]\)\.find\(name => canRetryModule\(name\)\)/);
-  assert.match(result, /if \(RESEARCH_MODE && !researchProtocolRetryAllowed\(name\)\)/);
-  assert.match(result, /ครบจำนวน retry ตาม research protocol แล้ว/);
+  const config = fs.readFileSync(path.join(ROOT, 'config.js'), 'utf8');
+  const contract = fs.readFileSync(path.join(ROOT, 'js/data-contract.js'), 'utf8');
+  assert.match(result, /function researchProtocolSelectionStatus\(name\)/);
+  assert.match(result, /return sessionStatus !== 'finalized'/);
+  assert.match(result, /protocolSelectionEligibleForNextRun/);
+  assert.doesNotMatch(result, /ครบจำนวน retry ตาม research protocol แล้ว/);
+  assert.match(config, /maxProtocolModuleRuns limits protocol-selection eligibility only/);
+  assert.match(contract, /post-protocol repeatability rather than blocked/);
+});
+
+test('Public retry retains prior abnormal separately while Current Result follows latest run', () => {
+  const result = fs.readFileSync(path.join(ROOT, 'result.html'), 'utf8');
+  assert.match(result, /const PUBLIC_ABNORMAL_HISTORY_PREFIX = 'fast_public_abnormal_history_v1_'/);
+  assert.match(result, /function rememberPublicAbnormal\(name, data\)/);
+  assert.match(result, /applyPublicAbnormalHistory\(name, d\)/);
+  assert.match(result, /MODULES\.forEach\(name => rememberPublicAbnormal\(name, r\.data\[name\]\)\)/);
+  assert.match(result, /const observationStatus = latestObservationStatus/);
+  assert.match(result, /historicalAbnormalRetained/);
+  assert.match(result, /if \(s\.actionable && retryAllowed\)/);
 });
 
 test('static mode isolation and finalization controls are present', () => {
