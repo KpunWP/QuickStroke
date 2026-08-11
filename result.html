@@ -956,15 +956,54 @@
    const QUERY_PARAMS = new URLSearchParams(location.search);
    const RESULT_APP_MODE = window.QuickStrokeAppMode || null;
    const RESULT_RESEARCH_POLICY = window.QuickStrokeResearchPolicy || null;
-   const APP_MODE_NAME = RESULT_APP_MODE?.resolveMode?.() || (window.QuickStrokeDevMode?.isEnabled?.() ? 'dev' : 'public');
-   const PUBLIC_MODE = APP_MODE_NAME === 'public';
-   const DEV_MODE = APP_MODE_NAME === 'dev' && window.QuickStrokeDevMode?.isEnabled?.() === true;
-   const RESEARCH_MODE = APP_MODE_NAME === 'research';
-   const DETAIL_MODE = RESEARCH_MODE || DEV_MODE;
    const RESULT_DIAGNOSTIC_VERSION = window.QS_CONFIG?.resultDiagnostics?.version ||
      'result-dev-diagnostics-1.2.0';
    const RESULT_CONTRACT = window.QuickStrokeDataContract || null;
    const RESULT_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
+   const APP_MODE_NAME = RESULT_APP_MODE?.resolveMode?.() || (window.QuickStrokeDevMode?.isEnabled?.() ? 'dev' : 'public');
+
+   function storedResultSessionModeHint() {
+     const contractContext = RESULT_CONTRACT?.getSessionContext?.() || {};
+     const contractMode = contractContext.appMode;
+     if (['research','dev'].includes(contractMode)) return contractMode;
+     const storedMode = sessionStorage.getItem('fast_session_app_mode');
+     if (['research','dev'].includes(storedMode)) return storedMode;
+     const storedRole = sessionStorage.getItem('fast_session_analysis_role');
+     if (storedRole === 'research_candidate') return 'research';
+     if (storedRole === 'engineering_only') return 'dev';
+     if (sessionStorage.getItem('fast_session_research_metadata')) return 'research';
+     return ['public','research','dev'].includes(contractMode) ? contractMode : APP_MODE_NAME;
+   }
+
+   function effectiveResultAppMode() {
+     const canonicalMode = RESULT_DATA_CONTEXT?.session?.appMode;
+     if (['public','research','dev'].includes(canonicalMode)) return canonicalMode;
+     return storedResultSessionModeHint();
+   }
+
+   function isResearchResultSession() { return effectiveResultAppMode() === 'research'; }
+   function isDevResultSession() {
+     return effectiveResultAppMode() === 'dev' && window.QuickStrokeDevMode?.isEnabled?.() === true;
+   }
+   function isPublicResultSession() { return effectiveResultAppMode() === 'public'; }
+   function isDetailResultSession() { return isResearchResultSession() || isDevResultSession(); }
+
+   function recoverResultSessionModeSnapshot() {
+     const identity = RESULT_CONTRACT?.getSessionContext?.() || {};
+     if (!identity.screeningSessionId) return effectiveResultAppMode();
+     const hint = storedResultSessionModeHint();
+     const currentStoredMode = sessionStorage.getItem('fast_session_app_mode');
+     if (hint === 'research' && currentStoredMode !== 'research') {
+       sessionStorage.setItem('fast_session_app_mode', 'research');
+       sessionStorage.setItem('fast_session_analysis_role', 'research_candidate');
+       console.warn('[QuickStroke result] Restored Research session mode from the active session metadata.');
+     } else if (hint === 'dev' && currentStoredMode !== 'dev') {
+       sessionStorage.setItem('fast_session_app_mode', 'dev');
+       sessionStorage.setItem('fast_session_analysis_role', 'engineering_only');
+       console.warn('[QuickStroke result] Restored Dev session mode from the active session metadata.');
+     }
+     return hint;
+   }
    let CURRENT_DEV_LOG = '';
    let RESULT_DATA_CONTEXT = null;
    let RESULT_DATA_CONTEXT_PROMISE = null;
@@ -1119,7 +1158,7 @@
    }
 
    function readPublicAbnormalHistory() {
-     if (!PUBLIC_MODE) return {};
+     if (!isPublicResultSession()) return {};
      try {
        const parsed = JSON.parse(sessionStorage.getItem(publicAbnormalHistoryKey()) || '{}');
        return parsed && typeof parsed === 'object' ? parsed : {};
@@ -1129,7 +1168,7 @@
    }
 
    function rememberPublicAbnormal(name, data) {
-     if (!PUBLIC_MODE || !MODULES.includes(name) || !data || typeof data !== 'object') return;
+     if (!isPublicResultSession() || !MODULES.includes(name) || !data || typeof data !== 'object') return;
      if (!moduleIsUsable(data) || moduleClass(data) !== 'bad') return;
      const history = readPublicAbnormalHistory();
      const previous = history[name] && typeof history[name] === 'object' ? history[name] : {};
@@ -1146,7 +1185,7 @@
    }
 
    function applyPublicAbnormalHistory(name, data) {
-     if (!PUBLIC_MODE || !data || typeof data !== 'object') return data;
+     if (!isPublicResultSession() || !data || typeof data !== 'object') return data;
      const prior = readPublicAbnormalHistory()[name];
      if (!prior) return data;
      const latestClass = moduleClass(data);
@@ -1456,6 +1495,10 @@
    }
 
    async function loadResultDataContext() {
+     // Result routing follows the active/canonical screening session rather than
+     // only the mode currently highlighted on the index page. Recover the
+     // session snapshot before IndexedDB namespace selection.
+     recoverResultSessionModeSnapshot();
      const legacyModules = Object.fromEntries(MODULES.map(name => [name, readLegacyModule(name)]));
      const identity = currentSessionIdentity();
      const integrity = {
@@ -1888,7 +1931,7 @@
      // Public Mode keeps only ephemeral in-session safety history. Recording it
      // here preserves a prior valid abnormal across later retries without
      // changing the frozen result-calculation logic.
-     if (PUBLIC_MODE && r?.data) {
+     if (isPublicResultSession() && r?.data) {
        MODULES.forEach(name => rememberPublicAbnormal(name, r.data[name]));
      }
      MODULES.forEach(name => {
@@ -1906,7 +1949,7 @@
        if (s.actionable && retryAllowed) {
          el.setAttribute('role', 'button');
          el.tabIndex = 0;
-         el.querySelector('.module-action').textContent = DEV_MODE && r.state === 'urgent'
+         el.querySelector('.module-action').textContent = isDevResultSession() && r.state === 'urgent'
            ? `DEV · ${s.action}`
            : s.action;
          const go = () => retryModule(name);
@@ -1988,8 +2031,8 @@
 
    function renderResearch(r) {
      const panel = document.getElementById('research-panel');
-     panel.hidden = !DETAIL_MODE;
-     if (!DETAIL_MODE) return;
+     panel.hidden = !isDetailResultSession();
+     if (!isDetailResultSession()) return;
      document.getElementById('technical-title').textContent = T.technicalTitle;
      document.getElementById('technical-disclaimer').textContent = T.technicalDisclaimer;
      const grid = document.getElementById('technical-grid');
@@ -2147,7 +2190,7 @@
        missingModules: [...r.missing],
        abnormalModules: [...r.bad],
        historicalAbnormalRetainedModules: MODULES.filter(name => r.data[name]?.historicalAbnormalRetained === true),
-       devUrgentRetryControlsEnabled: DEV_MODE && r.state === 'urgent',
+       devUrgentRetryControlsEnabled: isDevResultSession() && r.state === 'urgent',
        warningModules: [...r.warn],
        scope: r.scope,
        sourceModule: r.source,
@@ -2242,7 +2285,7 @@
          combinedDecisionBasis: resultPolicy.combinedDecisionBasis ?? 'categorical_module_status_only',
          weightedScoreUse: resultPolicy.weightedScoreUse ?? 'research_only_not_user_facing',
          language: LANG,
-         developerMode: DEV_MODE,
+         developerMode: isDevResultSession(),
          resultDataSource: r.resultDataSource
        },
        session: {
@@ -2289,8 +2332,8 @@
 
    function renderDevDiagnostics(r) {
      const panel = document.getElementById('dev-panel');
-     panel.hidden = !DEV_MODE;
-     if (!DEV_MODE) return;
+     panel.hidden = !isDevResultSession();
+     if (!isDevResultSession()) return;
 
      const diagnostic = buildDevDiagnostic(r);
      CURRENT_DEV_LOG = JSON.stringify(diagnostic, null, 2);
@@ -2491,10 +2534,19 @@
      }
 
      const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
-     if (RESEARCH_MODE && sessionStatus === 'finalized') {
-       action(primary, T.home || 'กลับหน้าหลัก', goHome);
-       action(secondary, '', null, true);
+     if (isResearchResultSession()) {
+       // Research uses per-module retry plus explicit finalization. Hide the
+       // generic "retry all / start over" action so an operator cannot
+       // accidentally abandon a participant before finalization.
        action(retry, '', null, true);
+       if (r.scope !== 'individual') {
+         action(primary, T.home || 'กลับหน้าหลัก', goHome);
+         action(secondary, '', null, true);
+       }
+       if (sessionStatus === 'finalized') {
+         action(primary, T.home || 'กลับหน้าหลัก', goHome);
+         action(secondary, '', null, true);
+       }
      }
      document.getElementById('legal-note').textContent = T.safetyNote;
    }
@@ -2551,7 +2603,7 @@
      const button = document.getElementById('finalize-session');
      const status = document.getElementById('finalization-status');
      const session = RESULT_DATA_CONTEXT?.session;
-     if (!RESEARCH_MODE || !session?.screeningSessionId || !RESULT_RESEARCH_STORE?.finalizeResearchSession) return;
+     if (!isResearchResultSession() || !session?.screeningSessionId || !RESULT_RESEARCH_STORE?.finalizeResearchSession) return;
      if (!confirm('หลัง finalize แล้ว จะไม่สามารถเพิ่มหรือแก้ข้อมูลใน session นี้ได้ ยืนยันจบการเก็บข้อมูลหรือไม่?')) return;
      button.disabled = true;
      if (status) status.textContent = 'กำลังตรวจ integrity และ finalize…';
@@ -2575,8 +2627,8 @@
    async function renderResearchFinalization(r) {
      const panel = document.getElementById('finalization-panel');
      if (!panel) return;
-     panel.hidden = !RESEARCH_MODE;
-     if (!RESEARCH_MODE) return;
+     panel.hidden = !isResearchResultSession();
+     if (!isResearchResultSession()) return;
      const session = RESULT_DATA_CONTEXT?.session;
      const meta = document.getElementById('finalization-meta');
      const badge = document.getElementById('finalization-badge');
@@ -2658,8 +2710,8 @@
      const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
      if (sessionStatus === 'finalized') { alert('Session นี้ finalize แล้ว ไม่สามารถ retry ได้'); return; }
      if (!canRetryModule(name)) return;
-     if (PUBLIC_MODE) rememberPublicAbnormal(name, CURRENT?.data?.[name]);
-     const researchSelection = RESEARCH_MODE ? researchProtocolSelectionStatus(name) : null;
+     if (isPublicResultSession()) rememberPublicAbnormal(name, CURRENT?.data?.[name]);
+     const researchSelection = isResearchResultSession() ? researchProtocolSelectionStatus(name) : null;
      const currentRunId = CURRENT?.data?.[name]?.moduleRunId || null;
      const canonicalSessionMode = RESULT_DATA_CONTEXT?.session?.sessionMode || null;
      const storedSessionMode = sessionStorage.getItem('fast_mode');
@@ -2738,7 +2790,7 @@
      if (!T || !confirm(T.retryConfirm)) {
        return;
      }
-     if (PUBLIC_MODE && CURRENT?.data) {
+     if (isPublicResultSession() && CURRENT?.data) {
        MODULES.forEach(name => rememberPublicAbnormal(name, CURRENT.data[name]));
      }
 

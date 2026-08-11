@@ -416,6 +416,18 @@ test('Public retry retains prior abnormal separately while Current Result follow
   assert.match(result, /if \(s\.actionable && retryAllowed\)/);
 });
 
+test('Result page recovers Research mode from the active session and keeps finalization/export visible', () => {
+  const result = fs.readFileSync(path.join(ROOT, 'result.html'), 'utf8');
+  assert.match(result, /function effectiveResultAppMode\(\)/);
+  assert.match(result, /RESULT_DATA_CONTEXT\?\.session\?\.appMode/);
+  assert.match(result, /function recoverResultSessionModeSnapshot\(\)/);
+  assert.match(result, /recoverResultSessionModeSnapshot\(\);[\s\S]*isPersistenceEnabled/);
+  assert.match(result, /panel\.hidden = !isResearchResultSession\(\)/);
+  assert.match(result, /if \(!isResearchResultSession\(\) \|\| !session\?\.screeningSessionId/);
+  assert.match(result, /id="export-research-session"/);
+  assert.doesNotMatch(result, /const RESEARCH_MODE\s*=/);
+});
+
 test('static mode isolation and finalization controls are present', () => {
   const store = fs.readFileSync(path.join(ROOT, 'js/research-store.js'), 'utf8');
   assert.match(store, /quickstroke_research/);
