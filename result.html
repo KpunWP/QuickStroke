@@ -1585,7 +1585,10 @@
 
      const modules = {};
      MODULES.forEach(name => {
-       const moduleData = buildCanonicalModule(name, bundle, legacyModules[name], integrity);
+       const canonicalModuleData = buildCanonicalModule(name, bundle, legacyModules[name], integrity);
+       const moduleData = isPublicResultSession()
+         ? applyPublicAbnormalHistory(name, canonicalModuleData)
+         : canonicalModuleData;
        modules[name] = moduleData;
        integrity.moduleSources[name] = moduleData?.resultDataSource || 'missing';
      });
