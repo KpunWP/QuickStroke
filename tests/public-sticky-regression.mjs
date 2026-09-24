@@ -72,6 +72,13 @@ result.rememberPublicAbnormal('speech', { moduleRunId: 'speech-attention', valid
 assert.equal(result.readPublicAbnormalHistory().face, undefined);
 assert.equal(result.readPublicAbnormalHistory().speech, undefined);
 
+// The canonical result path must apply Public sticky history as well as the legacy fallback.
+assert.match(
+  source,
+  /const canonicalModuleData = buildCanonicalModule\(name, bundle, legacyModules\[name\], integrity\);[\s\S]*?applyPublicAbnormalHistory\(name, canonicalModuleData\)/,
+  'Canonical result data must receive Public abnormal history before rendering'
+);
+
 // A new Public session must not inherit the previous session's warning.
 sessionId = 'public-session-2';
 assert.deepEqual(Object.keys(result.readPublicAbnormalHistory()), []);
