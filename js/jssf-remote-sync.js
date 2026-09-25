@@ -84,7 +84,10 @@
       qualityStatus:pick(record.qualityStatus,QUALITY),
       qualityFlags:safeFlags(record.qualityFlags),
       durationMs:record.startedAt&&record.completedAt?int(Date.parse(record.completedAt)-Date.parse(record.startedAt),0,3600000):undefined,
-      retryCount:int(record.attemptCount,0,100)
+      attemptCount:int(record.attemptCount,0,100),
+      retryCount:Number.isInteger(record.attemptCount)
+        ? int(Math.max(0,record.attemptCount-(record.module==="arm"?2:1)),0,100)
+        : undefined
     };
   }
   function attemptPayload(record) {
@@ -92,9 +95,12 @@
       testAttemptId:safeId(record.testAttemptId),
       moduleRunId:safeId(record.moduleRunId),
       attemptNo:int(record.attemptSequenceNo||record.attemptNo,1,100),
+      measurementTarget:pick(record.measurementTarget,new Set(["face","left_arm","right_arm","speech"])),
       validityStatus:pick(record.validityStatus,VALIDITY),
       observationStatus:pick(record.observationStatus,OBSERVATION),
       invalidReasonCode:typeof record.invalidReasonCode==="string"&&/^[\w.:-]{1,80}$/.test(record.invalidReasonCode)?record.invalidReasonCode:undefined,
+      qualityStatus:pick(record.qualityStatus,QUALITY),
+      qualityFlags:safeFlags(record.qualityFlags),
       durationMs:record.startedAt&&record.completedAt?int(Date.parse(record.completedAt)-Date.parse(record.startedAt),0,3600000):undefined
     };
   }
