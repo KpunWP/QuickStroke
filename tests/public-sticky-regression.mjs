@@ -92,6 +92,53 @@ assert.deepEqual(Object.keys(result.readPublicAbnormalHistory()), []);
 result.rememberPublicAbnormal('arm', initialArm);
 assert.equal(result.applyPublicAbnormalHistory('arm', retryArm).historicalAbnormalRetained, undefined);
 
+// Execute the real Result summary rendering logic with a minimal DOM. A green
+// individual summary must not conceal an earlier valid abnormal in the session.
+const summarySource = section(
+  'function individualSummaryCopy(r) {',
+  'function moduleStatus(name, d) {'
+);
+const summaryNodes = new Map();
+const documentStub = {
+  getElementById(id) {
+    if (!summaryNodes.has(id)) {
+      summaryNodes.set(id, { className: '', textContent: '', hidden: false, innerHTML: '' });
+    }
+    return summaryNodes.get(id);
+  }
+};
+const resultCopy = {
+  arm: 'แขน',
+  individualResultTitle: 'ผล · {module}',
+  individualOkDesc: 'ไม่พบสัญญาณ',
+  individualKicker: 'ผลรายการนี้',
+  historicalAbnormalSummary: 'เคยพบความผิดปกติในการทดสอบก่อนหน้านี้',
+  metricDetected: 'พบสัญญาณ',
+  summaryKicker: 'ผลรวม',
+  metricTested: 'ทดสอบแล้ว',
+  completionShort: '{n}'
+};
+const renderSummary = new Function(
+  'document', 'MODULES', 'T', 'moduleClass', 'stateCopy', 'emergencyPhone',
+  summarySource + '\nreturn renderSummary;'
+)(
+  documentStub, ['face', 'arm', 'speech'], resultCopy, result.moduleClass,
+  () => ['ผลรวม', 'ไม่พบสัญญาณ'], () => null
+);
+renderSummary({ scope: 'individual', source: 'arm', data: { arm: latest }, state: 'ok' });
+assert.equal(summaryNodes.get('summary-card').className, 'summary-card review');
+assert.match(summaryNodes.get('summary-desc').textContent, /เคยพบความผิดปกติ/);
+assert.equal(summaryNodes.get('metric-value').textContent, '0/1'); // Current result is unchanged
+
+renderSummary({ scope: 'individual', source: 'arm', data: { arm: retryArm }, state: 'ok' });
+assert.equal(summaryNodes.get('summary-card').className, 'summary-card ok');
+assert.doesNotMatch(summaryNodes.get('summary-desc').textContent, /เคยพบความผิดปกติ/);
+
+renderSummary({ scope: 'combined', data: { arm: latest }, state: 'ok', valid: ['arm'], attention: 0 });
+assert.equal(summaryNodes.get('summary-card').className, 'summary-card review');
+assert.match(summaryNodes.get('summary-desc').textContent, /เคยพบความผิดปกติ/);
+
 console.log('PASS: Public abnormal -> normal retry retains separate history');
 console.log('PASS: No double count, no Speech attention/invalid sticky, new session isolated');
 console.log('PASS: Research mode does not access Public history');
+console.log('PASS: Individual and combined summaries prominently retain prior abnormal warning');
