@@ -2108,9 +2108,11 @@ function speakFace(txt, opts={}){
 
   try {
     speechSynthesis.cancel();
-    const ut = new SpeechSynthesisUtterance(txt);
     const code = getPreferredFaceLang();
-    ut.lang = SPEAK_LANG[code] || 'th-TH';
+    const lang = SPEAK_LANG[code] || 'th-TH';
+    const spokenText = window.QuickStrokeI18n?.prepareSpeechText?.(txt, lang) ?? txt;
+    const ut = new SpeechSynthesisUtterance(spokenText);
+    ut.lang = lang;
     if (cachedVoices.length === 0) cachedVoices = speechSynthesis.getVoices() || [];
     const regional = cachedVoices.filter(v => v.lang.toLowerCase().replace('_','-').startsWith(ut.lang.toLowerCase().slice(0,2)));
     if (regional[0]) ut.voice = regional[0];
