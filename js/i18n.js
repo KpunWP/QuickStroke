@@ -51,6 +51,19 @@
   }
 
   /**
+   * Voice-only Thai pronunciation. Keep UI strings, locale packs and dial links unchanged.
+   * Thai synthesizers can read "สโตรก" and 1669 as unnatural word/number groups.
+   */
+  function prepareSpeechText(text, locale) {
+    const value = String(text ?? "");
+    if ((normalizeLocale(locale) || activeLocale) !== "th-TH") return value;
+    return value
+      .replace(/สโตรก/g, "โรคหลอดเลือดสมอง")
+      .replace(/(^|[^0-9])1669(?=[^0-9]|$)/g, (_match, prefix) =>
+        `${prefix}หนึ่ง หก หก เก้า`);
+  }
+
+  /**
    * อ่านภาษาที่เคยเลือกไว้
    */
   function getSavedLocale() {
@@ -336,6 +349,7 @@
       return [...SETTINGS.supportedLocales];
     },
 
-    normalizeLocale
+    normalizeLocale,
+    prepareSpeechText
   });
 })();
