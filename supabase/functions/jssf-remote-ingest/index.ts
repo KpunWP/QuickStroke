@@ -37,7 +37,7 @@ function response(status, body, origin = null) {
     headers["access-control-allow-headers"] = "content-type, x-qs-session-token";
     headers["vary"] = "Origin";
   }
-  return new Response(JSON.stringify(body), { status, headers });
+  return new Response(status === 204 ? null : JSON.stringify(body), { status, headers });
 }
 function hex(bytes) { return Array.from(bytes, x => x.toString(16).padStart(2,"0")).join(""); }
 async function sha256(text) {
