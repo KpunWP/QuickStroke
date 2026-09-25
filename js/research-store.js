@@ -330,7 +330,18 @@
         delete next.finalizedAt;
       }
       next.updatedAt = nowIso();
-      store.put(next); await done; return next;
+      store.put(next); await done;
+      // Notify opt-in JSSF sync only after the canonical local write has committed.
+      // Public, clinical Research and Dev retain their existing storage behavior.
+      if ((storeName === STORE_NAMES.moduleRuns || storeName === STORE_NAMES.testAttempts)
+          && next.appMode === 'research' && next.researchProfile === 'community_remote_qr') {
+        try {
+          global.dispatchEvent?.(new global.CustomEvent('quickstroke:research-record-finalized', {
+            detail:{kind:storeName === STORE_NAMES.moduleRuns ? 'module_run' : 'test_attempt',record:next}
+          }));
+        } catch (error) { console.warn('JSSF outbox notification failed.', error); }
+      }
+      return next;
     } catch (error) {
       const wrapped = error?.name === 'QuickStrokeResearchStoreError' ? error : createStoreError('STORAGE_WRITE_FAILED', `Unable to finalize ${storeName}.`, { key }, error);
       notifyError(wrapped); throw wrapped;
