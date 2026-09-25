@@ -4007,6 +4007,30 @@ function driftToScore(deg, analysis) {
   return 50;
 }
 
+// Keep valid Public Arm positives even when the user retries on this page
+// before ever visiting Result. Result uses the same session-scoped history key.
+function rememberCompletedPublicArmAbnormal(payload, context) {
+  if (context?.appMode !== 'public' || !context.screeningSessionId) return;
+  if (payload?.validityStatus !== 'valid' || payload.observationStatus !== 'abnormal') return;
+  const key = `fast_public_abnormal_history_v1_${context.screeningSessionId}`;
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem(key) || '{}');
+    const history = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    const previous = history.arm && typeof history.arm === 'object' ? history.arm : {};
+    const fingerprint = payload.moduleRunId || payload.completedAt || 'arm:abnormal';
+    history.arm = {
+      firstDetectedAt: previous.firstDetectedAt || payload.completedAt || new Date().toISOString(),
+      lastDetectedAt: payload.completedAt || new Date().toISOString(),
+      count: Number(previous.count || 0) + (previous.lastFingerprint === fingerprint ? 0 : 1),
+      lastModuleRunId: payload.moduleRunId || previous.lastModuleRunId || null,
+      lastFingerprint: fingerprint
+    };
+    sessionStorage.setItem(key, JSON.stringify(history));
+  } catch (error) {
+    console.warn('Unable to retain Public Arm abnormal history before retry.', error);
+  }
+}
+
 function showFinal() {
   updateArmDevHUD();
   phase = 'DONE'; setDot(2,'done');
@@ -4094,6 +4118,7 @@ function showFinal() {
   // Dev trials intentionally include arm lowering and wrist rotation; do not
   // overwrite the user's real FAST result or create flow-navigation buttons.
   if (!ARM_GUIDED_PROTOCOL_MODE) {
+    rememberCompletedPublicArmAbnormal(armPayload, context);
     sessionStorage.setItem('fast_arm', JSON.stringify(armPayload));
     sessionStorage.setItem('fast_arm_research_latest', JSON.stringify(armPayload));
     sessionStorage.setItem('fast_result_source', 'arm');
