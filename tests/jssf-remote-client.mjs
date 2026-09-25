@@ -74,7 +74,8 @@ const event=sync.eventFromRecord("module_run",sample);
 assert.equal(event.eventType,"module_run_completed");
 assert.equal(event.module,"arm");
 assert.equal(event.payload.sequenceNo,1);
-assert.equal(event.payload.retryCount,2);
+assert.equal(event.payload.attemptCount,2);
+assert.equal(event.payload.retryCount,0);
 assert.equal(event.payload.observationStatus,"abnormal");
 assert.equal(event.payload.durationMs,12000);
 assert.doesNotMatch(JSON.stringify(event),/FORBIDDEN|rawSensorValues/);
@@ -87,6 +88,7 @@ const attempt=sync.eventFromRecord("test_attempt",{
 assert.equal(attempt.eventType,"test_attempt_completed");
 assert.equal(attempt.payload.attemptNo,2);
 assert.equal(attempt.payload.invalidReasonCode,"WRIST_MOVEMENT");
+assert.equal(attempt.payload.qualityStatus,"limited");
 assert.doesNotMatch(JSON.stringify(attempt),/FORBIDDEN/);
 console.log("PASS: post-commit canonical event conversion preserves retry data and excludes raw media");
 
