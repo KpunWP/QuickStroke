@@ -1,8 +1,20 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20260925-jssf-th-tts-pronunciation-v6",
+  buildId: "20260925-jssf-remote-staging-v1",
   configVersion: "quickstroke-config-1.0.21",
+
+  // Not collecting. Eligibility, retention and finalized consent are still undecided.
+  // The remote client and preview page are deliberately fail-closed.
+  jssfRemote: {
+    enabled: false,
+    consentApproved: false,
+    agePolicyApproved: false,
+    retentionPolicyApproved: false,
+    minimumAge18Enforced: false,
+    consentVersion: null,
+    endpoint: "https://pzzjfnfwppdeketjdhfo.supabase.co/functions/v1/jssf-remote-ingest"
+  },
 
   defaultLang: "th",
   supportedLangs: ["th", "en", "ja"],
