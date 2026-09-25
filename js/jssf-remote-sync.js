@@ -137,6 +137,8 @@
     const db=await openOutbox();
     const tx=db.transaction("credentials","readwrite");
     tx.objectStore("credentials").put(credential);await txResult(tx);
+    // A module may have completed before the enrollment receipt arrived.
+    void recoverCompleted().then(()=>flush()).catch(error=>console.warn("JSSF recovery deferred",error));
     return {studyId:credential.studyId,sessionId:credential.sessionId};
   }
   async function enroll() {
@@ -194,9 +196,9 @@
     if (!evt||record.screeningSessionId!==context().screeningSessionId) return false;
     return enqueue(evt);
   }
-  async function pending(clientSessionId) {
+  async function pending(remoteSessionId) {
     const db=await openOutbox(),tx=db.transaction("queue","readonly");
-    const rows=await reqResult(tx.objectStore("queue").index("sessionId").getAll(clientSessionId));
+    const rows=await reqResult(tx.objectStore("queue").index("sessionId").getAll(remoteSessionId));
     return rows.filter(row=>row.state==="pending").sort((a,b)=>a.queuedAt.localeCompare(b.queuedAt));
   }
   async function flush() {
@@ -206,7 +208,7 @@
       const ctx=context(),cred=await readCredential(ctx.screeningSessionId);
       if (!cred) return {sent:0,reason:"not_enrolled"};
       if (Date.parse(cred.expiresAt)<=Date.now()) return {sent:0,reason:"expired"};
-      const rows=(await pending(ctx.screeningSessionId)).slice(0,25);
+      const rows=(await pending(cred.sessionId)).slice(0,25);
       if (!rows.length) return {sent:0,reason:"empty"};
       const res=await fetch(config().endpoint.replace(/\/$/,"")+"/events",{
         method:"POST",
