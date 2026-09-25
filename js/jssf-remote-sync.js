@@ -41,7 +41,7 @@
     if (!global.indexedDB) return Promise.reject(new Error("IndexedDB is required for durable outbox"));
     if (opening) return opening;
     opening = new Promise((resolve,reject)=>{
-      const req = indexedDB.open(DB_NAME,DB_VERSION);
+      const req = global.indexedDB.open(DB_NAME,DB_VERSION);
       req.onupgradeneeded = ()=>{
         const db = req.result;
         if (!db.objectStoreNames.contains("queue")) {
@@ -154,10 +154,10 @@
     if (ctx.researchMetadata?.consentVersion!==cfg.consentVersion) throw new Error("Consent version mismatch");
     const old=await readCredential(ctx.screeningSessionId);
     if (old) return {sessionId:old.sessionId,studyId:old.studyId,reused:true};
-    const agent=navigator.userAgent||"";
+    const agent=global.navigator?.userAgent||"";
     const platform=/iphone|ipad|ipod/i.test(agent)?"ios":/android/i.test(agent)?"android":/windows|macintosh|linux/i.test(agent)?"desktop":"other";
     const browser=/edg/i.test(agent)?"edge":/firefox|fxios/i.test(agent)?"firefox":/chrome|crios/i.test(agent)?"chrome":/safari/i.test(agent)?"safari":"other";
-    const res=await fetch(cfg.endpoint.replace(/\/$/,"")+"/enroll",{
+    const res=await global.fetch(cfg.endpoint.replace(/\/$/,"")+"/enroll",{
       method:"POST",headers:{"content-type":"application/json"},
       body:JSON.stringify({
         consentAccepted:true,
@@ -216,7 +216,7 @@
       if (Date.parse(cred.expiresAt)<=Date.now()) return {sent:0,reason:"expired"};
       const rows=(await pending(cred.sessionId)).slice(0,25);
       if (!rows.length) return {sent:0,reason:"empty"};
-      const res=await fetch(config().endpoint.replace(/\/$/,"")+"/events",{
+      const res=await global.fetch(config().endpoint.replace(/\/$/,"")+"/events",{
         method:"POST",
         headers:{"content-type":"application/json","x-qs-session-token":cred.uploadToken},
         body:JSON.stringify({sessionId:cred.sessionId,events:rows.map(row=>row.event)})
