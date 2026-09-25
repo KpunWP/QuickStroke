@@ -29,12 +29,16 @@
 - Strict ingestion event sanitizer; no raw media fields accepted; batch event IDs are idempotent.
 - `/enroll` can mint a random Study ID and short-lived session upload token **only when enabled and current consent is submitted**.
 - `/events` requires the per-session upload token; `/withdraw` is intended to remove remote events.
-- No client-side automatic syncing is connected yet. No JSSF QR released. No changes to main.
+- Consent preview: `jssf-consent.html` is linked from `index.html`. Consent checkbox and start button are disabled while eligibility and retention are unresolved.
+- Opt-in durable outbox: `js/jssf-remote-sync.js` is now loaded on index, Face, Arm, Speech and Result. Canonical Research lifecycle events are dispatched only after local IndexedDB commits; only approved `community_remote_qr` sessions may enqueue sanitized remote events.
+- Client supports enrollment, idempotent outbox, queued offline delivery, acknowledgement persistence, automatic retry when online, and recovery on subsequent page views. No activation occurs while `jssfRemote.enabled=false` and approval gates are unresolved.
+- Dependency-free synthetic tests: `node tests/jssf-remote-client.mjs`, `node tests/jssf-remote-staging.mjs`, `node tests/jssf-remote-sync-flow.mjs`. A mock-only offline/enrollment/recovery test does **not** replace a real iPhone-to-Supabase end-to-end test.
+- No JSSF QR released. No changes to `main`. Supabase ingest function is deployed but `JSSF_REMOTE_ENABLED` is not configured.
 
 ## Required before enabling or distributing any QR
 1. Review/approve the consent notice, age group, retention period and withdrawal method.
 2. Add server-side abuse protection / public endpoint rate limiting and test withdrawal atomicity.
 3. Set server-only `JSSF_CONSENT_VERSION`, `JSSF_ALLOWED_ORIGINS` (exact deployment origin), `JSSF_REMOTE_ENABLED` only after acceptance tests.
-4. Implement opt-in `community_remote_qr` UI, durable per-session queue, and client-side hooks after Face/Arm/Speech module completion.
+4. After the actual eligible population and retention policy are approved, replace the disabled draft with a final informed-consent flow, enable `community_remote_qr` in `js/app-mode.js` and `js/research-policy.js`, configure explicit server policy gates, and verify enrollment. The durable outbox and post-commit hooks are implemented but deliberately inactive.
 5. Test upload, duplicate retry/idempotency, disconnection and delayed reconnection, incomplete sessions, consent refusal/withdrawal, public/research/dev isolation.
 6. Approve a **stable and publicly accessible** Vercel domain and release branch; temporary SSO-bypassing Preview share links are not event QR links.
