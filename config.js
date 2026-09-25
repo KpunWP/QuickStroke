@@ -1,7 +1,7 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20260811-clinic-feasibility-result-mode-recovery-v6",
+  buildId: "20260925-jssf-th-tts-pronunciation-v6",
   configVersion: "quickstroke-config-1.0.21",
 
   defaultLang: "th",
