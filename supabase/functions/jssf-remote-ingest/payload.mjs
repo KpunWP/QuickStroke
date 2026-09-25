@@ -4,9 +4,9 @@ const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECORD_ID = /^[A-Za-z0-9_-]{3,110}$/;
-const VALIDITIES = new Set(["valid", "invalid", "unavailable", "not_assessed", "unknown"]);
-const OBSERVATIONS = new Set(["normal", "abnormal", "inconclusive", "not_assessed", "unknown"]);
-const QUALITY = new Set(["good", "attention", "invalid", "unknown"]);
+const VALIDITIES = new Set(["valid", "invalid", "not_evaluable"]);
+const OBSERVATIONS = new Set(["no_alert", "attention", "abnormal", "indeterminate", "not_available"]);
+const QUALITY = new Set(["acceptable", "limited", "unusable", "not_assessed"]);
 const RUN_STATUSES = new Set(["completed", "aborted", "interrupted"]);
 const TECH_CODES = new Set(["PERMISSION_DENIED", "SENSOR_UNAVAILABLE", "SENSOR_STALE", "PAGE_HIDDEN", "STORAGE_WRITE_FAILED", "MODULE_RETRY_REQUESTED", "MIC_PERMISSION_DENIED", "CAMERA_UNAVAILABLE", "TTS_UNAVAILABLE", "ASR_UNAVAILABLE", "OTHER_TECHNICAL_ERROR"]);
 
