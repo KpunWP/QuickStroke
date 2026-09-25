@@ -64,6 +64,7 @@ const cfg={
   jssfRemote:{
     enabled:true,consentApproved:true,agePolicyApproved:true,retentionPolicyApproved:true,
     minimumAge18Enforced:true,consentVersion:"CONSENT-TEST-1",
+    retentionDays:90,privacyContact:"qa@example.org",
     endpoint:"https://example.invalid/functions/v1/jssf-remote-ingest"
   }
 };
