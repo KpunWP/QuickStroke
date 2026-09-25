@@ -26,6 +26,11 @@
     const cfg = config();
     return cfg.enabled === true && cfg.consentApproved === true
       && cfg.agePolicyApproved === true && cfg.retentionPolicyApproved === true
+      // Current server contract supports verified adult consent only. Supporting minors
+      // requires an explicitly reviewed guardian flow and a new backend contract.
+      && cfg.minimumAge18Enforced === true
+      && Number.isInteger(cfg.retentionDays) && cfg.retentionDays >= 1 && cfg.retentionDays <= 365
+      && typeof cfg.privacyContact === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cfg.privacyContact)
       && typeof cfg.endpoint === "string"
       && /^https:\/\//.test(cfg.endpoint)
       && typeof cfg.consentVersion === "string" && cfg.consentVersion.length >= 5;
