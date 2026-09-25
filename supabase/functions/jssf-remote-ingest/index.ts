@@ -67,10 +67,12 @@ function parseEnrollment(body) {
     throw new TypeError("Explicit adult nonclinical consent with current version is required");
   }
   if (!SESSION.test(body.clientSessionId || "")) throw new TypeError("Invalid clientSessionId");
+  if (body.studyId != null && !/^QS-([A-F0-9]{4}-){5}[A-F0-9]{4}$/.test(body.studyId)) throw new TypeError("Invalid studyId");
   if (!LOCALES.has(body.locale)) throw new TypeError("Invalid locale");
   if (!COARSE_PLATFORM.has(body.platformFamily) || !COARSE_BROWSER.has(body.browserFamily)) throw new TypeError("Invalid device category");
   return {
     client_session_id:body.clientSessionId,
+    study_id:body.studyId || studyId(),
     consent_version:consentVersion,
     consented_at:new Date().toISOString(),
     age_18_or_older:true,
@@ -111,7 +113,7 @@ Deno.serve(async req => {
       const input = parseEnrollment(body);
       const issued = token();
       const { data, error } = await db.from("jssf_remote_sessions")
-        .insert({ ...input, study_id:studyId(), upload_token_sha256:await sha256(issued) })
+        .insert({ ...input, upload_token_sha256:await sha256(issued) })
         .select("id,study_id,expires_at").single();
       if (error) {
         if (error.code === "23505") return response(409,{error:"Session already enrolled"},origin);
