@@ -13,6 +13,8 @@ window.QS_CONFIG = {
     retentionPolicyApproved: false,
     minimumAge18Enforced: false,
     consentVersion: null,
+    retentionDays: null,
+    privacyContact: null,
     endpoint: "https://pzzjfnfwppdeketjdhfo.supabase.co/functions/v1/jssf-remote-ingest"
   },
 
