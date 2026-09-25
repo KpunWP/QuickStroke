@@ -2121,8 +2121,10 @@ function _drainQueue() {
     attempt += 1;
     const token = ++attemptToken;
     let started = false;
-    const u = new SpeechSynthesisUtterance(txt);
-    u.lang = T?.code || document.documentElement.lang || 'th-TH';
+    const lang = T?.code || document.documentElement.lang || 'th-TH';
+    const spokenText = window.QuickStrokeI18n?.prepareSpeechText?.(txt, lang) ?? txt;
+    const u = new SpeechSynthesisUtterance(spokenText);
+    u.lang = lang;
     u.rate = 0.93;
     u.volume = 1;
     const voice = matchingSpeechVoice(u.lang);
