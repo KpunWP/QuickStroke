@@ -1,0 +1,34 @@
+name: JSSF closed-stage smoke
+
+on:
+  push:
+    branches:
+      - fix/jssf-public-sticky-v6
+    paths:
+      - .github/workflows/jssf-closed-smoke.yml
+      - tests/jssf-remote-*.mjs
+      - js/jssf-remote-sync.js
+      - supabase/functions/jssf-remote-ingest/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-closed-staging:
+    name: Privacy, offline sync and live disabled-API smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check inactive mode isolation and staged payload
+        run: |
+          node tests/jssf-remote-client.mjs
+          node tests/jssf-remote-staging.mjs
+      - name: Exercise synthetic offline retry and idempotency
+        run: node tests/jssf-remote-sync-flow.mjs
+      - name: Check real Supabase API is CLOSED and refuses enrollment
+        run: node tests/jssf-remote-http-smoke.mjs
