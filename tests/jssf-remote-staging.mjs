@@ -15,7 +15,7 @@ const valid = {
   occurredAt:now,
   payload:{
     moduleRunId:"MR-abc0123456789", sequenceNo:1, runStatus:"completed",
-    validityStatus:"valid", observationStatus:"abnormal", qualityStatus:"good",
+    validityStatus:"valid", observationStatus:"abnormal", qualityStatus:"acceptable",
     qualityFlags:["LEFT_DRIFT"], durationMs:13000, retryCount:1,
     audioRecording:"SENSITIVE_NEVER_PERSIST", faceImage:"SENSITIVE_NEVER_PERSIST",
     transcript:"SENSITIVE_NEVER_PERSIST", rawGyroSamples:[1,2,3]
