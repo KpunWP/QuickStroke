@@ -7,12 +7,13 @@
  * - JS / JSON / รูปภาพ: stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v41";
+const CACHE_NAME = "quickstroke-pwa-v42";
 const CACHE_PREFIX = "quickstroke-pwa-";
 
 const CORE_SHELL = [
   "/",
   "/index.html",
+  "/jssf-consent.html",
   "/face-test.html",
   "/arm-test.html",
   "/speech-test.html",
@@ -22,6 +23,7 @@ const CORE_SHELL = [
   "/js/research-policy.js",
   "/js/data-contract.js",
   "/js/research-store.js",
+  "/js/jssf-remote-sync.js",
   "/js/dev-mode.js",
   "/js/speech-calibration.js",
 
