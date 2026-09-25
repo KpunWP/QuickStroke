@@ -141,11 +141,11 @@ await sync.queueFinalized("module_run",sample);
 await sync.flush();
 assert.equal(uploads.length,1);
 const reopened=clientWindow();
-const store={
+const recoveredStore={
   stores:{moduleRuns:"moduleRuns",testAttempts:"testAttempts"},
   getAllByIndex:async(name)=>name==="moduleRuns"?[sample]:[]
 };
-await reopened.recoverCompleted(store);
+await reopened.recoverCompleted(recoveredStore);
 await reopened.flush();
 assert.equal(uploads.length,1);
 console.log("PASS: duplicate requeue and page reload recovery do not re-upload acknowledged events");
