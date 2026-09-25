@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const source = readFileSync(new URL('../result.html', import.meta.url), 'utf8');
+const armSource = readFileSync(new URL('../arm-test.html', import.meta.url), 'utf8');
 
 function section(startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -79,6 +80,42 @@ assert.match(
   'Canonical result data must receive Public abnormal history before rendering'
 );
 
+// A completed valid abnormal Arm run must survive an in-page retry, even if
+// Result was never opened between the abnormal and normal module runs.
+const armHelperStart = 'function rememberCompletedPublicArmAbnormal(payload, context) {';
+const armHelperEnd = 'function showFinal() {';
+const armHelperBegin = armSource.indexOf(armHelperStart);
+const armHelperFinish = armSource.indexOf(armHelperEnd, armHelperBegin);
+assert.ok(armHelperBegin >= 0 && armHelperFinish > armHelperBegin);
+const rememberCompletedPublicArmAbnormal = new Function(
+  'sessionStorage', 'console',
+  armSource.slice(armHelperBegin, armHelperFinish) + '\nreturn rememberCompletedPublicArmAbnormal;'
+)(sessionStorage, console);
+assert.match(
+  armSource,
+  /rememberCompletedPublicArmAbnormal\(armPayload, context\);\s*sessionStorage\.setItem\('fast_arm'/,
+  'Arm must retain Public history before overwriting its latest payload'
+);
+sessionId = 'public-internal-retry';
+const internalContext = { appMode: 'public', screeningSessionId: sessionId };
+rememberCompletedPublicArmAbnormal(initialArm, internalContext);
+rememberCompletedPublicArmAbnormal(initialArm, internalContext);
+rememberCompletedPublicArmAbnormal(
+  { ...initialArm, moduleRunId: 'invalid-attempt', validityStatus: 'invalid' },
+  internalContext
+);
+rememberCompletedPublicArmAbnormal(
+  { ...initialArm, moduleRunId: 'research-run' },
+  { ...internalContext, appMode: 'research' }
+);
+const retainedFromArmPage = result.readPublicAbnormalHistory().arm;
+assert.equal(retainedFromArmPage.count, 1);
+const normalAfterInPageRetry = result.applyPublicAbnormalHistory('arm', retryArm);
+assert.equal(result.moduleClass(normalAfterInPageRetry), 'ok');
+assert.equal(normalAfterInPageRetry.historicalAbnormalRetained, true);
+assert.equal(normalAfterInPageRetry.abnormalHistoryCount, 1);
+sessionId = 'public-session-1';
+
 // A new Public session must not inherit the previous session's warning.
 sessionId = 'public-session-2';
 assert.deepEqual(Object.keys(result.readPublicAbnormalHistory()), []);
@@ -142,3 +179,4 @@ console.log('PASS: Public abnormal -> normal retry retains separate history');
 console.log('PASS: No double count, no Speech attention/invalid sticky, new session isolated');
 console.log('PASS: Research mode does not access Public history');
 console.log('PASS: Individual and combined summaries prominently retain prior abnormal warning');
+console.log('PASS: Arm in-page abnormal -> retry -> normal retains history across pages');
