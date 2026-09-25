@@ -56,6 +56,7 @@ function payloadFor(type, source) {
       qualityStatus: optionalEnum(source.qualityStatus, QUALITY, "qualityStatus"),
       qualityFlags: flags(source.qualityFlags),
       durationMs: optionalDuration(source.durationMs),
+      attemptCount: source.attemptCount == null ? undefined : intInRange(source.attemptCount, 0, 100, "attemptCount"),
       retryCount: source.retryCount == null ? undefined : intInRange(source.retryCount, 0, 100, "retryCount"),
       algorithmVersion: optionalString(source.algorithmVersion, 100, "algorithmVersion")
     };
@@ -67,9 +68,12 @@ function payloadFor(type, source) {
       testAttemptId: identifier(source.testAttemptId, "testAttemptId"),
       moduleRunId: identifier(source.moduleRunId, "moduleRunId"),
       attemptNo: intInRange(source.attemptNo, 1, 100, "attemptNo"),
+      measurementTarget: optionalEnum(source.measurementTarget, new Set(["face","left_arm","right_arm","speech"]), "measurementTarget"),
       validityStatus: optionalEnum(source.validityStatus, VALIDITIES, "validityStatus"),
       observationStatus: optionalEnum(source.observationStatus, OBSERVATIONS, "observationStatus"),
       invalidReasonCode: optionalString(source.invalidReasonCode, 80, "invalidReasonCode"),
+      qualityStatus: optionalEnum(source.qualityStatus, QUALITY, "qualityStatus"),
+      qualityFlags: flags(source.qualityFlags),
       durationMs: optionalDuration(source.durationMs)
     };
   }
