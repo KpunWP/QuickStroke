@@ -85,7 +85,7 @@ function parseEnrollment(body) {
     research_profile:"community_remote_qr"
   };
 }
-async function authorizedSession(req, body) {
+async function authorizedSession(req, body, { allowExpired = false } = {}) {
   const sessionId = body.sessionId;
   const bearer = req.headers.get("x-qs-session-token") || "";
   if (typeof sessionId !== "string" || !UUID.test(sessionId) || !/^[0-9a-f]{64}$/.test(bearer)) return null;
@@ -93,8 +93,10 @@ async function authorizedSession(req, body) {
   const { data, error } = await db.from("jssf_remote_sessions")
     .select("id,status,expires_at").eq("id",sessionId).eq("upload_token_sha256",digest).maybeSingle();
   if (error) throw error;
-  if (!data || Date.parse(data.expires_at) <= Date.now()) return null;
-  return data;
+  // Users retain the ability to withdraw during the full 90-day retention window,
+  // even after their 30-day upload capability expires.
+  if (!data || (!allowExpired && Date.parse(data.expires_at) <= Date.now())) return null;
+  return { ...data, tokenDigest:digest };
 }
 Deno.serve(async req => {
   const url = new URL(req.url);
@@ -106,7 +108,10 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return response(204,{},origin);
   if (req.method !== "POST") return response(405,{error:"Method not allowed"},origin);
   // Closed by default, including for callers that try bypassing the client UI.
-  if (!enabled || !db) return response(503,{error:"JSSF_REMOTE_DISABLED"},origin);
+  // Withdrawal remains available if collection is paused or the consent version
+  // changes. Keep previously approved Origins enabled for 90 days after closing.
+  const isWithdrawal = url.pathname.endsWith("/withdraw");
+  if (!db || (!enabled && !isWithdrawal)) return response(503,{error:"JSSF_REMOTE_DISABLED"},origin);
   try {
     const body = await jsonBody(req);
     if (url.pathname.endsWith("/enroll")) {
@@ -122,17 +127,17 @@ Deno.serve(async req => {
       return response(201,{ sessionId:data.id, studyId:data.study_id, uploadToken:issued, expiresAt:data.expires_at, schemaVersion:CONTRACT_VERSION },origin);
     }
     if (!url.pathname.endsWith("/events") && !url.pathname.endsWith("/withdraw")) return response(404,{error:"Not found"},origin);
-    const session = await authorizedSession(req,body);
-    if (!session) return response(401,{error:"Session not authorized or expired"},origin);
-    if (url.pathname.endsWith("/withdraw")) {
-      if (session.status === "withdrawn") return response(200,{withdrawn:true},origin);
-      const { error:deleteError } = await db.from("jssf_remote_events").delete().eq("session_id",session.id);
-      if (deleteError) throw deleteError;
-      const { error:updateError } = await db.from("jssf_remote_sessions").update({
-        status:"withdrawn", withdrawn_at:new Date().toISOString(), upload_token_sha256:await sha256(token())
-      }).eq("id",session.id);
-      if (updateError) throw updateError;
-      return response(200,{withdrawn:true},origin);
+    const session = await authorizedSession(req,body,{allowExpired:isWithdrawal});
+    if (!session) return response(401,{error:"Session not authorized, already withdrawn, or expired"},origin);
+    if (isWithdrawal) {
+      // One atomic database operation instead of deleting events then updating a
+      // session in two nontransactional REST requests. Parent delete CASCADEs events.
+      const { data:deleted, error:withdrawError } = await db.rpc("withdraw_jssf_session",{
+        p_session_id:session.id,p_token_sha256:session.tokenDigest
+      });
+      if (withdrawError) throw withdrawError;
+      if (!deleted) return response(409,{error:"Session no longer available for withdrawal"},origin);
+      return response(200,{withdrawn:true,remoteDataDeleted:true},origin);
     }
     if (session.status === "withdrawn") return response(410,{error:"Session withdrawn"},origin);
     const events = sanitizeBatch(body.events);
