@@ -52,7 +52,9 @@ assert.match(edge,/crypto\.subtle\.digest\("SHA-256"/);
 assert.match(edge,/status === 204 \? null/);
 assert.match(edge,/ignoreDuplicates:true/);
 assert.match(edge,/consentAccepted !== true/);
-assert.match(edge,/if \(!enabled \|\| !db\)/);
+assert.match(edge,/!db \|\| \(!enabled && !isWithdrawal\)/);
+assert.match(edge,/allowExpired:isWithdrawal/);
+assert.match(edge,/db\.rpc\("withdraw_jssf_session"/);
 console.log("PASS: server syntax, consent gate, session-token authorization and idempotency guards");
 
 const schema=read("supabase/migrations/20260925_jssf_remote_nonclinical_staging.sql");
