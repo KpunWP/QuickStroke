@@ -580,6 +580,67 @@
     await addAuditEvent(screeningSessionId,'SESSION_AMENDMENT_RECORDED',{participantId:session.participantId,reasonCode:'AMENDMENT_RECORDED',details:{amendmentId:stored.amendmentId}});
     return stored;
   }
+  // Delete only records belonging to a verified community_remote_qr session.
+  // Run from any app mode so an offline withdrawal can finish after navigation.
+  // All linked records are erased in one IndexedDB transaction; clinical and
+  // engineering datasets are never touched. Retain only the generic DB schema.
+  async function purgeRemoteSessionLocal(screeningSessionId) {
+    if (typeof screeningSessionId !== 'string' ||
+        !/^S-[A-Za-z0-9_-]{12,100}$/.test(screeningSessionId)) {
+      throw createStoreError('INVALID_SESSION_ID', 'A canonical session ID is required for remote deletion.');
+    }
+    if (!global.indexedDB) throw createStoreError('STORAGE_UNAVAILABLE', 'IndexedDB is required to erase local research data.');
+
+    // Use the cached research connection when possible. Otherwise open only
+    // the fixed research database; do NOT create it if absent or older.
+    const cachedResearch = getStorageNamespace() === 'research';
+    const database = cachedResearch ? await open() : await new Promise((resolve,reject)=>{
+      const req = global.indexedDB.open('quickstroke_research', DB_VERSION);
+      req.onupgradeneeded = ()=>req.transaction.abort();
+      req.onsuccess = ()=>resolve(req.result);
+      req.onerror = ()=>reject(createStoreError('STORAGE_OPEN_FAILED','Cannot open existing Research database for erasure.',{},req.error));
+    });
+    const names = [
+      STORE_NAMES.screeningSessions, STORE_NAMES.moduleRuns, STORE_NAMES.testAttempts,
+      STORE_NAMES.moduleMeasurements, STORE_NAMES.sensorObservations, STORE_NAMES.technicalEvents,
+      STORE_NAMES.resultProjections, STORE_NAMES.pendingSync, STORE_NAMES.sessionAmendments,
+      STORE_NAMES.auditEvents
+    ];
+    try {
+      return await new Promise((resolve,reject)=>{
+        const tx = database.transaction(names,'readwrite');
+        let missing = false, invalid = false;
+        tx.oncomplete = ()=>resolve({deleted:!missing,alreadyAbsent:missing,screeningSessionId});
+        tx.onabort = ()=>reject(createStoreError(
+          invalid ? 'REMOTE_SESSION_VERIFICATION_FAILED' : 'STORAGE_WRITE_FAILED',
+          invalid ? 'Only a verified remote nonclinical session can be erased.' : 'Local remote-session erasure failed.',
+          {screeningSessionId},tx.error));
+        tx.onerror = ()=>{}; // onabort carries transaction failure
+        const root = tx.objectStore(STORE_NAMES.screeningSessions);
+        const req = root.get(screeningSessionId);
+        req.onsuccess = ()=>{
+          const session = req.result;
+          if (!session) { missing=true; return; }
+          if (session.appMode !== 'research' ||
+              (session.researchProfile || session.researchMetadata?.researchProfile) !== 'community_remote_qr') {
+            invalid=true; tx.abort(); return;
+          }
+          for (const name of names) {
+            if (name === STORE_NAMES.screeningSessions) continue;
+            const cursorReq = tx.objectStore(name).index('screeningSessionId').openCursor(screeningSessionId);
+            cursorReq.onsuccess = ()=>{
+              const cursor = cursorReq.result;
+              if (cursor) { cursor.delete(); cursor.continue(); }
+            };
+          }
+          root.delete(screeningSessionId);
+        };
+      });
+    } finally {
+      if (!cachedResearch) database.close();
+    }
+  }
+
   async function healthCheck() {
     if (!isPersistenceEnabled()) return { ok:true, persistenceEnabled:false, namespace:'none', reason:'public_mode_ephemeral', checkedAt:nowIso() };
     try { const db=await open(); return {ok:true,persistenceEnabled:true,namespace:getStorageNamespace(),databaseName:db.name,databaseVersion:db.version,storageSchemaVersion:STORE_VERSION,stores:[...db.objectStoreNames],checkedAt:nowIso()}; }
@@ -599,7 +660,7 @@
     addModuleMeasurement:(record)=>addImmutable(STORE_NAMES.moduleMeasurements,record),
     appendSensorObservation:(record)=>addImmutable(STORE_NAMES.sensorObservations,withObservationId(record)), appendSensorObservations,
     addTechnicalEvent:(record)=>addImmutable(STORE_NAMES.technicalEvents,record), addAuditEvent,
-    putProjection, enqueueSync, get, getAllByIndex, exportSession
+    putProjection, enqueueSync, get, getAllByIndex, exportSession, purgeRemoteSessionLocal
   });
   Object.defineProperty(global,'QuickStrokeResearchStore',{value:api,enumerable:true,configurable:false,writable:false});
 })(typeof window !== 'undefined' ? window : globalThis);
