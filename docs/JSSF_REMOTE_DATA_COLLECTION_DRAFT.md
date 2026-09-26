@@ -15,10 +15,10 @@
 
 หลังจากคุณกดยินยอม แอปจะสร้างรหัสแบบสุ่มและส่งข้อมูลผลการทดสอบแต่ละรายการ การทดสอบซ้ำ เวลาที่ใช้ และรหัสข้อผิดพลาดทางเทคนิคกลับสู่ฐานข้อมูลโครงการโดยอัตโนมัติ รวมถึงข้อมูลประเภทอุปกรณ์และเบราว์เซอร์อย่างคร่าว ๆ แอปไม่ส่งวิดีโอ ภาพใบหน้าดิบ ไฟล์เสียงดิบ บทพูดที่บันทึก หรือชื่อจริงของคุณ
 
-คุณสามารถหยุดการทดสอบได้ทุกเมื่อ การหยุดกลางทางอาจทำให้มีข้อมูลเฉพาะขั้นตอนที่ทำเสร็จแล้วถูกบันทึกไว้ หากต้องการถอนความยินยอมและลบผลการทดสอบที่ส่งไปแล้ว จะมีช่องทางถอนความยินยอม [ระบุวิธีติดต่อ/ปุ่มหลังพัฒนาให้เสร็จ] ข้อมูลจะเก็บไว้ [กำหนดระยะเวลาและผู้รับผิดชอบก่อนเผยแพร่]
+คุณสามารถหยุดการทดสอบได้ทุกเมื่อ การหยุดกลางทางอาจทำให้มีข้อมูลเฉพาะขั้นตอนที่ทำเสร็จแล้วถูกบันทึกไว้ หากต้องการถอนความยินยอมและลบผลการทดสอบที่ส่งไปแล้ว จะมีช่องทางถอนความยินยอม [ระบุวิธีติดต่อ/ปุ่มหลังพัฒนาให้เสร็จ] ข้อมูลราย Session ในฐานข้อมูลหลักเก็บไว้ 90 วันนับจากวันที่สร้าง Session โดยมีงานลบอัตโนมัติทุกชั่วโมง [ระบุผู้รับผิดชอบและช่องทางถอนความยินยอมก่อนเผยแพร่] และต้องตรวจมาตรการสำหรับข้อมูลบนอุปกรณ์กับสำเนาสำรองแยกต่างหาก
 
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
-[ ] ฉันยืนยันว่ามีอายุ 18 ปีขึ้นไป (ข้อเสนอสำหรับรอบแรก; ต้องตัดสินใจใหม่หากจะรับผู้เยาว์)
+[ ] ฉันยืนยันว่าตรงตามเกณฑ์อายุที่โครงการกำหนด [ยังไม่กำหนดเกณฑ์อายุและยังไม่เปิดให้ยินยอมจริง]
 
 **Do not display this draft as final consent until every bracketed item is completed and approved.**
 
@@ -33,12 +33,13 @@
 - Opt-in durable outbox: `js/jssf-remote-sync.js` is now loaded on index, Face, Arm, Speech and Result. Canonical Research lifecycle events are dispatched only after local IndexedDB commits; only approved `community_remote_qr` sessions may enqueue sanitized remote events.
 - Client supports enrollment, idempotent outbox, queued offline delivery, acknowledgement persistence, automatic retry when online, and recovery on subsequent page views. No activation occurs while `jssfRemote.enabled=false` and approval gates are unresolved.
 - Dependency-free synthetic tests: `node tests/jssf-remote-client.mjs`, `node tests/jssf-remote-staging.mjs`, `node tests/jssf-remote-sync-flow.mjs`. A mock-only offline/enrollment/recovery test does **not** replace a real iPhone-to-Supabase end-to-end test.
+- 90-day **primary PostgreSQL** retention is implemented with an hourly `pg_cron` cleanup under `quickstroke_private`. Deleting parent Sessions cascades to JSSF Events. The live synthetic rollback test confirmed old session/event deletion, fresh-session preservation and zero residual test rows. This does **not** erase browser IndexedDB, managed database backups, or infrastructure logs: those require separate safeguards before launch.
 - No JSSF QR released. No changes to `main`. Supabase ingest function is deployed but `JSSF_REMOTE_ENABLED` is not configured.
 
 ## Required before enabling or distributing any QR
-1. Review/approve the consent notice, age group, retention period and withdrawal method.
+1. Review/approve the final consent notice, age group, withdrawal contact, local browser deletion and backup-handling policy. Primary PostgreSQL retention is fixed at 90 days from server-created Session time.
 2. Add server-side abuse protection / public endpoint rate limiting and test withdrawal atomicity.
-3. Set server-only `JSSF_CONSENT_VERSION`, `JSSF_ALLOWED_ORIGINS` (exact deployment origin), `JSSF_REMOTE_ENABLED` only after acceptance tests.
+3. Set server-only `JSSF_CONSENT_VERSION`, `JSSF_ALLOWED_ORIGINS` (exact deployment origin), `JSSF_REMOTE_ENABLED` only after acceptance tests. Keep app `jssfRemote.enabled=false` and `retentionPolicyApproved=false` until the full collection notice and all retention surfaces are approved.
 4. After the actual eligible population and retention policy are approved, replace the disabled draft with a final informed-consent flow, enable `community_remote_qr` in `js/app-mode.js` and `js/research-policy.js`, configure explicit server policy gates, and verify enrollment. The durable outbox and post-commit hooks are implemented but deliberately inactive.
 5. Test upload, duplicate retry/idempotency, disconnection and delayed reconnection, incomplete sessions, consent refusal/withdrawal, public/research/dev isolation.
 6. Approve a **stable and publicly accessible** Vercel domain and release branch; temporary SSO-bypassing Preview share links are not event QR links.
