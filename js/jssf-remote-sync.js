@@ -277,18 +277,186 @@
       payload:{completedModules:["face","arm","speech"]},dedupeKey:"session_completed:"+context().screeningSessionId};
     return enqueue(evt);
   }
+  function clearCurrentRemoteSessionStorage(screeningSessionId) {
+    const ctx=context();
+    if (!isRemoteContext(ctx) || ctx.screeningSessionId!==screeningSessionId) return false;
+    const storage=global.sessionStorage;
+    if (!storage) return false;
+    // Only the active remote session is cleared. Public abnormal history,
+    // locale choice and unrelated clinic/engineering sessions remain untouched.
+    const exact=new Set([
+      "fast_participant_id","fast_screening_session_id","fast_assessment_id",
+      "fast_legacy_assessment_id","fast_started_at","fast_mode",
+      "fast_session_status","fast_protocol_completed_at","fast_finalized_at",
+      "fast_session_completion_reason","fast_session_finalization_metadata",
+      "fast_session_schema_version","fast_baseline_manifest_version",
+      "fast_pending_module_retry","fast_result_source","fast_result_decision_trace",
+      "fast_result_decision_trace_hash","fast_face","fast_arm","fast_speech",
+      "fast_face_research_latest","fast_arm_research_latest","fast_speech_research_latest",
+      "fast_completed_at","fast_research_store_status","fast_research_store_error_code"
+    ]);
+    for (let i=storage.length-1;i>=0;i--) {
+      const key=storage.key(i);
+      if (exact.has(key) ||
+          ((key?.startsWith("fast_module_run_sequence_") ||
+            key?.startsWith("fast_attempt_sequence_") ||
+            key?.startsWith("fast_target_attempt_sequence_")) && key.includes(screeningSessionId)) ||
+          ["fast_current_module_run_face","fast_current_module_run_arm","fast_current_module_run_speech"].includes(key)) {
+        storage.removeItem(key);
+      }
+    }
+    for (const name of ["face","arm","speech"]) {
+      const historyKey="fast_"+name+"_research_history", raw=storage.getItem(historyKey);
+      if (!raw) continue;
+      try {
+        const history=JSON.parse(raw);
+        if (!Array.isArray(history)) continue;
+        const retained=history.filter(row=>row?.screeningSessionId!==screeningSessionId);
+        if (retained.length) storage.setItem(historyKey,JSON.stringify(retained));
+        else storage.removeItem(historyKey);
+      } catch (_) { storage.removeItem(historyKey); }
+    }
+    global.QuickStrokeAppMode?.clearSessionSnapshot?.();
+    global.QuickStrokeAppMode?.clearResearchContext?.();
+    global.QuickStrokeAppMode?.setMode?.("public",{source:"jssf_remote_withdrawal"});
+    return true;
+  }
+  async function listCredentials() {
+    const db=await openOutbox();
+    const tx=db.transaction("credentials","readonly");
+    return reqResult(tx.objectStore("credentials").getAll());
+  }
+  async function updateCredential(clientSessionId,patch) {
+    const db=await openOutbox();
+    const tx=db.transaction("credentials","readwrite");
+    const store=tx.objectStore("credentials");
+    const existing=await reqResult(store.get(clientSessionId));
+    if (!existing) throw new Error("JSSF withdrawal capability is no longer available");
+    const next={...existing,...patch};
+    store.put(next);await txResult(tx);
+    return next;
+  }
+  async function clearOutboxSession(credential,{removeCredential=false}={}) {
+    const db=await openOutbox();
+    const tx=db.transaction(["credentials","queue"],"readwrite");
+    const queue=tx.objectStore("queue");
+    const rows=await reqResult(queue.index("sessionId").getAll(credential.sessionId));
+    for (const row of rows) queue.delete(row.clientEventId);
+    if (removeCredential) tx.objectStore("credentials").delete(credential.clientSessionId);
+    await txResult(tx);
+    if (removeCredential && !(await listCredentials()).length) markOutboxPresent(false);
+  }
+  async function eraseLocalResearch(credential) {
+    const store=global.QuickStrokeResearchStore;
+    if (typeof store?.purgeRemoteSessionLocal!=="function")
+      throw new Error("Research deletion module not available; retry on a full app page");
+    await store.purgeRemoteSessionLocal(credential.clientSessionId);
+    clearCurrentRemoteSessionStorage(credential.clientSessionId);
+    return true;
+  }
+  async function continueWithdrawal(credential) {
+    if (!credential?.withdrawalPending) return {pending:false,reason:"no_withdrawal_requested"};
+    let latest=credential,localDeleted=false,remoteDeleted=credential.remoteDeleted===true;
+    let localError=null,remoteError=null;
+    try { localDeleted=await eraseLocalResearch(latest); }
+    catch (error) { localError=error?.message||"Local deletion unavailable"; }
+    if (!remoteDeleted) {
+      try {
+        const endpoint=config().endpoint;
+        if (typeof endpoint!=="string" || !/^https:\/\//.test(endpoint))
+          throw new Error("Withdrawal endpoint unavailable");
+        const res=await global.fetch(endpoint.replace(/\/$/,"")+"/withdraw",{
+          method:"POST",headers:{"content-type":"application/json","x-qs-session-token":latest.uploadToken},
+          body:JSON.stringify({sessionId:latest.sessionId})
+        });
+        if (!res.ok) throw new Error("Server withdrawal pending (HTTP "+res.status+")");
+        const result=await res.json();
+        if (result.withdrawn!==true || result.remoteDataDeleted!==true)
+          throw new Error("Unconfirmed server withdrawal response");
+        // Persist acknowledgement before clearing the capability, so local
+        // deletion can be retried without making another server request.
+        latest=await updateCredential(latest.clientSessionId,{remoteDeleted:true});
+        remoteDeleted=true;
+      } catch (error) { remoteError=error?.message||"Remote withdrawal unavailable"; }
+    }
+    if (remoteDeleted && localDeleted) {
+      await clearOutboxSession(latest,{removeCredential:true});
+      return {complete:true,remoteDeleted:true,localDeleted:true,pending:false};
+    }
+    return {
+      complete:false,remoteDeleted,localDeleted,pending:true,
+      localError,remoteError
+    };
+  }
+  async function requestWithdrawal() {
+    const ctx=context();
+    if (!isRemoteContext(ctx) || !ctx.screeningSessionId)
+      throw new Error("Only an enrolled JSSF nonclinical session can request withdrawal");
+    const id=ctx.screeningSessionId;
+    withdrawingSessions.add(id); // Stop this tab's new uploads immediately.
+    try {
+      if (flushing) await flushing.catch(()=>null);
+      const existing=await readCredential(id);
+      if (!existing) throw new Error("No JSSF upload capability; contact the study administrator");
+      if (!existing.withdrawalPending) {
+        // Keep only the capability required to retry an offline deletion; erase
+        // all pending and acknowledged research events from the outbox now.
+        await clearOutboxSession(existing);
+      }
+      const credential=await updateCredential(id,{
+        withdrawalPending:true,withdrawalRequestedAt:existing.withdrawalRequestedAt||new Date().toISOString()
+      });
+      return continueWithdrawal(credential);
+    } finally { withdrawingSessions.delete(id); }
+  }
+  async function resumePendingWithdrawals() {
+    const credentials=await listCredentials();
+    const results=[];
+    for (const cred of credentials) {
+      if (cred.withdrawalPending) {
+        results.push(await continueWithdrawal(cred));
+      }
+    }
+    return results;
+  }
+  async function purgeExpiredLocal(now=Date.now()) {
+    const credentials=await listCredentials();
+    let purged=0;
+    for (const cred of credentials) {
+      if (!retentionExpired(cred,now)) continue;
+      // The server deletes data at 90 days on its hourly schedule. Local
+      // cleanup is independent and never touches another research profile.
+      await eraseLocalResearch(cred);
+      await clearOutboxSession(cred,{removeCredential:true});
+      purged++;
+    }
+    return {purged};
+  }
+  async function privacyMaintenance() {
+    if (!hasOutboxMarker()) return {skipped:true};
+    // An unavailable local database or network must not delete the capability
+    // needed for a later withdrawal retry.
+    const expired=await purgeExpiredLocal();
+    const withdrawals=await resumePendingWithdrawals();
+    return {expired,withdrawals};
+  }
   // Completion events are raised only *after* the local canonical IndexedDB transaction has committed.
   global.addEventListener?.("quickstroke:research-record-finalized",evt=>{
     if (!canSync()) return;
     const detail=evt.detail||{};
     void queueFinalized(detail.kind,detail.record).catch(error=>console.warn("JSSF local outbox error",error));
   });
-  global.addEventListener?.("online",()=>{if(canSync())void flush().catch(()=>{});});
+  global.addEventListener?.("online",()=>{
+    if (hasOutboxMarker()) void privacyMaintenance().catch(error=>console.warn("JSSF privacy retry deferred",error));
+    if (canSync()) void flush().catch(()=>{});
+  });
   if (global.document) global.document.addEventListener("visibilitychange",()=>{if(!global.document.hidden&&canSync())void flush().catch(()=>{});});
   const api=Object.freeze({version:VERSION,featureReady,isRemoteContext,canSync,eventFromRecord,openOutbox,enroll,activate,
-    enqueue,queueFinalized,recoverCompleted,pending,flush,completeSession});
+    enqueue,queueFinalized,recoverCompleted,pending,flush,completeSession,
+    requestWithdrawal,resumePendingWithdrawals,purgeExpiredLocal,privacyMaintenance});
   Object.defineProperty(global,"QuickStrokeJssfRemote",{value:api,enumerable:true,configurable:false,writable:false});
   if (global.document) global.document.addEventListener("DOMContentLoaded",()=>{
+    if (hasOutboxMarker()) void privacyMaintenance().catch(error=>console.warn("JSSF privacy cleanup deferred",error));
     if (!canSync()) return;
     void recoverCompleted().then(()=>flush()).catch(error=>console.warn("JSSF recovery deferred",error));
   });
