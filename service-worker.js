@@ -7,7 +7,7 @@
  * - JS / JSON / รูปภาพ: stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v42";
+const CACHE_NAME = "quickstroke-pwa-v43";
 const CACHE_PREFIX = "quickstroke-pwa-";
 
 const CORE_SHELL = [
