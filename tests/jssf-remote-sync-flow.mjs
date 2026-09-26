@@ -98,7 +98,7 @@ function clientWindow(){
           ok:true,json:async()=>({
             sessionId:"550e8400-e29b-41d4-a716-446655440000",
             studyId:body.studyId,uploadToken:"a".repeat(64),
-            expiresAt:"2030-01-01T00:00:00Z"
+            createdAt:new Date().toISOString(),expiresAt:"2030-01-01T00:00:00Z"
           })
         };
       }
