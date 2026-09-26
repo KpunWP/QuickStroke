@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>QuickStroke · JSSF ถอนความยินยอม</title>
+<style>
+  :root{font-family:system-ui,-apple-system,"IBM Plex Sans Thai",sans-serif;color:#172b3d;background:#f3f7fb}
+  *{box-sizing:border-box}body{margin:0}main{max-width:670px;margin:28px auto;background:white;padding:28px;border:1px solid #dae4eb;border-radius:20px}
+  h1{font-size:25px;line-height:1.35;margin:12px 0}p{line-height:1.72;font-size:15px}
+  .badge{display:inline-block;padding:5px 12px;background:#fff2d8;border:1px solid #f0cf92;border-radius:50px;color:#895700;font-size:12px;font-weight:700}
+  .box{background:#f3f8fd;border:1px solid #d3e4f4;border-radius:14px;padding:16px;margin:18px 0}
+  .warning{border:1px solid #f4d0af;background:#fff8ee;border-radius:14px;padding:16px;margin:18px 0}
+  .check{display:block;line-height:1.7;padding:10px 0}
+  button{width:100%;padding:14px;border:0;border-radius:12px;background:#ba453a;color:white;font-size:16px;font-weight:750}
+  button:disabled{background:#bfccd6;color:#4f5e69;cursor:not-allowed}
+  #status{font-size:14px;line-height:1.7}a{color:#125c96;font-weight:700}
+  @media(max-width:710px){main{margin:0;border:0;border-radius:0;min-height:100vh;padding:23px 18px}}
+</style>
+<script src="./config.js"></script>
+<script src="./js/app-mode.js"></script>
+<script src="./js/research-policy.js"></script>
+<script src="./js/data-contract.js"></script>
+<script src="./js/research-store.js"></script>
+<script src="./js/jssf-remote-sync.js"></script>
+</head>
+<body>
+<main>
+  <strong>Quick<span style="color:#2878b6">Stroke</span></strong>
+  <div style="margin-top:15px"><span class="badge">JSSF Remote · หน้าทดสอบระบบถอนความยินยอม</span></div>
+  <h1>ถอนความยินยอมและลบข้อมูลการทดสอบ</h1>
+  <p>เมื่อมีการเปิดโครงการจริง ผู้เข้าร่วมที่เคยให้ความยินยอมสามารถขอลบ Session นี้ได้ โดยไม่จำเป็นต้องทำการทดสอบ FAST จนครบก่อน</p>
+  <div class="box">
+    <strong>ระบบจะดำเนินการดังนี้</strong>
+    <p>หยุดส่งผลการทดสอบเพิ่มเติม ลบข้อมูลของ Session นี้ออกจากฐานข้อมูลในเครื่อง และส่งคำขอให้ Server ลบ Session และ Events ที่เกี่ยวข้องในธุรกรรมเดียวกัน โดยไม่ลบข้อมูลการทดสอบของบุคคลอื่น</p>
+  </div>
+  <div class="warning">
+    <strong>หากไม่มีอินเทอร์เน็ต</strong>
+    <p>ระบบจะหยุดส่งผลการทดสอบและเก็บเฉพาะข้อมูลจำเป็นสำหรับลองส่งคำขอลบอีกครั้งเมื่อกลับมาออนไลน์ การลบบน Server ยังไม่เสร็จจนกว่าจะได้รับการยืนยัน โปรดอย่าล้างข้อมูลเว็บไซต์ระหว่างที่คำขอยังค้างอยู่</p>
+  </div>
+  <p id="status" role="status" aria-live="polite">กำลังตรวจสอบสิทธิ์ถอนข้อมูลของ Session ปัจจุบัน…</p>
+  <label class="check"><input type="checkbox" id="confirm" disabled> ฉันต้องการถอนความยินยอมและลบข้อมูล Session นี้ โดยทราบว่าไม่สามารถกู้คืนผลที่ลบแล้วได้</label>
+  <button id="withdraw" type="button" disabled>ยืนยันถอนความยินยอมและลบข้อมูล</button>
+  <p style="font-size:13px;color:#586c7e">หน้านี้ยังไม่เปิดรับสมัคร JSSF จริง ไม่มีการเริ่ม Session หรือส่งผลทดสอบจากหน้านี้</p>
+  <p><a href="./index.html">← กลับหน้าหลัก</a></p>
+</main>
+<script>
+(async function(){
+  "use strict";
+  const api=window.QuickStrokeJssfRemote;
+  const status=document.getElementById("status");
+  const confirm=document.getElementById("confirm");
+  const button=document.getElementById("withdraw");
+  if (!api?.isRemoteContext?.()) {
+    status.textContent="ยังไม่มี Session ผู้ทดสอบ JSSF ทางไกลที่ให้ความยินยอมในแท็บนี้ จึงไม่สามารถส่งคำขอลบข้อมูลผ่านหน้านี้";
+    return;
+  }
+  try {
+    if (!(await api.hasEnrollment())) {
+      status.textContent="ไม่พบสิทธิ์ส่งข้อมูลของ Session นี้ กรุณาติดต่อผู้รับผิดชอบโครงการเมื่อมีการประกาศช่องทางติดต่อ";
+      return;
+    }
+  } catch (_) {
+    status.textContent="ไม่สามารถเปิดฐานข้อมูลในเครื่องได้ ยังไม่ควรอ้างว่าลบข้อมูลสำเร็จ";
+    return;
+  }
+  status.textContent="ตรวจพบ Session ที่ลงทะเบียนแล้ว หากต้องการถอนความยินยอมให้ยืนยันด้านล่าง";
+  confirm.disabled=false;
+  confirm.addEventListener("change",()=>{button.disabled=!confirm.checked;});
+  button.addEventListener("click",async()=>{
+    if (!confirm.checked || button.disabled) return;
+    button.disabled=true;
+    confirm.disabled=true;
+    status.textContent="กำลังลบข้อมูลในเครื่องและส่งคำขอไปยัง Server…";
+    try {
+      const result=await api.requestWithdrawal();
+      if (result.complete) {
+        status.textContent="ถอนความยินยอมสำเร็จ Server ยืนยันการลบข้อมูลของ Session นี้แล้ว และข้อมูลในเครื่องถูกลบแล้ว";
+      } else {
+        status.textContent="บันทึกคำขอถอนความยินยอมแล้ว แต่ยังไม่สำเร็จทั้งหมด "+
+          (result.remoteDeleted?"Server ลบแล้ว ":"รอ Server ยืนยัน ")+
+          (result.localDeleted?"และลบข้อมูลในเครื่องแล้ว":"และยังลบข้อมูลในเครื่องไม่สำเร็จ")+
+          " ระบบจะลองซ้ำเมื่อเปิดแอปหรือเชื่อมต่ออินเทอร์เน็ตอีกครั้ง";
+      }
+    } catch (error) {
+      status.textContent="ยังถอนข้อมูลไม่สำเร็จ: "+(error?.message||"โปรดลองอีกครั้ง");
+      confirm.disabled=false;button.disabled=false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
