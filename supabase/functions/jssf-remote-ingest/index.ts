@@ -119,12 +119,12 @@ Deno.serve(async req => {
       const issued = token();
       const { data, error } = await db.from("jssf_remote_sessions")
         .insert({ ...input, upload_token_sha256:await sha256(issued) })
-        .select("id,study_id,expires_at").single();
+        .select("id,study_id,created_at,expires_at").single();
       if (error) {
         if (error.code === "23505") return response(409,{error:"Session already enrolled"},origin);
         throw error;
       }
-      return response(201,{ sessionId:data.id, studyId:data.study_id, uploadToken:issued, expiresAt:data.expires_at, schemaVersion:CONTRACT_VERSION },origin);
+      return response(201,{ sessionId:data.id, studyId:data.study_id, uploadToken:issued, createdAt:data.created_at, expiresAt:data.expires_at, schemaVersion:CONTRACT_VERSION },origin);
     }
     if (!url.pathname.endsWith("/events") && !url.pathname.endsWith("/withdraw")) return response(404,{error:"Not found"},origin);
     const session = await authorizedSession(req,body,{allowExpired:isWithdrawal});
