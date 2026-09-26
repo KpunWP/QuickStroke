@@ -1,7 +1,7 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20260926-jssf-90day-retention-staging-v2",
+  buildId: "20260926-jssf-withdrawal-staging-v3",
   configVersion: "quickstroke-config-1.0.21",
 
   // Not collecting. 90-day primary DB retention is in place; eligibility,
