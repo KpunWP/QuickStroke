@@ -1,10 +1,11 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20260925-jssf-remote-staging-v1",
+  buildId: "20260926-jssf-90day-retention-staging-v2",
   configVersion: "quickstroke-config-1.0.21",
 
-  // Not collecting. Eligibility, retention and finalized consent are still undecided.
+  // Not collecting. 90-day primary DB retention is in place; eligibility,
+  // browser/backup handling, withdrawal contact and final consent remain undecided.
   // The remote client and preview page are deliberately fail-closed.
   jssfRemote: {
     enabled: false,
@@ -13,7 +14,7 @@ window.QS_CONFIG = {
     retentionPolicyApproved: false,
     minimumAge18Enforced: false,
     consentVersion: null,
-    retentionDays: null,
+    retentionDays: 90,
     privacyContact: null,
     endpoint: "https://pzzjfnfwppdeketjdhfo.supabase.co/functions/v1/jssf-remote-ingest"
   },
