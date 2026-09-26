@@ -35,8 +35,8 @@ for (const file of ['arm-test.html', 'face-test.html']) {
     `${file}: TTS must use normalized speech rather than visual text`
   );
 }
-assert.match(read('service-worker.js'), /const CACHE_NAME = "quickstroke-pwa-v43";/);
-assert.match(read('config.js'), /buildId: "20260926-jssf-90day-retention-staging-v2"/);
+assert.match(read('service-worker.js'), /const CACHE_NAME = "quickstroke-pwa-v44";/);
+assert.match(read('config.js'), /buildId: "20260926-jssf-withdrawal-staging-v3"/);
 
 console.log('PASS: Thai speech uses clear stroke terminology and spoken digit-by-digit 1669');
 console.log('PASS: English/Japanese and unrelated numbers remain unchanged');
