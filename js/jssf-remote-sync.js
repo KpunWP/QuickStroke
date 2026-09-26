@@ -8,6 +8,8 @@
   const VERSION = "jssf-remote-client-0.1.0";
   const DB_NAME = "quickstroke_jssf_remote_outbox";
   const DB_VERSION = 1;
+  const RETENTION_DAYS = 90; // Matches the deployed primary-database retention migration.
+  const OUTBOX_MARKER = "quickstroke_jssf_outbox_present";
   const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
   const OBSERVATION = new Set(["no_alert", "attention", "abnormal", "indeterminate", "not_available"]);
   const VALIDITY = new Set(["valid", "invalid", "not_evaluable"]);
@@ -18,6 +20,7 @@
   const ID = /^[A-Za-z0-9_-]{3,110}$/;
   let opening = null;
   let flushing = null;
+  const withdrawingSessions = new Set();
 
   function config() {
     return global.QS_CONFIG?.jssfRemote || {};
@@ -41,7 +44,21 @@
       && value.researchMetadata?.researchProfile === "community_remote_qr"
       && value.researchMetadata?.consentStatus === "consented";
   }
-  function canSync() { return featureReady() && isRemoteContext(); }
+  function canSync() { return featureReady() && isRemoteContext() && !withdrawingSessions.has(context().screeningSessionId); }
+  function markOutboxPresent(present) {
+    try {
+      if (present) global.localStorage?.setItem(OUTBOX_MARKER,"1");
+      else global.localStorage?.removeItem(OUTBOX_MARKER);
+    } catch (_) { /* Some browsers disable localStorage. Explicit in-app withdrawal still works. */ }
+  }
+  function hasOutboxMarker() {
+    try { return global.localStorage?.getItem(OUTBOX_MARKER)==="1"; }
+    catch (_) { return false; }
+  }
+  function retentionExpired(credential, now=Date.now()) {
+    const created=Date.parse(credential?.createdAt||"");
+    return Number.isFinite(created) && created+RETENTION_DAYS*86400000<=now;
+  }
   function openOutbox() {
     if (!global.indexedDB) return Promise.reject(new Error("IndexedDB is required for durable outbox"));
     if (opening) return opening;
@@ -140,14 +157,19 @@
     if (!featureReady() || !isRemoteContext()) throw new Error("Remote JSSF collection is not approved for this session");
     if (context().screeningSessionId!==clientSessionId) throw new Error("Session identity mismatch");
     if (!enrollment || !UUID.test(enrollment.sessionId) || !/^[0-9a-f]{64}$/.test(enrollment.uploadToken||"")
-        || !/^[A-Z0-9-]{20,64}$/.test(enrollment.studyId||"")) throw new Error("Invalid server enrollment");
+        || !/^[A-Z0-9-]{20,64}$/.test(enrollment.studyId||"")
+        || !Number.isFinite(Date.parse(enrollment.createdAt||""))
+        || retentionExpired(enrollment)) throw new Error("Invalid or expired server enrollment");
     const credential={
       clientSessionId,sessionId:enrollment.sessionId,studyId:enrollment.studyId,
-      uploadToken:enrollment.uploadToken,expiresAt:enrollment.expiresAt,consentVersion:config().consentVersion
+      uploadToken:enrollment.uploadToken,createdAt:enrollment.createdAt,
+      expiresAt:enrollment.expiresAt,consentVersion:config().consentVersion,
+      withdrawalPending:false,remoteDeleted:false
     };
     const db=await openOutbox();
     const tx=db.transaction("credentials","readwrite");
     tx.objectStore("credentials").put(credential);await txResult(tx);
+    markOutboxPresent(true);
     // A module may have completed before the enrollment receipt arrived.
     void recoverCompleted().then(()=>flush()).catch(error=>console.warn("JSSF recovery deferred",error));
     return {studyId:credential.studyId,sessionId:credential.sessionId};
@@ -158,6 +180,7 @@
     const cfg=config();
     if (ctx.researchMetadata?.consentVersion!==cfg.consentVersion) throw new Error("Consent version mismatch");
     const old=await readCredential(ctx.screeningSessionId);
+    if (old?.withdrawalPending) throw new Error("Withdrawal pending: new enrollment is blocked for this session");
     if (old) return {sessionId:old.sessionId,studyId:old.studyId,reused:true};
     const agent=global.navigator?.userAgent||"";
     const platform=/iphone|ipad|ipod/i.test(agent)?"ios":/android/i.test(agent)?"android":/windows|macintosh|linux/i.test(agent)?"desktop":"other";
@@ -184,7 +207,7 @@
   async function enqueue(event,ctx=context()) {
     if (!canSync() || !ctx.screeningSessionId || !event || !EVENT_TYPES.has(event.eventType)) return false;
     const cred=await readCredential(ctx.screeningSessionId);
-    if (!cred) return false;
+    if (!cred || cred.withdrawalPending || retentionExpired(cred)) return false;
     const record={
       clientEventId:issuedId(),clientSessionId:ctx.screeningSessionId,sessionId:cred.sessionId,
       dedupeKey:event.dedupeKey||event.eventType+":"+issuedId(),
@@ -218,7 +241,8 @@
     flushing=(async()=>{
       const ctx=context(),cred=await readCredential(ctx.screeningSessionId);
       if (!cred) return {sent:0,reason:"not_enrolled"};
-      if (Date.parse(cred.expiresAt)<=Date.now()) return {sent:0,reason:"expired"};
+      if (cred.withdrawalPending) return {sent:0,reason:"withdrawal_pending"};
+      if (retentionExpired(cred) || Date.parse(cred.expiresAt)<=Date.now()) return {sent:0,reason:"expired"};
       const rows=(await pending(cred.sessionId)).slice(0,25);
       if (!rows.length) return {sent:0,reason:"empty"};
       const res=await global.fetch(config().endpoint.replace(/\/$/,"")+"/events",{
