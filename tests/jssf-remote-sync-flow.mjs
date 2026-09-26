@@ -43,7 +43,7 @@ const db={
   objectStoreNames:{contains:key=>tables.has(key)},
   createObjectStore(name,options){return store(table(name,options.keyPath));},
   transaction(name){
-    const tx={objectStore:()=>store(tables.get(name))};
+    const tx={objectStore:(requested)=>store(tables.get(requested || (Array.isArray(name)?name[0]:name)))};
     Object.defineProperty(tx,"oncomplete",{set(fn){Promise.resolve().then(()=>fn());}});
     return tx;
   }
