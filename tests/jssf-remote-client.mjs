@@ -101,7 +101,7 @@ const consent=read("jssf-consent.html");
 assert.match(consent,/ผู้ทดสอบทางไกล|บุคคลทั่วไป/);
 assert.match(consent,/disabled aria-disabled="true"/);
 assert.doesNotMatch(consent,/\.enroll\(/);
-assert.match(read("service-worker.js"),/quickstroke-pwa-v42/);
+assert.match(read("service-worker.js"),/quickstroke-pwa-v43/);
 assert.match(read("service-worker.js"),/\/jssf-consent\.html/);
 assert.match(read("config.js"),/enabled: false,[\s\S]*consentApproved: false,[\s\S]*agePolicyApproved: false,[\s\S]*retentionPolicyApproved: false/);
 assert.match(client,/pending\(cred\.sessionId\)/);
