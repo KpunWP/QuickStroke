@@ -24,6 +24,8 @@ function store(t){
     createIndex(name,key){t.indexes.set(name,key);},
     get(key){return request(()=>t.rows.get(key)||null);},
     put(row){t.rows.set(row[t.key],row);return request(()=>row);},
+    getAll(){return request(()=>[...t.rows.values()]);},
+    delete(key){t.rows.delete(key);return request(()=>undefined);},
     add(row){
       if(t.rows.has(row[t.key]))throw Error("duplicate primary key");
       t.rows.set(row[t.key],row);return request(()=>row);
@@ -57,7 +59,11 @@ const indexedDB={
     return r;
   }
 };
-let sequence=0,networkDown=true,enrolls=0;
+let sequence=0,networkDown=true,withdrawNetworkDown=true,enrolls=0,withdrawals=0;
+const localPurges=[];
+const preferences=new Map();
+const localStorage={setItem:(k,v)=>preferences.set(k,v),getItem:k=>preferences.get(k)||null,
+  removeItem:k=>preferences.delete(k)};
 const uploads=[];
 const cfg={
   version:"1.0.21",buildId:"synthetic-test",
@@ -87,7 +93,8 @@ function clientWindow(){
   const win={
     console,QS_CONFIG:cfg,QuickStrokeDataContract:{getSessionContext:()=>context},
     QuickStrokeI18n:{getLocale:()=>"th-TH"},
-    indexedDB,navigator:{userAgent:"iPhone Safari"},
+    indexedDB,localStorage,navigator:{userAgent:"iPhone Safari"},
+    QuickStrokeResearchStore:{purgeRemoteSessionLocal:async id=>{localPurges.push(id);return {deleted:true};}},
     crypto:{randomUUID:()=>"550e8400-e29b-41d4-a716-"+(++sequence).toString(16).padStart(12,"0")},
     addEventListener(){},
     fetch:async(url,options)=>{
@@ -106,6 +113,11 @@ function clientWindow(){
         if(networkDown)throw Error("Simulated offline");
         uploads.push(...body.events);
         return {ok:true,json:async()=>({acknowledged:body.events.map(x=>x.eventId)})};
+      }
+      if(url.endsWith("/withdraw")){
+        withdrawals++;
+        if(withdrawNetworkDown)throw Error("Simulated offline withdrawal");
+        return {ok:true,json:async()=>({withdrawn:true,remoteDataDeleted:true})};
       }
       throw Error("Unexpected URL: "+url);
     }
@@ -149,3 +161,25 @@ await reopened.recoverCompleted(recoveredStore);
 await reopened.flush();
 assert.equal(uploads.length,1);
 console.log("PASS: duplicate requeue and page reload recovery do not re-upload acknowledged events");
+
+const offlineWithdrawal=await sync.requestWithdrawal();
+assert.equal(offlineWithdrawal.complete,false);
+assert.equal(offlineWithdrawal.pending,true);
+assert.equal(offlineWithdrawal.localDeleted,true);
+assert.equal(offlineWithdrawal.remoteDeleted,false);
+assert.equal(localPurges[0],context.screeningSessionId);
+assert.equal((await sync.pending(enrollment.sessionId)).length,0);
+assert.equal(await sync.queueFinalized("module_run",sample),false);
+assert.equal((await sync.flush()).reason,"withdrawal_pending");
+console.log("PASS: offline withdrawal stops new uploads, erases local research, and preserves deletion capability");
+
+withdrawNetworkDown=false;
+const resumed=await reopened.resumePendingWithdrawals();
+assert.equal(resumed.length,1);
+assert.equal(resumed[0].complete,true);
+assert.equal(resumed[0].remoteDeleted,true);
+assert.equal(resumed[0].localDeleted,true);
+assert.equal((await sync.pending(enrollment.sessionId)).length,0);
+assert.equal((await sync.privacyMaintenance()).skipped,true);
+assert.ok ? assert.ok(withdrawals>=2) : assert.equal(withdrawals>=2,true);
+console.log("PASS: reconnect confirms server deletion, clears the capability and removes the outbox marker");
