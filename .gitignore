@@ -1,2 +1,9 @@
 # Locally generated Deno/Node dependencies
 node_modules/
+
+# Supabase CLI-generated local state and private test credentials
+/supabase/.temp/
+/supabase/.branches/
+/supabase/.env
+/supabase/functions/.env
+.env.local
