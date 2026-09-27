@@ -1,5 +1,7 @@
 # JSSF Step 6B — Closed, isolated Supabase HTTPS verification
 
+> **Superseded for the current no-cost workflow:** The project owner chose local-only synthetic testing rather than a billable cloud Development Branch. Follow [JSSF_STEP6B_LOCAL_FREE_TEST_PLAN.md](./JSSF_STEP6B_LOCAL_FREE_TEST_PLAN.md). The cloud HTTPS checklist below is archived and must not be executed without a separate future request and spending approval.
+
 **Status: planned; NOT RUN.** This plan is for synthetic engineering data only. It is **not** clinical validation, community recruitment, or approval to enable production collection.
 
 ## Confirmed prerequisites (reverify immediately before execution)
