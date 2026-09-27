@@ -61,14 +61,14 @@ assert.match(edge,/allowExpired:isWithdrawal/);
 assert.match(edge,/db\.rpc\("withdraw_jssf_session"/);
 console.log("PASS: server syntax, consent gate, session-token authorization and idempotency guards");
 
-const schema=read("supabase/migrations/20260925_jssf_remote_nonclinical_staging.sql");
+const schema=read("supabase/migrations/20260925050745_create_jssf_remote_nonclinical_staging_schema.sql");
 assert.match(schema,/jssf_remote_sessions[\s\S]*jssf_remote_events/);
 assert.match(schema,/UNIQUE \(session_id, client_event_id\)/);
 assert.match(schema,/ENABLE ROW LEVEL SECURITY/g);
 assert.match(schema,/REVOKE ALL ON public\.jssf_remote_sessions, public\.jssf_remote_events FROM PUBLIC, anon, authenticated/);
 console.log("PASS: committed schema limits access to privileged server ingestion");
 
-const withdrawalMigration=read("supabase/migrations/20260926_jssf_atomic_early_withdrawal.sql");
+const withdrawalMigration=read("supabase/migrations/20260926051827_jssf_atomic_early_withdrawal.sql");
 assert.match(withdrawalMigration,/DELETE FROM public\.jssf_remote_sessions[\s\S]*upload_token_sha256 = p_token_sha256/);
 assert.match(withdrawalMigration,/REVOKE ALL ON FUNCTION public\.withdraw_jssf_session/);
 assert.match(withdrawalMigration,/GRANT EXECUTE ON FUNCTION public\.withdraw_jssf_session[\s\S]*service_role/);
