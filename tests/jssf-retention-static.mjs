@@ -25,6 +25,13 @@ assert.match(consent,/ยังไม่ได้กำหนดกลุ่ม�
 assert.match(consent,/disabled aria-disabled="true"/);
 assert.match(config,/retentionDays: 90/);
 assert.match(config,/enabled: false,[\s\S]*consentApproved: false,[\s\S]*agePolicyApproved: false,[\s\S]*retentionPolicyApproved: false/);
-assert.match(sw,/quickstroke-pwa-v43/);
+// Cache may advance independently of the 90-day retention policy.
+// Require the JSSF offline shell and at least the withdrawal-preview cache version.
+const cacheVersion=sw.match(/^const CACHE_NAME = "quickstroke-pwa-v(\\d+)";/m);
+assert.ok(cacheVersion && Number(cacheVersion[1]) >= 44,
+  "JSSF service-worker cache must be at least v44");
+assert.match(sw,/"\\/jssf-consent\\.html"/);
+assert.match(sw,/"\\/jssf-withdraw\\.html"/);
+assert.match(sw,/"\\/js\\/jssf-remote-sync\\.js"/);
 assert.match(doc,/90-day \*\*primary PostgreSQL\*\* retention/);
 console.log("PASS: Thai consent, documentation and feature gate reflect 90-day policy without live recruitment");
