@@ -1,0 +1,20 @@
+# Local-only Supabase stack for closed synthetic JSSF tests.
+# This file does NOT link to the hosted quickstroke-jssf project.
+# Keep the remote deployment and public QR disabled throughout Step 6B.
+project_id = "quickstroke-jssf-local"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+major_version = 17
+
+[studio]
+enabled = false
+
+[functions.jssf-remote-ingest]
+# Enrollment is anonymous by design; the server-side collection gate
+# stays disabled unless an isolated developer-only test harness permits it.
+verify_jwt = false
