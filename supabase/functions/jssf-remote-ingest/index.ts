@@ -3,7 +3,7 @@
 // and origin policy are reviewed. No client-facing database key is exposed.
 // Supabase Edge Function: verify_jwt=false because /enroll is opt-in anonymous;
 // /events and /withdraw require a 256-bit per-session capability token.
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient } from "@supabase/supabase-js";
 import { sanitizeBatch, CONTRACT_VERSION } from "./payload.mjs";
 
 type JsonObject = Record<string, unknown>;
