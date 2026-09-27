@@ -1,11 +1,12 @@
 // Closed local HTTP integration test using the ACTUAL JSSF Edge handler.
 // Only 127.0.0.1 is contacted. The Supabase client is an in-memory simulation;
 // no real participant, external database, deployed endpoint, or public flag changes.
-// Node 18+. Run: node tests/jssf-edge-handler-http-e2e.mjs
+// Node 22.13+ (built-in TypeScript stripping). Run: node tests/jssf-edge-handler-http-e2e.mjs
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import { createServer } from "node:http";
+import { stripTypeScriptTypes } from "node:module";
 import { createHash, randomUUID, webcrypto } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { sanitizeBatch, CONTRACT_VERSION } from "../supabase/functions/jssf-remote-ingest/payload.mjs";
@@ -15,7 +16,7 @@ const source=fs.readFileSync(path.join(root,"supabase/functions/jssf-remote-inge
 const config=fs.readFileSync(path.join(root,"config.js"),"utf8");
 assert.match(config,/enabled: false,[\s\S]*consentApproved: false,[\s\S]*agePolicyApproved: false,[\s\S]*retentionPolicyApproved: false/,
   "ABORT: deployed client configuration is not fail-closed");
-const stripped=source.replace(/^import .*;$/gm,"");
+const stripped=stripTypeScriptTypes(source.replace(/^import .*;$/gm,""));
 assert.doesNotMatch(stripped,/^import /m,"Unsupported Edge import format; update local harness first");
 
 const sessions=new Map(),events=new Map();
