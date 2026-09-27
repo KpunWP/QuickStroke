@@ -36,20 +36,58 @@ function counts() {
   assert.ok(match,"Unexpected database count output");
   return {sessions:Number(match[1]),events:Number(match[2])};
 }
+function verifyWindowsFirewall() {
+  assert.equal(process.platform,"win32",
+    "ABORT: non-loopback published ports require verified host isolation");
+  assert.equal(process.env.QS_LAN_PROBE_BLOCKED,"YES",
+    "ABORT: verify BOTH ports are unreachable from a second LAN device first, then set QS_LAN_PROBE_BLOCKED=YES");
+  const script=String.raw`$ErrorActionPreference='Stop'
+$checks=@(@{Name='QuickStroke-JSSF-Local-54321';Port='54321'},@{Name='QuickStroke-JSSF-Local-54322';Port='54322'})
+foreach($check in $checks) {
+  $rule=Get-NetFirewallRule -Name $check.Name -ErrorAction Stop
+  if([string]$rule.Enabled -ne 'True' -or [string]$rule.Direction -ne 'Inbound' -or
+     [string]$rule.Action -ne 'Block' -or [string]$rule.Profile -ne 'Any') {
+    throw ('ABORT: ineffective firewall rule '+$check.Name)
+  }
+  $port=Get-NetFirewallPortFilter -AssociatedNetFirewallRule $rule
+  if([string]$port.Protocol -ne 'TCP' -or @($port.LocalPort) -notcontains $check.Port) {
+    throw ('ABORT: firewall port mismatch '+$check.Name)
+  }
+  $address=Get-NetFirewallAddressFilter -AssociatedNetFirewallRule $rule
+  if(@($address.RemoteAddress) -notcontains 'Any') {
+    throw ('ABORT: firewall remote-address coverage mismatch '+$check.Name)
+  }
+}
+if(@(Get-NetFirewallProfile | Where-Object { $_.Enabled -ne $true }).Count -gt 0) {
+  throw 'ABORT: at least one Windows Firewall profile is disabled'
+}
+Write-Output 'QS-FIREWALL-OK'`;
+  const result=execFileSync("powershell.exe",
+    ["-NoProfile","-NonInteractive","-Command",script],
+    {encoding:"utf8",timeout:15000}).trim();
+  assert.equal(result,"QS-FIREWALL-OK","Windows Firewall verification failed");
+}
 function verifyLocalPorts() {
   const expected=new Set([DB,GATEWAY]);
   const containers=JSON.parse(docker("inspect",DB,GATEWAY));
+  let publiclyPublished=false;
   for(const c of containers) {
-    assert.ok(expected.has(c.Name.replace(/^\//,"")),"Unexpected Docker container");
+    const name=c.Name.replace(/^\//,"");
+    assert.ok(expected.has(name),"Unexpected Docker container");
     const published=Object.values(c.NetworkSettings.Ports||{}).flatMap(x=>x||[]);
-    assert.ok(published.length>0,"No published ports: "+c.Name);
+    assert.ok(published.length>0,"No published ports: "+name);
+    const expectedHostPort=name===DB?"54322":"54321";
     for(const port of published) {
-      assert.ok(["127.0.0.1","::1"].includes(port.HostIp),
-        "ABORT: "+c.Name+" publishes a port on "+port.HostIp+
-        ". Restrict Docker networking to loopback before enabling local collection.");
+      assert.equal(port.HostPort,expectedHostPort,"ABORT: unexpected published port: "+name);
+      if(!["127.0.0.1","::1"].includes(port.HostIp)) publiclyPublished=true;
     }
   }
-  console.log("PASS: Docker database and API gateway are bound only to loopback");
+  if(publiclyPublished) {
+    verifyWindowsFirewall();
+    console.log("PASS: non-loopback Docker bindings protected by verified inbound firewall and second-device LAN checks");
+  } else {
+    console.log("PASS: Docker database and API gateway are bound only to loopback");
+  }
 }
 async function call(route,body=null,capability=null,origin=ORIGIN) {
   const response=await fetch(new URL(route,BASE),{
