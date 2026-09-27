@@ -6,6 +6,8 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { sanitizeBatch, CONTRACT_VERSION } from "./payload.mjs";
 
+type JsonObject = Record<string, unknown>;
+
 const MAX_BODY = 64000;
 const origins = new Set((Deno.env.get("JSSF_ALLOWED_ORIGINS") || "").split(",").map(x => x.trim()).filter(Boolean));
 const consentVersion = Deno.env.get("JSSF_CONSENT_VERSION") || "";
@@ -29,63 +31,69 @@ const COARSE_PLATFORM = new Set(["ios", "android", "desktop", "other"]);
 const COARSE_BROWSER = new Set(["safari", "chrome", "firefox", "edge", "other"]);
 const LOCALES = new Set(["th", "en", "ja"]);
 
-function response(status, body, origin = null) {
-  const headers = { "content-type":"application/json; charset=utf-8", "cache-control":"no-store", "x-content-type-options":"nosniff" };
+function response(status: number, body: unknown, origin: string | null = null): Response {
+  const headers = new Headers({ "content-type":"application/json; charset=utf-8", "cache-control":"no-store", "x-content-type-options":"nosniff" });
   if (origin && origins.has(origin)) {
-    headers["access-control-allow-origin"] = origin;
-    headers["access-control-allow-methods"] = "GET, POST, OPTIONS";
-    headers["access-control-allow-headers"] = "content-type, x-qs-session-token";
-    headers["vary"] = "Origin";
+    headers.set("access-control-allow-origin", origin);
+    headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
+    headers.set("access-control-allow-headers", "content-type, x-qs-session-token");
+    headers.set("vary", "Origin");
   }
   return new Response(status === 204 ? null : JSON.stringify(body), { status, headers });
 }
-function hex(bytes) { return Array.from(bytes, x => x.toString(16).padStart(2,"0")).join(""); }
-async function sha256(text) {
+function hex(bytes: Uint8Array): string { return Array.from(bytes, x => x.toString(16).padStart(2,"0")).join(""); }
+async function sha256(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text);
   return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)));
 }
 function token() { const bytes = crypto.getRandomValues(new Uint8Array(32)); return hex(bytes); }
 function studyId() {
   const h = hex(crypto.getRandomValues(new Uint8Array(12))).toUpperCase();
-  return "QS-" + h.match(/.{4}/g).join("-");
+  return "QS-" + (h.match(/.{4}/g) || []).join("-");
 }
-async function jsonBody(request) {
+async function jsonBody(request: Request): Promise<JsonObject> {
   const declared = Number(request.headers.get("content-length") || 0);
   if (declared > MAX_BODY) throw new TypeError("Request exceeds size limit");
   const raw = await request.text();
   if (new TextEncoder().encode(raw).length > MAX_BODY) throw new TypeError("Request exceeds size limit");
-  const parsed = JSON.parse(raw);
+  const parsed: unknown = JSON.parse(raw);
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new TypeError("Expected JSON object");
-  return parsed;
+  return parsed as JsonObject;
 }
-function requiredText(value, max, field) {
+function requiredText(value: unknown, max: number, field: string): string {
   if (typeof value !== "string" || value.length < 1 || value.length > max || !/^[A-Za-z0-9_.:-]+$/.test(value)) throw new TypeError("Invalid " + field);
   return value;
 }
-function parseEnrollment(body) {
+function parseEnrollment(body: JsonObject) {
   if (body.consentAccepted !== true || body.age18plus !== true || body.participationScope !== "usability_nonclinical" || body.consentVersion !== consentVersion) {
     throw new TypeError("Explicit adult nonclinical consent with current version is required");
   }
-  if (!SESSION.test(body.clientSessionId || "")) throw new TypeError("Invalid clientSessionId");
-  if (body.studyId != null && !/^QS-([A-F0-9]{4}-){5}[A-F0-9]{4}$/.test(body.studyId)) throw new TypeError("Invalid studyId");
-  if (!LOCALES.has(body.locale)) throw new TypeError("Invalid locale");
-  if (!COARSE_PLATFORM.has(body.platformFamily) || !COARSE_BROWSER.has(body.browserFamily)) throw new TypeError("Invalid device category");
+  const clientSessionId = typeof body.clientSessionId === "string" ? body.clientSessionId : "";
+  const optionalStudyId = body.studyId;
+  const locale = typeof body.locale === "string" ? body.locale : "";
+  const platform = typeof body.platformFamily === "string" ? body.platformFamily : "";
+  const browser = typeof body.browserFamily === "string" ? body.browserFamily : "";
+  if (!SESSION.test(clientSessionId)) throw new TypeError("Invalid clientSessionId");
+  if (optionalStudyId != null && (typeof optionalStudyId !== "string" || !/^QS-([A-F0-9]{4}-){5}[A-F0-9]{4}$/.test(optionalStudyId))) throw new TypeError("Invalid studyId");
+  if (!LOCALES.has(locale)) throw new TypeError("Invalid locale");
+  if (!COARSE_PLATFORM.has(platform) || !COARSE_BROWSER.has(browser)) throw new TypeError("Invalid device category");
   return {
-    client_session_id:body.clientSessionId,
-    study_id:body.studyId || studyId(),
+    client_session_id:clientSessionId,
+    study_id:typeof optionalStudyId === "string" ? optionalStudyId : studyId(),
     consent_version:consentVersion,
     consented_at:new Date().toISOString(),
     age_18_or_older:true,
-    locale:body.locale,
-    platform_family:body.platformFamily,
-    browser_family:body.browserFamily,
+    locale,
+    platform_family:platform,
+    browser_family:browser,
     app_version:requiredText(body.appVersion, 40, "appVersion"),
     app_build_id:requiredText(body.appBuildId, 120, "appBuildId"),
     participation_scope:"usability_nonclinical",
     research_profile:"community_remote_qr"
   };
 }
-async function authorizedSession(req, body, { allowExpired = false } = {}) {
+async function authorizedSession(req: Request, body: JsonObject, { allowExpired = false }: { allowExpired?: boolean } = {}) {
+  if (!db) return null;
   const sessionId = body.sessionId;
   const bearer = req.headers.get("x-qs-session-token") || "";
   if (typeof sessionId !== "string" || !UUID.test(sessionId) || !/^[0-9a-f]{64}$/.test(bearer)) return null;
@@ -98,7 +106,7 @@ async function authorizedSession(req, body, { allowExpired = false } = {}) {
   if (!data || (!allowExpired && Date.parse(data.expires_at) <= Date.now())) return null;
   return { ...data, tokenDigest:digest };
 }
-Deno.serve(async req => {
+Deno.serve(async (req: Request) => {
   const url = new URL(req.url);
   const origin = req.headers.get("origin");
   if (req.method === "GET" && url.pathname.endsWith("/health")) {
@@ -175,7 +183,9 @@ Deno.serve(async req => {
     return response(200,{acknowledged:ids, sessionCompleted:completion, schemaVersion:CONTRACT_VERSION},origin);
   } catch (error) {
     if (error instanceof TypeError || error instanceof SyntaxError) return response(422,{error:"Invalid request format"},origin);
-    console.error("JSSF ingest failed", { code:error?.code || "INTERNAL", kind: error?.name || "Error" });
+    const code = error && typeof error === "object" && "code" in error ? String(error.code) : "INTERNAL";
+    const kind = error instanceof Error ? error.name : "Error";
+    console.error("JSSF ingest failed", { code, kind });
     return response(500,{error:"Ingestion unavailable. Retry later."},origin);
   }
 });
