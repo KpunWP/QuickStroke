@@ -137,7 +137,8 @@ Deno.serve(async (req: Request) => {
     if (!url.pathname.endsWith("/events") && !url.pathname.endsWith("/withdraw")) return response(404,{error:"Not found"},origin);
     const session = await authorizedSession(req,body,{allowExpired:isWithdrawal});
     if (!session && isWithdrawal &&
-        UUID.test(body.sessionId || "") && /^[0-9a-f]{64}$/.test(req.headers.get("x-qs-session-token") || "")) {
+        typeof body.sessionId === "string" && UUID.test(body.sessionId) &&
+        /^[0-9a-f]{64}$/.test(req.headers.get("x-qs-session-token") || "")) {
       // Withdrawal acknowledgement may have been lost after the first delete.
       // If the session no longer exists, another acknowledgement is safe;
       // a still-existing session with the wrong token must NEVER be declared deleted.
