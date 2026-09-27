@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
+import { stripTypeScriptTypes } from "node:module";
 import { fileURLToPath } from "node:url";
 import { sanitizeBatch, sanitizeEvent, CONTRACT_VERSION } from "../supabase/functions/jssf-remote-ingest/payload.mjs";
 
@@ -42,7 +43,7 @@ assert.deepEqual(tech.payload,{code:"PERMISSION_DENIED",relatedModuleRunId:undef
 console.log("PASS: raw media, malformed events, and invalid incomplete abnormalities rejected or excluded");
 
 const edge=read("supabase/functions/jssf-remote-ingest/index.ts");
-const parsed=edge.replace(/^import .*;$/gm,"");
+const parsed=stripTypeScriptTypes(edge.replace(/^import .*;$/gm,""));
 assert.doesNotThrow(()=>new Function(parsed));
 assert.match(edge,/JSSF_REMOTE_ENABLED"\) === "true"/);
 assert.match(edge,/JSSF_CONSENT_VERSION/);
