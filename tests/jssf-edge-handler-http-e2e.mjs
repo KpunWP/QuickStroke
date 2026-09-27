@@ -56,6 +56,14 @@ class Query {
       if(this.operation==="update"){
         const collection=this.table==="jssf_remote_sessions"?sessions:events;
         for(const row of this.selected())collection.set(row.id,{...row,...this.input});
+      } else if(this.operation==="select"){
+        // PostgREST select is awaitable as a collection; completed-session
+        // idempotency checks rely on this return shape. Our fake previously
+        // supported only maybeSingle(), causing a synthetic HTTP 500 here.
+        return {
+          data:this.selected().map(row=>this.columns?fields(row,this.columns):{...row}),
+          error:null
+        };
       } else if(this.operation==="upsert"){
         assert.equal(this.table,"jssf_remote_events");
         for(const row of this.input){
