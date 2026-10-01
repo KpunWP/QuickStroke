@@ -425,16 +425,35 @@
       localError,remoteError
     };
   }
-  async function hasEnrollment() {
+  async function hasEnrollment(clientSessionId=null) {
+    if (clientSessionId!==null) {
+      const id=safeId(clientSessionId);
+      if (!id) return false;
+      return isActiveCredential(await readCredential(id));
+    }
     const ctx=context();
     if (!isRemoteContext(ctx) || !ctx.screeningSessionId) return false;
     return isActiveCredential(await readCredential(ctx.screeningSessionId));
   }
-  async function requestWithdrawal() {
+  async function listWithdrawableEnrollments() {
+    const credentials=await listCredentials();
+    return credentials
+      .filter(isActiveCredential)
+      .map(credential=>({
+        clientSessionId:credential.clientSessionId,
+        studyId:credential.studyId,
+        createdAt:credential.createdAt,
+        withdrawalPending:credential.withdrawalPending===true
+      }))
+      .sort((a,b)=>Date.parse(b.createdAt||"")-Date.parse(a.createdAt||""));
+  }
+  async function requestWithdrawal(clientSessionId=null) {
     const ctx=context();
-    if (!isRemoteContext(ctx) || !ctx.screeningSessionId)
+    const id=clientSessionId===null
+      ? (isRemoteContext(ctx) ? safeId(ctx.screeningSessionId) : null)
+      : safeId(clientSessionId);
+    if (!id)
       throw new Error("Only an enrolled JSSF nonclinical session can request withdrawal");
-    const id=ctx.screeningSessionId;
     withdrawingSessions.add(id); // Stop this tab's new uploads immediately.
     try {
       if (flushing) await flushing.catch(()=>null);
@@ -495,7 +514,7 @@
   if (global.document) global.document.addEventListener("visibilitychange",()=>{if(!global.document.hidden&&canSync())void flush().catch(()=>{});});
   const api=Object.freeze({version:VERSION,featureReady,isRemoteContext,canSync,eventFromRecord,openOutbox,enroll,activate,
     enqueue,queueFinalized,recoverCompleted,pending,flush,completeSession,
-    hasEnrollment,requestWithdrawal,resumePendingWithdrawals,purgeExpiredLocal,privacyMaintenance});
+    hasEnrollment,listWithdrawableEnrollments,requestWithdrawal,resumePendingWithdrawals,purgeExpiredLocal,privacyMaintenance});
   Object.defineProperty(global,"QuickStrokeJssfRemote",{value:api,enumerable:true,configurable:false,writable:false});
   if (global.document) global.document.addEventListener("DOMContentLoaded",()=>{
     if (hasOutboxMarker()) void privacyMaintenance().catch(error=>console.warn("JSSF privacy cleanup deferred",error));
