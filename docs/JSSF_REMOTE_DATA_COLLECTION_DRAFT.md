@@ -27,6 +27,8 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
+**Candidate final wording note (2026-10-01):** `jssf-consent.html` has been refined to explicitly describe what the participant will do, expected direct benefit (none guaranteed), foreseeable inconvenience/privacy concern, examples of direct identifiers that are not sent, and clearer voluntary-consent wording. The page remains fail-closed and disabled for recruitment. Project-owner/advisor approval of the wording is still required before assigning a production consent version or enabling collection.
+
 **Do not display this draft as final consent until the project owner/advisor has approved the wording and the hosted release gates are complete.**
 
 ## Implemented staging work
