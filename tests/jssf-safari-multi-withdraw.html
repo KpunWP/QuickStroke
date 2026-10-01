@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>QuickStroke · Safari Multi Study ID Withdrawal Test</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f5f8fb;color:#172b3d}
+    main{max-width:720px;margin:auto;padding:24px}
+    .card{background:#fff;border:1px solid #d9e4ec;border-radius:18px;padding:20px;margin:14px 0}
+    button,a{display:block;width:100%;box-sizing:border-box;margin:10px 0;padding:14px;border:0;border-radius:12px;background:#1877e8;color:#fff;font:inherit;font-weight:750;text-align:center;text-decoration:none}
+    button:disabled{background:#aebccc}
+    pre{white-space:pre-wrap;background:#0f1724;color:#eaf2ff;border-radius:14px;padding:16px;min-height:120px}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Safari Multi Study ID Withdrawal Test</h1>
+  <div class="card">
+    <p>สร้าง enrollment จำลอง 2 รอบใน IndexedDB จริงของ Safari โดยใช้ JSSF remote client จริง แต่ใช้ local mock backend เท่านั้น</p>
+    <button id="seed">1. Seed two Study IDs</button>
+    <button id="verify" disabled>2. Verify two withdrawable enrollments</button>
+    <a href="../jssf-withdraw.html">3. Open real Withdrawal page</a>
+  </div>
+  <div class="card"><strong>Result log</strong><pre id="log"></pre></div>
+</main>
+
+<script>
+(() => {
+  window.QS_CONFIG = {
+    jssfRemote:{
+      enabled:true,
+      consentApproved:true,
+      agePolicyApproved:true,
+      retentionPolicyApproved:true,
+      minimumAge18Enforced:true,
+      retentionDays:90,
+      privacyContact:"kpun.wp@gmail.com",
+      endpoint:location.origin + "/__jssf_mock",
+      consentVersion:"LOCAL_MULTI_WITHDRAW_2026_10_01"
+    },
+    research:{profiles:{community_remote_qr:{enabled:true,dataCollectionEnabled:true}}}
+  };
+
+  let current = {};
+  window.QuickStrokeDataContract = {
+    getSessionContext(){ return current; }
+  };
+
+  window.__setMultiContext = (studyId, screeningSessionId) => {
+    current = {
+      appMode:"research",
+      sessionStatus:"active",
+      screeningSessionId,
+      researchMetadata:{
+        researchProfile:"community_remote_qr",
+        consentStatus:"consented",
+        consentVersion:"LOCAL_MULTI_WITHDRAW_2026_10_01",
+        studyId
+      }
+    };
+  };
+})();
+</script>
+<script src="../js/jssf-remote-sync.js"></script>
+<script>
+(() => {
+  const log = document.getElementById("log");
+  const seed = document.getElementById("seed");
+  const verify = document.getElementById("verify");
+  const STUDY_A = "QS-MULTI-AAAA-2026";
+  const STUDY_B = "QS-MULTI-BBBB-2026";
+
+  function line(text){ log.textContent += text + "\n"; }
+  function uuid(){
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6]=(bytes[6]&15)|64; bytes[8]=(bytes[8]&63)|128;
+    const h=[...bytes].map(v=>v.toString(16).padStart(2,"0")).join("");
+    return h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20);
+  }
+
+  seed.onclick = async () => {
+    seed.disabled = true;
+    verify.disabled = true;
+    log.textContent = "";
+    try{
+      const sessionA = uuid();
+      __setMultiContext(STUDY_A, sessionA);
+      const a = await QuickStrokeJssfRemote.enroll();
+      line("PASS A: " + a.studyId);
+
+      const sessionB = uuid();
+      __setMultiContext(STUDY_B, sessionB);
+      const b = await QuickStrokeJssfRemote.enroll();
+      line("PASS B: " + b.studyId);
+
+      verify.disabled = false;
+      line("PASS: two synthetic enrollments created in real Safari IndexedDB");
+    }catch(error){
+      line("FAIL: " + (error?.message || error));
+      seed.disabled = false;
+    }
+  };
+
+  verify.onclick = async () => {
+    verify.disabled = true;
+    try{
+      const rows = await QuickStrokeJssfRemote.listWithdrawableEnrollments();
+      const multi = rows.filter(x => x.studyId === STUDY_A || x.studyId === STUDY_B);
+      line("Withdrawable count (test pair): " + multi.length);
+      multi.forEach(x => line(" - " + x.studyId));
+      if (multi.length !== 2) throw new Error("expected exactly 2 multi-test enrollments");
+      if (multi.some(x => Object.prototype.hasOwnProperty.call(x,"uploadToken"))) {
+        throw new Error("safe listing leaked uploadToken");
+      }
+      line("PASS: both Study IDs recoverable and safe metadata only");
+    }catch(error){
+      line("FAIL: " + (error?.message || error));
+    }
+  };
+})();
+</script>
+</body>
+</html>
