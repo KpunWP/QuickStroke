@@ -30,7 +30,10 @@
   <strong>Quick<span style="color:#2878b6">Stroke</span></strong>
   <div style="margin-top:15px"><span class="badge">JSSF Remote · หน้าทดสอบระบบถอนความยินยอม</span></div>
   <h1>ถอนความยินยอมและลบข้อมูลการทดสอบ</h1>
-  <p>เมื่อมีการเปิดโครงการจริง ผู้เข้าร่วมที่เคยให้ความยินยอมสามารถขอลบ Session นี้ได้ โดยไม่จำเป็นต้องทำการทดสอบ FAST จนครบก่อน</p>
+  <p>เมื่อมีการเปิดโครงการจริง ผู้เข้าร่วมที่เคยให้ความยินยอมสามารถขอลบ Session นี้ได้ โดยไม่จำเป็นต้องทำการทดสอบ FAST จนครบก่อน หากไม่สามารถใช้ปุ่มในหน้านี้ได้ สามารถติดต่อผู้ดำเนินโครงการทางอีเมลได้</p>
+  <p><strong>ผู้ดำเนินโครงการ:</strong> วัชรวิชย์ พงษ์ไพรัช และ สรกฤช ธัญญวรรณ์<br>
+  <strong>อาจารย์ที่ปรึกษา:</strong> พริ้วฝน เทียนศรี<br>
+  <strong>ติดต่อ:</strong> <a href="mailto:kpunkfang@gmail.com">kpunkfang@gmail.com</a> หรือ <a href="mailto:kpun.wp@gmail.com">kpun.wp@gmail.com</a></p>
   <div class="box">
     <strong>ระบบจะดำเนินการดังนี้</strong>
     <p>หยุดส่งผลการทดสอบเพิ่มเติม ลบข้อมูลของ Session นี้ออกจากฐานข้อมูลในเครื่อง และส่งคำขอให้ Server ลบ Session และ Events ที่เกี่ยวข้องในธุรกรรมเดียวกัน โดยไม่ลบข้อมูลการทดสอบของบุคคลอื่น</p>
@@ -58,7 +61,7 @@
   }
   try {
     if (!(await api.hasEnrollment())) {
-      status.textContent="ไม่พบสิทธิ์ส่งข้อมูลของ Session นี้ กรุณาติดต่อผู้รับผิดชอบโครงการเมื่อมีการประกาศช่องทางติดต่อ";
+      status.textContent="ไม่พบสิทธิ์ส่งข้อมูลของ Session นี้ หากต้องการขอถอนความยินยอมหรือลบข้อมูล กรุณาติดต่อ kpunkfang@gmail.com หรือ kpun.wp@gmail.com";
       return;
     }
   } catch (_) {
