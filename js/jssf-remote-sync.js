@@ -150,6 +150,12 @@
     if (global.crypto?.randomUUID) return global.crypto.randomUUID();
     throw new Error("Secure event ID generator unavailable");
   }
+  function capabilityToken() {
+    if (!global.crypto?.getRandomValues) throw new Error("Secure capability generator unavailable");
+    const bytes=new Uint8Array(32);
+    global.crypto.getRandomValues(bytes);
+    return Array.from(bytes,value=>value.toString(16).padStart(2,"0")).join("");
+  }
   async function readCredential(clientSessionId) {
     const db=await openOutbox();
     const tx=db.transaction("credentials","readonly");
@@ -157,10 +163,26 @@
     const cred=await reqResult(req);
     return cred || null;
   }
-  async function activate(enrollment, clientSessionId) {
+  async function writeCredential(credential) {
+    const db=await openOutbox();
+    const tx=db.transaction("credentials","readwrite");
+    tx.objectStore("credentials").put(credential);
+    await txResult(tx);
+    markOutboxPresent(true);
+    return credential;
+  }
+  function isActiveCredential(credential) {
+    return Boolean(credential
+      && credential.enrollmentPending!==true
+      && UUID.test(credential.sessionId||"")
+      && /^[0-9a-f]{64}$/.test(credential.uploadToken||"")
+      && Number.isFinite(Date.parse(credential.createdAt||"")));
+  }
+  async function activate(enrollment, clientSessionId, expectedUploadToken=null) {
     if (!featureReady() || !isRemoteContext()) throw new Error("Remote JSSF collection is not approved for this session");
     if (context().screeningSessionId!==clientSessionId) throw new Error("Session identity mismatch");
     if (!enrollment || !UUID.test(enrollment.sessionId) || !/^[0-9a-f]{64}$/.test(enrollment.uploadToken||"")
+        || (expectedUploadToken && enrollment.uploadToken!==expectedUploadToken)
         || !/^[A-Z0-9-]{20,64}$/.test(enrollment.studyId||"")
         || !Number.isFinite(Date.parse(enrollment.createdAt||""))
         || retentionExpired(enrollment)) throw new Error("Invalid or expired server enrollment");
@@ -168,15 +190,12 @@
       clientSessionId,sessionId:enrollment.sessionId,studyId:enrollment.studyId,
       uploadToken:enrollment.uploadToken,createdAt:enrollment.createdAt,
       expiresAt:enrollment.expiresAt,consentVersion:config().consentVersion,
-      withdrawalPending:false,remoteDeleted:false
+      enrollmentPending:false,withdrawalPending:false,remoteDeleted:false
     };
-    const db=await openOutbox();
-    const tx=db.transaction("credentials","readwrite");
-    tx.objectStore("credentials").put(credential);await txResult(tx);
-    markOutboxPresent(true);
+    await writeCredential(credential);
     // A module may have completed before the enrollment receipt arrived.
     void recoverCompleted().then(()=>flush()).catch(error=>console.warn("JSSF recovery deferred",error));
-    return {studyId:credential.studyId,sessionId:credential.sessionId};
+    return {studyId:credential.studyId,sessionId:credential.sessionId,reused:enrollment.reused===true};
   }
   async function enroll() {
     if (!featureReady() || !isRemoteContext()) throw new Error("JSSF consent or enrollment policy is not approved");
@@ -185,7 +204,20 @@
     if (ctx.researchMetadata?.consentVersion!==cfg.consentVersion) throw new Error("Consent version mismatch");
     const old=await readCredential(ctx.screeningSessionId);
     if (old?.withdrawalPending) throw new Error("Withdrawal pending: new enrollment is blocked for this session");
-    if (old) return {sessionId:old.sessionId,studyId:old.studyId,reused:true};
+    if (isActiveCredential(old)) return {sessionId:old.sessionId,studyId:old.studyId,reused:true};
+    if (old && old.enrollmentPending!==true) throw new Error("Stored JSSF enrollment capability is invalid");
+    const uploadToken=old?.enrollmentPending===true && /^[0-9a-f]{64}$/.test(old.uploadToken||"")
+      ? old.uploadToken
+      : capabilityToken();
+    if (!old) {
+      await writeCredential({
+        clientSessionId:ctx.screeningSessionId,sessionId:null,
+        studyId:ctx.researchMetadata.studyId,uploadToken,
+        createdAt:new Date().toISOString(),expiresAt:null,
+        consentVersion:cfg.consentVersion,enrollmentPending:true,
+        withdrawalPending:false,remoteDeleted:false
+      });
+    }
     const agent=global.navigator?.userAgent||"";
     const platform=/iphone|ipad|ipod/i.test(agent)?"ios":/android/i.test(agent)?"android":/windows|macintosh|linux/i.test(agent)?"desktop":"other";
     const browser=/edg/i.test(agent)?"edge":/firefox|fxios/i.test(agent)?"firefox":/chrome|crios/i.test(agent)?"chrome":/safari/i.test(agent)?"safari":"other";
@@ -197,6 +229,7 @@
         consentVersion:cfg.consentVersion,
         clientSessionId:ctx.screeningSessionId,
         studyId:ctx.researchMetadata.studyId,
+        uploadToken,
         participationScope:"usability_nonclinical",
         appVersion:global.QS_CONFIG.version,
         appBuildId:global.QS_CONFIG.buildId,
@@ -206,12 +239,12 @@
     });
     if (!res.ok) throw new Error("Enrollment unavailable (HTTP "+res.status+")");
     const enrollment=await res.json();
-    return activate(enrollment,ctx.screeningSessionId);
+    return activate(enrollment,ctx.screeningSessionId,uploadToken);
   }
   async function enqueue(event,ctx=context()) {
     if (!canSync() || !ctx.screeningSessionId || !event || !EVENT_TYPES.has(event.eventType)) return false;
     const cred=await readCredential(ctx.screeningSessionId);
-    if (!cred || cred.withdrawalPending || retentionExpired(cred)) return false;
+    if (!isActiveCredential(cred) || cred.withdrawalPending || retentionExpired(cred)) return false;
     const record={
       clientEventId:issuedId(),clientSessionId:ctx.screeningSessionId,sessionId:cred.sessionId,
       dedupeKey:event.dedupeKey||event.eventType+":"+issuedId(),
@@ -244,7 +277,7 @@
     if (flushing) return flushing;
     flushing=(async()=>{
       const ctx=context(),cred=await readCredential(ctx.screeningSessionId);
-      if (!cred) return {sent:0,reason:"not_enrolled"};
+      if (!isActiveCredential(cred)) return {sent:0,reason:"not_enrolled"};
       if (cred.withdrawalPending) return {sent:0,reason:"withdrawal_pending"};
       if (retentionExpired(cred) || Date.parse(cred.expiresAt)<=Date.now()) return {sent:0,reason:"expired"};
       const rows=(await pending(cred.sessionId)).slice(0,25);
@@ -395,7 +428,7 @@
   async function hasEnrollment() {
     const ctx=context();
     if (!isRemoteContext(ctx) || !ctx.screeningSessionId) return false;
-    return Boolean(await readCredential(ctx.screeningSessionId));
+    return isActiveCredential(await readCredential(ctx.screeningSessionId));
   }
   async function requestWithdrawal() {
     const ctx=context();
@@ -406,7 +439,7 @@
     try {
       if (flushing) await flushing.catch(()=>null);
       const existing=await readCredential(id);
-      if (!existing) throw new Error("No JSSF upload capability; contact the study administrator");
+      if (!isActiveCredential(existing)) throw new Error("No completed JSSF enrollment; retry enrollment or contact the study administrator");
       if (!existing.withdrawalPending) {
         // Keep only the capability required to retry an offline deletion; erase
         // all pending and acknowledged research events from the outbox now.
