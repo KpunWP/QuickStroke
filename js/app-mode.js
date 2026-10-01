@@ -26,7 +26,7 @@
       && remote.retentionDays >= 1
       && remote.retentionDays <= 365
       && typeof remote.privacyContact === 'string'
-      && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(remote.privacyContact)
+      && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(remote.privacyContact)
       && typeof remote.endpoint === 'string'
       && /^https:\/\//.test(remote.endpoint)
       && typeof remote.consentVersion === 'string'
