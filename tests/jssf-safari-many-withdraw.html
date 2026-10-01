@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>QuickStroke · Safari 100 Study ID Withdrawal Test</title>
+  <style>
+    body{font-family:system-ui,-apple-system,sans-serif;margin:0;background:#f5f8fb;color:#172b3d}
+    main{max-width:760px;margin:auto;padding:24px}
+    .card{background:#fff;border:1px solid #d9e4ec;border-radius:18px;padding:20px;margin:14px 0}
+    button,a{display:block;width:100%;box-sizing:border-box;margin:10px 0;padding:14px;border:0;border-radius:12px;background:#1877e8;color:#fff;font:inherit;font-weight:750;text-align:center;text-decoration:none}
+    button:disabled{background:#aebccc}
+    pre{white-space:pre-wrap;background:#0f1724;color:#eaf2ff;border-radius:14px;padding:16px;min-height:180px;max-height:420px;overflow:auto}
+    .hint{font-size:13px;line-height:1.6;color:#5d7182}
+  </style>
+</head>
+<body>
+<main>
+  <h1>Safari 100 Study ID Withdrawal Test</h1>
+
+  <div class="card">
+    <p>สร้าง enrollment จำลอง 100 รอบลง IndexedDB จริงของ Safari โดยใช้ production <code>js/jssf-remote-sync.js</code> และ local mock backend เท่านั้น</p>
+    <p class="hint">ใช้เพื่อทดสอบ UX กรณีมี Study ID จำนวนมาก: search/filter, latest-first, แสดงเพิ่มทีละ 20 และเลือก session ที่ถูกต้อง</p>
+    <button id="seed">1. Seed 100 Study IDs</button>
+    <button id="verify" disabled>2. Verify 100 withdrawable enrollments</button>
+    <a href="../jssf-withdraw.html">3. Open real Withdrawal page</a>
+  </div>
+
+  <div class="card">
+    <strong>Result log</strong>
+    <pre id="log"></pre>
+  </div>
+</main>
+
+<script>
+(() => {
+  window.QS_CONFIG = {
+    jssfRemote:{
+      enabled:true,
+      consentApproved:true,
+      agePolicyApproved:true,
+      retentionPolicyApproved:true,
+      minimumAge18Enforced:true,
+      retentionDays:90,
+      privacyContact:"kpun.wp@gmail.com",
+      endpoint:location.origin + "/__jssf_mock",
+      consentVersion:"LOCAL_MANY_WITHDRAW_2026_10_01"
+    },
+    research:{profiles:{community_remote_qr:{enabled:true,dataCollectionEnabled:true}}}
+  };
+
+  let current = {};
+  window.QuickStrokeDataContract = {
+    getSessionContext(){ return current; }
+  };
+
+  window.__setManyContext = (studyId, screeningSessionId) => {
+    current = {
+      appMode:"research",
+      sessionStatus:"active",
+      screeningSessionId,
+      researchMetadata:{
+        researchProfile:"community_remote_qr",
+        consentStatus:"consented",
+        consentVersion:"LOCAL_MANY_WITHDRAW_2026_10_01",
+        studyId
+      }
+    };
+  };
+})();
+</script>
+
+<script src="../js/jssf-remote-sync.js"></script>
+
+<script>
+(() => {
+  const log = document.getElementById("log");
+  const seed = document.getElementById("seed");
+  const verify = document.getElementById("verify");
+
+  const PREFIX = "QS-MANY-2026-";
+  const TOTAL = 100;
+
+  function line(text){
+    log.textContent += text + "\n";
+    log.scrollTop = log.scrollHeight;
+  }
+
+  function uuid(){
+    if (crypto.randomUUID) return crypto.randomUUID();
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    bytes[6]=(bytes[6]&15)|64;
+    bytes[8]=(bytes[8]&63)|128;
+    const h=[...bytes].map(v=>v.toString(16).padStart(2,"0")).join("");
+    return h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20);
+  }
+
+  function studyIdFor(index){
+    return PREFIX + String(index).padStart(4,"0") + "-TEST01";
+  }
+
+  seed.onclick = async () => {
+    seed.disabled = true;
+    verify.disabled = true;
+    log.textContent = "";
+
+    try{
+      for(let i=1;i<=TOTAL;i++){
+        const studyId = studyIdFor(i);
+        const sessionId = uuid();
+
+        __setManyContext(studyId, sessionId);
+        const result = await QuickStrokeJssfRemote.enroll();
+
+        if(result.studyId !== studyId){
+          throw new Error("Study ID mismatch at "+i);
+        }
+
+        if(i===1 || i%10===0 || i===TOTAL){
+          line("PASS seed "+i+"/"+TOTAL+" · "+studyId);
+        }
+      }
+
+      verify.disabled = false;
+      line("PASS: 100 synthetic enrollments created in real Safari IndexedDB");
+    }catch(error){
+      line("FAIL: " + (error?.message || error));
+      seed.disabled = false;
+    }
+  };
+
+  verify.onclick = async () => {
+    verify.disabled = true;
+
+    try{
+      const rows = await QuickStrokeJssfRemote.listWithdrawableEnrollments();
+      const many = rows.filter(x => String(x.studyId||"").startsWith(PREFIX));
+
+      line("Withdrawable count (100-test set): " + many.length);
+
+      if(many.length !== TOTAL){
+        throw new Error("expected exactly 100 many-test enrollments");
+      }
+
+      if(many.some(x => Object.prototype.hasOwnProperty.call(x,"uploadToken"))){
+        throw new Error("safe listing leaked uploadToken");
+      }
+
+      const created = many.map(x => Date.parse(x.createdAt||""));
+      for(let i=1;i<created.length;i++){
+        if(created[i] > created[i-1]){
+          throw new Error("listing is not newest-first");
+        }
+      }
+
+      const ids = new Set(many.map(x => x.studyId));
+      if(ids.size !== TOTAL){
+        throw new Error("duplicate Study IDs detected");
+      }
+
+      line("Newest: " + many[0].studyId);
+      line("Oldest: " + many[many.length-1].studyId);
+      line("PASS: 100 recoverable entries, safe metadata only, newest-first");
+      line("NEXT: open the real Withdrawal page and test search + load more + selection confirmation");
+    }catch(error){
+      line("FAIL: " + (error?.message || error));
+    }
+  };
+})();
+</script>
+</body>
+</html>
