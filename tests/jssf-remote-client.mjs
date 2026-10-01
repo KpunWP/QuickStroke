@@ -100,10 +100,15 @@ for(const file of ["index.html","face-test.html","arm-test.html","speech-test.ht
 const consent=read("jssf-consent.html");
 assert.match(consent,/ผู้ทดสอบทางไกล|บุคคลทั่วไป/);
 assert.match(consent,/disabled aria-disabled="true"/);
-assert.doesNotMatch(consent,/\.enroll\(/);
-assert.match(read("service-worker.js"),/quickstroke-pwa-v44/);
+assert.match(consent,/function releaseReady\(\)/);
+assert.match(consent,/remote\?\.featureReady\?\.\(\)===true/);
+assert.match(consent,/await remote\.enroll\(\)/);
+assert.match(consent,/researchProfile:"community_remote_qr"/);
+assert.match(consent,/sessionStorage\.setItem\("fast_mode","full"\)/);
+assert.match(consent,/window\.location\.href="\.\/face-test\.html"/);
+assert.match(read("service-worker.js"),/quickstroke-pwa-v45/);
 assert.match(read("service-worker.js"),/\/jssf-consent\.html/);
 assert.match(read("service-worker.js"),/\/jssf-withdraw\.html/);
 assert.match(read("config.js"),/enabled: false,[\s\S]*consentApproved: false,[\s\S]*agePolicyApproved: false,[\s\S]*retentionPolicyApproved: false/);
 assert.match(client,/pending\(cred\.sessionId\)/);
-console.log("PASS: all pages load gated sync client; draft consent cannot enroll; offline assets updated");
+console.log("PASS: all pages load gated sync client; consent entry remains fail-closed until release gates pass; offline assets updated");
