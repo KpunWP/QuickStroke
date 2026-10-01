@@ -19,9 +19,10 @@ assert.match(read("supabase/migrations/20260925050745_create_jssf_remote_nonclin
   /REFERENCES public\.jssf_remote_sessions\(id\) ON DELETE CASCADE/);
 console.log("PASS: hourly primary database retention removes sessions and cascades to events");
 
-assert.match(consent,/90 วัน นับจากวันที่ระบบสร้าง Session/);
-assert.match(consent,/ข้อมูลที่อยู่ในเบราว์เซอร์และสำเนาสำรอง/);
-assert.match(consent,/ยังไม่ได้กำหนดกลุ่มอายุ/);
+assert.match(consent,/90 วันนับจากวันที่สร้างรอบการทดสอบ/);
+assert.match(consent,/อุปกรณ์อาจเก็บข้อมูลบางส่วนไว้ชั่วคราว/);
+assert.match(consent,/18 ปีขึ้นไป/);
+assert.match(consent,/ยังไม่เปิดรับสมัครหรือเก็บข้อมูลจากบุคคลทั่วไป/);
 assert.match(consent,/disabled aria-disabled="true"/);
 assert.match(config,/retentionDays: 90/);
 assert.match(config,/enabled: false,[\s\S]*consentApproved: false,[\s\S]*agePolicyApproved: false,[\s\S]*retentionPolicyApproved: false/);
