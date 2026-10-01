@@ -222,6 +222,57 @@ test('Study ID generator uses secure random IDs with stable non-time format', ()
   assert.doesNotMatch(source, /Math\.random\s*\(/);
 });
 
+test('community remote profile is config-gated and fails closed', () => {
+  const c = loadCurrent();
+  const app = c.QuickStrokeAppMode;
+  const policy = c.QuickStrokeResearchPolicy;
+  const remote = c.QS_CONFIG.jssfRemote;
+  const profileConfig = c.QS_CONFIG.research.profiles.community_remote_qr;
+
+  assert.equal(app.profiles.community_remote_qr.enabled, false);
+  assert.equal(app.profiles.community_remote_qr.dataCollectionEnabled, false);
+
+  Object.assign(profileConfig, { enabled:true, dataCollectionEnabled:true });
+  Object.assign(remote, {
+    enabled:true,
+    consentApproved:true,
+    agePolicyApproved:true,
+    retentionPolicyApproved:true,
+    minimumAge18Enforced:true,
+    consentVersion:'JSSF-CONSENT-TEST-1',
+    retentionDays:90,
+    privacyContact:'qa@example.org',
+    endpoint:'https://example.invalid/functions/v1/jssf-remote-ingest'
+  });
+
+  assert.equal(app.profiles.community_remote_qr.enabled, true);
+  assert.equal(app.profiles.community_remote_qr.dataCollectionEnabled, true);
+
+  const metadata = app.configureResearchContext({
+    researchProfile:'community_remote_qr',
+    consentStatus:'consented',
+    consentVersion:remote.consentVersion,
+    recruitmentSource:'community_remote_qr',
+    operatorRole:'participant_self_service',
+    source:'unit_test'
+  });
+  const context = c.QuickStrokeDataContract.ensureScreeningContext({
+    forceNewParticipant:true,
+    forceNewSession:true,
+    mode:'research'
+  });
+  const session = c.QuickStrokeDataContract.createScreeningSessionRecord({ context });
+  const allowed = policy.validateSessionBundle({ screeningSession:session }, { requireProtocolComplete:false });
+  assert.equal(allowed.errors.includes('COMMUNITY_REMOTE_QR_DATA_COLLECTION_DISABLED'), false);
+
+  remote.consentApproved = false;
+  assert.equal(app.profiles.community_remote_qr.enabled, false);
+  const blockedMetadata = app.validateResearchMetadata(metadata, { requireConsented:true });
+  assert.ok(blockedMetadata.errors.includes('RESEARCH_PROFILE_DISABLED'));
+  const blocked = policy.validateSessionBundle({ screeningSession:session }, { requireProtocolComplete:false });
+  assert.ok(blocked.errors.includes('COMMUNITY_REMOTE_QR_DATA_COLLECTION_DISABLED'));
+});
+
 test('Dev Mode records are engineering_only', () => {
   const c = loadCurrent('?dev=1');
   const ctx = c.QuickStrokeDataContract.ensureScreeningContext({ forceNewParticipant: true, forceNewSession: true });
