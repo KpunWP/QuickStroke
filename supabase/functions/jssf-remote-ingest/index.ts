@@ -131,7 +131,6 @@ async function consumeRateLimit(
         : 60
   };
 }
-function token() { const bytes = crypto.getRandomValues(new Uint8Array(32)); return hex(bytes); }
 function studyId() {
   const h = hex(crypto.getRandomValues(new Uint8Array(12))).toUpperCase();
   return "QS-" + (h.match(/.{4}/g) || []).join("-");
@@ -155,26 +154,31 @@ function parseEnrollment(body: JsonObject) {
   }
   const clientSessionId = typeof body.clientSessionId === "string" ? body.clientSessionId : "";
   const optionalStudyId = body.studyId;
+  const uploadToken = typeof body.uploadToken === "string" ? body.uploadToken : "";
   const locale = typeof body.locale === "string" ? body.locale : "";
   const platform = typeof body.platformFamily === "string" ? body.platformFamily : "";
   const browser = typeof body.browserFamily === "string" ? body.browserFamily : "";
   if (!SESSION.test(clientSessionId)) throw new TypeError("Invalid clientSessionId");
   if (optionalStudyId != null && (typeof optionalStudyId !== "string" || !/^QS-([A-F0-9]{4}-){5}[A-F0-9]{4}$/.test(optionalStudyId))) throw new TypeError("Invalid studyId");
+  if (!/^[0-9a-f]{64}$/.test(uploadToken)) throw new TypeError("Invalid uploadToken");
   if (!LOCALES.has(locale)) throw new TypeError("Invalid locale");
   if (!COARSE_PLATFORM.has(platform) || !COARSE_BROWSER.has(browser)) throw new TypeError("Invalid device category");
   return {
-    client_session_id:clientSessionId,
-    study_id:typeof optionalStudyId === "string" ? optionalStudyId : studyId(),
-    consent_version:consentVersion,
-    consented_at:new Date().toISOString(),
-    age_18_or_older:true,
-    locale,
-    platform_family:platform,
-    browser_family:browser,
-    app_version:requiredText(body.appVersion, 40, "appVersion"),
-    app_build_id:requiredText(body.appBuildId, 120, "appBuildId"),
-    participation_scope:"usability_nonclinical",
-    research_profile:"community_remote_qr"
+    uploadToken,
+    row: {
+      client_session_id:clientSessionId,
+      study_id:typeof optionalStudyId === "string" ? optionalStudyId : studyId(),
+      consent_version:consentVersion,
+      consented_at:new Date().toISOString(),
+      age_18_or_older:true,
+      locale,
+      platform_family:platform,
+      browser_family:browser,
+      app_version:requiredText(body.appVersion, 40, "appVersion"),
+      app_build_id:requiredText(body.appBuildId, 120, "appBuildId"),
+      participation_scope:"usability_nonclinical",
+      research_profile:"community_remote_qr"
+    }
   };
 }
 async function authorizedSession(req: Request, body: JsonObject, { allowExpired = false }: { allowExpired?: boolean } = {}) {
@@ -232,19 +236,42 @@ Deno.serve(async (req: Request) => {
     const body = await jsonBody(req);
 
     if (url.pathname.endsWith("/enroll")) {
-      const input = parseEnrollment(body);
-      const issued = token();
+      const enrollment = parseEnrollment(body);
+      const input = enrollment.row;
+      const issued = enrollment.uploadToken;
+      const issuedHash = await sha256(issued);
 
       const { data, error } = await db.from("jssf_remote_sessions")
         .insert({
           ...input,
-          upload_token_sha256: await sha256(issued)
+          upload_token_sha256: issuedHash
         })
         .select("id,study_id,created_at,expires_at")
         .single();
 
       if (error) {
         if (error.code === "23505") {
+          const { data: existing, error: lookupError } = await db.from("jssf_remote_sessions")
+            .select("id,study_id,created_at,expires_at")
+            .eq("client_session_id", input.client_session_id)
+            .eq("upload_token_sha256", issuedHash)
+            .maybeSingle();
+          if (lookupError) throw lookupError;
+          if (existing) {
+            return response(
+              200,
+              {
+                sessionId: existing.id,
+                studyId: existing.study_id,
+                uploadToken: issued,
+                createdAt: existing.created_at,
+                expiresAt: existing.expires_at,
+                schemaVersion: CONTRACT_VERSION,
+                reused: true
+              },
+              origin
+            );
+          }
           return response(
             409,
             { error: "Session already enrolled" },
