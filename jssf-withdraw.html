@@ -15,8 +15,26 @@
   .check{display:block;line-height:1.7;padding:10px 0}
   button{width:100%;padding:14px;border:0;border-radius:12px;background:#ba453a;color:white;font-size:16px;font-weight:750}
   button:disabled{background:#bfccd6;color:#4f5e69;cursor:not-allowed}
-  #status{font-size:14px;line-height:1.7}select{width:100%;margin-top:8px;padding:11px 12px;border:1px solid #c7d6e2;border-radius:10px;background:white;color:#172b3d;font:inherit}a{color:#125c96;font-weight:700}
-  @media(max-width:710px){main{margin:0;border:0;border-radius:0;min-height:100vh;padding:23px 18px}}
+  #status{font-size:14px;line-height:1.7}
+  a{color:#125c96;font-weight:700}
+  .session-picker{margin:18px 0}
+  .session-picker h2{font-size:16px;margin:0 0 6px}
+  .session-picker-note{margin:0 0 12px;color:#586c7e;font-size:13px;line-height:1.55}
+  .session-search{width:100%;padding:12px 13px;border:1px solid #c7d6e2;border-radius:11px;background:white;color:#172b3d;font:inherit;margin:0 0 10px}
+  .session-list{display:grid;gap:9px;max-height:420px;overflow:auto;padding:2px}
+  .session-card{display:grid;grid-template-columns:auto minmax(0,1fr);gap:10px;align-items:flex-start;padding:12px 13px;border:1px solid #d5e1e9;border-radius:12px;background:#fff;cursor:pointer}
+  .session-card:has(input:checked){border-color:#2878b6;background:#eef7ff;box-shadow:0 0 0 1px #2878b6 inset}
+  .session-card input{margin-top:4px}
+  .session-id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:750;line-height:1.45;overflow-wrap:anywhere}
+  .session-meta{margin-top:3px;color:#667989;font-size:12px;line-height:1.45}
+  .pending-pill{display:inline-block;margin-left:6px;padding:2px 7px;border-radius:999px;background:#fff0d8;color:#8a5900;font-size:11px;font-weight:700}
+  .session-empty{padding:12px;border:1px dashed #c7d6e2;border-radius:11px;color:#667989;font-size:13px}
+  .more-button{margin-top:9px;background:#edf4fa;color:#245b82;border:1px solid #cddfeb}
+  .selected-session{margin:14px 0;padding:14px;border:1px solid #a9cee9;border-radius:13px;background:#f2f9ff}
+  .selected-session strong{display:block;margin-bottom:6px}
+  .selected-session-id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:750;line-height:1.45;overflow-wrap:anywhere}
+  .selected-session-meta{margin-top:4px;color:#586c7e;font-size:12px}
+  @media(max-width:710px){main{margin:0;border:0;border-radius:0;min-height:100vh;padding:23px 18px}.session-list{max-height:360px}}
 </style>
 <script src="./config.js"></script>
 <script src="./js/app-mode.js"></script>
@@ -42,16 +60,30 @@
     <strong>หากไม่มีอินเทอร์เน็ต</strong>
     <p>ระบบจะหยุดส่งผลการทดสอบและเก็บเฉพาะข้อมูลที่จำเป็นสำหรับส่งคำขอลบอีกครั้งเมื่อกลับมาออนไลน์ การลบข้อมูลในระบบส่วนกลางจะยังไม่เสร็จจนกว่าจะได้รับการยืนยัน โปรดอย่าล้างข้อมูลเว็บไซต์ระหว่างที่คำขอยังค้างอยู่</p>
   </div>
+
   <p id="status" role="status" aria-live="polite">กำลังตรวจสอบข้อมูลของรอบการทดสอบที่อุปกรณ์นี้ยังมีสิทธิ์ถอนความยินยอม…</p>
-  <label class="check" id="session-picker-wrap" hidden>
-    เลือกรอบการทดสอบที่ต้องการลบ
-    <select id="session-picker" aria-label="เลือกรอบการทดสอบ"></select>
-  </label>
+
+  <section class="session-picker" id="session-picker-wrap" hidden aria-labelledby="session-picker-heading">
+    <h2 id="session-picker-heading">เลือกรอบการทดสอบที่ต้องการลบ</h2>
+    <p class="session-picker-note" id="session-picker-note"></p>
+    <input class="session-search" id="session-search" type="search" inputmode="search"
+      autocomplete="off" placeholder="ค้นหา Study ID" aria-label="ค้นหา Study ID" hidden>
+    <div class="session-list" id="session-list"></div>
+    <button class="more-button" id="session-more" type="button" hidden>แสดงรายการเพิ่มเติม</button>
+  </section>
+
+  <div class="selected-session" id="selected-session" hidden>
+    <strong>รายการที่จะถอนและลบ</strong>
+    <div class="selected-session-id" id="selected-session-id"></div>
+    <div class="selected-session-meta" id="selected-session-meta"></div>
+  </div>
+
   <label class="check"><input type="checkbox" id="confirm" disabled> ฉันต้องการถอนความยินยอมและลบข้อมูลของรอบการทดสอบที่เลือก โดยทราบว่าไม่สามารถกู้คืนข้อมูลที่ลบแล้วได้</label>
   <button id="withdraw" type="button" disabled>ยืนยันถอนความยินยอมและลบข้อมูล</button>
   <p style="font-size:13px;color:#586c7e">หน้านี้ยังเป็นหน้าทดสอบระบบและยังไม่เปิดรับสมัครจริง ไม่มีการเริ่มรอบการทดสอบหรือส่งผลการทดสอบจากหน้านี้</p>
   <p><a href="./index.html">← กลับหน้าหลัก</a></p>
 </main>
+
 <script>
 (async function(){
   "use strict";
@@ -61,9 +93,19 @@
   const confirm=document.getElementById("confirm");
   const button=document.getElementById("withdraw");
   const pickerWrap=document.getElementById("session-picker-wrap");
-  const picker=document.getElementById("session-picker");
+  const pickerNote=document.getElementById("session-picker-note");
+  const search=document.getElementById("session-search");
+  const list=document.getElementById("session-list");
+  const more=document.getElementById("session-more");
+  const selectedBox=document.getElementById("selected-session");
+  const selectedId=document.getElementById("selected-session-id");
+  const selectedMeta=document.getElementById("selected-session-meta");
+
+  const PAGE_SIZE=20;
   let enrollments=[];
   let selectedClientSessionId=null;
+  let visibleLimit=PAGE_SIZE;
+  let query="";
 
   function displayDate(value){
     const parsed=Date.parse(value||"");
@@ -71,14 +113,116 @@
     try{return new Date(parsed).toLocaleString("th-TH",{dateStyle:"medium",timeStyle:"short"});}
     catch(_){return new Date(parsed).toISOString();}
   }
+
   function selectedEnrollment(){
     return enrollments.find(item=>item.clientSessionId===selectedClientSessionId)||null;
   }
+
+  function normalizedSearch(value){
+    return String(value||"").trim().toUpperCase();
+  }
+
+  function filteredEnrollments(){
+    if(!query) return enrollments;
+    return enrollments.filter(item=>
+      normalizedSearch(item.studyId).includes(query) ||
+      normalizedSearch(displayDate(item.createdAt)).includes(query)
+    );
+  }
+
+  function renderSelected(){
+    const selected=selectedEnrollment();
+    selectedBox.hidden=!selected;
+    if(!selected){
+      selectedId.textContent="";
+      selectedMeta.textContent="";
+      return;
+    }
+    selectedId.textContent=selected.studyId;
+    const parts=[];
+    if(selected.createdAt) parts.push("สร้างเมื่อ "+displayDate(selected.createdAt));
+    if(selected.withdrawalPending) parts.push("มีคำขอถอนที่รอดำเนินการ");
+    selectedMeta.textContent=parts.join(" · ");
+  }
+
   function refreshConfirmation(){
     const available=Boolean(selectedEnrollment());
     confirm.disabled=!available;
     if(!available) confirm.checked=false;
     button.disabled=!available || !confirm.checked;
+    renderSelected();
+  }
+
+  function chooseEnrollment(clientSessionId){
+    selectedClientSessionId=clientSessionId||null;
+    confirm.checked=false;
+    renderSessionList();
+    refreshConfirmation();
+  }
+
+  function renderSessionList(){
+    if(enrollments.length<=1){
+      pickerWrap.hidden=true;
+      return;
+    }
+
+    pickerWrap.hidden=false;
+    search.hidden=enrollments.length<=10;
+    pickerNote.textContent=enrollments.length>10
+      ? "พบ "+enrollments.length+" รอบ เรียงจากล่าสุดก่อน หากรายการยาวให้ค้นหาด้วย Study ID หรือวันที่/เวลา"
+      : "เรียงจากรอบล่าสุดก่อน กรุณาตรวจ Study ID และวันเวลาให้ตรงกับรอบที่ต้องการลบ";
+
+    const filtered=filteredEnrollments();
+    const visible=filtered.slice(0,visibleLimit);
+    list.innerHTML="";
+
+    if(!visible.length){
+      const empty=document.createElement("div");
+      empty.className="session-empty";
+      empty.textContent="ไม่พบ Study ID ที่ตรงกับคำค้น";
+      list.appendChild(empty);
+    }else{
+      for(const item of visible){
+        const label=document.createElement("label");
+        label.className="session-card";
+
+        const radio=document.createElement("input");
+        radio.type="radio";
+        radio.name="withdraw-session";
+        radio.value=item.clientSessionId;
+        radio.checked=item.clientSessionId===selectedClientSessionId;
+        radio.addEventListener("change",()=>chooseEnrollment(item.clientSessionId));
+
+        const body=document.createElement("div");
+        const id=document.createElement("div");
+        id.className="session-id";
+        id.textContent=item.studyId;
+
+        const meta=document.createElement("div");
+        meta.className="session-meta";
+        meta.textContent=item.createdAt ? displayDate(item.createdAt) : "ไม่พบวันเวลาที่สร้าง";
+
+        if(item.withdrawalPending){
+          const pending=document.createElement("span");
+          pending.className="pending-pill";
+          pending.textContent="รอดำเนินการถอน";
+          meta.appendChild(pending);
+        }
+
+        body.append(id,meta);
+        label.append(radio,body);
+        list.appendChild(label);
+      }
+    }
+
+    more.hidden=filtered.length<=visibleLimit;
+    more.textContent="แสดงรายการเพิ่มเติม ("+(filtered.length-visibleLimit)+" รายการ)";
+  }
+
+  function setPickerDisabled(disabled){
+    search.disabled=disabled;
+    more.disabled=disabled;
+    list.querySelectorAll("input[type=radio]").forEach(node=>{node.disabled=disabled;});
   }
 
   if(typeof api?.listWithdrawableEnrollments!=="function"){
@@ -102,63 +246,62 @@
   const currentMatch=api.isRemoteContext?.(current)
     ? enrollments.find(item=>item.clientSessionId===current.screeningSessionId)
     : null;
+
   selectedClientSessionId=currentMatch?.clientSessionId
     || (enrollments.length===1?enrollments[0].clientSessionId:null);
 
   if(enrollments.length>1){
-    pickerWrap.hidden=false;
-    picker.innerHTML="";
-    const placeholder=document.createElement("option");
-    placeholder.value="";
-    placeholder.textContent="— เลือกรอบการทดสอบ —";
-    picker.appendChild(placeholder);
-    for(const item of enrollments){
-      const option=document.createElement("option");
-      option.value=item.clientSessionId;
-      option.textContent=item.studyId+(item.createdAt?" · "+displayDate(item.createdAt):"");
-      picker.appendChild(option);
-    }
-    picker.value=selectedClientSessionId||"";
-    picker.addEventListener("change",()=>{
-      selectedClientSessionId=picker.value||null;
-      confirm.checked=false;
-      refreshConfirmation();
-    });
     status.textContent=currentMatch
-      ? "พบหลายรอบการทดสอบในอุปกรณ์นี้ ระบบเลือกรอบปัจจุบันไว้ให้แล้ว กรุณาตรวจ Study ID ก่อนยืนยัน"
-      : "พบหลายรอบการทดสอบในอุปกรณ์นี้ กรุณาเลือก Study ID ที่ต้องการถอนความยินยอมและลบข้อมูล";
+      ? "พบหลายรอบการทดสอบในอุปกรณ์นี้ ระบบเลือกรอบปัจจุบันไว้ให้แล้ว กรุณาตรวจ Study ID และวันเวลาก่อนยืนยัน"
+      : "พบหลายรอบการทดสอบในอุปกรณ์นี้ กรุณาเลือกรอบที่ต้องการถอนความยินยอมและลบข้อมูล";
+    renderSessionList();
   }else{
     const item=enrollments[0];
     status.textContent="พบรอบการทดสอบ "+item.studyId+(item.createdAt?" ("+displayDate(item.createdAt)+")":"")+" ที่สามารถถอนความยินยอมได้ หากต้องการดำเนินการให้ยืนยันด้านล่าง";
   }
 
+  search.addEventListener("input",()=>{
+    query=normalizedSearch(search.value);
+    visibleLimit=PAGE_SIZE;
+    renderSessionList();
+  });
+
+  more.addEventListener("click",()=>{
+    visibleLimit+=PAGE_SIZE;
+    renderSessionList();
+  });
+
   refreshConfirmation();
   confirm.addEventListener("change",refreshConfirmation);
+
   button.addEventListener("click",async()=>{
     const selected=selectedEnrollment();
     if(!selected || !confirm.checked || button.disabled) return;
+
     button.disabled=true;
     confirm.disabled=true;
-    picker.disabled=true;
+    setPickerDisabled(true);
     status.textContent="กำลังลบข้อมูลบนอุปกรณ์และส่งคำขอไปยังระบบส่วนกลาง…";
+
     try{
       const result=await api.requestWithdrawal(selected.clientSessionId);
       if(result.complete){
         status.textContent="ถอนความยินยอมสำเร็จ ระบบส่วนกลางยืนยันการลบข้อมูลของรอบการทดสอบนี้แล้ว และข้อมูลบนอุปกรณ์ถูกลบแล้ว";
         pickerWrap.hidden=true;
+        selectedBox.hidden=true;
       }else{
         status.textContent="บันทึกคำขอถอนความยินยอมแล้ว แต่ยังไม่สำเร็จทั้งหมด "+
           (result.remoteDeleted?"ระบบส่วนกลางลบแล้ว ":"รอการยืนยันจากระบบส่วนกลาง ")+
           (result.localDeleted?"และลบข้อมูลบนอุปกรณ์แล้ว":"และยังลบข้อมูลบนอุปกรณ์ไม่สำเร็จ")+
           " ระบบจะลองซ้ำเมื่อเปิดแอปหรือเชื่อมต่ออินเทอร์เน็ตอีกครั้ง";
         confirm.disabled=false;
-        picker.disabled=false;
+        setPickerDisabled(false);
         refreshConfirmation();
       }
     }catch(error){
       status.textContent="ยังถอนข้อมูลไม่สำเร็จ: "+(error?.message||"โปรดลองอีกครั้ง");
       confirm.disabled=false;
-      picker.disabled=false;
+      setPickerDisabled(false);
       refreshConfirmation();
     }
   });
