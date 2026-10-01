@@ -286,9 +286,31 @@
     try{
       const result=await api.requestWithdrawal(selected.clientSessionId);
       if(result.complete){
-        status.textContent="ถอนความยินยอมสำเร็จ ระบบส่วนกลางยืนยันการลบข้อมูลของรอบการทดสอบนี้แล้ว และข้อมูลบนอุปกรณ์ถูกลบแล้ว";
-        pickerWrap.hidden=true;
-        selectedBox.hidden=true;
+        const removedStudyId=selected.studyId;
+        enrollments=enrollments.filter(item=>item.clientSessionId!==selected.clientSessionId);
+        selectedClientSessionId=null;
+        confirm.checked=false;
+
+        if(enrollments.length===0){
+          pickerWrap.hidden=true;
+          selectedBox.hidden=true;
+          confirm.disabled=true;
+          button.disabled=true;
+          status.textContent="ถอนความยินยอมสำเร็จ ระบบส่วนกลางยืนยันการลบข้อมูลของ "+removedStudyId+" แล้ว และข้อมูลบนอุปกรณ์ถูกลบแล้ว ไม่พบรอบการทดสอบอื่นที่ยังถอนความยินยอมได้ในอุปกรณ์นี้";
+        }else if(enrollments.length===1){
+          selectedClientSessionId=enrollments[0].clientSessionId;
+          pickerWrap.hidden=true;
+          status.textContent="ถอนความยินยอมสำเร็จและลบ "+removedStudyId+" แล้ว เหลืออีก 1 รอบที่สามารถถอนความยินยอมได้";
+          refreshConfirmation();
+        }else{
+          visibleLimit=PAGE_SIZE;
+          query="";
+          search.value="";
+          status.textContent="ถอนความยินยอมสำเร็จและลบ "+removedStudyId+" แล้ว เหลือ "+enrollments.length+" รอบที่สามารถถอนความยินยอมได้ กรุณาเลือกรอบถัดไปหากต้องการดำเนินการต่อ";
+          renderSessionList();
+          refreshConfirmation();
+        }
+        status.scrollIntoView({behavior:"smooth",block:"center"});
       }else{
         status.textContent="บันทึกคำขอถอนความยินยอมแล้ว แต่ยังไม่สำเร็จทั้งหมด "+
           (result.remoteDeleted?"ระบบส่วนกลางลบแล้ว ":"รอการยืนยันจากระบบส่วนกลาง ")+
