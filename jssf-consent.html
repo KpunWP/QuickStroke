@@ -65,12 +65,12 @@
   <p>หากต้องการถอนความยินยอมและลบข้อมูลของรอบการทดสอบ ที่ส่งไปแล้ว สามารถกดปุ่ม <strong>“ถอนความยินยอมและลบข้อมูล”</strong> ในแอป หรือส่งอีเมลไปที่ <a href="mailto:kpunkfang@gmail.com">kpunkfang@gmail.com</a> หรือ <a href="mailto:kpun.wp@gmail.com">kpun.wp@gmail.com</a> หากไม่สามารถใช้ปุ่มได้</p>
   <p>หากหยุดการทดสอบโดยไม่ถอนความยินยอม ข้อมูลที่ส่งสำเร็จไปแล้วอาจถูกเก็บไว้จนกว่าจะครบกำหนด 90 วัน</p>
   <div class="box">
-    <h2 style="margin-top:0">สถานะก่อนเปิดรับสมัคร</h2>
+    <h2 id="release-status-heading" style="margin-top:0">สถานะก่อนเปิดรับสมัคร</h2>
     <p><strong>กลุ่มอายุ:</strong> 18 ปีขึ้นไป</p>
     <p><strong>ระยะเวลาเก็บข้อมูลของแต่ละรอบการทดสอบ ในฐานข้อมูลหลัก:</strong> 90 วัน</p>
     <p><strong>ช่องทางถอนความยินยอม:</strong> ปุ่มในแอป และอีเมลผู้ดำเนินโครงการ</p>
     <p><strong>ข้อมูลบนอุปกรณ์:</strong> มีการลบเมื่อถอนความยินยอมสำเร็จ และมีการ cleanup ตามอายุเมื่อกลับมาเปิดเว็บ</p>
-    <p><strong>Consent Version:</strong> <span class="pending">ยังเป็นร่างสำหรับตรวจ ยังไม่อนุมัติให้รับสมัครจริง</span></p>
+    <p><strong>Consent Version:</strong> <span class="pending" id="consent-version-state">ยังเป็นร่างสำหรับตรวจ ยังไม่อนุมัติให้รับสมัครจริง</span></p>
   </div>
   <div class="warning">
     <strong>QuickStroke ไม่ใช่เครื่องมือวินิจฉัย</strong>
@@ -95,14 +95,19 @@
   const state=document.getElementById("collection-state");
   const badge=document.getElementById("recruitment-badge");
   const notice=document.getElementById("recruitment-notice");
+  const releaseHeading=document.getElementById("release-status-heading");
+  const consentVersionState=document.getElementById("consent-version-state");
   const draftOnly=[...document.querySelectorAll(".draft-only")];
 
   function releaseReady(){
     return remote?.featureReady?.()===true
       && typeof appMode?.configureResearchContext==="function"
+      && typeof contract?.getSessionContext==="function"
       && typeof contract?.ensureScreeningContext==="function"
       && typeof contract?.createScreeningSessionRecord==="function"
-      && typeof store?.addScreeningSession==="function";
+      && typeof store?.get==="function"
+      && typeof store?.addScreeningSession==="function"
+      && typeof store?.updateActiveScreeningSession==="function";
   }
 
   function updateStartState(){
@@ -120,9 +125,15 @@
     if(ready){
       badge.textContent="เปิดรับอาสาสมัคร · 18 ปีขึ้นไป";
       notice.innerHTML="<strong>กรุณาอ่านข้อมูลโครงการให้ครบก่อนให้ความยินยอม</strong><p>ระบบจะเริ่มสร้าง Study ID และส่งข้อมูลเฉพาะหลังจากยืนยันทั้งสองช่องและกดเริ่มการทดสอบ</p>";
+      releaseHeading.textContent="สถานะการรับสมัคร";
+      consentVersionState.classList.remove("pending");
+      consentVersionState.textContent=cfg.consentVersion;
       state.textContent="ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
       start.textContent="เริ่มการทดสอบ";
     }else{
+      releaseHeading.textContent="สถานะก่อนเปิดรับสมัคร";
+      consentVersionState.classList.add("pending");
+      consentVersionState.textContent="ยังเป็นร่างสำหรับตรวจ ยังไม่อนุมัติให้รับสมัครจริง";
       state.textContent="ระบบรับข้อมูลทางไกลยังปิดอยู่ — ไม่มีการส่งข้อมูลจากหน้านี้";
       start.textContent="เริ่มการทดสอบ — ยังไม่เปิดใช้งาน";
     }
@@ -154,19 +165,26 @@
     if(!isReusableRemoteContext(context)){
       appMode.clearSessionSnapshot?.();
       appMode.clearResearchContext?.();
-      appMode.configureResearchContext({
-        researchProfile:"community_remote_qr",
-        consentStatus:"consented",
-        consentVersion:cfg.consentVersion,
-        recruitmentSource:"community_remote_qr",
-        operatorRole:"participant_self_service",
-        source:"jssf_consent_page"
-      });
-      context=contract.ensureScreeningContext({
-        forceNewParticipant:true,
-        forceNewSession:true,
-        mode:"research"
-      });
+      try{
+        appMode.configureResearchContext({
+          researchProfile:"community_remote_qr",
+          consentStatus:"consented",
+          consentVersion:cfg.consentVersion,
+          recruitmentSource:"community_remote_qr",
+          operatorRole:"participant_self_service",
+          source:"jssf_consent_page"
+        });
+        context=contract.ensureScreeningContext({
+          forceNewParticipant:true,
+          forceNewSession:true,
+          mode:"research"
+        });
+      }catch(error){
+        appMode.clearSessionSnapshot?.();
+        appMode.clearResearchContext?.();
+        appMode.setMode?.("public",{source:"jssf_consent_setup_rollback"});
+        throw error;
+      }
     }
 
     sessionStorage.setItem("fast_mode","full");
