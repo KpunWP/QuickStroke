@@ -67,6 +67,7 @@ const localStorage={setItem:(k,v)=>preferences.set(k,v),getItem:k=>preferences.g
 const uploads=[];
 const cfg={
   version:"1.0.21",buildId:"synthetic-test",
+  research:{profiles:{community_remote_qr:{enabled:true,dataCollectionEnabled:true}}},
   jssfRemote:{
     enabled:true,consentApproved:true,agePolicyApproved:true,retentionPolicyApproved:true,
     minimumAge18Enforced:true,consentVersion:"CONSENT-TEST-1",
