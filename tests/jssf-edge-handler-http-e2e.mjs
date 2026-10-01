@@ -117,12 +117,15 @@ const fakeDb={
 }
 };
 const allowedOrigin="https://engineering.invalid";
+const testCredential="LOCAL_SYNTHETIC_TEST_GATE_CREDENTIAL_1234567890";
   function makeHandler(enabled){
     let handler=null;
     const environment={
     JSSF_ALLOWED_ORIGINS:allowedOrigin,JSSF_CONSENT_VERSION:"SYNTHETIC_TEST_ONLY",
     JSSF_REMOTE_ENABLED:enabled?"true":"false",
     JSSF_RATE_LIMIT_SECRET:"LOCAL_SYNTHETIC_RATE_LIMIT_SECRET_1234567890",
+    JSSF_TEST_GATE_ENABLED:"true",
+    JSSF_TEST_CREDENTIAL:testCredential,
     SUPABASE_URL:"https://synthetic.invalid",SUPABASE_SERVICE_ROLE_KEY:"LOCAL_FAKE_NOT_A_SECRET"
 };
   const fakeDeno={
@@ -163,10 +166,11 @@ await new Promise((resolve,reject)=>{
   server.listen(0,"127.0.0.1",resolve);
 });
 const base="http://127.0.0.1:"+server.address().port;
-async function request(route,payload=null,token=null,origin=allowedOrigin){
+async function request(route,payload=null,token=null,origin=allowedOrigin,admission=testCredential){
   const headers={Origin:origin};
   if(payload!==null)headers["content-type"]="application/json";
   if(token)headers["x-qs-session-token"]=token;
+  if(admission)headers["x-qs-test-credential"]=admission;
   const response=await fetch(base+"/"+route,{
     method:payload===null?"GET":"POST",headers,
     ...(payload===null?{}:{body:JSON.stringify(payload)}),
@@ -197,6 +201,18 @@ try{
   console.log("PASS: production-style disabled gate rejects all enrollment");
 
   handler=makeHandler(true); // In-memory ONLY; deployed environment stays disabled.
+
+  res=await request("enroll",enrollment,null,allowedOrigin,null);
+  assert.equal(res.status,401);
+  assert.equal(res.body.error,"TEST_ADMISSION_REQUIRED");
+  assert.equal(sessions.size,0);
+
+  res=await request("enroll",enrollment,null,allowedOrigin,"WRONG_TEST_CREDENTIAL_12345678901234567890");
+  assert.equal(res.status,401);
+  assert.equal(res.body.error,"TEST_ADMISSION_REQUIRED");
+  assert.equal(sessions.size,0);
+  console.log("PASS: developer-only admission gate rejects missing/wrong credentials before enrollment");
+
   res=await request("enroll",{...enrollment,consentAccepted:false});
   assert.equal(res.status,422);
   res=await request("enroll",enrollment,null,"https://attacker.invalid");
