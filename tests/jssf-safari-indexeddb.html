@@ -173,7 +173,7 @@
         async json(){return {
           sessionId:REMOTE_ID,
           studyId:body.studyId,
-          uploadToken:TOKEN,
+          uploadToken:body.uploadToken,
           createdAt:localStorage.getItem(createdKey),
           expiresAt:"2099-01-01T00:00:00Z"
         };}
