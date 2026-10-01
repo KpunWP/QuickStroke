@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>QuickStroke JSSF Safari IndexedDB Test</title>
+  <style>
+    body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;margin:0;background:#f6f7f9;color:#18202a}
+    main{max-width:760px;margin:0 auto;padding:20px}
+    h1{font-size:1.35rem;margin:0 0 8px}
+    p{line-height:1.45}
+    .card{background:#fff;border:1px solid #dfe3e8;border-radius:14px;padding:16px;margin:14px 0}
+    button{width:100%;padding:14px 12px;margin:6px 0;border:0;border-radius:10px;font-size:1rem;font-weight:650;background:#1f6feb;color:#fff}
+    button.secondary{background:#5f6b7a}
+    button.danger{background:#b42318}
+    pre{white-space:pre-wrap;word-break:break-word;background:#101828;color:#e6edf3;padding:14px;border-radius:10px;min-height:140px}
+    .ok{color:#067647;font-weight:700}.bad{color:#b42318;font-weight:700}
+    code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  </style>
+</head>
+<body>
+<main>
+  <h1>QuickStroke JSSF — Safari IndexedDB local test</h1>
+  <p>This page uses the real <code>js/jssf-remote-sync.js</code> client with real browser IndexedDB, but replaces network calls with an in-page synthetic server. It does not contact Supabase Cloud or collect participant data.</p>
+
+  <div class="card">
+    <div id="browser"></div>
+    <div id="ready"></div>
+  </div>
+
+  <div class="card">
+    <button id="enroll">1. Enroll synthetic session</button>
+    <button id="queue">2. Queue event while simulated offline</button>
+    <button id="reload" class="secondary">3. Reload page</button>
+    <button id="verify">4. Verify queued event survived reload</button>
+    <button id="flush">5. Simulate online + flush</button>
+    <button id="withdraw">6. Request withdrawal while simulated offline</button>
+    <button id="reload2" class="secondary">7. Reload page again</button>
+    <button id="resume">8. Simulate online + resume withdrawal</button>
+    <button id="reset" class="danger">Reset this local test</button>
+  </div>
+
+  <div class="card">
+    <strong>Result log</strong>
+    <pre id="log"></pre>
+  </div>
+</main>
+
+<script>
+(async()=>{
+  "use strict";
+
+  const DB_NAME="quickstroke_jssf_remote_outbox";
+  const TEST_PREFIX="qs_jssf_safari_test_";
+  const OUTBOX_MARKER="quickstroke_jssf_outbox_present";
+  const $=id=>document.getElementById(id);
+  const logBox=$("log");
+  const log=(message,ok=true)=>{
+    const line=(ok?"PASS: ":"FAIL: ")+message;
+    logBox.textContent+=line+"\n";
+    logBox.scrollTop=logBox.scrollHeight;
+    if(!ok) console.error(line);
+  };
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+
+  async function deleteDb(){
+    await new Promise((resolve,reject)=>{
+      const req=indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess=()=>resolve();
+      req.onerror=()=>reject(req.error||new Error("deleteDatabase failed"));
+      req.onblocked=()=>reject(new Error("IndexedDB deletion blocked; close other copies of this page and try again"));
+    });
+  }
+
+  if(new URL(location.href).searchParams.get("reset")==="1"){
+    try{
+      await deleteDb();
+      for(let i=localStorage.length-1;i>=0;i--){
+        const key=localStorage.key(i);
+        if(key===OUTBOX_MARKER || key?.startsWith(TEST_PREFIX)) localStorage.removeItem(key);
+      }
+      sessionStorage.clear();
+      location.replace(location.pathname);
+      return;
+    }catch(error){
+      document.body.innerHTML="<main><h1>Reset failed</h1><pre>"+String(error)+"</pre></main>";
+      return;
+    }
+  }
+
+  const ua=navigator.userAgent;
+  const isIOS=/iPhone|iPad|iPod/i.test(ua);
+  const isSafari=/Safari/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua);
+  $("browser").innerHTML=
+    "Browser check: "+(isIOS&&isSafari?"<span class='ok'>iOS Safari detected</span>":"<span class='bad'>Open this page in Safari on iPhone/iPad</span>");
+
+  if(!window.indexedDB){
+    $("ready").innerHTML="<span class='bad'>IndexedDB unavailable</span>";
+    return;
+  }
+
+  // Test-only UUID fallback for LAN HTTP pages where randomUUID may be hidden
+  // because the page is not a secure context. getRandomValues remains browser RNG.
+  if(typeof crypto.randomUUID!=="function"){
+    Object.defineProperty(crypto,"randomUUID",{configurable:true,value:()=>{
+      const bytes=crypto.getRandomValues(new Uint8Array(16));
+      bytes[6]=(bytes[6]&15)|64; bytes[8]=(bytes[8]&63)|128;
+      const h=[...bytes].map(x=>x.toString(16).padStart(2,"0")).join("");
+      return h.slice(0,8)+"-"+h.slice(8,12)+"-"+h.slice(12,16)+"-"+h.slice(16,20)+"-"+h.slice(20);
+    }});
+  }
+
+  const context={
+    appMode:"research",
+    screeningSessionId:"S-SAFARI-LOCAL-00000001",
+    researchMetadata:{
+      researchProfile:"community_remote_qr",
+      consentStatus:"consented",
+      consentVersion:"SAFARI_LOCAL_TEST_1",
+      studyId:"QS-SAFARI-LOCAL-TEST-2026"
+    }
+  };
+
+  window.QS_CONFIG={
+    version:"1.0.21",
+    buildId:"safari-indexeddb-local",
+    jssfRemote:{
+      enabled:true,
+      consentApproved:true,
+      agePolicyApproved:true,
+      retentionPolicyApproved:true,
+      minimumAge18Enforced:true,
+      consentVersion:"SAFARI_LOCAL_TEST_1",
+      retentionDays:90,
+      privacyContact:"qa@example.org",
+      endpoint:"https://example.invalid/functions/v1/jssf-remote-ingest"
+    }
+  };
+  window.QuickStrokeDataContract={getSessionContext:()=>context};
+  window.QuickStrokeI18n={getLocale:()=>"th-TH"};
+  window.QuickStrokeAppMode={
+    clearSessionSnapshot(){},
+    clearResearchContext(){},
+    setMode(){}
+  };
+  window.QuickStrokeResearchStore={
+    stores:{moduleRuns:"moduleRuns",testAttempts:"testAttempts"},
+    async getAllByIndex(){return [];},
+    async purgeRemoteSessionLocal(id){
+      localStorage.setItem(TEST_PREFIX+"local_purged",id);
+      return {deleted:true};
+    }
+  };
+
+  const REMOTE_ID="550e8400-e29b-41d4-a716-446655440001";
+  const TOKEN="c".repeat(64);
+  const createdKey=TEST_PREFIX+"created_at";
+  if(!localStorage.getItem(createdKey)) localStorage.setItem(createdKey,new Date().toISOString());
+
+  const eventOffline=()=>localStorage.getItem(TEST_PREFIX+"event_offline")!=="0";
+  const withdrawOffline=()=>localStorage.getItem(TEST_PREFIX+"withdraw_offline")!=="0";
+  if(localStorage.getItem(TEST_PREFIX+"event_offline")===null) localStorage.setItem(TEST_PREFIX+"event_offline","1");
+  if(localStorage.getItem(TEST_PREFIX+"withdraw_offline")===null) localStorage.setItem(TEST_PREFIX+"withdraw_offline","1");
+
+  window.fetch=async(url,options={})=>{
+    const u=String(url);
+    const body=options.body?JSON.parse(options.body):{};
+    if(u.endsWith("/enroll")){
+      localStorage.setItem(TEST_PREFIX+"remote_session",REMOTE_ID);
+      return {
+        ok:true,status:201,
+        async json(){return {
+          sessionId:REMOTE_ID,
+          studyId:body.studyId,
+          uploadToken:TOKEN,
+          createdAt:localStorage.getItem(createdKey),
+          expiresAt:"2099-01-01T00:00:00Z"
+        };}
+      };
+    }
+    if(u.endsWith("/events")){
+      if(eventOffline()) throw new Error("Simulated offline events");
+      const ids=Array.isArray(body.events)?body.events.map(x=>x.eventId):[];
+      const previous=JSON.parse(localStorage.getItem(TEST_PREFIX+"uploaded_ids")||"[]");
+      localStorage.setItem(TEST_PREFIX+"uploaded_ids",JSON.stringify([...new Set([...previous,...ids])]));
+      return {ok:true,status:200,async json(){return {acknowledged:ids};}};
+    }
+    if(u.endsWith("/withdraw")){
+      if(withdrawOffline()) throw new Error("Simulated offline withdrawal");
+      localStorage.setItem(TEST_PREFIX+"remote_deleted","1");
+      return {ok:true,status:200,async json(){return {withdrawn:true,remoteDataDeleted:true};}};
+    }
+    throw new Error("Unexpected network call blocked by local harness: "+u);
+  };
+
+  await new Promise((resolve,reject)=>{
+    const s=document.createElement("script");
+    s.src="../js/jssf-remote-sync.js";
+    s.onload=resolve;s.onerror=()=>reject(new Error("Unable to load jssf-remote-sync.js"));
+    document.head.appendChild(s);
+  });
+
+  const sync=window.QuickStrokeJssfRemote;
+  $("ready").innerHTML=
+    "Client gate: "+(sync?.featureReady?.()&&sync?.canSync?.()
+      ?"<span class='ok'>ready for synthetic local test</span>"
+      :"<span class='bad'>not ready</span>");
+
+  const sample=()=>({
+    module:"arm",
+    screeningSessionId:context.screeningSessionId,
+    moduleRunId:"MR-safari-local-12345",
+    moduleRunSequenceNo:1,
+    moduleRunStatus:"completed",
+    validityStatus:"valid",
+    observationStatus:"no_alert",
+    qualityStatus:"acceptable",
+    attemptCount:2,
+    startedAt:new Date(Date.now()-5000).toISOString(),
+    completedAt:new Date().toISOString()
+  });
+
+  $("enroll").onclick=async()=>{
+    try{
+      const r=await sync.enroll();
+      localStorage.setItem(TEST_PREFIX+"remote_session",r.sessionId);
+      log("synthetic enrollment stored in real Safari IndexedDB");
+    }catch(error){log(String(error),false);}
+  };
+
+  $("queue").onclick=async()=>{
+    try{
+      localStorage.setItem(TEST_PREFIX+"event_offline","1");
+      const queued=await sync.queueFinalized("module_run",sample());
+      await sleep(150);
+      const remoteId=localStorage.getItem(TEST_PREFIX+"remote_session");
+      const rows=await sync.pending(remoteId);
+      if(queued===true && rows.length===1) log("offline event remains pending in IndexedDB");
+      else log("expected exactly 1 pending event, found "+rows.length,false);
+    }catch(error){log(String(error),false);}
+  };
+
+  $("reload").onclick=()=>location.reload();
+
+  $("verify").onclick=async()=>{
+    try{
+      const remoteId=localStorage.getItem(TEST_PREFIX+"remote_session");
+      const rows=await sync.pending(remoteId);
+      const enrolled=await sync.hasEnrollment();
+      if(enrolled && rows.length===1) log("credential and pending event survived a real Safari reload");
+      else log("reload persistence failed: enrolled="+enrolled+", pending="+rows.length,false);
+    }catch(error){log(String(error),false);}
+  };
+
+  $("flush").onclick=async()=>{
+    try{
+      localStorage.setItem(TEST_PREFIX+"event_offline","0");
+      const first=await sync.flush();
+      const remoteId=localStorage.getItem(TEST_PREFIX+"remote_session");
+      const after=await sync.pending(remoteId);
+      const beforeUploads=JSON.parse(localStorage.getItem(TEST_PREFIX+"uploaded_ids")||"[]").length;
+      await sync.queueFinalized("module_run",sample());
+      await sync.flush();
+      const afterUploads=JSON.parse(localStorage.getItem(TEST_PREFIX+"uploaded_ids")||"[]").length;
+      if(first.sent===1 && after.length===0 && beforeUploads===1 && afterUploads===1)
+        log("online flush acknowledged once; duplicate requeue did not upload again");
+      else
+        log("flush/idempotency mismatch: "+JSON.stringify({first,after:after.length,beforeUploads,afterUploads}),false);
+    }catch(error){log(String(error),false);}
+  };
+
+  $("withdraw").onclick=async()=>{
+    try{
+      localStorage.setItem(TEST_PREFIX+"withdraw_offline","1");
+      const result=await sync.requestWithdrawal();
+      const purged=localStorage.getItem(TEST_PREFIX+"local_purged")===context.screeningSessionId;
+      if(result.pending===true && result.localDeleted===true && result.remoteDeleted===false && purged)
+        log("offline withdrawal erased local research and retained only retry capability");
+      else log("offline withdrawal mismatch: "+JSON.stringify(result),false);
+    }catch(error){log(String(error),false);}
+  };
+
+  $("reload2").onclick=()=>location.reload();
+
+  $("resume").onclick=async()=>{
+    try{
+      localStorage.setItem(TEST_PREFIX+"withdraw_offline","0");
+      const results=await sync.resumePendingWithdrawals();
+      const enrolled=await sync.hasEnrollment();
+      const remoteDeleted=localStorage.getItem(TEST_PREFIX+"remote_deleted")==="1";
+      if(results.length===1 && results[0].complete===true && enrolled===false && remoteDeleted)
+        log("withdrawal resumed after reload; capability/outbox credential removed");
+      else log("withdrawal resume mismatch: "+JSON.stringify({results,enrolled,remoteDeleted}),false);
+    }catch(error){log(String(error),false);}
+  };
+
+  $("reset").onclick=()=>location.href=location.pathname+"?reset=1";
+})();
+</script>
+</body>
+</html>
