@@ -377,7 +377,10 @@
     }
 
     if (session?.researchProfile === 'community_remote_qr' || session?.researchMetadata?.researchProfile === 'community_remote_qr') {
-      errors.push('COMMUNITY_REMOTE_QR_DATA_COLLECTION_DISABLED');
+      const remoteProfile = global.QuickStrokeAppMode?.profiles?.community_remote_qr || null;
+      if (!remoteProfile?.enabled || !remoteProfile?.dataCollectionEnabled) {
+        errors.push('COMMUNITY_REMOTE_QR_DATA_COLLECTION_DISABLED');
+      }
     }
 
     const selectionSummary = deriveSelectionSummary(session, moduleRuns);
