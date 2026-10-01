@@ -114,6 +114,7 @@ const syntheticSession="S-"+randomUUID().replaceAll("-","");
 const enrollment={
   consentAccepted:true,age18plus:true,participationScope:"usability_nonclinical",
   consentVersion:CONSENT,clientSessionId:syntheticSession,
+  uploadToken:"d".repeat(64),
   platformFamily:"desktop",browserFamily:"chrome",locale:"th",
   appVersion:"1.0.21",appBuildId:"LOCAL_SYNTHETIC_HTTP_TEST"
 };
@@ -163,7 +164,18 @@ try {
   assert.equal(storedHash,digest(receipt.uploadToken));
   assert.notEqual(storedHash,receipt.uploadToken);
   assert.deepEqual(counts(),{sessions:1,events:0});
-  console.log("PASS: real local enrollment persists only the SHA-256 capability hash");
+
+  r=await call("enroll",enrollment);
+  assert.equal(r.status,200,JSON.stringify({status:r.status,body:r.body}));
+  assert.equal(r.body.reused,true);
+  assert.equal(r.body.sessionId,receipt.sessionId);
+  assert.equal(r.body.uploadToken,enrollment.uploadToken);
+  assert.deepEqual(counts(),{sessions:1,events:0});
+
+  r=await call("enroll",{...enrollment,uploadToken:"e".repeat(64)});
+  assert.equal(r.status,409);
+  assert.deepEqual(counts(),{sessions:1,events:0});
+  console.log("PASS: real local enrollment is recoverable only with the original capability");
 
   const now=()=>new Date().toISOString();
   const sample=[
