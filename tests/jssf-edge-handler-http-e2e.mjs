@@ -341,7 +341,7 @@ try{
   res = await request(
     "withdraw",
     { sessionId: receipt.sessionId },
-    "b".repeat(64)
+    "f".repeat(64)
   );
   assert.equal(res.status, 401);
   assert.equal(sessions.size, 1);
