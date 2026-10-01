@@ -140,6 +140,11 @@ const sync=clientWindow();
 assert.equal(sync.featureReady(),true);
 assert.equal(sync.canSync(),true);
 await assert.rejects(sync.enroll(),/Simulated lost enrollment response/);
+const originalStudyId=context.researchMetadata.studyId;
+context.researchMetadata.studyId="QS-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ";
+await assert.rejects(sync.enroll(),/does not match the current consent context/);
+assert.equal(enrolls,1);
+context.researchMetadata.studyId=originalStudyId;
 const enrollment=await sync.enroll();
 assert.equal(enrollment.studyId,context.researchMetadata.studyId);
 assert.equal(enrolls,2);
@@ -147,7 +152,17 @@ assert.equal(enrollmentTokens.length,2);
 assert.match(enrollmentTokens[0],/^[0-9a-f]{64}$/);
 assert.equal(enrollmentTokens[1],enrollmentTokens[0]);
 assert.equal(enrollment.reused,true);
-console.log("PASS: lost enrollment response retries with the same capability and preserves Study ID");
+await assert.rejects(
+  sync.activate({
+    sessionId:enrollment.sessionId,
+    studyId:"QS-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ-ZZZZ",
+    uploadToken:enrollmentTokens[0],
+    createdAt:new Date().toISOString(),
+    expiresAt:"2030-01-01T00:00:00Z"
+  },context.screeningSessionId,enrollmentTokens[0],context.researchMetadata.studyId),
+  /Invalid or expired server enrollment/
+);
+console.log("PASS: lost enrollment response retries with the same capability while stale context and mismatched server Study ID fail closed");
 
 assert.equal(await sync.queueFinalized("module_run",sample),true);
 await sync.flush().catch(()=>null);
