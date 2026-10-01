@@ -16,7 +16,7 @@
     .warning{margin:18px 0;padding:14px 16px;background:#ffeded;border:1px solid #f2b9b9;border-radius:14px;color:#7c2525}
     .box{margin-top:20px;background:#f5f9fc;padding:16px;border-radius:14px;border:1px solid #e0e8f0}
     .pending{font-weight:750;color:#985d00}label{display:block;margin:15px 0;color:#4d5e6e}
-    input[disabled]{accent-color:#236c96}button{width:100%;padding:14px 20px;background:#b9c9d5;border:none;border-radius:12px;font-size:16px;font-weight:750;color:#4b5d69;cursor:not-allowed}
+    input{accent-color:#236c96}button{width:100%;padding:14px 20px;background:#b9c9d5;border:none;border-radius:12px;font-size:16px;font-weight:750;color:#4b5d69;cursor:not-allowed}button:not(:disabled){background:#236c96;color:#fff;cursor:pointer}.draft-only[hidden]{display:none}
     a{color:#17659f;font-weight:700}footer{margin-top:26px;padding-top:17px;border-top:1px solid #e5eaf0}
     @media(max-width:720px){main{margin:0;min-height:100vh;border:0;border-radius:0;padding:24px 18px}}
   </style>
@@ -31,11 +31,11 @@
 <main>
   <header>
     <strong>Quick<span style="color:#2878b6">Stroke</span></strong>
-    <span class="badge">แบบร่างสำหรับตรวจ · ยังไม่รับสมัคร</span>
+    <span class="badge" id="recruitment-badge">แบบร่างสำหรับตรวจ · ยังไม่รับสมัคร</span>
   </header>
   <h1>โครงการทดสอบการใช้งาน QuickStroke สำหรับ JSSF</h1>
   <p class="small">Community Remote Testing · Nonclinical usability and reliability pilot</p>
-  <div class="notice" role="status" aria-live="polite">
+  <div class="notice" id="recruitment-notice" role="status" aria-live="polite">
     <strong>หน้านี้เป็นต้นแบบสำหรับตรวจข้อความและทดสอบระบบเท่านั้น</strong>
     <p>ยังไม่เปิดรับสมัครหรือเก็บข้อมูลจากบุคคลทั่วไป</p>
   </div>
@@ -76,20 +76,136 @@
     <strong>QuickStroke ไม่ใช่เครื่องมือวินิจฉัย</strong>
     <p>หากสงสัยว่ามีอาการสโตรก ให้หยุดการทดสอบและติดต่อบริการฉุกเฉินทันที ในประเทศไทยโทร <a href="tel:1669">1669</a> โดยไม่ต้องรอผลจากแอป</p>
   </div>
-  <label><input type="checkbox" disabled> ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป (ปิดใช้งานระหว่างตรวจร่าง)</label>
-  <label><input type="checkbox" disabled> ฉันอ่านคำอธิบายและยินยอมเข้าร่วมโดยสมัครใจ (ปิดใช้งานระหว่างตรวจร่าง)</label>
-  <button disabled aria-disabled="true">เริ่มการทดสอบ — ยังไม่เปิดใช้งาน</button>
+  <label><input id="age-confirmation" type="checkbox" disabled> ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป <span class="draft-only">(ปิดใช้งานระหว่างตรวจร่าง)</span></label>
+  <label><input id="consent-confirmation" type="checkbox" disabled> ฉันอ่านคำอธิบายและยินยอมเข้าร่วมโดยสมัครใจ <span class="draft-only">(ปิดใช้งานระหว่างตรวจร่าง)</span></label>
+  <button id="start-testing" type="button" disabled aria-disabled="true">เริ่มการทดสอบ — ยังไม่เปิดใช้งาน</button>
   <p class="small" id="collection-state">กำลังตรวจสอบสถานะระบบรับข้อมูล…</p>
   <footer><a href="./jssf-withdraw.html">ดูตัวอย่างหน้าถอนความยินยอมและลบข้อมูล →</a><br><br><a href="./index.html">← กลับหน้าหลัก QuickStroke</a></footer>
 </main>
 <script>
 (function(){
   const cfg=window.QS_CONFIG?.jssfRemote||{};
-  const ready=window.QuickStrokeJssfRemote?.featureReady?.()===true;
-  document.getElementById("collection-state").textContent=ready
-    ? "โครงสร้างระบบเปิดแล้ว แต่หน้ารับสมัครนี้ยังต้องอนุมัติข้อความและเปิดปุ่มเริ่มอย่างชัดเจนก่อน"
-    : "ระบบรับข้อมูลทางไกลยังปิดอยู่ — ไม่มีการส่งข้อมูลจากหน้านี้";
-  // No enrollment call is permitted here until all consent/age/retention gates are resolved.
+  const remote=window.QuickStrokeJssfRemote;
+  const appMode=window.QuickStrokeAppMode;
+  const contract=window.QuickStrokeDataContract;
+  const store=window.QuickStrokeResearchStore;
+  const age=document.getElementById("age-confirmation");
+  const consent=document.getElementById("consent-confirmation");
+  const start=document.getElementById("start-testing");
+  const state=document.getElementById("collection-state");
+  const badge=document.getElementById("recruitment-badge");
+  const notice=document.getElementById("recruitment-notice");
+  const draftOnly=[...document.querySelectorAll(".draft-only")];
+
+  function releaseReady(){
+    return remote?.featureReady?.()===true
+      && typeof appMode?.configureResearchContext==="function"
+      && typeof contract?.ensureScreeningContext==="function"
+      && typeof contract?.createScreeningSessionRecord==="function"
+      && typeof store?.addScreeningSession==="function";
+  }
+
+  function updateStartState(){
+    const ready=releaseReady();
+    const canStart=ready && age.checked && consent.checked;
+    start.disabled=!canStart;
+    start.setAttribute("aria-disabled",String(!canStart));
+  }
+
+  function applyReleaseState(){
+    const ready=releaseReady();
+    age.disabled=!ready;
+    consent.disabled=!ready;
+    draftOnly.forEach(node=>{node.hidden=ready;});
+    if(ready){
+      badge.textContent="เปิดรับอาสาสมัคร · 18 ปีขึ้นไป";
+      notice.innerHTML="<strong>กรุณาอ่านข้อมูลโครงการให้ครบก่อนให้ความยินยอม</strong><p>ระบบจะเริ่มสร้าง Study ID และส่งข้อมูลเฉพาะหลังจากยืนยันทั้งสองช่องและกดเริ่มการทดสอบ</p>";
+      state.textContent="ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
+      start.textContent="เริ่มการทดสอบ";
+    }else{
+      state.textContent="ระบบรับข้อมูลทางไกลยังปิดอยู่ — ไม่มีการส่งข้อมูลจากหน้านี้";
+      start.textContent="เริ่มการทดสอบ — ยังไม่เปิดใช้งาน";
+    }
+    updateStartState();
+  }
+
+  function isReusableRemoteContext(context){
+    return context?.appMode==="research"
+      && context?.sessionStatus==="active"
+      && context?.researchMetadata?.researchProfile==="community_remote_qr"
+      && context?.researchMetadata?.consentStatus==="consented"
+      && context?.researchMetadata?.consentVersion===cfg.consentVersion
+      && Boolean(context?.screeningSessionId);
+  }
+
+  function activeNonRemoteContext(context){
+    return context?.screeningSessionId
+      && context?.sessionStatus!=="finalized"
+      && context?.appMode!=="public"
+      && !isReusableRemoteContext(context);
+  }
+
+  async function ensureRemoteSession(){
+    let context=contract.getSessionContext();
+    if(activeNonRemoteContext(context)){
+      throw new Error("มี Research/Dev session อื่นกำลังใช้งานอยู่ กรุณาจบ session นั้นก่อนเริ่ม JSSF Remote Testing");
+    }
+
+    if(!isReusableRemoteContext(context)){
+      appMode.clearSessionSnapshot?.();
+      appMode.clearResearchContext?.();
+      appMode.configureResearchContext({
+        researchProfile:"community_remote_qr",
+        consentStatus:"consented",
+        consentVersion:cfg.consentVersion,
+        recruitmentSource:"community_remote_qr",
+        operatorRole:"participant_self_service",
+        source:"jssf_consent_page"
+      });
+      context=contract.ensureScreeningContext({
+        forceNewParticipant:true,
+        forceNewSession:true,
+        mode:"research"
+      });
+    }
+
+    sessionStorage.setItem("fast_mode","full");
+    context=contract.getSessionContext();
+    const existing=await store.get(store.stores.screeningSessions,context.screeningSessionId);
+    if(!existing){
+      await store.addScreeningSession(contract.createScreeningSessionRecord({
+        context,
+        sessionMode:"full"
+      }));
+    }else if(existing.sessionStatus==="active" && existing.sessionMode!=="full"){
+      await store.updateActiveScreeningSession(context.screeningSessionId,{sessionMode:"full"});
+    }
+    return context;
+  }
+
+  async function begin(){
+    if(!releaseReady() || !age.checked || !consent.checked) return;
+    start.disabled=true;
+    start.setAttribute("aria-disabled","true");
+    start.textContent="กำลังเริ่มการทดสอบ…";
+    state.textContent="กำลังสร้างรอบการทดสอบและยืนยันการลงทะเบียน…";
+    try{
+      await ensureRemoteSession();
+      await remote.enroll();
+      state.textContent="ลงทะเบียนสำเร็จ กำลังเปิดการทดสอบ Face…";
+      window.location.href="./face-test.html";
+    }catch(error){
+      console.error("JSSF enrollment failed.",error);
+      state.textContent="ยังเริ่มการทดสอบไม่ได้: "+(error?.message||String(error))+" กรุณาลองอีกครั้ง";
+      start.textContent="ลองเริ่มการทดสอบอีกครั้ง";
+      updateStartState();
+    }
+  }
+
+  age.addEventListener("change",updateStartState);
+  consent.addEventListener("change",updateStartState);
+  start.addEventListener("click",begin);
+  applyReleaseState();
 })();
 </script>
 </body>
