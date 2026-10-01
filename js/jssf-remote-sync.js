@@ -27,7 +27,11 @@
   }
   function featureReady() {
     const cfg = config();
-    return cfg.enabled === true && cfg.consentApproved === true
+    const profile = global.QuickStrokeAppMode?.profiles?.community_remote_qr
+      || global.QS_CONFIG?.research?.profiles?.community_remote_qr
+      || {};
+    return profile.enabled === true && profile.dataCollectionEnabled === true
+      && cfg.enabled === true && cfg.consentApproved === true
       && cfg.agePolicyApproved === true && cfg.retentionPolicyApproved === true
       // Current server contract supports verified adult consent only. Supporting minors
       // requires an explicitly reviewed guardian flow and a new backend contract.
