@@ -21,6 +21,7 @@
   <div class="card">
     <p>สร้าง enrollment จำลอง 100 รอบลง IndexedDB จริงของ Safari โดยใช้ production <code>js/jssf-remote-sync.js</code> และ local mock backend เท่านั้น</p>
     <p class="hint">ใช้เพื่อทดสอบ UX กรณีมี Study ID จำนวนมาก: search/filter, latest-first, แสดงเพิ่มทีละ 20 และเลือก session ที่ถูกต้อง</p>
+    <button id="cleanup">0. Clean previous 100-test data</button>
     <button id="seed">1. Seed 100 Study IDs</button>
     <button id="verify" disabled>2. Verify 100 withdrawable enrollments</button>
     <a href="../jssf-withdraw.html">3. Open real Withdrawal page</a>
@@ -75,6 +76,7 @@
 <script>
 (() => {
   const log = document.getElementById("log");
+  const cleanup = document.getElementById("cleanup");
   const seed = document.getElementById("seed");
   const verify = document.getElementById("verify");
 
@@ -100,6 +102,66 @@
     return PREFIX + String(index).padStart(4,"0") + "-TEST01";
   }
 
+
+  async function cleanupPreviousManyTestData(){
+    const db = await new Promise((resolve,reject)=>{
+      const req = indexedDB.open("quickstroke_jssf_remote_outbox");
+      req.onsuccess=()=>resolve(req.result);
+      req.onerror=()=>reject(req.error || new Error("cannot open outbox"));
+    });
+
+    const tx = db.transaction(["credentials","queue"],"readwrite");
+    const credentials = tx.objectStore("credentials");
+    const queue = tx.objectStore("queue");
+
+    const rows = await new Promise((resolve,reject)=>{
+      const req = credentials.getAll();
+      req.onsuccess=()=>resolve(req.result||[]);
+      req.onerror=()=>reject(req.error || new Error("cannot read credentials"));
+    });
+
+    const targets = rows.filter(row=>String(row?.studyId||"").startsWith(PREFIX));
+    const serverSessionIds = new Set(targets.map(row=>row.sessionId).filter(Boolean));
+
+    for(const row of targets) credentials.delete(row.clientSessionId);
+
+    await new Promise((resolve,reject)=>{
+      const req = queue.openCursor();
+      req.onsuccess=()=>{
+        const cursor=req.result;
+        if(!cursor){ resolve(); return; }
+        if(serverSessionIds.has(cursor.value?.sessionId)) cursor.delete();
+        cursor.continue();
+      };
+      req.onerror=()=>reject(req.error || new Error("cannot scan queue"));
+    });
+
+    await new Promise((resolve,reject)=>{
+      tx.oncomplete=resolve;
+      tx.onabort=()=>reject(tx.error || new Error("cleanup aborted"));
+      tx.onerror=()=>{};
+    });
+    db.close();
+    return targets.length;
+  }
+
+  cleanup.onclick = async () => {
+    cleanup.disabled = true;
+    seed.disabled = true;
+    verify.disabled = true;
+    log.textContent = "";
+    try{
+      const removed = await cleanupPreviousManyTestData();
+      line("PASS: removed "+removed+" prior QS-MANY test credential(s) only");
+      line("Other Safari enrollments were not touched");
+      seed.disabled = false;
+    }catch(error){
+      line("FAIL cleanup: " + (error?.message || error));
+      cleanup.disabled = false;
+      seed.disabled = false;
+    }
+  };
+
   seed.onclick = async () => {
     seed.disabled = true;
     verify.disabled = true;
@@ -108,7 +170,7 @@
     try{
       for(let i=1;i<=TOTAL;i++){
         const studyId = studyIdFor(i);
-        const sessionId = uuid();
+        const sessionId = "S-" + uuid();
 
         __setManyContext(studyId, sessionId);
         const result = await QuickStrokeJssfRemote.enroll();
