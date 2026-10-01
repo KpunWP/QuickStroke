@@ -437,7 +437,7 @@ test('integrity validator catches attempt counts, orphans, and microphone privac
 test('Research mode setup highlights Research immediately and consent version is deployment-configured', () => {
   const index = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const config = fs.readFileSync(path.join(ROOT, 'config.js'), 'utf8');
-  assert.match(index, /pendingModeSelection\s*=\s*'research'/);
+  assert.match(index, /pendingModeSelection\s*=\s*["']research["']/);
   assert.match(index, /RESEARCH SETUP/);
   assert.match(index, /configuredConsentVersion\(\)/);
   assert.match(index, /id="research-consent-version"[^>]*readonly/);
@@ -497,7 +497,7 @@ test('static mode isolation and finalization controls are present', () => {
   assert.match(index, /RESEARCH_CONTEXT_RECONFIGURED/);
   assert.match(index, /id="research-study-id"[^>]*readonly/);
   assert.match(index, /prepareNextResearchParticipant/);
-  assert.match(index, /studyIdSource:'system_generated_random'/);
+  assert.match(index, /studyIdSource\s*:\s*["']system_generated_random["']/);
   const speech = fs.readFileSync(path.join(ROOT, 'speech-test.html'), 'utf8');
   assert.match(speech, /ensure Speech screening session/);
   assert.match(speech, /createScreeningSessionRecord\(\{ context \}\)/);
