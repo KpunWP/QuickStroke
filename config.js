@@ -4,18 +4,18 @@ window.QS_CONFIG = {
   buildId: "20260926-jssf-withdrawal-staging-v3",
   configVersion: "quickstroke-config-1.0.21",
 
-  // Not collecting. 90-day primary DB retention is in place; eligibility,
-  // browser/backup handling, withdrawal contact and final consent remain undecided.
-  // The remote client and preview page are deliberately fail-closed.
+  // Not collecting. The working pilot policy is 18+ with 90-day primary DB
+  // retention and a named withdrawal/privacy contact. Final consent approval,
+  // hosted release checks and explicit activation remain fail-closed.
   jssfRemote: {
     enabled: false,
     consentApproved: false,
     agePolicyApproved: false,
     retentionPolicyApproved: false,
-    minimumAge18Enforced: false,
+    minimumAge18Enforced: true,
     consentVersion: null,
     retentionDays: 90,
-    privacyContact: null,
+    privacyContact: "kpunkfang@gmail.com",
     endpoint: "https://pzzjfnfwppdeketjdhfo.supabase.co/functions/v1/jssf-remote-ingest"
   },
 
