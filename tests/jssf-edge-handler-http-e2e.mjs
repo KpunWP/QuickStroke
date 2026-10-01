@@ -305,13 +305,35 @@ try{
   // data collection is paused, until the separate 90-day retention deletion.
   sessions.get(receipt.sessionId).expires_at=new Date(Date.now()-86400000).toISOString();
   handler=makeHandler(false); // Again, only the in-memory local Edge instance.
-  syntheticRateLimit={
-    allowed:false,
-    retry_after_seconds:41
+  syntheticRateLimit = {
+    allowed: false,
+    retry_after_seconds: 41
   };
-  res=await request("withdraw",{sessionId:receipt.sessionId},"b".repeat(64));
-  assert.equal(res.status,401);
-  assert.equal(sessions.size,1);
+
+  res = await request(
+    "withdraw",
+    { sessionId: receipt.sessionId },
+    receipt.uploadToken
+  );
+  assert.equal(res.status, 429);
+  assert.equal(res.body.error, "Too many requests");
+  assert.equal(res.headers.get("retry-after"), "41");
+  assert.equal(sessions.size, 1);
+  assert.equal(events.size, 5);
+
+  syntheticRateLimit = {
+    allowed: true,
+    retry_after_seconds: 0
+  };
+
+  res = await request(
+    "withdraw",
+    { sessionId: receipt.sessionId },
+    "b".repeat(64)
+  );
+  assert.equal(res.status, 401);
+  assert.equal(sessions.size, 1);
+
   res=await request("withdraw",{sessionId:receipt.sessionId},receipt.uploadToken);
   assert.equal(res.status,200);
   assert.equal(res.body.remoteDataDeleted,true);
