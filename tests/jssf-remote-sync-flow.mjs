@@ -178,16 +178,32 @@ await reopened.flush();
 assert.equal(uploads.length,1);
 console.log("PASS: duplicate requeue and page reload recovery do not re-upload acknowledged events");
 
-const offlineWithdrawal=await sync.requestWithdrawal();
+const savedContext={
+  appMode:context.appMode,
+  screeningSessionId:context.screeningSessionId,
+  researchMetadata:context.researchMetadata
+};
+context.appMode="public";
+context.screeningSessionId=null;
+context.researchMetadata=null;
+const withdrawables=await reopened.listWithdrawableEnrollments();
+assert.equal(withdrawables.length,1);
+assert.equal(withdrawables[0].clientSessionId,savedContext.screeningSessionId);
+assert.equal(withdrawables[0].studyId,enrollment.studyId);
+assert.equal(Object.prototype.hasOwnProperty.call(withdrawables[0],"uploadToken"),false);
+const offlineWithdrawal=await reopened.requestWithdrawal(withdrawables[0].clientSessionId);
 assert.equal(offlineWithdrawal.complete,false);
 assert.equal(offlineWithdrawal.pending,true);
 assert.equal(offlineWithdrawal.localDeleted,true);
 assert.equal(offlineWithdrawal.remoteDeleted,false);
-assert.equal(localPurges[0],context.screeningSessionId);
+assert.equal(localPurges[0],savedContext.screeningSessionId);
 assert.equal((await sync.pending(enrollment.sessionId)).length,0);
+context.appMode=savedContext.appMode;
+context.screeningSessionId=savedContext.screeningSessionId;
+context.researchMetadata=savedContext.researchMetadata;
 assert.equal(await sync.queueFinalized("module_run",sample),false);
 assert.equal((await sync.flush()).reason,"withdrawal_pending");
-console.log("PASS: offline withdrawal stops new uploads, erases local research, and preserves deletion capability");
+console.log("PASS: tab-close recovery lists only safe enrollment metadata and can start offline withdrawal without sessionStorage");
 
 withdrawNetworkDown=false;
 const resumed=await reopened.resumePendingWithdrawals();
