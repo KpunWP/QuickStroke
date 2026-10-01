@@ -11,10 +11,41 @@
   const VERSION = 'quickstroke-app-mode-1.0.1';
   const STUDY_ID_POLICY_VERSION = 'quickstroke-study-id-random-1.0.0';
   const MODES = Object.freeze(['public', 'research', 'dev']);
-  const PROFILES = Object.freeze({
-    clinic_supervised: Object.freeze({ enabled: true, dataCollectionEnabled: true }),
-    community_remote_qr: Object.freeze({ enabled: false, dataCollectionEnabled: false })
+
+  function communityRemoteProfileConfig() {
+    const remote = global.QS_CONFIG?.jssfRemote || {};
+    const configured = global.QS_CONFIG?.research?.profiles?.community_remote_qr || {};
+    const approved = configured.enabled === true
+      && configured.dataCollectionEnabled === true
+      && remote.enabled === true
+      && remote.consentApproved === true
+      && remote.agePolicyApproved === true
+      && remote.retentionPolicyApproved === true
+      && remote.minimumAge18Enforced === true
+      && Number.isInteger(remote.retentionDays)
+      && remote.retentionDays >= 1
+      && remote.retentionDays <= 365
+      && typeof remote.privacyContact === 'string'
+      && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(remote.privacyContact)
+      && typeof remote.endpoint === 'string'
+      && /^https:\/\//.test(remote.endpoint)
+      && typeof remote.consentVersion === 'string'
+      && remote.consentVersion.length >= 5;
+    return Object.freeze({ enabled: approved, dataCollectionEnabled: approved });
+  }
+
+  const PROFILES = {};
+  Object.defineProperties(PROFILES, {
+    clinic_supervised: {
+      enumerable: true,
+      value: Object.freeze({ enabled: true, dataCollectionEnabled: true })
+    },
+    community_remote_qr: {
+      enumerable: true,
+      get: communityRemoteProfileConfig
+    }
   });
+  Object.freeze(PROFILES);
   const ANALYSIS_ROLE = Object.freeze({
     public: 'public_ephemeral',
     research: 'research_candidate',
