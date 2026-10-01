@@ -60,6 +60,8 @@ const indexedDB={
   }
 };
 let sequence=0,networkDown=true,withdrawNetworkDown=true,enrolls=0,withdrawals=0;
+let enrollmentResponseLost=true;
+const enrollmentTokens=[];
 const localPurges=[];
 const preferences=new Map();
 const localStorage={setItem:(k,v)=>preferences.set(k,v),getItem:k=>preferences.get(k)||null,
@@ -96,16 +98,24 @@ function clientWindow(){
     QuickStrokeI18n:{getLocale:()=>"th-TH"},
     indexedDB,localStorage,navigator:{userAgent:"iPhone Safari"},
     QuickStrokeResearchStore:{purgeRemoteSessionLocal:async id=>{localPurges.push(id);return {deleted:true};}},
-    crypto:{randomUUID:()=>"550e8400-e29b-41d4-a716-"+(++sequence).toString(16).padStart(12,"0")},
+    crypto:{
+      randomUUID:()=>"550e8400-e29b-41d4-a716-"+(++sequence).toString(16).padStart(12,"0"),
+      getRandomValues:(bytes)=>{for(let i=0;i<bytes.length;i++)bytes[i]=(i+17)%256;return bytes;}
+    },
     addEventListener(){},
     fetch:async(url,options)=>{
       const body=JSON.parse(options.body);
       if(url.endsWith("/enroll")){
         enrolls++;
+        enrollmentTokens.push(body.uploadToken);
+        if(enrollmentResponseLost){
+          enrollmentResponseLost=false;
+          throw Error("Simulated lost enrollment response");
+        }
         return {
           ok:true,json:async()=>({
             sessionId:"550e8400-e29b-41d4-a716-446655440000",
-            studyId:body.studyId,uploadToken:"a".repeat(64),
+            studyId:body.studyId,uploadToken:body.uploadToken,reused:true,
             createdAt:new Date().toISOString(),expiresAt:"2030-01-01T00:00:00Z"
           })
         };
@@ -129,10 +139,15 @@ function clientWindow(){
 const sync=clientWindow();
 assert.equal(sync.featureReady(),true);
 assert.equal(sync.canSync(),true);
+await assert.rejects(sync.enroll(),/Simulated lost enrollment response/);
 const enrollment=await sync.enroll();
 assert.equal(enrollment.studyId,context.researchMetadata.studyId);
-assert.equal(enrolls,1);
-console.log("PASS: explicit consent enrollment preserves Study ID and creates capability token");
+assert.equal(enrolls,2);
+assert.equal(enrollmentTokens.length,2);
+assert.match(enrollmentTokens[0],/^[0-9a-f]{64}$/);
+assert.equal(enrollmentTokens[1],enrollmentTokens[0]);
+assert.equal(enrollment.reused,true);
+console.log("PASS: lost enrollment response retries with the same capability and preserves Study ID");
 
 assert.equal(await sync.queueFinalized("module_run",sample),true);
 await sync.flush().catch(()=>null);
