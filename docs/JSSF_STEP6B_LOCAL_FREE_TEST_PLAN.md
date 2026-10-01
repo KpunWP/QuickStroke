@@ -63,6 +63,7 @@ Create `supabase/functions/.env` (already Git-ignored) with **no real participan
 JSSF_REMOTE_ENABLED=true
 JSSF_ALLOWED_ORIGINS=http://127.0.0.1:5173
 JSSF_CONSENT_VERSION=LOCAL_SYNTHETIC_2026_09
+JSSF_RATE_LIMIT_SECRET=LOCAL_SYNTHETIC_RATE_LIMIT_SECRET_2026_09_ONLY
 ```
 
 Stop/restart the loopback-only local stack with the same `start --network-id ... -x ...` command so Edge Runtime automatically loads `supabase/functions/.env`. Supabase injects its *local default* service-role credentials; do not copy cloud credentials. Confirm health returns `collectionEnabled:true` **only locally**.
