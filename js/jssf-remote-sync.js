@@ -178,12 +178,13 @@
       && /^[0-9a-f]{64}$/.test(credential.uploadToken||"")
       && Number.isFinite(Date.parse(credential.createdAt||"")));
   }
-  async function activate(enrollment, clientSessionId, expectedUploadToken=null) {
+  async function activate(enrollment, clientSessionId, expectedUploadToken=null, expectedStudyId=null) {
     if (!featureReady() || !isRemoteContext()) throw new Error("Remote JSSF collection is not approved for this session");
     if (context().screeningSessionId!==clientSessionId) throw new Error("Session identity mismatch");
     if (!enrollment || !UUID.test(enrollment.sessionId) || !/^[0-9a-f]{64}$/.test(enrollment.uploadToken||"")
         || (expectedUploadToken && enrollment.uploadToken!==expectedUploadToken)
         || !/^[A-Z0-9-]{20,64}$/.test(enrollment.studyId||"")
+        || (expectedStudyId && enrollment.studyId!==expectedStudyId)
         || !Number.isFinite(Date.parse(enrollment.createdAt||""))
         || retentionExpired(enrollment)) throw new Error("Invalid or expired server enrollment");
     const credential={
@@ -204,6 +205,8 @@
     if (ctx.researchMetadata?.consentVersion!==cfg.consentVersion) throw new Error("Consent version mismatch");
     const old=await readCredential(ctx.screeningSessionId);
     if (old?.withdrawalPending) throw new Error("Withdrawal pending: new enrollment is blocked for this session");
+    if (old && (old.studyId!==ctx.researchMetadata.studyId || old.consentVersion!==cfg.consentVersion))
+      throw new Error("Stored JSSF enrollment does not match the current consent context");
     if (isActiveCredential(old)) return {sessionId:old.sessionId,studyId:old.studyId,reused:true};
     if (old && old.enrollmentPending!==true) throw new Error("Stored JSSF enrollment capability is invalid");
     const uploadToken=old?.enrollmentPending===true && /^[0-9a-f]{64}$/.test(old.uploadToken||"")
@@ -239,7 +242,7 @@
     });
     if (!res.ok) throw new Error("Enrollment unavailable (HTTP "+res.status+")");
     const enrollment=await res.json();
-    return activate(enrollment,ctx.screeningSessionId,uploadToken);
+    return activate(enrollment,ctx.screeningSessionId,uploadToken,ctx.researchMetadata.studyId);
   }
   async function enqueue(event,ctx=context()) {
     if (!canSync() || !ctx.screeningSessionId || !event || !EVENT_TYPES.has(event.eventType)) return false;
