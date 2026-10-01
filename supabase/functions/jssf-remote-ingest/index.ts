@@ -11,7 +11,14 @@ type JsonObject = Record<string, unknown>;
 const MAX_BODY = 64000;
 const origins = new Set((Deno.env.get("JSSF_ALLOWED_ORIGINS") || "").split(",").map(x => x.trim()).filter(Boolean));
 const consentVersion = Deno.env.get("JSSF_CONSENT_VERSION") || "";
-const enabled = Deno.env.get("JSSF_REMOTE_ENABLED") === "true" && origins.size > 0 && consentVersion.length >= 5;
+const rateLimitSecret = Deno.env.get("JSSF_RATE_LIMIT_SECRET") || "";
+
+const enabled =
+  Deno.env.get("JSSF_REMOTE_ENABLED") === "true" &&
+  origins.size > 0 &&
+  consentVersion.length >= 5 &&
+  rateLimitSecret.length >= 32;
+
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 function serverKey() {
   const modern = Deno.env.get("SUPABASE_SECRET_KEYS");
@@ -31,20 +38,98 @@ const COARSE_PLATFORM = new Set(["ios", "android", "desktop", "other"]);
 const COARSE_BROWSER = new Set(["safari", "chrome", "firefox", "edge", "other"]);
 const LOCALES = new Set(["th", "en", "ja"]);
 
-function response(status: number, body: unknown, origin: string | null = null): Response {
-  const headers = new Headers({ "content-type":"application/json; charset=utf-8", "cache-control":"no-store", "x-content-type-options":"nosniff" });
+function response(
+  status: number,
+  body: unknown,
+  origin: string | null = null,
+  extraHeaders: Record<string, string> = {}
+): Response {
+  const headers = new Headers({
+    "content-type": "application/json; charset=utf-8",
+    "cache-control": "no-store",
+    "x-content-type-options": "nosniff"
+  });
+
+  for (const [name, value] of Object.entries(extraHeaders)) {
+    headers.set(name, value);
+  }
+
   if (origin && origins.has(origin)) {
     headers.set("access-control-allow-origin", origin);
     headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
-    headers.set("access-control-allow-headers", "content-type, x-qs-session-token");
+    headers.set(
+      "access-control-allow-headers",
+      "content-type, x-qs-session-token"
+    );
     headers.set("vary", "Origin");
   }
-  return new Response(status === 204 ? null : JSON.stringify(body), { status, headers });
+
+  return new Response(
+    status === 204 ? null : JSON.stringify(body),
+    { status, headers }
+  );
 }
 function hex(bytes: Uint8Array): string { return Array.from(bytes, x => x.toString(16).padStart(2,"0")).join(""); }
 async function sha256(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text);
   return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)));
+}
+async function rateLimitBucket(request: Request): Promise<string | null> {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const clientIp = forwarded?.split(",")[0]?.trim()
+    || request.headers.get("cf-connecting-ip")?.trim()
+    || request.headers.get("x-real-ip")?.trim()
+    || "";
+
+  if (!clientIp || rateLimitSecret.length < 32) return null;
+
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(rateLimitSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const digest = await crypto.subtle.sign(
+    "HMAC",
+    key,
+    new TextEncoder().encode("jssf-rate-limit:" + clientIp)
+  );
+
+  return hex(new Uint8Array(digest));
+}
+type RateLimitRoute = "enroll" | "events" | "withdraw";
+
+async function consumeRateLimit(
+  request: Request,
+  route: RateLimitRoute
+): Promise<{ allowed: boolean; retryAfterSeconds: number }> {
+  if (!db) return { allowed: false, retryAfterSeconds: 60 };
+
+  const bucketKey = await rateLimitBucket(request);
+  if (!bucketKey) return { allowed: false, retryAfterSeconds: 60 };
+
+  const { data, error } = await db.rpc("consume_jssf_rate_limit", {
+    p_bucket_key: bucketKey,
+    p_route: route
+  });
+
+  if (error) throw error;
+
+  const row = Array.isArray(data) ? data[0] : data;
+
+  if (!row || typeof row.allowed !== "boolean") {
+    throw new Error("Invalid rate-limit response");
+  }
+
+  return {
+    allowed: row.allowed,
+    retryAfterSeconds:
+      Number.isInteger(row.retry_after_seconds)
+        ? row.retry_after_seconds
+        : 60
+  };
 }
 function token() { const bytes = crypto.getRandomValues(new Uint8Array(32)); return hex(bytes); }
 function studyId() {
@@ -121,21 +206,73 @@ Deno.serve(async (req: Request) => {
   const isWithdrawal = url.pathname.endsWith("/withdraw");
   if (!db || (!enabled && !isWithdrawal)) return response(503,{error:"JSSF_REMOTE_DISABLED"},origin);
   try {
+    let rateLimitRoute: RateLimitRoute;
+
+    if (url.pathname.endsWith("/enroll")) {
+      rateLimitRoute = "enroll";
+    } else if (url.pathname.endsWith("/events")) {
+      rateLimitRoute = "events";
+    } else if (url.pathname.endsWith("/withdraw")) {
+      rateLimitRoute = "withdraw";
+    } else {
+      return response(404, { error: "Not found" }, origin);
+    }
+
+    const limit = await consumeRateLimit(req, rateLimitRoute);
+
+    if (!limit.allowed) {
+      return response(
+        429,
+        { error: "Too many requests" },
+        origin,
+        { "retry-after": String(limit.retryAfterSeconds) }
+      );
+    }
+
     const body = await jsonBody(req);
+
     if (url.pathname.endsWith("/enroll")) {
       const input = parseEnrollment(body);
       const issued = token();
+
       const { data, error } = await db.from("jssf_remote_sessions")
-        .insert({ ...input, upload_token_sha256:await sha256(issued) })
-        .select("id,study_id,created_at,expires_at").single();
+        .insert({
+          ...input,
+          upload_token_sha256: await sha256(issued)
+        })
+        .select("id,study_id,created_at,expires_at")
+        .single();
+
       if (error) {
-        if (error.code === "23505") return response(409,{error:"Session already enrolled"},origin);
+        if (error.code === "23505") {
+          return response(
+            409,
+            { error: "Session already enrolled" },
+            origin
+          );
+        }
         throw error;
       }
-      return response(201,{ sessionId:data.id, studyId:data.study_id, uploadToken:issued, createdAt:data.created_at, expiresAt:data.expires_at, schemaVersion:CONTRACT_VERSION },origin);
+
+      return response(
+        201,
+        {
+          sessionId: data.id,
+          studyId: data.study_id,
+          uploadToken: issued,
+          createdAt: data.created_at,
+          expiresAt: data.expires_at,
+          schemaVersion: CONTRACT_VERSION
+        },
+        origin
+      );
     }
-    if (!url.pathname.endsWith("/events") && !url.pathname.endsWith("/withdraw")) return response(404,{error:"Not found"},origin);
-    const session = await authorizedSession(req,body,{allowExpired:isWithdrawal});
+
+    const session = await authorizedSession(
+      req,
+      body,
+      { allowExpired: isWithdrawal }
+    );
     if (!session && isWithdrawal &&
         typeof body.sessionId === "string" && UUID.test(body.sessionId) &&
         /^[0-9a-f]{64}$/.test(req.headers.get("x-qs-session-token") || "")) {

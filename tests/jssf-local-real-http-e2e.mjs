@@ -103,7 +103,11 @@ async function call(route,body=null,capability=null,origin=ORIGIN) {
   });
   let data=null;
   try{data=await response.json();}catch{ /* Preserve status for diagnostics. */ }
-  return {status:response.status,body:data};
+  return {
+    status:response.status,
+    headers:response.headers,
+    body:data
+  };
 }
 const digest=value=>createHash("sha256").update(value).digest("hex");
 const syntheticSession="S-"+randomUUID().replaceAll("-","");
@@ -126,8 +130,24 @@ try {
     "Local Edge collection must be enabled ONLY for the loopback-only synthetic test");
   console.log("PASS: local Edge Runtime enabled with isolated, empty real PostgreSQL");
 
-  let r=await call("enroll",{...enrollment,consentAccepted:false});
-  assert.equal(r.status,422,"Invalid synthetic consent was not rejected");
+  let r;
+
+  for(let i=1;i<=10;i++){
+    r=await call("enroll",{...enrollment,consentAccepted:false});
+    assert.equal(r.status,422,"Invalid synthetic consent was not rejected before rate limit");
+  }
+
+  r=await call("enroll",{...enrollment,consentAccepted:false});
+  assert.equal(r.status,429,"Enrollment rate limit did not reject request 11");
+  assert.ok(Number(r.headers.get("retry-after"))>0,"429 response missing Retry-After");
+
+  assert.equal(counts().sessions,0);
+  assert.equal(counts().events,0);
+
+  query("DELETE FROM quickstroke_private.jssf_remote_rate_limits;");
+
+  console.log("PASS: real PostgreSQL enrollment rate limit returns 429 with Retry-After");
+
   r=await call("enroll",enrollment,null,"https://untrusted.invalid");
   assert.equal(r.status,403,"Foreign origin was not rejected");
   assert.deepEqual(counts(),{sessions:0,events:0});
