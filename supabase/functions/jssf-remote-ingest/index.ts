@@ -12,12 +12,16 @@ const MAX_BODY = 64000;
 const origins = new Set((Deno.env.get("JSSF_ALLOWED_ORIGINS") || "").split(",").map(x => x.trim()).filter(Boolean));
 const consentVersion = Deno.env.get("JSSF_CONSENT_VERSION") || "";
 const rateLimitSecret = Deno.env.get("JSSF_RATE_LIMIT_SECRET") || "";
+const testGateEnabled = Deno.env.get("JSSF_TEST_GATE_ENABLED") === "true";
+const testCredential = Deno.env.get("JSSF_TEST_CREDENTIAL") || "";
+const testGateReady = !testGateEnabled || testCredential.length >= 32;
 
 const enabled =
   Deno.env.get("JSSF_REMOTE_ENABLED") === "true" &&
   origins.size > 0 &&
   consentVersion.length >= 5 &&
-  rateLimitSecret.length >= 32;
+  rateLimitSecret.length >= 32 &&
+  testGateReady;
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
 function serverKey() {
@@ -59,7 +63,7 @@ function response(
     headers.set("access-control-allow-methods", "GET, POST, OPTIONS");
     headers.set(
       "access-control-allow-headers",
-      "content-type, x-qs-session-token"
+      "content-type, x-qs-session-token, x-qs-test-credential"
     );
     headers.set("vary", "Origin");
   }
@@ -73,6 +77,21 @@ function hex(bytes: Uint8Array): string { return Array.from(bytes, x => x.toStri
 async function sha256(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text);
   return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", bytes)));
+}
+async function developerGateAllowed(request: Request): Promise<boolean> {
+  if (!testGateEnabled) return true;
+  if (testCredential.length < 32) return false;
+  const supplied = request.headers.get("x-qs-test-credential") || "";
+  if (!supplied) return false;
+  const [expectedDigest, suppliedDigest] = await Promise.all([
+    sha256(testCredential),
+    sha256(supplied)
+  ]);
+  let diff = 0;
+  for (let i = 0; i < expectedDigest.length; i++) {
+    diff |= expectedDigest.charCodeAt(i) ^ suppliedDigest.charCodeAt(i);
+  }
+  return diff === 0;
 }
 async function rateLimitBucket(request: Request): Promise<string | null> {
   const forwarded = request.headers.get("x-forwarded-for");
@@ -204,6 +223,13 @@ Deno.serve(async (req: Request) => {
   if (!origin || !origins.has(origin)) return response(403,{error:"Origin not permitted"});
   if (req.method === "OPTIONS") return response(204,{},origin);
   if (req.method !== "POST") return response(405,{error:"Method not allowed"},origin);
+  // Isolated hosted-staging admission gate. When enabled, every mutation route
+  // rejects missing/wrong developer credentials before consent parsing, rate
+  // limiting, enrollment, event ingestion, or withdrawal lookup. Production
+  // remains unaffected when JSSF_TEST_GATE_ENABLED is false.
+  if (!(await developerGateAllowed(req))) {
+    return response(401,{error:"TEST_ADMISSION_REQUIRED"},origin);
+  }
   // Closed by default, including for callers that try bypassing the client UI.
   // Withdrawal remains available if collection is paused or the consent version
   // changes. Keep previously approved Origins enabled for 90 days after closing.
