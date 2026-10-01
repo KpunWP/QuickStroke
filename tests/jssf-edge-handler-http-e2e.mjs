@@ -187,6 +187,7 @@ try{
     consentVersion:"SYNTHETIC_TEST_ONLY",
     clientSessionId:"S-"+randomUUID().replaceAll("-",""),
     studyId:"QS-AAAA-BBBB-CCCC-DDDD-EEEE-FFFF",
+    uploadToken:"b".repeat(64),
     platformFamily:"desktop",browserFamily:"chrome",locale:"th",
     appVersion:"1.0.21",appBuildId:"SYNTHETIC_TEST"
   };
@@ -225,11 +226,22 @@ try{
   const receipt=res.body;
   assert.equal(receipt.studyId,enrollment.studyId);
   assert.equal(typeof receipt.createdAt,"string");
-  assert.match(receipt.uploadToken,/^[0-9a-f]{64}$/);
+  assert.equal(receipt.uploadToken,enrollment.uploadToken);
   assert.equal(sessions.get(receipt.sessionId)?.upload_token_sha256,digest(receipt.uploadToken));
   assert.ok(!JSON.stringify([...sessions.values()]).includes(receipt.uploadToken),
     "Server persisted raw capability token");
-  console.log("PASS: real local HTTP enrollment creates a synthetic session and hashed capability");
+
+  res=await request("enroll",enrollment);
+  assert.equal(res.status,200);
+  assert.equal(res.body.reused,true);
+  assert.equal(res.body.sessionId,receipt.sessionId);
+  assert.equal(res.body.uploadToken,enrollment.uploadToken);
+  assert.equal(sessions.size,1);
+
+  res=await request("enroll",{...enrollment,uploadToken:"c".repeat(64)});
+  assert.equal(res.status,409);
+  assert.equal(sessions.size,1);
+  console.log("PASS: enrollment retry recovers the same session only with the same capability");
 
   const now=()=>new Date().toISOString();
   const sample=[
