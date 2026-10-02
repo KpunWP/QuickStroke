@@ -176,7 +176,7 @@ function harness({ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone
   assert.equal(h.calls.created,0);
   assert.equal(h.calls.persisted,0);
   assert.equal(h.calls.enrolled,0);
-  assert.equal(h.window.location.href,"./jssf-consent.html");
+  assert.equal(h.window.location.href,"https://quickstroke.vercel.app/jssf-consent.html");
   assert.match(h.elements["collection-state"].textContent,/Research\/Dev session/);
   console.log("PASS: consent entry refuses to overwrite an active clinic or Dev session");
 }
