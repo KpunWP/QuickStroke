@@ -122,6 +122,8 @@ assert.match(read("service-worker.js"),/\/jssf-consent\.html/);
 assert.match(read("service-worker.js"),/\/jssf-withdraw\.html/);
 assert.match(read("result.html"),/CURRENT = calculate\(\);[\s\S]*void \(async \(\) =>/);
 assert.match(read("speech-test.html"),/qualityReasonAsrInterimOnly/);
+assert.match(read("result.html"),/CURRENT = calculate\(\);[\s\S]*void \(async \(\) =>/);
+assert.match(read("speech-test.html"),/qualityReasonAsrInterimOnly/);
 assert.match(read("locales\/th-TH\/ui.json"),/ระบบได้รับเฉพาะผลถอดเสียงชั่วคราว/);
 assert.match(read("config.js"),/enabled: true,[\s\S]*consentApproved: true,[\s\S]*agePolicyApproved: true,[\s\S]*retentionPolicyApproved: true/);
 assert.match(client,/pending\(cred\.sessionId\)/);
