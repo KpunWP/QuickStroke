@@ -185,13 +185,20 @@ await sync.flush();
 assert.equal(uploads.length,1);
 const reopened=clientWindow();
 const recoveredStore={
-  stores:{moduleRuns:"moduleRuns",testAttempts:"testAttempts"},
-  getAllByIndex:async(name)=>name==="moduleRuns"?[sample]:[]
+  stores:{screeningSessions:"screeningSessions",moduleRuns:"moduleRuns",testAttempts:"testAttempts"},
+  getAllByIndex:async(name)=>name==="moduleRuns"?[sample]:[],
+  get:async(name,id)=>name==="screeningSessions"&&id===context.screeningSessionId
+    ? {screeningSessionId:id,sessionStatus:"finalized"}
+    : null
 };
 await reopened.recoverCompleted(recoveredStore);
 await reopened.flush();
-assert.equal(uploads.length,1);
-console.log("PASS: duplicate requeue and page reload recovery do not re-upload acknowledged events");
+assert.equal(uploads.length,2);
+assert.equal(uploads[1].eventType,"session_completed");
+await reopened.recoverCompleted(recoveredStore);
+await reopened.flush();
+assert.equal(uploads.length,2);
+console.log("PASS: reload recovery restores a missing finalized-session completion event once without duplicate upload");
 
 const savedContext={
   appMode:context.appMode,
