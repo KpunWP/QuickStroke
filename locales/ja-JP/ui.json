@@ -358,7 +358,8 @@
     "qualityReasonAsrInterimOnly": "音声認識は暫定結果のみ取得できました",
     "qualityReasonEnergyFrames": "音声エネルギー情報が技術的な完全性基準を満たしませんでした",
     "qualityReasonAsrRuntime": "音声認識の実行中にエラーが報告されました",
-    "qualityReasonStorageWrite": "端末内の技術データ保存が完全ではありませんでした",
+    "qualityReasonStorageWrite": "端末内の技術データ保存が完全ではありませんでした",,
+    "qualityReasonAcousticUnavailable": "この端末では音声認識を単独で使用するため、SNRと音声エネルギーの安定性は取得できません"
     "detailsShow": "詳細を見る",
     "detailsHide": "詳細を閉じる",
     "detailsResearchNote": "以下の値はプレパイロットの開発・解析用に保存されます。診断結果ではありません。"
