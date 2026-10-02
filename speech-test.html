@@ -865,6 +865,43 @@
   #test-screen.done #metrics-box{order:12;}
   #test-screen.done #result-banner .rb-sub{line-height:1.45;}
 
+  /* PRE-PILOT UX FIX: result actions follow content instead of covering it. */
+  #test-screen.done{
+    overflow-y:auto!important;
+    -webkit-overflow-scrolling:touch;
+    padding-bottom:calc(18px + env(safe-area-inset-bottom));
+  }
+  #test-screen.done #mid{
+    flex:0 0 auto!important;
+    overflow:visible!important;
+    padding-bottom:18px!important;
+    scroll-padding-bottom:0!important;
+  }
+  #test-screen.done #fast-nav-btn,
+  #test-screen.done #action-btn{
+    position:static!important;
+    display:block;
+    width:calc(100% - 36px)!important;
+    margin:8px 18px 0!important;
+    min-height:58px!important;
+  }
+  #test-screen.done #fast-nav-btn:not(.show){display:none!important;}
+  #test-screen.done #action-btn{margin-bottom:8px!important;}
+
+  @keyframes speech-ready-cue{
+    0%,100%{transform:scale(1);box-shadow:0 0 0 0 rgba(31,169,143,.18),var(--shadow);}
+    50%{transform:scale(1.06);box-shadow:0 0 0 12px rgba(31,169,143,.10),0 12px 30px rgba(31,169,143,.22);}
+  }
+  .mic-circle.speak-now{
+    border-color:rgba(31,169,143,.58)!important;
+    background:var(--mint-soft)!important;
+    animation:speech-ready-cue .72s ease-in-out 3!important;
+  }
+  #hint-text.speak-now{
+    color:#137D68!important;
+    font-size:clamp(21px,5.8vw,25px)!important;
+  }
+
 </style>
 <script src="config.js"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
@@ -972,6 +1009,7 @@ const SPEECH_LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freez
 
 const SPEECH_REQUIRED_KEYS = Object.freeze([
   'langCode', 'target', 'syllables', 'rateUnit', 'keywords', 'hint',
+  'preparePrompt', 'speakNowPrompt', 'listeningPrompt', 'analyzingPrompt',
   'btnStart', 'btnRetry', 'btnStop', 'listening',
   'fastResult', 'fastHome', 'fastNext', 'fastIncomplete',
   'noiseTitle', 'noiseDesc', 'noiseMove', 'noiseGo', 'noisyTag',
@@ -2386,6 +2424,8 @@ function resetUI() {
   if ($('test-screen')) $('test-screen').classList.remove('done', 'result-details-open');
   $('mic-circle').className        = 'mic-circle';
   $('mic-icon').textContent        = '🎤';
+  $('hint-text').classList.remove('speak-now');
+  if (T) $('hint-text').textContent = T.hint;
   $('transcript-box').style.display = 'none';
   $('transcript-box').textContent  = '';
   $('metrics-box').style.display   = 'none';
@@ -2495,11 +2535,13 @@ function noiseMeasureAnyway() {
   noisyAck = true;
   window.MEASURED_NOISY = true;
   phase = 'RECORDING';
-  $('mic-circle').className       = 'mic-circle recording';
+  $('mic-circle').className       = 'mic-circle recording speak-now';
   $('mic-icon').textContent       = '👄';
+  $('hint-text').classList.add('speak-now');
+  $('hint-text').textContent      = T.speakNowPrompt;
   $('action-btn').textContent     = T.btnStop;
   $('action-btn').className       = 'red';
-  $('transcript-box').textContent = T.listening;
+  $('transcript-box').textContent = T.listeningPrompt;
   // รีสตาร์ท loop (เพราะ NOISY_WARN ทำให้ loop หยุดไปแล้ว)
   cancelAnimationFrame(animationFrameId);
   animationFrameId = requestAnimationFrame(runLoop);
@@ -2681,6 +2723,8 @@ async function startRecording(forceDirectMic = false) {
   phase = 'CALIBRATING';
   $('mic-circle').className         = 'mic-circle calibrating';
   $('mic-icon').textContent         = '🔇';
+  $('hint-text').classList.remove('speak-now');
+  $('hint-text').textContent        = T.preparePrompt;
   $('action-btn').textContent       = T.calibrating;
   $('action-btn').className         = '';
   $('transcript-box').style.display = 'block';
@@ -2949,6 +2993,10 @@ async function beginSpeechRecognition() {
       if (!isCurrentRun()) return;
       clearRecognitionTimers();
       if (phase !== 'DONE') {
+        $('hint-text').classList.remove('speak-now');
+        $('hint-text').textContent = T.analyzingPrompt;
+        $('mic-circle').className = 'mic-circle';
+        $('mic-icon').textContent = '⏳';
         const timing = resolveSpeechTiming();
         speechStartMs = timing.start;
         speechEndMs = timing.end;
@@ -3352,13 +3400,15 @@ function runLoop() {
       // ไม่เตือนเสียงรบกวนก่อนพูด เพราะยังไม่มี signal ของเสียงพูดจริงให้เทียบ SNR
       phase = 'RECORDING';
       recordingStartedMs = nowMs;
-      $('mic-circle').className       = 'mic-circle recording';
+      $('mic-circle').className       = 'mic-circle recording speak-now';
       $('mic-icon').textContent       = '👄';
+      $('hint-text').classList.add('speak-now');
+      $('hint-text').textContent      = T.speakNowPrompt;
       $('action-btn').textContent     = T.btnStop || '⏹ หยุด';
       $('action-btn').className       = 'red';
       $('action-btn').disabled        = false;
-      $('transcript-box').textContent = T.listening || '... กำลังฟัง ...';
-      try { navigator.vibrate?.(60); } catch (error) {}
+      $('transcript-box').textContent = T.listeningPrompt;
+      try { navigator.vibrate?.([70,50,70]); } catch (error) {}
       // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
       window.MEASURED_NOISY = false;
       void beginSpeechRecognition();
