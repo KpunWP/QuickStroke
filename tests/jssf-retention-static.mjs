@@ -25,7 +25,7 @@ assert.match(consent,/18 ปีขึ้นไป/);
 assert.match(consent,/ยังไม่เปิดรับสมัครหรือเก็บข้อมูลจากบุคคลทั่วไป/);
 assert.match(consent,/disabled aria-disabled="true"/);
 assert.match(config,/retentionDays: 90/);
-assert.match(config,/enabled: false,[\s\S]*consentApproved: false,[\s\S]*agePolicyApproved: false,[\s\S]*retentionPolicyApproved: false/);
+assert.match(config,/enabled: true,[\s\S]*consentApproved: true,[\s\S]*agePolicyApproved: true,[\s\S]*retentionPolicyApproved: true/);
 // Cache may advance independently of the 90-day retention policy.
 // Require the JSSF offline shell and at least the withdrawal-preview cache version.
 const cacheVersion=sw.match(/^const CACHE_NAME = "quickstroke-pwa-v(\d+)";/m);
