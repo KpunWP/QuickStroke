@@ -344,6 +344,42 @@
     return getSessionContext();
   }
 
+  function restoreScreeningContext(record) {
+    const store = sessionStore();
+    if (!store) throw new Error('QuickStroke requires sessionStorage to restore a screening context.');
+    if (!record || typeof record !== 'object') throw new TypeError('A persisted screening session record is required.');
+    const participantId = String(record.participantId || '');
+    const screeningSessionId = String(record.screeningSessionId || '');
+    if (!/^P-[A-Za-z0-9_-]{12,100}$/.test(participantId) ||
+        !/^S-[A-Za-z0-9_-]{12,100}$/.test(screeningSessionId)) {
+      throw new Error('Persisted screening identity is invalid.');
+    }
+    if (record.sessionStatus === 'finalized') throw new Error('A finalized session cannot be resumed.');
+    if (record.appMode !== 'research' ||
+        (record.researchProfile || record.researchMetadata?.researchProfile) !== 'community_remote_qr') {
+      throw new Error('Only an unfinished JSSF remote research session can be restored here.');
+    }
+    resetScopedSequences(store);
+    clearMutableProjections(store);
+    store.setItem(SESSION_KEYS.participantId, participantId);
+    store.setItem(SESSION_KEYS.screeningSessionId, screeningSessionId);
+    store.setItem(SESSION_KEYS.legacyCompatibilitySessionId, screeningSessionId);
+    if (record.legacyAssessmentId) store.setItem(SESSION_KEYS.legacyAssessmentId, String(record.legacyAssessmentId));
+    else store.removeItem(SESSION_KEYS.legacyAssessmentId);
+    store.setItem(SESSION_KEYS.screeningStartedAt, record.startedAt || record.createdAt || nowIso());
+    store.setItem(SESSION_KEYS.sessionStatus, record.sessionStatus || 'active');
+    if (record.sessionMode) store.setItem(SESSION_KEYS.sessionMode, record.sessionMode);
+    if (record.protocolCompletedAt) store.setItem(SESSION_KEYS.protocolCompletedAt, record.protocolCompletedAt);
+    if (record.finalizedAt) store.setItem(SESSION_KEYS.finalizedAt, record.finalizedAt);
+    if (record.completionReasonCode) store.setItem(SESSION_KEYS.sessionCompletionReason, String(record.completionReasonCode));
+    if (record.finalizationMetadata) store.setItem(SESSION_KEYS.finalizationMetadata, JSON.stringify(record.finalizationMetadata));
+    store.setItem(SESSION_KEYS.sessionSchemaVersion, CONTRACT_VERSION);
+    store.setItem(SESSION_KEYS.manifestVersion, MANIFEST_VERSION);
+    const appModeApi = global.QuickStrokeAppMode || null;
+    appModeApi?.applySessionSnapshot?.({ force:true, mode:'research', source:'jssf_remote_resume' });
+    return getSessionContext();
+  }
+
   function createScreeningSessionRecord(options = {}) {
     const { context = ensureScreeningContext(), sessionMode = null, createdAt = null, completionReasonCode = null } = options;
     if (!context?.participantId || !context?.screeningSessionId) throw new TypeError('A valid screening context is required.');
@@ -1141,6 +1177,7 @@
     createId,
     getSessionContext,
     ensureScreeningContext,
+    restoreScreeningContext,
     createScreeningSessionRecord,
     markProtocolCompleted,
     finalizeScreeningSession,
