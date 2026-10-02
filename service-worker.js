@@ -1,4 +1,4 @@
-/* QuickStroke Service Worker — Offline-Ready Face + Speech Edition (v57)
+/* QuickStroke Service Worker — Offline-Ready Face + Speech Edition (v58)
  *
  * กลยุทธ์:
  * - HTML: network-first พร้อม timeout 3 วินาที
