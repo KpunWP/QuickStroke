@@ -314,6 +314,24 @@ try{
   assert.equal(events.size,4);
   console.log("PASS: malformed clinical-like event rejected without storing raw media");
 
+  const asrEventId=randomUUID();
+  res=await request("events",{sessionId:receipt.sessionId,events:[{
+    eventId:asrEventId,eventType:"technical_event",module:"speech",occurredAt:now(),
+    payload:{
+      code:"ASR_NO_TRANSCRIPT",
+      relatedModuleRunId:"MR-speech12345",
+      transcript:"FORBIDDEN_TRANSCRIPT",
+      rawAudio:"FORBIDDEN_AUDIO"
+    }
+  }]},receipt.uploadToken);
+  assert.equal(res.status,200);
+  assert.equal(events.size,5);
+  const storedAsr=[...events.values()].find(row=>row.client_event_id===asrEventId);
+  assert.deepEqual(storedAsr.payload,{code:"ASR_NO_TRANSCRIPT",relatedModuleRunId:"MR-speech12345"});
+  assert.ok(!JSON.stringify(storedAsr).includes("FORBIDDEN_TRANSCRIPT"));
+  assert.ok(!JSON.stringify(storedAsr).includes("FORBIDDEN_AUDIO"));
+  console.log("PASS: sanitized ASR diagnostic accepted without transcript or raw audio");
+
   const completion={eventId:randomUUID(),eventType:"session_completed",
     occurredAt:now(),payload:{completedModules:["face","arm","speech"]}};
   res=await request("events",{sessionId:receipt.sessionId,events:[completion]},receipt.uploadToken);
@@ -322,7 +340,7 @@ try{
   res=await request("events",{sessionId:receipt.sessionId,events:[completion]},receipt.uploadToken);
   assert.equal(res.status,200);
   assert.equal(res.body.duplicates,true);
-  assert.equal(events.size,5);
+  assert.equal(events.size,6);
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:randomUUID(),eventType:"technical_event",occurredAt:now(),payload:{code:"PAGE_HIDDEN"}
   }]},receipt.uploadToken);
