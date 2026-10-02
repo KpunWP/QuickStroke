@@ -34,6 +34,7 @@
   .selected-session strong{display:block;margin-bottom:6px}
   .selected-session-id{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px;font-weight:750;line-height:1.45;overflow-wrap:anywhere}
   .selected-session-meta{margin-top:4px;color:#586c7e;font-size:12px}
+  .diagnostic-box{margin:16px 0;padding:12px 14px;border:1px dashed #9fb6c8;border-radius:12px;background:#f7fbfe;color:#344b5e;font:600 12px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;white-space:pre-wrap}
   @media(max-width:710px){main{margin:0;border:0;border-radius:0;min-height:100vh;padding:23px 18px}.session-list{max-height:360px}}
 </style>
 <script src="./config.js"></script>
@@ -62,6 +63,7 @@
   </div>
 
   <p id="status" role="status" aria-live="polite">กำลังตรวจสอบข้อมูลของรอบการทดสอบที่อุปกรณ์นี้ยังมีสิทธิ์ถอนความยินยอม…</p>
+  <pre class="diagnostic-box" id="diagnostic-box" hidden></pre>
 
   <section class="session-picker" id="session-picker-wrap" hidden aria-labelledby="session-picker-heading">
     <h2 id="session-picker-heading">เลือกรอบการทดสอบที่ต้องการลบ</h2>
@@ -100,6 +102,8 @@
   const selectedBox=document.getElementById("selected-session");
   const selectedId=document.getElementById("selected-session-id");
   const selectedMeta=document.getElementById("selected-session-meta");
+  const diagnosticBox=document.getElementById("diagnostic-box");
+  const debugMode=new URLSearchParams(window.location.search).get("debug")==="1";
 
   const PAGE_SIZE=20;
   let enrollments=[];
@@ -228,6 +232,28 @@
   if(typeof api?.listWithdrawableEnrollments!=="function"){
     status.textContent="หน้าเว็บรุ่นนี้ยังไม่รองรับการกู้สิทธิ์ถอนความยินยอมหลังปิดแท็บ กรุณารีเฟรชหน้าเว็บหรือติดต่อ kpunkfang@gmail.com หรือ kpun.wp@gmail.com";
     return;
+  }
+
+  if(debugMode && typeof api?.getWithdrawalDiagnostics==="function"){
+    diagnosticBox.hidden=false;
+    diagnosticBox.textContent="กำลังอ่าน diagnostic ในเครื่อง…";
+    try{
+      const diagnostic=await api.getWithdrawalDiagnostics();
+      diagnosticBox.textContent=[
+        "Withdrawal diagnostics (ไม่แสดง token หรือข้อมูลลับ)",
+        "IndexedDB available: "+diagnostic.indexedDbAvailable,
+        "Outbox marker: "+diagnostic.outboxMarkerPresent,
+        "Credentials total: "+diagnostic.totalCredentials,
+        "Credentials active: "+diagnostic.activeCredentials,
+        "Enrollment pending: "+diagnostic.enrollmentPending,
+        "Invalid session id: "+diagnostic.invalidSessionId,
+        "Invalid upload token: "+diagnostic.invalidUploadToken,
+        "Invalid createdAt: "+diagnostic.invalidCreatedAt,
+        "Expired: "+diagnostic.expiredCredentials
+      ].join("\n");
+    }catch(error){
+      diagnosticBox.textContent="Withdrawal diagnostics failed: "+(error?.message||String(error));
+    }
   }
 
   try{
