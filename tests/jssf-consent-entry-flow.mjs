@@ -20,11 +20,12 @@ function element(id){
   };
 }
 
-function harness({ready=false,initialContext=null}={}){
+function harness({ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Safari"}={}){
   const ids=[
     "age-confirmation","consent-confirmation","start-testing","collection-state",
     "recruitment-badge","recruitment-notice","release-status-heading","consent-version-state",
-    "resume-box","resume-meta","resume-testing","browser-guidance-text"
+    "resume-box","resume-meta","resume-testing","browser-guidance-text",
+    "external-browser-gate","open-external-browser"
   ];
   const elements=Object.fromEntries(ids.map(id=>[id,element(id)]));
   const draft=[element("draft-1"),element("draft-2")];
@@ -100,7 +101,7 @@ function harness({ready=false,initialContext=null}={}){
     setItem:(k,v)=>sessionValues.set(k,v),
     getItem:k=>sessionValues.get(k)||null
   };
-  const navigator={userAgent:"Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Safari"};
+  const navigator={userAgent};
   new Function("window","document","sessionStorage","console","navigator",source)(window,document,sessionStorage,console,navigator);
   return {window,elements,draft,sessionValues,calls,storedSessions};
 }
@@ -118,6 +119,19 @@ function harness({ready=false,initialContext=null}={}){
   assert.equal(h.calls.persisted,0);
   assert.equal(h.window.location.href,"./jssf-consent.html");
   console.log("PASS: closed release gate keeps consent controls disabled and performs no enrollment");
+}
+
+{
+  const h=harness({
+    ready:true,
+    userAgent:"Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Mobile Safari Line/15.20.0"
+  });
+  assert.equal(h.elements["external-browser-gate"].hidden,false);
+  assert.equal(h.elements["age-confirmation"].disabled,true);
+  assert.equal(h.elements["consent-confirmation"].disabled,true);
+  assert.equal(h.elements["start-testing"].disabled,true);
+  assert.match(h.elements["collection-state"].textContent,/เปิดด้วย Safari/);
+  console.log("PASS: iPhone LINE in-app browser is gated before consent and start");
 }
 
 {
