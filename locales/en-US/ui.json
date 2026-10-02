@@ -274,7 +274,11 @@
       "the sky is blue",
       "sky blue today"
     ],
-    "hint": "Wait for the signal, then say this sentence",
+    "hint": "Press start, then wait for the signal before speaking",
+    "preparePrompt": "Preparing the microphone · Do not speak yet",
+    "speakNowPrompt": "Start speaking now",
+    "listeningPrompt": "Listening · Please finish the sentence",
+    "analyzingPrompt": "Analyzing your speech...",
     "btnStart": "Start Speaking",
     "btnRetry": "Speak again",
     "btnStop": "Stop",
