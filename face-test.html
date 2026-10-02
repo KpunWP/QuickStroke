@@ -1634,6 +1634,14 @@
     display:none!important;
   }
 
+  /* The old smile-prompt-visible rule has higher specificity than #smile-prompt.
+     Force the retired legacy smile surface off in every active notice state so
+     only #status-msg is visible. */
+  body.notice-smile:not(.result-visible) #smile-prompt,
+  body.smile-prompt-visible:not(.result-visible) #smile-prompt{
+    display:none!important;
+  }
+
   /* Keep the structural dashboard completely transparent during screening. */
   body:not(.result-visible) #dashboard{
     background:transparent!important;
@@ -3181,8 +3189,7 @@ function showSmilePrompt(text){
   statusMsg.textContent = msg;
   statusMsg.style.display = 'flex';
 
-  document.body.classList.remove('pose-warning-visible');
-  document.body.classList.add('smile-prompt-visible');
+  document.body.classList.remove('pose-warning-visible','smile-prompt-visible');
   setFaceNoticeMode('smile');
 
   activeNoticeKind = 'smile';
