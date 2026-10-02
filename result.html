@@ -2622,6 +2622,13 @@
          finalizedByRole:session.researchMetadata?.operatorRole || null,
          finalizedByOperatorId:session.researchMetadata?.operatorId || null
        });
+       // Remote JSSF sessions need an explicit terminal event after the canonical
+       // local session is finalized. The outbox persists this before network send.
+       try {
+         await window.QuickStrokeJssfRemote?.completeSession?.();
+       } catch (remoteError) {
+         console.warn('JSSF session completion queue failed; reload recovery will retry.', remoteError);
+       }
        RESULT_DATA_CONTEXT = null;
        await ensureResultDataContext({ force:true });
        await buildResult();
