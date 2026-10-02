@@ -205,6 +205,15 @@
   }
   #fast-nav-btn:active{transform:scale(.98);}
 
+  @keyframes speech-next-step-cue{
+    0%,100%{transform:scale(1);box-shadow:0 10px 24px rgba(31,169,143,.24);}
+    50%{transform:scale(1.035);box-shadow:0 0 0 4px rgba(31,169,143,.14),0 12px 32px rgba(31,169,143,.46);}
+  }
+  #fast-nav-btn.next-step-emphasis{
+    animation:speech-next-step-cue .72s ease-in-out 3;
+    font-weight:800!important;
+  }
+
   #noise-overlay{background:rgba(5,9,16,.78)!important;z-index:300!important;}
   #noise-overlay>div{background:rgba(12,18,28,.92)!important;border:1px solid rgba(255,255,255,.16);box-shadow:0 16px 44px rgba(0,0,0,.46)!important;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);}
   #noise-title{color:#fff!important;}
@@ -4681,7 +4690,7 @@ function handleFastFlow(riskLevel) {
   if (!btn) return;
 
   btn.textContent = L.fastResult;
-  btn.className = 'show green';
+  btn.className = 'show green next-step-emphasis';
   btn.style.display = 'block';
   btn.setAttribute('aria-hidden', 'false');
 
