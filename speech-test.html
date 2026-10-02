@@ -1366,6 +1366,26 @@ let recognitionRunId = 0;
 let recognitionFinalTimer = null;
 let recognitionSafetyTimer = null;
 
+function asrTechnicalCode(errorCode) {
+  const code=String(errorCode || "").toLowerCase();
+  if (code === "no-speech") return "ASR_NO_SPEECH";
+  if (code === "audio-capture") return "ASR_AUDIO_CAPTURE";
+  if (code === "not-allowed" || code === "service-not-allowed") return "ASR_PERMISSION_OR_SERVICE_DENIED";
+  if (code === "network") return "ASR_NETWORK";
+  if (code === "language-not-supported" || code === "bad-grammar") return "ASR_LANGUAGE_OR_GRAMMAR";
+  if (code === "aborted") return "ASR_ABORTED";
+  return "ASR_OTHER_ERROR";
+}
+
+function queueSpeechTechnicalDiagnostic(code) {
+  const remote=window.QuickStrokeJssfRemote;
+  if (!remote?.queueTechnicalEvent || remote.canSync?.() !== true) return;
+  const runId=speechModuleRunRecord?.moduleRunId || null;
+  const attemptId=activeSpeechAttemptRecord?.testAttemptId || lastCompletedSpeechAttemptRecord?.testAttemptId || "";
+  void remote.queueTechnicalEvent(code,"speech",runId,attemptId)
+    .catch(error=>console.warn("Speech ASR diagnostic upload deferred",error));
+}
+
 function clearRecognitionTimers() {
   if (recognitionFinalTimer) { clearTimeout(recognitionFinalTimer); recognitionFinalTimer = null; }
   if (recognitionSafetyTimer) { clearTimeout(recognitionSafetyTimer); recognitionSafetyTimer = null; }
@@ -3092,6 +3112,7 @@ async function beginSpeechRecognition() {
       appendAsrObservation('error', { errorCode: lastAsrErrorCode, gotResult });
       DBG('ASR ❌ onerror', `error="${e.error}" gotResult=${gotResult} isCurrentRun=${isCurrentRun()}`);
       if (!isCurrentRun()) return;
+      queueSpeechTechnicalDiagnostic(asrTechnicalCode(lastAsrErrorCode));
 
       // Give VAD time to distinguish no voice from voice that ASR could not
       // transcribe. Low SNR does not force a retry or invalidate the result.
@@ -3147,6 +3168,7 @@ async function beginSpeechRecognition() {
     }, RECOGNITION_SAFETY_MS);
   } else {
     appendAsrObservation('unavailable');
+    queueSpeechTechnicalDiagnostic('ASR_UNAVAILABLE');
     recognitionSafetyTimer = setTimeout(() => {
       if (phase !== 'DONE') {
         const timing = resolveSpeechTiming();
@@ -4160,6 +4182,9 @@ function scheduleAutomaticValidityRetry(reasonCode, details = {}) {
 }
 
 function finishSpeechInvalid(reasonCode, details = {}) {
+  if (reasonCode === 'VOICE_NOT_RECOGNIZED') {
+    queueSpeechTechnicalDiagnostic('ASR_NO_TRANSCRIPT');
+  }
   recognitionRunId++;
   clearRecognitionTimers();
   phase = 'DONE';
