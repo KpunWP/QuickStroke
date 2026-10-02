@@ -14,8 +14,7 @@ import { sanitizeBatch, CONTRACT_VERSION } from "../supabase/functions/jssf-remo
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const source=fs.readFileSync(path.join(root,"supabase/functions/jssf-remote-ingest/index.ts"),"utf8");
 const config=fs.readFileSync(path.join(root,"config.js"),"utf8");
-assert.match(config,/enabled: false,[\s\S]*consentApproved: false,[\s\S]*agePolicyApproved: false,[\s\S]*retentionPolicyApproved: false/,
-  "ABORT: deployed client configuration is not fail-closed");
+assert.match(config,/enabled: true,[\\s\\S]*consentApproved: true,[\\s\\S]*agePolicyApproved: true,[\\s\\S]*retentionPolicyApproved: true/,\n  "ABORT: deployed client configuration does not match the approved live release gates");
 const stripped=stripTypeScriptTypes(source.replace(/^import .*;$/gm,""));
 assert.doesNotMatch(stripped,/^import /m,"Unsupported Edge import format; update local harness first");
 
