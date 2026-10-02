@@ -368,6 +368,35 @@
     const tx=db.transaction("credentials","readonly");
     return reqResult(tx.objectStore("credentials").getAll());
   }
+  async function getWithdrawalDiagnostics() {
+    const diagnostics={
+      indexedDbAvailable:Boolean(global.indexedDB),
+      outboxMarkerPresent:hasOutboxMarker(),
+      totalCredentials:0,
+      activeCredentials:0,
+      enrollmentPending:0,
+      invalidSessionId:0,
+      invalidUploadToken:0,
+      invalidCreatedAt:0,
+      expiredCredentials:0
+    };
+    if (!global.indexedDB) return diagnostics;
+    const credentials=await listCredentials();
+    diagnostics.totalCredentials=credentials.length;
+    for (const credential of credentials) {
+      const pending=credential?.enrollmentPending===true;
+      const validSession=UUID.test(credential?.sessionId||"");
+      const validToken=/^[0-9a-f]{64}$/.test(credential?.uploadToken||"");
+      const validCreated=Number.isFinite(Date.parse(credential?.createdAt||""));
+      if (pending) diagnostics.enrollmentPending++;
+      if (!validSession) diagnostics.invalidSessionId++;
+      if (!validToken) diagnostics.invalidUploadToken++;
+      if (!validCreated) diagnostics.invalidCreatedAt++;
+      if (validCreated && retentionExpired(credential)) diagnostics.expiredCredentials++;
+      if (isActiveCredential(credential)) diagnostics.activeCredentials++;
+    }
+    return diagnostics;
+  }
   async function updateCredential(clientSessionId,patch) {
     const db=await openOutbox();
     const tx=db.transaction("credentials","readwrite");
@@ -519,7 +548,7 @@
   if (global.document) global.document.addEventListener("visibilitychange",()=>{if(!global.document.hidden&&canSync())void flush().catch(()=>{});});
   const api=Object.freeze({version:VERSION,featureReady,isRemoteContext,canSync,eventFromRecord,openOutbox,enroll,activate,
     enqueue,queueFinalized,recoverCompleted,pending,flush,completeSession,
-    hasEnrollment,listWithdrawableEnrollments,requestWithdrawal,resumePendingWithdrawals,purgeExpiredLocal,privacyMaintenance});
+    hasEnrollment,listWithdrawableEnrollments,getWithdrawalDiagnostics,requestWithdrawal,resumePendingWithdrawals,purgeExpiredLocal,privacyMaintenance});
   Object.defineProperty(global,"QuickStrokeJssfRemote",{value:api,enumerable:true,configurable:false,writable:false});
   if (global.document) global.document.addEventListener("DOMContentLoaded",()=>{
     if (hasOutboxMarker()) void privacyMaintenance().catch(error=>console.warn("JSSF privacy cleanup deferred",error));
