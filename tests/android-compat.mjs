@@ -94,3 +94,20 @@ for (const file of ["locales/th-TH/ui.json","locales/en-US/ui.json","locales/ja-
   assert.ok(messages.speech.qualityReasonAcousticUnavailable.length>10);
 }
 console.log("PASS: Android Speech exclusive-ASR mode releases WebAudio and marks acoustic metrics unavailable");
+
+const normalizeSpeechText=extractFunction(speech,"normalizeSpeechText");
+const dropNormalizedPrefix=extractFunction(speech,"dropNormalizedPrefix");
+const mergeSpeechTranscripts=extractFunction(speech,"mergeSpeechTranscripts");
+const mergeCtx={};
+vm.createContext(mergeCtx);
+vm.runInContext(`${normalizeSpeechText};${dropNormalizedPrefix};${mergeSpeechTranscripts};this.merge=mergeSpeechTranscripts;`,mergeCtx);
+assert.equal(mergeCtx.merge("วันนี้","ท้องฟ้าแจ่มใส"),"วันนี้ ท้องฟ้าแจ่มใส");
+assert.equal(mergeCtx.merge("วันนี้ท้อง","ท้องฟ้าแจ่มใส"),"วันนี้ท้อง ฟ้าแจ่มใส");
+assert.equal(mergeCtx.merge("วันนี้","วันนี้ท้องฟ้าแจ่มใส"),"วันนี้ท้องฟ้าแจ่มใส");
+assert.equal(mergeCtx.merge("วันนี้ท้องฟ้าแจ่มใส","ท้องฟ้าแจ่มใส"),"วันนี้ท้องฟ้าแจ่มใส");
+assert.match(speech,/ANDROID_PHRASE_PAUSE_MS = SPEECH_CFG\.androidPhrasePauseMs \?\? 1800/);
+assert.match(speech,/ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG\.androidRecognitionSafetyMs \?\? 12000/);
+assert.match(speech,/commitCurrentAndroidSession/);
+assert.match(speech,/setTimeout\(\(\) => startRecognitionSafely\(0\), 120\)/);
+assert.match(speech,/bestTranscript && !recognitionFinalTimer/);
+console.log("PASS: Android Speech accumulates phrase fragments across natural pauses without extending an empty-restart timer");
