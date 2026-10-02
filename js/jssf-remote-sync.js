@@ -16,6 +16,13 @@
   const QUALITY = new Set(["acceptable", "limited", "unusable", "not_assessed"]);
   const MODULE = new Set(["face", "arm", "speech"]);
   const STATUS = new Set(["completed", "aborted", "interrupted"]);
+  const TECH_CODES = new Set([
+    "PERMISSION_DENIED","SENSOR_UNAVAILABLE","SENSOR_STALE","PAGE_HIDDEN",
+    "STORAGE_WRITE_FAILED","MODULE_RETRY_REQUESTED","MIC_PERMISSION_DENIED",
+    "CAMERA_UNAVAILABLE","TTS_UNAVAILABLE","ASR_UNAVAILABLE","OTHER_TECHNICAL_ERROR",
+    "ASR_NO_SPEECH","ASR_AUDIO_CAPTURE","ASR_PERMISSION_OR_SERVICE_DENIED",
+    "ASR_NETWORK","ASR_LANGUAGE_OR_GRAMMAR","ASR_ABORTED","ASR_NO_TRANSCRIPT","ASR_OTHER_ERROR"
+  ]);
   const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const ID = /^[A-Za-z0-9_-]{3,110}$/;
   let opening = null;
@@ -279,6 +286,24 @@
     const evt=eventFromRecord(kind,record);
     if (!evt||record.screeningSessionId!==context().screeningSessionId) return false;
     return enqueue(evt);
+  }
+  async function queueTechnicalEvent(code,module=null,relatedModuleRunId=null,dedupeSuffix="") {
+    if (!canSync() || !TECH_CODES.has(code)) return false;
+    const safeModule = module===null ? null : (MODULE.has(module) ? module : null);
+    const related = relatedModuleRunId ? safeId(relatedModuleRunId) : null;
+    const suffix = typeof dedupeSuffix==="string"
+      ? dedupeSuffix.replace(/[^A-Za-z0-9_.:-]/g,"").slice(0,80)
+      : "";
+    return enqueue({
+      eventType:"technical_event",
+      module:safeModule,
+      occurredAt:new Date().toISOString(),
+      payload:{
+        code,
+        relatedModuleRunId:related || undefined
+      },
+      dedupeKey:["technical",code,related || "session",suffix].filter(Boolean).join(":")
+    });
   }
   async function pending(remoteSessionId) {
     const db=await openOutbox(),tx=db.transaction("queue","readonly");
@@ -557,7 +582,7 @@
   });
   if (global.document) global.document.addEventListener("visibilitychange",()=>{if(!global.document.hidden&&canSync())void flush().catch(()=>{});});
   const api=Object.freeze({version:VERSION,featureReady,isRemoteContext,canSync,eventFromRecord,openOutbox,enroll,activate,
-    enqueue,queueFinalized,recoverCompleted,pending,flush,completeSession,
+    enqueue,queueFinalized,queueTechnicalEvent,recoverCompleted,pending,flush,completeSession,
     hasEnrollment,listWithdrawableEnrollments,getWithdrawalDiagnostics,requestWithdrawal,resumePendingWithdrawals,purgeExpiredLocal,privacyMaintenance});
   Object.defineProperty(global,"QuickStrokeJssfRemote",{value:api,enumerable:true,configurable:false,writable:false});
   if (global.document) global.document.addEventListener("DOMContentLoaded",()=>{
