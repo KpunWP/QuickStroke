@@ -20,6 +20,9 @@
     #resume-testing{margin-top:10px;background:#236c96;color:#fff;cursor:pointer}
     #browser-guidance{background:#eef7ff;border-color:#b9d9f4}
     #browser-guidance strong{display:block;margin-bottom:4px}
+    #external-browser-gate{background:#eef7ff;border:2px solid #79b8ea}
+    #external-browser-gate[hidden]{display:none}
+    #open-external-browser{display:block;width:100%;margin-top:12px;padding:14px 18px;border-radius:12px;background:#236c96;color:#fff;text-align:center;text-decoration:none;font-size:16px;font-weight:800}
     .pending{font-weight:750;color:#985d00}label{display:block;margin:15px 0;color:#4d5e6e}
     input{accent-color:#236c96}button{width:100%;padding:14px 20px;background:#b9c9d5;border:none;border-radius:12px;font-size:16px;font-weight:750;color:#4b5d69;cursor:not-allowed}button:not(:disabled){background:#236c96;color:#fff;cursor:pointer}.draft-only[hidden]{display:none}
     a{color:#17659f;font-weight:700}footer{margin-top:26px;padding-top:17px;border-top:1px solid #e5eaf0}
@@ -49,6 +52,12 @@
     <p id="resume-meta" class="small"></p>
     <button id="resume-testing" type="button">ทำต่อจากรอบเดิม</button>
     <p class="small">หากไม่ใช่รอบที่ต้องการ สามารถอ่านข้อมูลด้านล่างและเลือกเริ่มรอบใหม่ได้</p>
+  </div>
+  <div class="box" id="external-browser-gate" role="alert" hidden>
+    <strong>เปิดด้วย Safari ก่อนเริ่ม</strong>
+    <p class="small">เพื่อให้สามารถกลับมาทำต่อหรือถอนข้อมูลได้ภายหลัง กรุณาเปิดหน้านี้ออกจาก LINE ก่อนเริ่มการทดสอบ</p>
+    <a id="open-external-browser" href="./jssf-consent.html?openExternalBrowser=1">เปิดด้วย Safari</a>
+    <p class="small">หาก iPhone ตั้งเบราว์เซอร์หลักเป็นแอปอื่น ระบบอาจเปิดเบราว์เซอร์หลักนั้นแทน</p>
   </div>
   <div class="box" id="browser-guidance" role="note">
     <strong>ก่อนเริ่มการทดสอบ</strong>
@@ -124,12 +133,26 @@
   const resumeMeta=document.getElementById("resume-meta");
   const resumeButton=document.getElementById("resume-testing");
   const browserGuidanceText=document.getElementById("browser-guidance-text");
+  const externalBrowserGate=document.getElementById("external-browser-gate");
+  const externalBrowserLink=document.getElementById("open-external-browser");
   const draftOnly=[...document.querySelectorAll(".draft-only")];
   let resumeCandidate=null;
+  let requiresExternalBrowser=false;
 
   function renderBrowserGuidance(){
     const ua=navigator.userAgent||"";
-    if(/iPhone|iPad|iPod/i.test(ua)){
+    const ios=/iPhone|iPad|iPod/i.test(ua);
+    const line=/\bLine\//i.test(ua);
+    requiresExternalBrowser=ios && line;
+    externalBrowserGate.hidden=!requiresExternalBrowser;
+    if(requiresExternalBrowser){
+      const url=new URL(window.location.href);
+      url.searchParams.set("openExternalBrowser","1");
+      externalBrowserLink.href=url.toString();
+      browserGuidanceText.textContent="เมื่อเปิดจาก LINE ให้กดปุ่มด้านบนเพื่อออกไปใช้ Safari หรือเบราว์เซอร์หลักก่อนเริ่ม";
+      return;
+    }
+    if(ios){
       browserGuidanceText.textContent="แนะนำให้เปิดหน้านี้ด้วย Safari ก่อนเริ่ม หากเข้ามาจาก Code Scanner หรือ browser ภายในแอป ให้เลือกเปิดต่อใน Safari เพื่อให้กลับมาทำต่อหรือถอนข้อมูลได้ภายหลัง";
       return;
     }
@@ -155,15 +178,15 @@
 
   function updateStartState(){
     const ready=releaseReady();
-    const canStart=ready && age.checked && consent.checked;
+    const canStart=ready && !requiresExternalBrowser && age.checked && consent.checked;
     start.disabled=!canStart;
     start.setAttribute("aria-disabled",String(!canStart));
   }
 
   function applyReleaseState(){
     const ready=releaseReady();
-    age.disabled=!ready;
-    consent.disabled=!ready;
+    age.disabled=!ready || requiresExternalBrowser;
+    consent.disabled=!ready || requiresExternalBrowser;
     draftOnly.forEach(node=>{node.hidden=ready;});
     if(ready){
       badge.textContent="เปิดรับอาสาสมัคร · 18 ปีขึ้นไป";
@@ -171,7 +194,9 @@
       releaseHeading.textContent="สถานะการรับสมัคร";
       consentVersionState.classList.remove("pending");
       consentVersionState.textContent=cfg.consentVersion;
-      state.textContent="ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
+      state.textContent=requiresExternalBrowser
+        ? "กรุณากด “เปิดด้วย Safari” ก่อนเริ่มการทดสอบ"
+        : "ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
       start.textContent=resumeCandidate?"เริ่มรอบใหม่":"เริ่มการทดสอบ";
     }else{
       releaseHeading.textContent="สถานะก่อนเปิดรับสมัคร";
