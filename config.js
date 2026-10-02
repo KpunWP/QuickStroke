@@ -8,7 +8,7 @@ window.QS_CONFIG = {
   // withdrawal/privacy contacts. Collection remains fail-closed until the
   // production server is configured and jssfRemote.enabled is explicitly opened.
   jssfRemote: {
-    enabled: false,
+    enabled: true,
     consentApproved: true,
     agePolicyApproved: true,
     retentionPolicyApproved: true,
