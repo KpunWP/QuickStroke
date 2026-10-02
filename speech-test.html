@@ -1119,6 +1119,8 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
 const ANDROID_EXCLUSIVE_ASR = IS_ANDROID && (SPEECH_CFG.androidExclusiveAsr ?? true);
+const ANDROID_PHRASE_PAUSE_MS = SPEECH_CFG.androidPhrasePauseMs ?? 1800;
+const ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG.androidRecognitionSafetyMs ?? 12000;
 const SPEECH_DATA_CONTRACT = window.QuickStrokeDataContract || null;
 const SPEECH_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
 
@@ -1400,7 +1402,7 @@ let cleanupPromise = Promise.resolve();
 // ═══ DEBUG LOGGER (ซ่อนอยู่หลังสวิตช์) ═══
 // เปิดจาก Global Dev Mode ที่หน้า Index; ?dev=1 ยังใช้เป็น fallback ได้
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
-const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.7.1 — incomplete-ASR indeterminate display fix';
+const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.7.2 — Android phrase pause tolerance';
 const DEBUG_ON = window.QuickStrokeDevMode?.isEnabled?.() === true;
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -2985,6 +2987,55 @@ async function releaseAcousticCaptureForExclusiveAsr() {
   await sleep(450);
 }
 
+function dropNormalizedPrefix(value, normalizedCount) {
+  if (!normalizedCount) return String(value || '');
+  const chars = Array.from(String(value || ''));
+  let consumed = 0;
+  let rawIndex = 0;
+  for (; rawIndex < chars.length && consumed < normalizedCount; rawIndex++) {
+    consumed += Array.from(normalizeSpeechText(chars[rawIndex])).length;
+  }
+  return chars.slice(rawIndex).join('').replace(/^\s+/, '');
+}
+
+function mergeSpeechTranscripts(base, next) {
+  const left = String(base || '').trim();
+  const right = String(next || '').trim();
+  if (!left) return right;
+  if (!right) return left;
+
+  const leftNorm = normalizeSpeechText(left);
+  const rightNorm = normalizeSpeechText(right);
+  if (!leftNorm) return right;
+  if (!rightNorm) return left;
+
+  if (rightNorm === leftNorm || leftNorm.endsWith(rightNorm) || leftNorm.includes(rightNorm)) {
+    return left;
+  }
+  if (rightNorm.startsWith(leftNorm) || rightNorm.includes(leftNorm)) {
+    return right;
+  }
+
+  const maxOverlap = Math.min(leftNorm.length, rightNorm.length);
+  let overlap = 0;
+  for (let size = maxOverlap; size > 0; size--) {
+    if (leftNorm.slice(-size) === rightNorm.slice(0, size)) {
+      overlap = size;
+      break;
+    }
+  }
+
+  const suffix = overlap ? dropNormalizedPrefix(right, overlap) : right;
+  if (!suffix) return left;
+  return `${left} ${suffix}`.trim();
+}
+
+function speechTranscriptMatchesAcceptedPhrase(value) {
+  const normalized = normalizeSpeechText(value);
+  if (!normalized) return false;
+  return (T?.keywords || []).map(normalizeSpeechText).filter(Boolean).includes(normalized);
+}
+
 async function beginSpeechRecognition() {
   // รอให้ recognition เก่าหยุดและ disconnect จริงก่อนสร้าง session ใหม่
   await resetRecognitionEngine();
@@ -3019,15 +3070,19 @@ async function beginSpeechRecognition() {
       appendAsrObservation('sound_start');
     };
     recognition.onspeechstart = () => {
-      asrSpeechStartMs = performance.now();
+      const eventMs = performance.now();
+      // Android Chrome may close and restart SpeechRecognition after a short
+      // pause. Preserve the first onset across those internal restarts so
+      // phrase timing does not jump forward to the continuation fragment.
+      if (!ANDROID_EXCLUSIVE_ASR || !asrSpeechStartMs) asrSpeechStartMs = eventMs;
       const asrCandidateStart = Math.max(
         recordingStartedMs || asrSpeechStartMs,
         asrSpeechStartMs - ASR_START_PREROLL_MS
       );
       seedSpeechEnergyFromPreRoll(asrCandidateStart);
-      DBG('ASR onspeechstart', `🗣️ start=${(asrSpeechStartMs-currentAttemptPerformanceStartedAt).toFixed(1)}ms`);
+      DBG('ASR onspeechstart', `🗣️ start=${(eventMs-currentAttemptPerformanceStartedAt).toFixed(1)}ms`);
       appendAsrObservation('speech_start', {
-        performanceOffsetMs: roundSpeechMetric(asrSpeechStartMs - currentAttemptPerformanceStartedAt, 1)
+        performanceOffsetMs: roundSpeechMetric(eventMs - currentAttemptPerformanceStartedAt, 1)
       });
     };
     recognition.onspeechend = () => {
@@ -3041,7 +3096,30 @@ async function beginSpeechRecognition() {
     let gotResult = false;
     let bestTranscript = '';
     let bestConfidence = 0;
+    let accumulatedTranscript = '';
+    let accumulatedConfidences = [];
     const recognitionSegments = new Map();
+
+    const currentSessionTranscript = () => [...recognitionSegments.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, value]) => value)
+      .map(item => item.text)
+      .join(' ')
+      .trim();
+
+    const commitCurrentAndroidSession = () => {
+      if (!ANDROID_EXCLUSIVE_ASR) return;
+      accumulatedTranscript = mergeSpeechTranscripts(accumulatedTranscript, currentSessionTranscript());
+      const sessionConfidences = [...recognitionSegments.values()]
+        .map(item => item.confidence)
+        .filter(value => Number.isFinite(value));
+      accumulatedConfidences.push(...sessionConfidences);
+      recognitionSegments.clear();
+      bestTranscript = accumulatedTranscript;
+      bestConfidence = accumulatedConfidences.length
+        ? accumulatedConfidences.reduce((a, b) => a + b, 0) / accumulatedConfidences.length
+        : null;
+    };
 
     const isCurrentRun = () => runId === recognitionRunId && phase === 'RECORDING';
 
@@ -3111,13 +3189,19 @@ async function beginSpeechRecognition() {
       const ordered = [...recognitionSegments.entries()]
         .sort((a, b) => a[0] - b[0])
         .map(([, value]) => value);
-      bestTranscript = ordered.map(item => item.text).join(' ').trim();
+      const sessionTranscript = ordered.map(item => item.text).join(' ').trim();
+      bestTranscript = ANDROID_EXCLUSIVE_ASR
+        ? mergeSpeechTranscripts(accumulatedTranscript, sessionTranscript)
+        : sessionTranscript;
       const reportedConfidences = ordered
         .map(item => item.confidence)
         .filter(value => Number.isFinite(value));
-      confidenceWasImputed = reportedConfidences.length === 0;
-      bestConfidence = reportedConfidences.length
-        ? reportedConfidences.reduce((a, b) => a + b, 0) / reportedConfidences.length
+      const allReportedConfidences = ANDROID_EXCLUSIVE_ASR
+        ? [...accumulatedConfidences, ...reportedConfidences]
+        : reportedConfidences;
+      confidenceWasImputed = allReportedConfidences.length === 0;
+      bestConfidence = allReportedConfidences.length
+        ? allReportedConfidences.reduce((a, b) => a + b, 0) / allReportedConfidences.length
         : null; // raw metadata only; never imputed for scoring
 
       if (bestTranscript) {
@@ -3138,9 +3222,13 @@ async function beginSpeechRecognition() {
         }))
       });
       if (recognitionFinalTimer) clearTimeout(recognitionFinalTimer);
+      const acceptedPhraseComplete = speechTranscriptMatchesAcceptedPhrase(bestTranscript);
+      const finishDelay = ANDROID_EXCLUSIVE_ASR
+        ? (acceptedPhraseComplete ? 550 : ANDROID_PHRASE_PAUSE_MS)
+        : (hasFinal ? 450 : 1400);
       recognitionFinalTimer = setTimeout(() => {
         if (isCurrentRun() && bestTranscript) finishWith(bestTranscript, bestConfidence);
-      }, hasFinal ? 450 : 1400);
+      }, finishDelay);
     };
 
     recognition.onerror = (e) => {
@@ -3164,6 +3252,29 @@ async function beginSpeechRecognition() {
       appendAsrObservation('end', { transcript: bestTranscript || '' });
       DBG('ASR onend', `bestTranscript="${bestTranscript}" isCurrentRun=${isCurrentRun()}`);
       if (!isCurrentRun()) return;
+      recognitionStarted = false;
+
+      if (ANDROID_EXCLUSIVE_ASR) {
+        const acceptedPhraseComplete = speechTranscriptMatchesAcceptedPhrase(bestTranscript);
+        if (acceptedPhraseComplete) {
+          finishWith(bestTranscript, bestConfidence);
+          return;
+        }
+
+        // Android Chrome commonly closes an utterance on a natural short pause.
+        // Preserve the partial phrase, restart listening, and only finish after
+        // the pause-tolerance window expires without additional transcript.
+        commitCurrentAndroidSession();
+        if (recognitionFinalTimer) clearTimeout(recognitionFinalTimer);
+        if (bestTranscript) {
+          recognitionFinalTimer = setTimeout(() => {
+            if (isCurrentRun() && bestTranscript) finishWith(bestTranscript, bestConfidence);
+          }, ANDROID_PHRASE_PAUSE_MS);
+        }
+        DBG('ASR Android continue', `partial="${bestTranscript}" wait=${ANDROID_PHRASE_PAUSE_MS}ms`);
+        setTimeout(() => startRecognitionSafely(0), 120);
+        return;
+      }
 
       // Chrome/iOS ชอบ onend เอง: ถ้ายังไม่จับคำแต่ยังอยู่ RECORDING ให้ restart
       if (!bestTranscript) {
@@ -3201,7 +3312,7 @@ async function beginSpeechRecognition() {
     // กันกรณี engine ไม่คืน event เลย: ให้จบหลัง 8 วิ แต่ใช้ VAD duration ได้
     recognitionSafetyTimer = setTimeout(() => {
       if (isCurrentRun()) finishWith(bestTranscript || '', bestConfidence);
-    }, RECOGNITION_SAFETY_MS);
+    }, ANDROID_EXCLUSIVE_ASR ? ANDROID_RECOGNITION_SAFETY_MS : RECOGNITION_SAFETY_MS);
   } else {
     appendAsrObservation('unavailable');
     queueSpeechTechnicalDiagnostic('ASR_UNAVAILABLE');
@@ -3762,6 +3873,7 @@ function speechRuntimeInfo() {
     isAndroid: IS_ANDROID,
     keepMicAlive: KEEP_MIC_ALIVE,
     androidExclusiveAsr: ANDROID_EXCLUSIVE_ASR,
+    androidPhrasePauseMs: ANDROID_EXCLUSIVE_ASR ? ANDROID_PHRASE_PAUSE_MS : null,
     coarseRuntime: SPEECH_DATA_CONTRACT?.getCoarseRuntimeSnapshot?.() || null,
     language: T?.langCode || document.documentElement.lang || null,
     permission: cloneSpeechResearchValue(permissionRuntime),
@@ -3870,6 +3982,8 @@ function makeSpeechResultPayload({
       autoValidityRetryCount: AUTO_VALIDITY_RETRY_COUNT,
       autoValidityRetryDelayMs: AUTO_VALIDITY_RETRY_DELAY_MS,
       recognitionSafetyMs: RECOGNITION_SAFETY_MS,
+      androidRecognitionSafetyMs: ANDROID_RECOGNITION_SAFETY_MS,
+      androidPhrasePauseMs: ANDROID_PHRASE_PAUSE_MS,
       trailingGapMs: TRAILING_GAP_MS,
       rateTimingPolicy: RATE_TIMING_POLICY,
       asrStartPrerollMs: ASR_START_PREROLL_MS,
