@@ -1,6 +1,6 @@
 # QuickStroke JSSF remote-usability pilot — DATA COLLECTION DRAFT
 
-**Status: NOT APPROVED / NOT LIVE.** No QR for live collection may be distributed until the project owner approves consent, eligibility, retention, server anti-abuse controls and an end-to-end upload/retry test. This is a nonclinical usability/reliability pilot using healthy/community volunteers, not stroke validation or patient recruitment.
+**Status: APPROVED / NOT LIVE.** On 2026-10-02 the project owner/advisor approval checkpoint was confirmed for the final consent wording, 18+ eligibility, 90-day primary-database retention, named withdrawal/privacy contacts and the documented collection notice. No QR for live collection may be distributed until the production server policy is configured, the final activation gate is opened, and a controlled production enrollment/withdrawal check passes. This is a nonclinical usability/reliability pilot using healthy/community volunteers, not stroke validation or patient recruitment.
 
 ## Intended separation
 - **Public Mode:** remains ephemeral and sends nothing to the research backend.
@@ -27,9 +27,9 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
-**Candidate final wording note (2026-10-01):** `jssf-consent.html` has been refined to explicitly describe what the participant will do, expected direct benefit (none guaranteed), foreseeable inconvenience/privacy concern, examples of direct identifiers that are not sent, and clearer voluntary-consent wording. The page remains fail-closed and disabled for recruitment. Project-owner/advisor approval of the wording is still required before assigning a production consent version or enabling collection.
+**Final wording approval note (2026-10-02):** `jssf-consent.html` was approved at the project owner/advisor checkpoint. The production consent version is `JSSF-REMOTE-2026-10-02-v1`. The page remains fail-closed and disabled for recruitment until the production server policy is configured and the final activation gate is explicitly opened.
 
-**Do not display this draft as final consent until the project owner/advisor has approved the wording and the hosted release gates are complete.**
+**The wording is approved, but recruitment remains closed until production server configuration and the final activation check are complete.**
 
 ## Implemented staging work
 - Supabase Project: `quickstroke-jssf` (Singapore).
@@ -55,7 +55,7 @@
 - **Hosted HTTPS Edge E2E gate CLOSED on 2026-10-01** using the isolated free Supabase project `quickstroke-jssf-staging` (ref `aijnsaqnjacuqoltadcp`, Singapore), separate from the original project ref `pzzjfnfwppdeketjdhfo`. The staging database received the full JSSF migrations plus RLS hardening on the private rate-limit table. A developer-only admission gate was added to the Edge Function and verified locally before deployment. Hosted HTTPS tests passed for health, missing/wrong developer credential rejection, invalid consent rejection, Origin rejection, authorized synthetic enrollment, same-capability enrollment retry, unauthorized session capability rejection, Face/Arm/Speech summary upload, duplicate retry/idempotency, session completion lock, duplicate completion acknowledgement, unauthorized withdrawal rejection, atomic authorized withdrawal, and lost-ack withdrawal retry. Server-side verification after the test showed **0 JSSF sessions and 0 JSSF events** remaining. Staging `JSSF_REMOTE_ENABLED` was then set back to `false`, and hosted health confirmed `collectionEnabled:false`. The original project was not used for this hosted E2E.
 
 ## Required before enabling or distributing any QR
-1. Final project-owner/advisor review of the consent wording is still required. The working policy is now: JSSF remote participants age 18+, named project contacts, in-app withdrawal plus email fallback, 90-day primary PostgreSQL retention, Singapore primary database region, and disclosed browser/provider retention limitations.
+1. **CLOSED on 2026-10-02:** final project-owner/advisor review of the consent wording, eligibility, retention and withdrawal/privacy contact policy was confirmed. The working policy is now: JSSF remote participants age 18+, named project contacts, in-app withdrawal plus email fallback, 90-day primary PostgreSQL retention, Singapore primary database region, and disclosed browser/provider retention limitations.
 2. Server-side abuse protection / public endpoint rate limiting is implemented and passed local real Edge Runtime + PostgreSQL E2E. Offline resume and real iPhone Safari IndexedDB persistence/withdrawal tests are complete. **Hosted authenticated HTTPS Edge E2E is also complete in the isolated staging project and the staging collection gate has been closed again.**
 3. Set server-only `JSSF_CONSENT_VERSION`, `JSSF_ALLOWED_ORIGINS` (exact deployment origin), `JSSF_REMOTE_ENABLED` only after acceptance tests. Keep app `jssfRemote.enabled=false` and `retentionPolicyApproved=false` until the full collection notice and all retention surfaces are approved.
 4. After actual eligible population, contact, consent and backup/local-retention policies are approved, replace disabled draft with a final informed-consent flow, enable `community_remote_qr` in `js/app-mode.js` and `js/research-policy.js`, configure explicit server policy gates and verify enrollment. Durable outbox, local cleanup and post-commit hooks are implemented but deliberately inactive.
