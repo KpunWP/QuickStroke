@@ -349,6 +349,12 @@
     "statusRateUnavailable": "評価できません",
     "statusQualityAcceptable": "使用可能",
     "statusQualityLimited": "制限あり",
+    "qualityReasonLowSnr": "周囲の雑音が比較的大きい状態でした",
+    "qualityReasonTimingFallback": "発話時間の算出に代替タイミングを使用しました",
+    "qualityReasonAsrInterimOnly": "音声認識は暫定結果のみ取得できました",
+    "qualityReasonEnergyFrames": "音声エネルギー情報が技術的な完全性基準を満たしませんでした",
+    "qualityReasonAsrRuntime": "音声認識の実行中にエラーが報告されました",
+    "qualityReasonStorageWrite": "端末内の技術データ保存が完全ではありませんでした",
     "detailsShow": "詳細を見る",
     "detailsHide": "詳細を閉じる",
     "detailsResearchNote": "以下の値はプレパイロットの開発・解析用に保存されます。診断結果ではありません。"
