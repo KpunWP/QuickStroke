@@ -118,6 +118,7 @@ function harness({ready=false,initialContext=null}={}){
   assert.equal(h.calls.persisted,1);
   assert.equal(h.calls.enrolled,1);
   assert.equal(h.sessionValues.get("fast_mode"),"full");
+  assert.equal(h.sessionValues.get("fast_lang"),"th");
   assert.equal(h.window.location.href,"./face-test.html");
   const stored=[...h.storedSessions.values()][0];
   assert.equal(stored.appMode,"research");
