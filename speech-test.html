@@ -1030,6 +1030,7 @@ const SPEECH_REQUIRED_KEYS = Object.freeze([
   'statusPhraseExact', 'statusPhraseAttention', 'statusPhraseUnavailable',
   'statusRateWithin', 'statusRateSlow', 'statusRateFast', 'statusRateUnavailable',
   'statusQualityAcceptable', 'statusQualityLimited',
+  'qualityReasonAcousticUnavailable',
   'detailsShow', 'detailsHide', 'detailsResearchNote'
 ]);
 
@@ -1116,6 +1117,8 @@ async function loadSpeechLocale(requestedCode) {
 const SPEECH_CFG = window.QS_CONFIG?.thresholds?.speech || {};
 const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
+const ANDROID_EXCLUSIVE_ASR = IS_ANDROID && (SPEECH_CFG.androidExclusiveAsr ?? true);
 const SPEECH_DATA_CONTRACT = window.QuickStrokeDataContract || null;
 const SPEECH_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
 
@@ -1990,7 +1993,8 @@ function currentSpeechQualityFlags() {
     event.attemptNo === Math.max(1, speechAttemptNo) && event.type === 'result'
   );
   if (hasAsrResult && !asrFinalReceived) flags.push('ASR_INTERIM_ONLY');
-  if (hasAsrResult && vowelEnergyBuf.length < MIN_ENERGY_FRAMES) flags.push('INSUFFICIENT_ENERGY_FRAMES');
+  if (ANDROID_EXCLUSIVE_ASR) flags.push('ACOUSTIC_METRICS_UNAVAILABLE');
+  else if (hasAsrResult && vowelEnergyBuf.length < MIN_ENERGY_FRAMES) flags.push('INSUFFICIENT_ENERGY_FRAMES');
   if (lastAsrErrorCode) flags.push('ASR_RUNTIME_ERROR');
   if (speechPersistenceErrors.length) flags.push('STORAGE_WRITE_FAILED');
   return [...new Set(flags)];
@@ -2949,6 +2953,38 @@ async function startRecording(forceDirectMic = false) {
   // Speech Recognition จะเริ่มหลังจบ calibration เท่านั้น
 }
 
+async function releaseAcousticCaptureForExclusiveAsr() {
+  if (!ANDROID_EXCLUSIVE_ASR) return;
+  const oldSource = source;
+  source = null;
+  if (oldSource) {
+    try { oldSource.disconnect(); } catch (error) {}
+  }
+
+  const oldStream = streamRef;
+  streamRef = null;
+  if (oldStream) {
+    try { oldStream.getTracks().forEach(track => track.stop()); } catch (error) {}
+  }
+
+  const oldAudioCtx = audioCtx;
+  audioCtx = null;
+  analyser = null;
+  if (animationFrameId) {
+    cancelAnimationFrame(animationFrameId);
+    animationFrameId = null;
+  }
+
+  if (oldAudioCtx && oldAudioCtx.state !== 'closed') {
+    try {
+      await Promise.race([oldAudioCtx.close(), sleep(1600)]);
+    } catch (error) {}
+  }
+  // Give Android/Chromium a short exclusive handoff window before Web Speech
+  // requests the microphone. This avoids dual capture contention seen on POCO F6.
+  await sleep(450);
+}
+
 async function beginSpeechRecognition() {
   // รอให้ recognition เก่าหยุดและ disconnect จริงก่อนสร้าง session ใหม่
   await resetRecognitionEngine();
@@ -3433,6 +3469,16 @@ function runLoop() {
       try { navigator.vibrate?.([70,50,70]); } catch (error) {}
       // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
       window.MEASURED_NOISY = false;
+      if (ANDROID_EXCLUSIVE_ASR) {
+        drawWave(freqArr, N);
+        animationFrameId = null;
+        void (async () => {
+          await releaseAcousticCaptureForExclusiveAsr();
+          if (phase !== 'RECORDING') return;
+          void beginSpeechRecognition();
+        })();
+        return;
+      }
       void beginSpeechRecognition();
     }
 
@@ -3713,7 +3759,9 @@ function speechRuntimeInfo() {
     audioContextState: audioCtx?.state || null,
     audioContextSampleRate: audioCtx?.sampleRate || null,
     isIOS: IS_IOS,
+    isAndroid: IS_ANDROID,
     keepMicAlive: KEEP_MIC_ALIVE,
+    androidExclusiveAsr: ANDROID_EXCLUSIVE_ASR,
     coarseRuntime: SPEECH_DATA_CONTRACT?.getCoarseRuntimeSnapshot?.() || null,
     language: T?.langCode || document.documentElement.lang || null,
     permission: cloneSpeechResearchValue(permissionRuntime),
@@ -4346,7 +4394,7 @@ function evaluateSpeech(text, confidence) {
   // a technical VAD/calibration limitation rather than a failed speech task.
   // Keep phrase observation evaluable, mark rate/quality as limited, and retain
   // INSUFFICIENT_ENERGY_FRAMES as a quality flag instead of invalidating.
-  else if (vowelEnergyBuf.length < MIN_ENERGY_FRAMES && !wordMatched) invalidReasonCode = 'INSUFFICIENT_ENERGY_FRAMES';
+  else if (!ANDROID_EXCLUSIVE_ASR && vowelEnergyBuf.length < MIN_ENERGY_FRAMES && !wordMatched) invalidReasonCode = 'INSUFFICIENT_ENERGY_FRAMES';
 
   const invalidDetails = {
     transcript: (isManual || noSpeechApi) ? '' : String(text || ''),
@@ -4420,25 +4468,40 @@ function evaluateSpeech(text, confidence) {
         : 'within_reference';
 
   // 3. Voice-energy variability remains research-only until patient data can
-  // establish whether it is clinically useful.
-  const stabScore = calcStab(vowelEnergyBuf);
-  const stabLabel = `${stabScore}%`;
+  // establish whether it is clinically useful. Android exclusive-ASR mode
+  // deliberately releases WebAudio before speech, so these acoustic metrics are
+  // unavailable rather than fabricated from incomplete samples.
+  const stabScore = ANDROID_EXCLUSIVE_ASR ? null : calcStab(vowelEnergyBuf);
+  const stabLabel = Number.isFinite(stabScore) ? `${stabScore}%` : '—';
 
   // 4. Technical quality is independent from the speech observations.
-  const speechEnergy = calcSpeechEnergy(vowelEnergyBuf);
-  const snrDb = calcSnrDb(speechEnergy, noiseFloor);
+  const speechEnergy = ANDROID_EXCLUSIVE_ASR ? null : calcSpeechEnergy(vowelEnergyBuf);
+  const snrDb = ANDROID_EXCLUSIVE_ASR ? null : calcSnrDb(speechEnergy, noiseFloor);
   const snrLow = snrDb !== null && snrDb < SNR_WARN_DB;
   window.MEASURED_NOISY = snrLow;
 
-  // Legacy weighted score is preserved for research comparison only.
-  const legacyWeightedScore = Math.round(wordScore * 0.40 + rateScore * 0.40 + stabScore * 0.20);
+  // Legacy weighted score is research-only and must not mix platforms when the
+  // acoustic stability component is unavailable.
+  const legacyWeightedScore = Number.isFinite(stabScore)
+    ? Math.round(wordScore * 0.40 + rateScore * 0.40 + stabScore * 0.20)
+    : null;
   setBar('word', wordScore, wordLabel);
   setBar('rate', rateScore, rateLabel);
-  setBar('stab', stabScore, stabLabel);
+  if (Number.isFinite(stabScore)) setBar('stab', stabScore, stabLabel);
+  else {
+    $('bar-stab').style.width = '0%';
+    $('val-stab').textContent = '—';
+    const scoreEl = $('score-stab');
+    if (scoreEl) scoreEl.textContent = '';
+  }
 
-  const avg = vowelEnergyBuf.reduce((a, b) => a + b, 0) / vowelEnergyBuf.length;
-  const std = Math.sqrt(vowelEnergyBuf.reduce((a, b) => a + (b - avg) ** 2, 0) / vowelEnergyBuf.length);
-  const cvValue = avg > 0 ? std / avg : 0;
+  const avg = vowelEnergyBuf.length
+    ? vowelEnergyBuf.reduce((a, b) => a + b, 0) / vowelEnergyBuf.length
+    : null;
+  const std = Number.isFinite(avg)
+    ? Math.sqrt(vowelEnergyBuf.reduce((a, b) => a + (b - avg) ** 2, 0) / vowelEnergyBuf.length)
+    : null;
+  const cvValue = Number.isFinite(avg) && avg > 0 && Number.isFinite(std) ? std / avg : null;
 
   const qualityFlags = currentSpeechQualityFlags();
   const uniqueQualityFlags = [...new Set(qualityFlags)];
@@ -4523,7 +4586,8 @@ function evaluateSpeech(text, confidence) {
       ASR_INTERIM_ONLY: 'qualityReasonAsrInterimOnly',
       INSUFFICIENT_ENERGY_FRAMES: 'qualityReasonEnergyFrames',
       ASR_RUNTIME_ERROR: 'qualityReasonAsrRuntime',
-      STORAGE_WRITE_FAILED: 'qualityReasonStorageWrite'
+      STORAGE_WRITE_FAILED: 'qualityReasonStorageWrite',
+      ACOUSTIC_METRICS_UNAVAILABLE: 'qualityReasonAcousticUnavailable'
     }[flag];
     return key && T[key] ? T[key] : flag;
   }
@@ -4592,7 +4656,8 @@ function evaluateSpeech(text, confidence) {
     status: technicalQualityStatus,
     flags: uniqueQualityFlags,
     limitingFlags: qualityLimitingFlags,
-    scoreUsableForResearch: true
+    scoreUsableForResearch: !ANDROID_EXCLUSIVE_ASR,
+    acousticMetricsAvailable: !ANDROID_EXCLUSIVE_ASR
   };
   const researchMetrics = {
     phraseMatchScore,
