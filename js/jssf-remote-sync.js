@@ -302,13 +302,15 @@
   async function recoverCompleted(store=global.QuickStrokeResearchStore) {
     if (!canSync() || !store?.getAllByIndex) return {recovered:0,reason:"disabled"};
     const id=context().screeningSessionId,stores=store.stores;
-    const [runs,attempts]=await Promise.all([
+    const [runs,attempts,session]=await Promise.all([
       store.getAllByIndex(stores.moduleRuns,"screeningSessionId",id),
-      store.getAllByIndex(stores.testAttempts,"screeningSessionId",id)
+      store.getAllByIndex(stores.testAttempts,"screeningSessionId",id),
+      store?.get && stores?.screeningSessions ? store.get(stores.screeningSessions,id) : Promise.resolve(null)
     ]);
     let count=0;
     for (const attempt of attempts) if (attempt.attemptStatus==="completed"||attempt.attemptStatus==="aborted"||attempt.attemptStatus==="interrupted") count+=await queueFinalized("test_attempt",attempt)?1:0;
     for (const run of runs) if (["completed","aborted","interrupted"].includes(run.moduleRunStatus)) count+=await queueFinalized("module_run",run)?1:0;
+    if (session?.sessionStatus==="finalized") count+=await completeSession()?1:0;
     return {recovered:count};
   }
   async function completeSession() {
