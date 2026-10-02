@@ -365,7 +365,7 @@ try{
   assert.equal(res.body.error, "Too many requests");
   assert.equal(res.headers.get("retry-after"), "41");
   assert.equal(sessions.size, 1);
-  assert.equal(events.size, 5);
+  assert.equal(events.size, 6);
 
   syntheticRateLimit = {
     allowed: true,
