@@ -15,6 +15,9 @@
     .notice{margin:20px 0;padding:14px 16px;background:#fff6eb;border:1px solid #f2c891;border-radius:14px}
     .warning{margin:18px 0;padding:14px 16px;background:#ffeded;border:1px solid #f2b9b9;border-radius:14px;color:#7c2525}
     .box{margin-top:20px;background:#f5f9fc;padding:16px;border-radius:14px;border:1px solid #e0e8f0}
+    #resume-box{background:#eef7ff;border-color:#b9d9f4}
+    #resume-box[hidden]{display:none}
+    #resume-testing{margin-top:10px;background:#236c96;color:#fff;cursor:pointer}
     .pending{font-weight:750;color:#985d00}label{display:block;margin:15px 0;color:#4d5e6e}
     input{accent-color:#236c96}button{width:100%;padding:14px 20px;background:#b9c9d5;border:none;border-radius:12px;font-size:16px;font-weight:750;color:#4b5d69;cursor:not-allowed}button:not(:disabled){background:#236c96;color:#fff;cursor:pointer}.draft-only[hidden]{display:none}
     a{color:#17659f;font-weight:700}footer{margin-top:26px;padding-top:17px;border-top:1px solid #e5eaf0}
@@ -38,6 +41,12 @@
   <div class="notice" id="recruitment-notice" role="status" aria-live="polite">
     <strong>หน้านี้เป็นหนังสือให้ความยินยอมฉบับร่างสำหรับตรวจข้อความและทดสอบระบบเท่านั้น</strong>
     <p>ยังไม่เปิดรับสมัครหรือเก็บข้อมูลจากบุคคลทั่วไป</p>
+  </div>
+  <div class="box" id="resume-box" hidden>
+    <strong>พบการทดสอบที่ยังไม่เสร็จในอุปกรณ์นี้</strong>
+    <p id="resume-meta" class="small"></p>
+    <button id="resume-testing" type="button">ทำต่อจากรอบเดิม</button>
+    <p class="small">หากไม่ใช่รอบที่ต้องการ สามารถอ่านข้อมูลด้านล่างและเลือกเริ่มรอบใหม่ได้</p>
   </div>
   <h2>ข้อมูลโครงการและผู้รับผิดชอบ</h2>
   <p><strong>สถานศึกษา:</strong> โรงเรียนสาธิตจุฬาลงกรณ์มหาวิทยาลัย ฝ่ายมัธยม</p>
@@ -105,7 +114,11 @@
   const notice=document.getElementById("recruitment-notice");
   const releaseHeading=document.getElementById("release-status-heading");
   const consentVersionState=document.getElementById("consent-version-state");
+  const resumeBox=document.getElementById("resume-box");
+  const resumeMeta=document.getElementById("resume-meta");
+  const resumeButton=document.getElementById("resume-testing");
   const draftOnly=[...document.querySelectorAll(".draft-only")];
+  let resumeCandidate=null;
 
   function releaseReady(){
     return remote?.featureReady?.()===true
@@ -113,7 +126,9 @@
       && typeof contract?.getSessionContext==="function"
       && typeof contract?.ensureScreeningContext==="function"
       && typeof contract?.createScreeningSessionRecord==="function"
+      && typeof contract?.restoreScreeningContext==="function"
       && typeof store?.get==="function"
+      && typeof store?.getRemoteResumeBundle==="function"
       && typeof store?.addScreeningSession==="function"
       && typeof store?.updateActiveScreeningSession==="function";
   }
@@ -137,7 +152,7 @@
       consentVersionState.classList.remove("pending");
       consentVersionState.textContent=cfg.consentVersion;
       state.textContent="ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
-      start.textContent="เริ่มการทดสอบ";
+      start.textContent=resumeCandidate?"เริ่มรอบใหม่":"เริ่มการทดสอบ";
     }else{
       releaseHeading.textContent="สถานะก่อนเปิดรับสมัคร";
       consentVersionState.classList.add("pending");
@@ -164,13 +179,13 @@
       && !isReusableRemoteContext(context);
   }
 
-  async function ensureRemoteSession(){
+  async function ensureRemoteSession({forceNew=false}={}){
     let context=contract.getSessionContext();
     if(activeNonRemoteContext(context)){
       throw new Error("มี Research/Dev session อื่นกำลังใช้งานอยู่ กรุณาจบ session นั้นก่อนเริ่ม JSSF Remote Testing");
     }
 
-    if(!isReusableRemoteContext(context)){
+    if(forceNew || !isReusableRemoteContext(context)){
       appMode.clearSessionSnapshot?.();
       appMode.clearResearchContext?.();
       try{
@@ -209,6 +224,65 @@
     return context;
   }
 
+  async function discoverResumeCandidate(){
+    resumeCandidate=null;
+    resumeBox.hidden=true;
+    if(!releaseReady() || typeof remote?.listWithdrawableEnrollments!=="function") return;
+    try{
+      const enrollments=await remote.listWithdrawableEnrollments();
+      for(const enrollment of enrollments){
+        const bundle=await store.getRemoteResumeBundle(enrollment.clientSessionId).catch(()=>null);
+        const session=bundle?.session;
+        if(!session || session.sessionStatus==="finalized") continue;
+        if(session.researchMetadata?.consentVersion!==cfg.consentVersion) continue;
+        resumeCandidate={...enrollment,bundle};
+        resumeMeta.textContent="Study ID: "+(enrollment.studyId||session.researchMetadata?.studyId||"—");
+        resumeBox.hidden=false;
+        if(!start.disabled) start.textContent="เริ่มรอบใหม่";
+        return;
+      }
+    }catch(error){
+      console.warn("JSSF resume discovery skipped.",error);
+    }
+  }
+
+  function resumeTarget(bundle){
+    const completed=new Set((bundle?.moduleRuns||[])
+      .filter(run=>run?.moduleRunStatus==="completed")
+      .map(run=>run.module));
+    if(bundle?.session?.sessionStatus==="protocol_completed" ||
+       ["face","arm","speech"].every(name=>completed.has(name))) return "./result.html";
+    if(!completed.has("face")) return "./face-test.html";
+    if(!completed.has("arm")) return "./arm-test.html";
+    return "./speech-test.html";
+  }
+
+  async function resumeExisting(){
+    if(!resumeCandidate) return;
+    resumeButton.disabled=true;
+    state.textContent="กำลังกู้รอบการทดสอบเดิม…";
+    try{
+      const bundle=await store.getRemoteResumeBundle(resumeCandidate.clientSessionId);
+      if(!bundle?.session) throw new Error("ไม่พบข้อมูลรอบเดิมในอุปกรณ์นี้");
+      if(bundle.session.sessionStatus==="finalized") throw new Error("รอบนี้สิ้นสุดแล้ว");
+      appMode.clearSessionSnapshot?.();
+      appMode.clearResearchContext?.();
+      appMode.configureResearchContext({
+        ...bundle.session.researchMetadata,
+        source:"jssf_resume_existing"
+      });
+      contract.restoreScreeningContext(bundle.session);
+      sessionStorage.setItem("fast_mode",bundle.session.sessionMode||"full");
+      sessionStorage.setItem("fast_lang","th");
+      await remote.enroll();
+      window.location.href=resumeTarget(bundle);
+    }catch(error){
+      console.error("JSSF resume failed.",error);
+      state.textContent="ยังทำต่อจากรอบเดิมไม่ได้: "+(error?.message||String(error));
+      resumeButton.disabled=false;
+    }
+  }
+
   async function begin(){
     if(!releaseReady() || !age.checked || !consent.checked) return;
     start.disabled=true;
@@ -216,7 +290,7 @@
     start.textContent="กำลังเริ่มการทดสอบ…";
     state.textContent="กำลังสร้างรอบการทดสอบและยืนยันการลงทะเบียน…";
     try{
-      await ensureRemoteSession();
+      await ensureRemoteSession({forceNew:Boolean(resumeCandidate)});
       await remote.enroll();
       // JSSF community testing in Thailand starts each new participant session
       // in Thai regardless of a language left over from an earlier app session.
@@ -235,7 +309,9 @@
   age.addEventListener("change",updateStartState);
   consent.addEventListener("change",updateStartState);
   start.addEventListener("click",begin);
+  resumeButton.addEventListener("click",resumeExisting);
   applyReleaseState();
+  void discoverResumeCandidate();
 })();
 </script>
 </body>
