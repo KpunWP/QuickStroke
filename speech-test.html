@@ -4414,9 +4414,21 @@ function evaluateSpeech(text, confidence) {
     rateStatusClass = 'unavailable';
   }
 
+  function qualityFlagReason(flag) {
+    const key = {
+      LOW_SNR: 'qualityReasonLowSnr',
+      RATE_TIMING_FALLBACK: 'qualityReasonTimingFallback',
+      ASR_INTERIM_ONLY: 'qualityReasonAsrInterimOnly',
+      INSUFFICIENT_ENERGY_FRAMES: 'qualityReasonEnergyFrames',
+      ASR_RUNTIME_ERROR: 'qualityReasonAsrRuntime',
+      STORAGE_WRITE_FAILED: 'qualityReasonStorageWrite'
+    }[flag];
+    return key && T[key] ? T[key] : flag;
+  }
+  const qualityReasons = uniqueQualityFlags.map(qualityFlagReason);
   const qualityStatusText = technicalQualityStatus === 'acceptable'
     ? `✓ ${T.statusQualityAcceptable}`
-    : `! ${T.statusQualityLimited}`;
+    : `! ${T.statusQualityLimited}${qualityReasons.length ? ' · ' + qualityReasons.join(' · ') : ''}`;
   const qualityStatusClass = technicalQualityStatus === 'acceptable' ? 'no-alert' : 'attention';
 
   const col = cls === 'ok' ? 'var(--green)' : 'var(--amber)';
