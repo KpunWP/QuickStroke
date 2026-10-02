@@ -24,7 +24,7 @@ function harness({ready=false,initialContext=null}={}){
   const ids=[
     "age-confirmation","consent-confirmation","start-testing","collection-state",
     "recruitment-badge","recruitment-notice","release-status-heading","consent-version-state",
-    "resume-box","resume-meta","resume-testing"
+    "resume-box","resume-meta","resume-testing","browser-guidance-text"
   ];
   const elements=Object.fromEntries(ids.map(id=>[id,element(id)]));
   const draft=[element("draft-1"),element("draft-2")];
@@ -100,7 +100,8 @@ function harness({ready=false,initialContext=null}={}){
     setItem:(k,v)=>sessionValues.set(k,v),
     getItem:k=>sessionValues.get(k)||null
   };
-  new Function("window","document","sessionStorage","console",source)(window,document,sessionStorage,console);
+  const navigator={userAgent:"Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Safari"};
+  new Function("window","document","sessionStorage","console","navigator",source)(window,document,sessionStorage,console,navigator);
   return {window,elements,draft,sessionValues,calls,storedSessions};
 }
 
@@ -109,6 +110,7 @@ function harness({ready=false,initialContext=null}={}){
   assert.equal(h.elements["age-confirmation"].disabled,true);
   assert.equal(h.elements["consent-confirmation"].disabled,true);
   assert.equal(h.elements["start-testing"].disabled,true);
+  assert.match(h.elements["browser-guidance-text"].textContent,/Safari/);
   h.elements["age-confirmation"].checked=true;
   h.elements["consent-confirmation"].checked=true;
   await h.elements["start-testing"].fire("click");
