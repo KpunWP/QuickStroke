@@ -229,6 +229,10 @@ test('community remote profile is config-gated and fails closed', () => {
   const remote = c.QS_CONFIG.jssfRemote;
   const profileConfig = c.QS_CONFIG.research.profiles.community_remote_qr;
 
+  assert.equal(app.profiles.community_remote_qr.enabled, true);
+  assert.equal(app.profiles.community_remote_qr.dataCollectionEnabled, true);
+
+  remote.consentApproved = false;
   assert.equal(app.profiles.community_remote_qr.enabled, false);
   assert.equal(app.profiles.community_remote_qr.dataCollectionEnabled, false);
 
