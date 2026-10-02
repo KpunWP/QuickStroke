@@ -23,7 +23,8 @@ function element(id){
 function harness({ready=false,initialContext=null}={}){
   const ids=[
     "age-confirmation","consent-confirmation","start-testing","collection-state",
-    "recruitment-badge","recruitment-notice","release-status-heading","consent-version-state"
+    "recruitment-badge","recruitment-notice","release-status-heading","consent-version-state",
+    "resume-box","resume-meta","resume-testing"
   ];
   const elements=Object.fromEntries(ids.map(id=>[id,element(id)]));
   const draft=[element("draft-1"),element("draft-2")];
@@ -32,13 +33,14 @@ function harness({ready=false,initialContext=null}={}){
     participantId:null,screeningSessionId:null,sessionStatus:null,appMode:"public",researchMetadata:null
   };
   let selectedMeta=null;
-  const calls={configured:0,created:0,persisted:0,updated:0,enrolled:0,rollback:0};
+  const calls={configured:0,created:0,persisted:0,updated:0,enrolled:0,rollback:0,restored:0,resumeReads:0};
   const storedSessions=new Map();
   const window={
     QS_CONFIG:{jssfRemote:{consentVersion:"JSSF-CONSENT-TEST-1"}},
     QuickStrokeJssfRemote:{
       featureReady:()=>ready,
-      enroll:async()=>{calls.enrolled++;return {sessionId:"remote-1"};}
+      enroll:async()=>{calls.enrolled++;return {sessionId:"remote-1"};},
+      listWithdrawableEnrollments:async()=>[]
     },
     QuickStrokeAppMode:{
       configureResearchContext(input){
@@ -63,6 +65,18 @@ function harness({ready=false,initialContext=null}={}){
         calls.created++;
         return context;
       },
+      restoreScreeningContext(record){
+        context={
+          participantId:record.participantId,
+          screeningSessionId:record.screeningSessionId,
+          sessionStatus:record.sessionStatus,
+          sessionMode:record.sessionMode,
+          appMode:"research",
+          researchMetadata:record.researchMetadata
+        };
+        calls.restored++;
+        return context;
+      },
       createScreeningSessionRecord({context,sessionMode}){
         return {...context,sessionMode};
       }
@@ -70,6 +84,7 @@ function harness({ready=false,initialContext=null}={}){
     QuickStrokeResearchStore:{
       stores:{screeningSessions:"screening_sessions"},
       get:async(_store,id)=>storedSessions.get(id)||null,
+      getRemoteResumeBundle:async(id)=>{calls.resumeReads++;const session=storedSessions.get(id)||null;return session?{session,moduleRuns:[]}:null;},
       addScreeningSession:async record=>{storedSessions.set(record.screeningSessionId,record);calls.persisted++;},
       updateActiveScreeningSession:async(id,patch)=>{
         storedSessions.set(id,{...storedSessions.get(id),...patch});calls.updated++;
