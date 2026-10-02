@@ -35,13 +35,13 @@ vm.runInContext(config,context,{filename:"config.js"});
 vm.runInContext(client,context,{filename:"js/jssf-remote-sync.js"});
 const sync=context.QuickStrokeJssfRemote;
 assert.equal(typeof sync.featureReady,"function");
-assert.equal(sync.featureReady(),false);
+assert.equal(sync.featureReady(),true);
 assert.equal(sync.canSync(),false);
 assert.equal(await sync.flush().then(x=>x.reason),"disabled");
 assert.equal(await sync.enqueue({eventType:"technical_event",payload:{code:"SENSOR_STALE"}}),false);
 assert.equal(networkCalls,0);
 assert.equal(dbOpens,0);
-console.log("PASS: staging gates prevent all network and persistent writes in Public Mode");
+console.log("PASS: live remote feature remains isolated from Public Mode with no network or persistent writes");
 
 currentContext={
  appMode:"research",screeningSessionId:"S-abc123456789abcdef",
@@ -53,6 +53,7 @@ currentContext.researchMetadata=null;
 assert.equal(sync.canSync(),false);
 currentContext.appMode="research";
 currentContext.researchMetadata={researchProfile:"community_remote_qr",consentStatus:"consented"};
+context.QS_CONFIG.jssfRemote.enabled=false;
 assert.equal(sync.featureReady(),false);
 assert.equal(sync.canSync(),false);
 for(const cb of listeners.get("quickstroke:research-record-finalized")||[])cb({
@@ -60,7 +61,9 @@ for(const cb of listeners.get("quickstroke:research-record-finalized")||[])cb({
 });
 assert.equal(dbOpens,0);
 assert.equal(networkCalls,0);
-console.log("PASS: clinical, Dev and disabled remote Research cannot auto-upload");
+context.QS_CONFIG.jssfRemote.enabled=true;
+assert.equal(sync.featureReady(),true);
+console.log("PASS: clinical, Dev and explicitly disabled remote Research cannot auto-upload");
 
 const sample={
  module:"arm",screeningSessionId:currentContext.screeningSessionId,
@@ -117,6 +120,6 @@ assert.match(client,/listWithdrawableEnrollments/);
 assert.match(read("service-worker.js"),/quickstroke-pwa-v46/);
 assert.match(read("service-worker.js"),/\/jssf-consent\.html/);
 assert.match(read("service-worker.js"),/\/jssf-withdraw\.html/);
-assert.match(read("config.js"),/enabled: false,[\s\S]*consentApproved: false,[\s\S]*agePolicyApproved: false,[\s\S]*retentionPolicyApproved: false/);
+assert.match(read("config.js"),/enabled: true,[\s\S]*consentApproved: true,[\s\S]*agePolicyApproved: true,[\s\S]*retentionPolicyApproved: true/);
 assert.match(client,/pending\(cred\.sessionId\)/);
-console.log("PASS: all pages load gated sync client; consent stays fail-closed; withdrawal can recover after tab close; offline assets updated");
+console.log("PASS: all pages load gated sync client; approved live config is explicit; withdrawal can recover after tab close; offline assets updated");
