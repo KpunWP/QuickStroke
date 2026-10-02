@@ -345,6 +345,12 @@
     "statusRateUnavailable": "ประเมินไม่ได้",
     "statusQualityAcceptable": "ใช้ได้",
     "statusQualityLimited": "มีข้อจำกัด",
+    "qualityReasonLowSnr": "เสียงรบกวนค่อนข้างสูง",
+    "qualityReasonTimingFallback": "ระบบต้องใช้เวลาพูดสำรองในการคำนวณ",
+    "qualityReasonAsrInterimOnly": "ระบบได้รับเฉพาะผลถอดเสียงชั่วคราว",
+    "qualityReasonEnergyFrames": "ข้อมูลพลังงานเสียงไม่ครบตามเกณฑ์เทคนิค",
+    "qualityReasonAsrRuntime": "ระบบรู้จำเสียงมีข้อผิดพลาดระหว่างทำงาน",
+    "qualityReasonStorageWrite": "บันทึกข้อมูลทางเทคนิคในเครื่องไม่สมบูรณ์",
     "detailsShow": "ดูรายละเอียด",
     "detailsHide": "ซ่อนรายละเอียด",
     "detailsResearchNote": "ค่าด้านล่างเก็บไว้เพื่อการพัฒนาและวิเคราะห์ในระยะพรีไพลอต ไม่ใช่ผลวินิจฉัย"
