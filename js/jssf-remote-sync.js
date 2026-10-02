@@ -194,6 +194,16 @@
       enrollmentPending:false,withdrawalPending:false,remoteDeleted:false
     };
     await writeCredential(credential);
+    // Fail closed before entering the participant flow unless the withdrawal
+    // capability can be read back from durable IndexedDB immediately.
+    const persisted=await readCredential(clientSessionId);
+    if (!isActiveCredential(persisted)
+        || persisted.sessionId!==credential.sessionId
+        || persisted.studyId!==credential.studyId
+        || persisted.uploadToken!==credential.uploadToken) {
+      throw new Error("JSSF enrollment was accepted but secure local withdrawal capability did not persist");
+    }
+    markOutboxPresent(true);
     // A module may have completed before the enrollment receipt arrived.
     void recoverCompleted().then(()=>flush()).catch(error=>console.warn("JSSF recovery deferred",error));
     return {studyId:credential.studyId,sessionId:credential.sessionId,reused:enrollment.reused===true};
