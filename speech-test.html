@@ -3870,7 +3870,9 @@ function finalizeCanonicalSpeechAttempt({
       validityStatus:canonicalValidity,
       technicalValidity:technicalValidity || (technicalFailure ? 'failed' : (flags.length ? 'degraded' : 'full')),
       observationStatus:observationStatus || (canonicalValidity === 'valid' ? 'indeterminate' : canonicalValidity === 'not_evaluable' ? 'not_available' : 'indeterminate'),
-      qualityStatus:canonicalValidity === 'valid' ? (flags.length ? 'limited' : 'acceptable') : 'unusable',
+      qualityStatus:canonicalValidity === 'valid'
+        ? (payload?.technicalQuality?.status === 'acceptable' ? 'acceptable' : (flags.length ? 'limited' : 'acceptable'))
+        : 'unusable',
       qualityFlags:flags,
       invalidReasonCode:canonicalValidity === 'valid' ? null : (invalidReasonCode || 'SPEECH_ATTEMPT_INVALID'),
       completionReasonCode:completionReasonCode || invalidReasonCode || 'SPEECH_ATTEMPT_COMPLETED',
@@ -3886,7 +3888,10 @@ function finalizeCanonicalSpeechAttempt({
   } else {
     finalized = {...current, attemptStatus, validityStatus:canonicalValidity,
       technicalValidity:technicalValidity || (technicalFailure ? 'failed' : (flags.length ? 'degraded' : 'full')),
-      observationStatus:observationStatus || 'indeterminate', qualityStatus:canonicalValidity === 'valid' ? 'acceptable' : 'unusable',
+      observationStatus:observationStatus || 'indeterminate',
+      qualityStatus:canonicalValidity === 'valid'
+        ? (payload?.technicalQuality?.status === 'acceptable' ? 'acceptable' : (flags.length ? 'limited' : 'acceptable'))
+        : 'unusable',
       qualityFlags:flags, invalidReasonCode:canonicalValidity === 'valid' ? null : invalidReasonCode,
       completedAt:new Date().toISOString(), selectedForModuleResult, result:payload || null};
   }
@@ -3924,7 +3929,9 @@ function finalizeSpeechModuleRun(payload, {status='completed', reasonCode=null, 
       await SPEECH_RESEARCH_STORE.finalizeModuleRun(moduleRunId, {
         moduleRunStatus:status, completedAt,
         completionReasonCode:reasonCode || (status === 'completed' ? 'SPEECH_RESULT_COMPLETED' : 'SPEECH_RUN_INTERRUPTED'),
-        selectedTestAttemptId, validityStatus, observationStatus
+        selectedTestAttemptId, validityStatus, observationStatus,
+        qualityStatus:payload?.technicalQuality?.status || payload?.qualityStatus || null,
+        qualityFlags:Array.isArray(payload?.qualityFlags) ? [...new Set(payload.qualityFlags)] : []
       });
       if (writeProjection && payload) {
         await SPEECH_RESEARCH_STORE.putProjection({
@@ -3940,7 +3947,9 @@ function finalizeSpeechModuleRun(payload, {status='completed', reasonCode=null, 
     });
   }
   speechModuleRunRecord = {...speechModuleRunRecord, moduleRunStatus:status, completedAt,
-    selectedTestAttemptId, validityStatus, observationStatus};
+    selectedTestAttemptId, validityStatus, observationStatus,
+    qualityStatus:payload?.technicalQuality?.status || payload?.qualityStatus || null,
+    qualityFlags:Array.isArray(payload?.qualityFlags) ? [...new Set(payload.qualityFlags)] : []};
 }
 
 function finalizeOpenSpeechLifecycle(reasonCode = 'USER_NAVIGATED_AWAY') {
@@ -4349,6 +4358,15 @@ function evaluateSpeech(text, confidence) {
 
   const qualityFlags = currentSpeechQualityFlags();
   const uniqueQualityFlags = [...new Set(qualityFlags)];
+  // Safari/iOS may return a complete interim transcript without ever promoting
+  // it to a final Web Speech result. Preserve ASR_INTERIM_ONLY for research
+  // provenance, but do not call the audio "limited" when transcript coverage is
+  // sufficient and no other technical-quality flag is present.
+  const qualityLimitingFlags = uniqueQualityFlags.filter(flag =>
+    !(flag === 'ASR_INTERIM_ONLY'
+      && Number.isFinite(transcriptCoverageRatio)
+      && transcriptCoverageRatio >= RATE_MIN_TRANSCRIPT_COVERAGE)
+  );
   const rateReliabilityFlags = [
     Number.isFinite(transcriptCoverageRatio) && transcriptCoverageRatio < RATE_MIN_TRANSCRIPT_COVERAGE
       ? 'LOW_TRANSCRIPT_COVERAGE'
@@ -4356,7 +4374,7 @@ function evaluateSpeech(text, confidence) {
     asrTranscriptIncomplete ? 'ASR_INTERIM_ONLY' : null,
     timingUsesFallback ? 'RATE_TIMING_FALLBACK' : null
   ].filter(Boolean);
-  const technicalQualityStatus = uniqueQualityFlags.length ? 'limited' : 'acceptable';
+  const technicalQualityStatus = qualityLimitingFlags.length ? 'limited' : 'acceptable';
 
   const observationReasonCodes = [];
   if (phraseObservationStatus === 'attention') observationReasonCodes.push('PHRASE_DIFFERENCE_OBSERVED');
@@ -4425,7 +4443,7 @@ function evaluateSpeech(text, confidence) {
     }[flag];
     return key && T[key] ? T[key] : flag;
   }
-  const qualityReasons = uniqueQualityFlags.map(qualityFlagReason);
+  const qualityReasons = qualityLimitingFlags.map(qualityFlagReason);
   const qualityStatusText = technicalQualityStatus === 'acceptable'
     ? `✓ ${T.statusQualityAcceptable}`
     : `! ${T.statusQualityLimited}${qualityReasons.length ? ' · ' + qualityReasons.join(' · ') : ''}`;
@@ -4489,6 +4507,7 @@ function evaluateSpeech(text, confidence) {
   const technicalQuality = {
     status: technicalQualityStatus,
     flags: uniqueQualityFlags,
+    limitingFlags: qualityLimitingFlags,
     scoreUsableForResearch: true
   };
   const researchMetrics = {
