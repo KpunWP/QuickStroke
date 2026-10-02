@@ -580,6 +580,92 @@
     await addAuditEvent(screeningSessionId,'SESSION_AMENDMENT_RECORDED',{participantId:session.participantId,reasonCode:'AMENDMENT_RECORDED',details:{amendmentId:stored.amendmentId}});
     return stored;
   }
+  async function openExistingResearchDatabaseForRemoteRead() {
+    if (!global.indexedDB) throw createStoreError('STORAGE_UNAVAILABLE', 'IndexedDB is required to restore remote research data.');
+    const cachedResearch = getStorageNamespace() === 'research';
+    if (cachedResearch) return { database:await open(), closeAfter:false };
+    const database = await new Promise((resolve,reject)=>{
+      const req = global.indexedDB.open('quickstroke_research', DB_VERSION);
+      req.onupgradeneeded = ()=>req.transaction.abort();
+      req.onsuccess = ()=>resolve(req.result);
+      req.onerror = ()=>reject(createStoreError('STORAGE_OPEN_FAILED','Cannot open existing Research database.',{},req.error));
+    });
+    return { database, closeAfter:true };
+  }
+
+  async function getRemoteResumeBundle(screeningSessionId) {
+    if (typeof screeningSessionId !== 'string' ||
+        !/^S-[A-Za-z0-9_-]{12,100}$/.test(screeningSessionId)) {
+      throw createStoreError('INVALID_SESSION_ID', 'A canonical session ID is required for remote resume.');
+    }
+    const { database, closeAfter } = await openExistingResearchDatabaseForRemoteRead();
+    try {
+      const tx = database.transaction([STORE_NAMES.screeningSessions, STORE_NAMES.moduleRuns], 'readonly');
+      const session = await requestToPromise(tx.objectStore(STORE_NAMES.screeningSessions).get(screeningSessionId));
+      if (!session) return null;
+      if (session.appMode !== 'research' ||
+          (session.researchProfile || session.researchMetadata?.researchProfile) !== 'community_remote_qr') {
+        throw createStoreError('REMOTE_SESSION_VERIFICATION_FAILED','Only a verified remote nonclinical session can be resumed.',{screeningSessionId});
+      }
+      const runs = await requestToPromise(tx.objectStore(STORE_NAMES.moduleRuns).index('screeningSessionId').getAll(screeningSessionId));
+      await transactionToPromise(tx);
+      return { session, moduleRuns:runs || [] };
+    } finally {
+      if (closeAfter) database.close();
+    }
+  }
+
+  async function recoverSupersededRemoteOpenRecords(screeningSessionId) {
+    if (!isPersistenceEnabled()) return { recoveredRuns:0, recoveredAttempts:0, reason:'persistence_disabled' };
+    const session = await get(STORE_NAMES.screeningSessions, screeningSessionId);
+    if (!session) return { recoveredRuns:0, recoveredAttempts:0, reason:'session_missing' };
+    if (session.appMode !== 'research' ||
+        (session.researchProfile || session.researchMetadata?.researchProfile) !== 'community_remote_qr') {
+      return { recoveredRuns:0, recoveredAttempts:0, reason:'not_remote_session' };
+    }
+    const [runs, attempts] = await Promise.all([
+      getAllByIndex(STORE_NAMES.moduleRuns, 'screeningSessionId', screeningSessionId),
+      getAllByIndex(STORE_NAMES.testAttempts, 'screeningSessionId', screeningSessionId)
+    ]);
+    const superseded = (runs || []).filter((run)=>{
+      if (run.moduleRunStatus !== 'in_progress') return false;
+      return (runs || []).some((candidate)=>
+        candidate.module === run.module
+        && candidate.moduleRunStatus === 'completed'
+        && Number(candidate.moduleRunSequenceNo || 0) > Number(run.moduleRunSequenceNo || 0)
+      );
+    });
+    let recoveredRuns = 0;
+    let recoveredAttempts = 0;
+    for (const run of superseded) {
+      const openAttempts = (attempts || []).filter((attempt)=>
+        attempt.moduleRunId === run.moduleRunId && attempt.attemptStatus === 'in_progress'
+      );
+      for (const attempt of openAttempts) {
+        await finalizeLifecycleRecord(STORE_NAMES.testAttempts, attempt.testAttemptId, {
+          attemptStatus:'interrupted',
+          validityStatus:'not_evaluable',
+          observationStatus:'indeterminate',
+          qualityStatus:'unusable',
+          completionReasonCode:'SUPERSEDED_RUN_RECOVERED'
+        });
+        recoveredAttempts += 1;
+      }
+      await finalizeModuleRunAndTouch(run.moduleRunId, {
+        moduleRunStatus:'interrupted',
+        validityStatus:'not_evaluable',
+        observationStatus:'indeterminate',
+        qualityStatus:'unusable',
+        qualityFlags:['SUPERSEDED_RUN_RECOVERED'],
+        completionReasonCode:'SUPERSEDED_RUN_RECOVERED',
+        selectedTestAttemptId:null,
+        selectedTestAttemptIds:null
+      });
+      recoveredRuns += 1;
+    }
+    return { recoveredRuns, recoveredAttempts, reason:'ok' };
+  }
+
   // Delete only records belonging to a verified community_remote_qr session.
   // Run from any app mode so an offline withdrawal can finish after navigation.
   // All linked records are erased in one IndexedDB transaction; clinical and
@@ -660,7 +746,8 @@
     addModuleMeasurement:(record)=>addImmutable(STORE_NAMES.moduleMeasurements,record),
     appendSensorObservation:(record)=>addImmutable(STORE_NAMES.sensorObservations,withObservationId(record)), appendSensorObservations,
     addTechnicalEvent:(record)=>addImmutable(STORE_NAMES.technicalEvents,record), addAuditEvent,
-    putProjection, enqueueSync, get, getAllByIndex, exportSession, purgeRemoteSessionLocal
+    putProjection, enqueueSync, get, getAllByIndex, exportSession,
+    getRemoteResumeBundle, recoverSupersededRemoteOpenRecords, purgeRemoteSessionLocal
   });
   Object.defineProperty(global,'QuickStrokeResearchStore',{value:api,enumerable:true,configurable:false,writable:false});
 })(typeof window !== 'undefined' ? window : globalThis);
