@@ -120,7 +120,7 @@ function harness({ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone
   await h.elements["start-testing"].fire("click");
   assert.equal(h.calls.enrolled,0);
   assert.equal(h.calls.persisted,0);
-  assert.equal(h.window.location.href,"./jssf-consent.html");
+  assert.equal(h.window.location.href,"https://quickstroke.vercel.app/jssf-consent.html");
   console.log("PASS: closed release gate keeps consent controls disabled and performs no enrollment");
 }
 
