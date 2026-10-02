@@ -2710,17 +2710,6 @@
    async function buildResult() {
      if (!T) return;
      await ensureResultDataContext();
-     // The remote sync script may have seen DOMContentLoaded before Result restored
-     // the canonical Research context. Recover again after context hydration so a
-     // finalized remote session can deliver its terminal event on reload.
-     if (isResearchResultSession() && window.QuickStrokeJssfRemote?.canSync?.()) {
-       try {
-         await window.QuickStrokeJssfRemote.recoverCompleted?.();
-         await window.QuickStrokeJssfRemote.flush?.();
-       } catch (remoteError) {
-         console.warn('JSSF result-page recovery deferred.', remoteError);
-       }
-     }
      CURRENT = calculate();
      renderSummary(CURRENT);
      renderModules(CURRENT);
@@ -2730,7 +2719,20 @@
      await renderResearchFinalization(CURRENT);
      renderDevDiagnostics(CURRENT);
      renderActions(CURRENT);
-     void persistResultDecisionTrace(CURRENT)
+     void persistResultDecisionTrace(CURRENT);
+
+     // Render the participant result first. Remote recovery/upload is durable
+     // background work and must never block the visible Result page on network.
+     if (isResearchResultSession() && window.QuickStrokeJssfRemote?.canSync?.()) {
+       void (async () => {
+         try {
+           await window.QuickStrokeJssfRemote.recoverCompleted?.();
+           await window.QuickStrokeJssfRemote.flush?.();
+         } catch (remoteError) {
+           console.warn('JSSF result-page recovery deferred.', remoteError);
+         }
+       })();
+     }
    }
 
    function retryModule(name) {
