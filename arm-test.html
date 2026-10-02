@@ -2426,6 +2426,21 @@ function normalizeVector(v) {
   return { x:v.x/length, y:v.y/length, z:v.z/length };
 }
 
+const ARM_ANDROID_GRAVITY_COMPAT = /Android/i.test(navigator.userAgent || '');
+
+function normalizeGravityConvention(raw, source) {
+  if (!raw) return raw;
+  // Chromium on some Android devices (confirmed on POCO F6) exposes
+  // accelerationIncludingGravity with the opposite sign convention from the
+  // iOS path this readiness gate was originally calibrated against. A global
+  // inversion preserves all vector angles/deltas used by the drift algorithm
+  // while restoring the top-of-phone direction check.
+  if (ARM_ANDROID_GRAVITY_COMPAT && (source === 'devicemotion' || source === 'orientation-fallback')) {
+    return { x:-raw.x, y:-raw.y, z:-raw.z };
+  }
+  return raw;
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -3340,8 +3355,11 @@ function onArmVisibilityChange() {
 }
 
 function setGravityVector(raw, source, magnitude = null) {
-  // Preserve the original acquisition/filtering path.
-  const unit = normalizeVector(raw);
+  // Normalize browser/device gravity sign before the existing filtering path.
+  // This does not change angular drift because a global vector inversion
+  // preserves angle-between-vector measurements.
+  const normalizedRaw = normalizeGravityConvention(raw, source);
+  const unit = normalizeVector(normalizedRaw);
   if (!unit) return;
 
   if (gravitySource && gravitySource !== source) {
@@ -3351,7 +3369,7 @@ function setGravityVector(raw, source, magnitude = null) {
   }
 
   gravitySource = source;
-  gravityRaw = { ...raw };
+  gravityRaw = { ...normalizedRaw };
   gravityMagnitude = magnitude;
 
   if (!gravityReady) {
