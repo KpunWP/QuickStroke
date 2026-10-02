@@ -354,8 +354,8 @@
     "qualityReasonAsrInterimOnly": "ระบบได้รับเฉพาะผลถอดเสียงชั่วคราว",
     "qualityReasonEnergyFrames": "ข้อมูลพลังงานเสียงไม่ครบตามเกณฑ์เทคนิค",
     "qualityReasonAsrRuntime": "ระบบรู้จำเสียงมีข้อผิดพลาดระหว่างทำงาน",
-    "qualityReasonStorageWrite": "บันทึกข้อมูลทางเทคนิคในเครื่องไม่สมบูรณ์",,
-    "qualityReasonAcousticUnavailable": "อุปกรณ์นี้ใช้โหมดรู้จำเสียงแบบแยก จึงไม่มีค่า SNR และความคงที่ของพลังงานเสียง"
+    "qualityReasonStorageWrite": "บันทึกข้อมูลทางเทคนิคในเครื่องไม่สมบูรณ์",
+    "qualityReasonAcousticUnavailable": "อุปกรณ์นี้ใช้โหมดรู้จำเสียงแบบแยก จึงไม่มีค่า SNR และความคงที่ของพลังงานเสียง",
     "detailsShow": "ดูรายละเอียด",
     "detailsHide": "ซ่อนรายละเอียด",
     "detailsResearchNote": "ค่าด้านล่างเก็บไว้เพื่อการพัฒนาและวิเคราะห์ในระยะพรีไพลอต ไม่ใช่ผลวินิจฉัย"
