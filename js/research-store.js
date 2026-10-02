@@ -601,14 +601,22 @@
     const { database, closeAfter } = await openExistingResearchDatabaseForRemoteRead();
     try {
       const tx = database.transaction([STORE_NAMES.screeningSessions, STORE_NAMES.moduleRuns], 'readonly');
+      // Attach transaction completion handlers immediately. On Safari/iOS the
+      // readonly transaction can complete between the last request success
+      // callback and a later oncomplete assignment, leaving resume discovery
+      // waiting forever.
+      const done = transactionToPromise(tx);
       const session = await requestToPromise(tx.objectStore(STORE_NAMES.screeningSessions).get(screeningSessionId));
-      if (!session) return null;
+      if (!session) {
+        await done;
+        return null;
+      }
       if (session.appMode !== 'research' ||
           (session.researchProfile || session.researchMetadata?.researchProfile) !== 'community_remote_qr') {
         throw createStoreError('REMOTE_SESSION_VERIFICATION_FAILED','Only a verified remote nonclinical session can be resumed.',{screeningSessionId});
       }
       const runs = await requestToPromise(tx.objectStore(STORE_NAMES.moduleRuns).index('screeningSessionId').getAll(screeningSessionId));
-      await transactionToPromise(tx);
+      await done;
       return { session, moduleRuns:runs || [] };
     } finally {
       if (closeAfter) database.close();
