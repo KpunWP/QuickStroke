@@ -79,3 +79,18 @@ assert.deepEqual(sanitized.payload,{code:"ASR_NO_TRANSCRIPT",relatedModuleRunId:
 assert.ok(!JSON.stringify(sanitized).includes("FORBIDDEN_TRANSCRIPT"));
 assert.ok(!JSON.stringify(sanitized).includes("FORBIDDEN_AUDIO"));
 console.log("PASS: Edge sanitizer strips transcript/raw audio from ASR diagnostics");
+
+assert.match(speech,/const ANDROID_EXCLUSIVE_ASR = IS_ANDROID/);
+assert.match(speech,/releaseAcousticCaptureForExclusiveAsr/);
+assert.match(speech,/oldStream\.getTracks\(\)\.forEach\(track => track\.stop\(\)\)/);
+assert.match(speech,/await sleep\(450\)/);
+assert.match(speech,/if \(ANDROID_EXCLUSIVE_ASR\) flags\.push\('ACOUSTIC_METRICS_UNAVAILABLE'\)/);
+assert.match(speech,/const stabScore = ANDROID_EXCLUSIVE_ASR \? null/);
+assert.match(speech,/const snrDb = ANDROID_EXCLUSIVE_ASR \? null/);
+assert.match(speech,/legacyWeightedScore = Number\.isFinite\(stabScore\)/);
+for (const file of ["locales/th-TH/ui.json","locales/en-US/ui.json","locales/ja-JP/ui.json"]) {
+  const messages=JSON.parse(fs.readFileSync(path.join(root,file),"utf8"));
+  assert.equal(typeof messages.speech.qualityReasonAcousticUnavailable,"string");
+  assert.ok(messages.speech.qualityReasonAcousticUnavailable.length>10);
+}
+console.log("PASS: Android Speech exclusive-ASR mode releases WebAudio and marks acoustic metrics unavailable");
