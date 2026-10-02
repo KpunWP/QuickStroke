@@ -218,6 +218,10 @@
     try{
       await ensureRemoteSession();
       await remote.enroll();
+      // JSSF community testing in Thailand starts each new participant session
+      // in Thai regardless of a language left over from an earlier app session.
+      // Participants can still change TH/EN/JA from the test pages afterwards.
+      sessionStorage.setItem("fast_lang","th");
       state.textContent="ลงทะเบียนสำเร็จ กำลังเปิดการทดสอบ Face…";
       window.location.href="./face-test.html";
     }catch(error){
