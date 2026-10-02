@@ -4,16 +4,16 @@ window.QS_CONFIG = {
   buildId: "20260926-jssf-withdrawal-staging-v3",
   configVersion: "quickstroke-config-1.0.21",
 
-  // Not collecting. The working pilot policy is 18+ with 90-day primary DB
-  // retention and a named withdrawal/privacy contact. Final consent approval,
-  // hosted release checks and explicit activation remain fail-closed.
+  // Approved pilot policy: 18+ with 90-day primary DB retention and named
+  // withdrawal/privacy contacts. Collection remains fail-closed until the
+  // production server is configured and jssfRemote.enabled is explicitly opened.
   jssfRemote: {
     enabled: false,
-    consentApproved: false,
-    agePolicyApproved: false,
-    retentionPolicyApproved: false,
+    consentApproved: true,
+    agePolicyApproved: true,
+    retentionPolicyApproved: true,
     minimumAge18Enforced: true,
-    consentVersion: null,
+    consentVersion: "JSSF-REMOTE-2026-10-02-v1",
     retentionDays: 90,
     privacyContact: "kpunkfang@gmail.com",
     endpoint: "https://pzzjfnfwppdeketjdhfo.supabase.co/functions/v1/jssf-remote-ingest"
@@ -79,7 +79,7 @@ window.QS_CONFIG = {
     activeProfile: "clinic_supervised",
     profiles: {
       clinic_supervised: { enabled: true, dataCollectionEnabled: true },
-      community_remote_qr: { enabled: false, dataCollectionEnabled: false }
+      community_remote_qr: { enabled: true, dataCollectionEnabled: true }
     },
     // maxProtocolModuleRuns limits protocol-selection eligibility only.
     // It does not block additional retries; later runs are repeatability runs.
