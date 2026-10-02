@@ -356,7 +356,8 @@
     "qualityReasonAsrInterimOnly": "Only an interim speech-recognition result was available",
     "qualityReasonEnergyFrames": "Audio-energy data did not meet the technical completeness threshold",
     "qualityReasonAsrRuntime": "Speech recognition reported a runtime error",
-    "qualityReasonStorageWrite": "Local technical-data storage was incomplete",
+    "qualityReasonStorageWrite": "Local technical-data storage was incomplete",,
+    "qualityReasonAcousticUnavailable": "This device uses exclusive speech recognition, so SNR and voice-energy stability are unavailable"
     "detailsShow": "View details",
     "detailsHide": "Hide details",
     "detailsResearchNote": "The values below are retained for pre-pilot development and analysis. They are not a diagnosis."
