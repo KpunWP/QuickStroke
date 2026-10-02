@@ -95,12 +95,21 @@ for (const file of ["locales/th-TH/ui.json","locales/en-US/ui.json","locales/ja-
 }
 console.log("PASS: Android Speech exclusive-ASR mode releases WebAudio and marks acoustic metrics unavailable");
 
-const normalizeSpeechText=extractFunction(speech,"normalizeSpeechText");
 const dropNormalizedPrefix=extractFunction(speech,"dropNormalizedPrefix");
 const mergeSpeechTranscripts=extractFunction(speech,"mergeSpeechTranscripts");
 const mergeCtx={};
 vm.createContext(mergeCtx);
-vm.runInContext(`${normalizeSpeechText};${dropNormalizedPrefix};${mergeSpeechTranscripts};this.merge=mergeSpeechTranscripts;`,mergeCtx);
+// Keep this test focused on pause-fragment merging. The generic function
+// extractor is intentionally simple and cannot safely parse regex literals
+// containing quote characters from normalizeSpeechText().
+vm.runInContext(`
+function normalizeSpeechText(value) {
+  return String(value || "").toLowerCase().replace(/[\\s.,!?。、「」"]/g, "");
+}
+${dropNormalizedPrefix};
+${mergeSpeechTranscripts};
+this.merge=mergeSpeechTranscripts;
+`,mergeCtx);
 assert.equal(mergeCtx.merge("วันนี้","ท้องฟ้าแจ่มใส"),"วันนี้ ท้องฟ้าแจ่มใส");
 assert.equal(mergeCtx.merge("วันนี้ท้อง","ท้องฟ้าแจ่มใส"),"วันนี้ท้อง ฟ้าแจ่มใส");
 assert.equal(mergeCtx.merge("วันนี้","วันนี้ท้องฟ้าแจ่มใส"),"วันนี้ท้องฟ้าแจ่มใส");
