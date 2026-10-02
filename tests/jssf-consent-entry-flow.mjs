@@ -91,7 +91,10 @@ function harness({ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone
         storedSessions.set(id,{...storedSessions.get(id),...patch});calls.updated++;
       }
     },
-    location:{href:"./jssf-consent.html"}
+    location:{
+      href:"https://quickstroke.vercel.app/jssf-consent.html",
+      origin:"https://quickstroke.vercel.app"
+    }
   };
   const document={
     getElementById:id=>elements[id],
