@@ -18,6 +18,8 @@
     #resume-box{background:#eef7ff;border-color:#b9d9f4}
     #resume-box[hidden]{display:none}
     #resume-testing{margin-top:10px;background:#236c96;color:#fff;cursor:pointer}
+    #browser-guidance{background:#eef7ff;border-color:#b9d9f4}
+    #browser-guidance strong{display:block;margin-bottom:4px}
     .pending{font-weight:750;color:#985d00}label{display:block;margin:15px 0;color:#4d5e6e}
     input{accent-color:#236c96}button{width:100%;padding:14px 20px;background:#b9c9d5;border:none;border-radius:12px;font-size:16px;font-weight:750;color:#4b5d69;cursor:not-allowed}button:not(:disabled){background:#236c96;color:#fff;cursor:pointer}.draft-only[hidden]{display:none}
     a{color:#17659f;font-weight:700}footer{margin-top:26px;padding-top:17px;border-top:1px solid #e5eaf0}
@@ -47,6 +49,10 @@
     <p id="resume-meta" class="small"></p>
     <button id="resume-testing" type="button">ทำต่อจากรอบเดิม</button>
     <p class="small">หากไม่ใช่รอบที่ต้องการ สามารถอ่านข้อมูลด้านล่างและเลือกเริ่มรอบใหม่ได้</p>
+  </div>
+  <div class="box" id="browser-guidance" role="note">
+    <strong>ก่อนเริ่มการทดสอบ</strong>
+    <p id="browser-guidance-text">กรุณาเปิดหน้านี้ด้วย browser หลักของเครื่อง และกลับมาใช้ browser เดิมหากต้องการทำต่อหรือถอนข้อมูลภายหลัง</p>
   </div>
   <h2>ข้อมูลโครงการและผู้รับผิดชอบ</h2>
   <p><strong>สถานศึกษา:</strong> โรงเรียนสาธิตจุฬาลงกรณ์มหาวิทยาลัย ฝ่ายมัธยม</p>
@@ -117,8 +123,22 @@
   const resumeBox=document.getElementById("resume-box");
   const resumeMeta=document.getElementById("resume-meta");
   const resumeButton=document.getElementById("resume-testing");
+  const browserGuidanceText=document.getElementById("browser-guidance-text");
   const draftOnly=[...document.querySelectorAll(".draft-only")];
   let resumeCandidate=null;
+
+  function renderBrowserGuidance(){
+    const ua=navigator.userAgent||"";
+    if(/iPhone|iPad|iPod/i.test(ua)){
+      browserGuidanceText.textContent="แนะนำให้เปิดหน้านี้ด้วย Safari ก่อนเริ่ม หากเข้ามาจาก Code Scanner หรือ browser ภายในแอป ให้เลือกเปิดต่อใน Safari เพื่อให้กลับมาทำต่อหรือถอนข้อมูลได้ภายหลัง";
+      return;
+    }
+    if(/Android/i.test(ua)){
+      browserGuidanceText.textContent="แนะนำให้เปิดหน้านี้ด้วย Chrome หรือ browser หลักของเครื่องก่อนเริ่ม และกลับมาใช้ browser เดิมหากต้องการทำต่อหรือถอนข้อมูลภายหลัง";
+      return;
+    }
+    browserGuidanceText.textContent="กรุณาเปิดหน้านี้ด้วย browser หลักของเครื่อง และกลับมาใช้ browser เดิมหากต้องการทำต่อหรือถอนข้อมูลภายหลัง";
+  }
 
   function releaseReady(){
     return remote?.featureReady?.()===true
@@ -310,6 +330,7 @@
   consent.addEventListener("change",updateStartState);
   start.addEventListener("click",begin);
   resumeButton.addEventListener("click",resumeExisting);
+  renderBrowserGuidance();
   applyReleaseState();
   void discoverResumeCandidate();
 })();
