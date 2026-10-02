@@ -8,7 +8,7 @@ const VALIDITIES = new Set(["valid", "invalid", "not_evaluable"]);
 const OBSERVATIONS = new Set(["no_alert", "attention", "abnormal", "indeterminate", "not_available"]);
 const QUALITY = new Set(["acceptable", "limited", "unusable", "not_assessed"]);
 const RUN_STATUSES = new Set(["completed", "aborted", "interrupted"]);
-const TECH_CODES = new Set(["PERMISSION_DENIED", "SENSOR_UNAVAILABLE", "SENSOR_STALE", "PAGE_HIDDEN", "STORAGE_WRITE_FAILED", "MODULE_RETRY_REQUESTED", "MIC_PERMISSION_DENIED", "CAMERA_UNAVAILABLE", "TTS_UNAVAILABLE", "ASR_UNAVAILABLE", "OTHER_TECHNICAL_ERROR"]);
+const TECH_CODES = new Set(["PERMISSION_DENIED", "SENSOR_UNAVAILABLE", "SENSOR_STALE", "PAGE_HIDDEN", "STORAGE_WRITE_FAILED", "MODULE_RETRY_REQUESTED", "MIC_PERMISSION_DENIED", "CAMERA_UNAVAILABLE", "TTS_UNAVAILABLE", "ASR_UNAVAILABLE", "OTHER_TECHNICAL_ERROR", "ASR_NO_SPEECH", "ASR_AUDIO_CAPTURE", "ASR_PERMISSION_OR_SERVICE_DENIED", "ASR_NETWORK", "ASR_LANGUAGE_OR_GRAMMAR", "ASR_ABORTED", "ASR_NO_TRANSCRIPT", "ASR_OTHER_ERROR"]);
 
 function object(value) { return value && typeof value === "object" && !Array.isArray(value); }
 function optionalEnum(value, allowed, key) {
