@@ -2613,9 +2613,13 @@
      const status = document.getElementById('finalization-status');
      const session = RESULT_DATA_CONTEXT?.session;
      if (!isResearchResultSession() || !session?.screeningSessionId || !RESULT_RESEARCH_STORE?.finalizeResearchSession) return;
-     if (!confirm('หลัง finalize แล้ว จะไม่สามารถเพิ่มหรือแก้ข้อมูลใน session นี้ได้ ยืนยันจบการเก็บข้อมูลหรือไม่?')) return;
+     const isRemoteJssf = (session.researchProfile || session.researchMetadata?.researchProfile) === 'community_remote_qr';
+     const confirmText = isRemoteJssf
+       ? 'ยืนยันจบการทดสอบและส่งผลรอบนี้หรือไม่? หลังจากส่งแล้วจะไม่สามารถเพิ่มผลใหม่ในรอบนี้ได้'
+       : 'หลัง finalize แล้ว จะไม่สามารถเพิ่มหรือแก้ข้อมูลใน session นี้ได้ ยืนยันจบการเก็บข้อมูลหรือไม่?';
+     if (!confirm(confirmText)) return;
      button.disabled = true;
-     if (status) status.textContent = 'กำลังตรวจ integrity และ finalize…';
+     if (status) status.textContent = isRemoteJssf ? 'กำลังตรวจความครบถ้วนและส่งผล…' : 'กำลังตรวจ integrity และ finalize…';
      try {
        await RESULT_RESEARCH_STORE.finalizeResearchSession(session.screeningSessionId, {
          reasonCode:'PARTICIPANT_DATA_COLLECTION_ENDED',
@@ -2632,10 +2636,10 @@
        RESULT_DATA_CONTEXT = null;
        await ensureResultDataContext({ force:true });
        await buildResult();
-       if (status) status.textContent = 'Finalize สำเร็จ ข้อมูล session ถูกล็อกแล้ว';
+       if (status) status.textContent = isRemoteJssf ? 'ส่งผลเรียบร้อยแล้ว' : 'Finalize สำเร็จ ข้อมูล session ถูกล็อกแล้ว';
      } catch (error) {
        console.error('Research finalization failed.', error);
-       if (status) status.textContent = `Finalize ไม่สำเร็จ: ${error.message || error}`;
+       if (status) status.textContent = `${isRemoteJssf ? 'ยังส่งผลไม่สำเร็จ' : 'Finalize ไม่สำเร็จ'}: ${error.message || error}`;
        button.disabled = false;
      }
    }
@@ -2662,14 +2666,17 @@
        exportButton.disabled = true;
        return;
      }
+     const isRemoteJssf = (session.researchProfile || session.researchMetadata?.researchProfile) === 'community_remote_qr';
      const studyId = session.researchMetadata?.studyId || '—';
      meta.textContent = `Study ID: ${studyId} · Profile: ${session.researchProfile || 'clinic_supervised'} · Upload: ${session.uploadState || 'not_configured'} · Export: ${session.exportState || 'not_exported'}`;
      badge.textContent = String(session.sessionStatus || 'active').toUpperCase();
      if (session.sessionStatus === 'finalized') {
        box.className = 'integrity-box ok';
-       box.textContent = `Finalized: ${session.finalizedAt || '—'} · การแก้ภายหลังต้องใช้ amendment/audit trail`;
+       box.textContent = isRemoteJssf
+         ? `ส่งผลแล้ว: ${session.finalizedAt || '—'}`
+         : `Finalized: ${session.finalizedAt || '—'} · การแก้ภายหลังต้องใช้ amendment/audit trail`;
        finalizeButton.disabled = true;
-       finalizeButton.textContent = 'Session finalized แล้ว';
+       finalizeButton.textContent = isRemoteJssf ? 'จบการทดสอบและส่งผลแล้ว' : 'Session finalized แล้ว';
        exportButton.disabled = false;
        if (status) status.textContent = '';
        return;
@@ -2699,17 +2706,38 @@
        });
        box.appendChild(list);
      }
-     finalizeButton.textContent = 'จบการเก็บข้อมูลผู้เข้าร่วมรายนี้';
+     finalizeButton.textContent = isRemoteJssf ? 'จบการทดสอบและส่งผล' : 'จบการเก็บข้อมูลผู้เข้าร่วมรายนี้';
      finalizeButton.disabled = !integrity?.canFinalize || session.sessionStatus !== 'protocol_completed';
      exportButton.disabled = false;
      if (status) status.textContent = session.sessionStatus === 'active'
-       ? 'ต้องทำ Face, Arm และ Speech ครบตาม protocol ก่อน finalize'
-       : integrity?.canFinalize ? 'พร้อม finalize' : 'กรุณาแก้ integrity errors ก่อน finalize';
+       ? (isRemoteJssf ? 'กรุณาทำ ใบหน้า แขน และการพูดให้ครบก่อนส่งผล' : 'ต้องทำ Face, Arm และ Speech ครบตาม protocol ก่อน finalize')
+       : integrity?.canFinalize
+         ? (isRemoteJssf ? 'พร้อมจบการทดสอบและส่งผล' : 'พร้อม finalize')
+         : (isRemoteJssf ? 'ข้อมูลรอบนี้ยังไม่ครบถ้วน กรุณาลองโหลดหน้านี้ใหม่หรือติดต่อผู้ดำเนินโครงการ' : 'กรุณาแก้ integrity errors ก่อน finalize');
    }
 
    async function buildResult() {
      if (!T) return;
      await ensureResultDataContext();
+
+     // JSSF recovery is strictly scoped to this screeningSessionId. It only
+     // closes an older in-progress run when a newer completed run of the same
+     // module already exists in this exact session. It never inspects or mutates
+     // another participant's session.
+     const activeSession = RESULT_DATA_CONTEXT?.session;
+     const isRemoteJssf = (activeSession?.researchProfile || activeSession?.researchMetadata?.researchProfile) === 'community_remote_qr';
+     if (isRemoteJssf && activeSession?.screeningSessionId && RESULT_RESEARCH_STORE?.recoverSupersededRemoteOpenRecords) {
+       try {
+         const recovered = await RESULT_RESEARCH_STORE.recoverSupersededRemoteOpenRecords(activeSession.screeningSessionId);
+         if ((recovered?.recoveredRuns || 0) > 0 || (recovered?.recoveredAttempts || 0) > 0) {
+           RESULT_DATA_CONTEXT = null;
+           await ensureResultDataContext({ force:true });
+         }
+       } catch (recoveryError) {
+         console.warn('JSSF stale local run recovery skipped.', recoveryError);
+       }
+     }
+
      CURRENT = calculate();
      renderSummary(CURRENT);
      renderModules(CURRENT);
