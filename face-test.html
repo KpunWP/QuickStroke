@@ -2017,7 +2017,9 @@ const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
 const RESEARCH_SAMPLE_INTERVAL_MS = FACE_CFG.researchSampleIntervalMs ?? 100;
 const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioMin ?? 0.25;
 const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
-const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.3.0';
+const DYNAMIC_ASYM_CANDIDATE_THRESHOLD = FACE_CFG.dynamicAsymCandidateThreshold ?? 0.22;
+const DYNAMIC_GEOMETRY_MIN_MAGNITUDE = FACE_CFG.dynamicGeometryMinMagnitude ?? 0.01;
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.5.0';
 
 // Stable eye-corner pairs from MediaPipe Face Landmarker.
 // Centers are deterministic midpoints of x/y landmarks; iris and landmark z are not used.
@@ -2197,6 +2199,16 @@ function medianAbsoluteDeviation(values){
   const center = median(values);
   if (!Number.isFinite(center)) return null;
   return median(values.filter(Number.isFinite).map((value)=>Math.abs(value-center)));
+}
+function percentile(values, fraction){
+  const finite = values.filter((value)=>Number.isFinite(value)).sort((a,b)=>a-b);
+  if (!finite.length) return null;
+  const q = Math.min(1,Math.max(0,Number(fraction)));
+  const index = (finite.length-1)*q;
+  const lower = Math.floor(index), upper = Math.ceil(index);
+  if (lower === upper) return finite[lower];
+  const weight = index-lower;
+  return finite[lower]*(1-weight)+finite[upper]*weight;
 }
 function baselineStabilitySummary(){
   const eyeMedian = median(restEyeW);
@@ -2547,7 +2559,7 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
         baseline:baselineSnapshot,
         attemptSummary:legacySnapshot,
         frames:frameSnapshot,
-        dynamic:null,
+        dynamic:legacySnapshot?.dynamicAsymmetry || summarizeDynamicAsymmetry(frameSnapshot),
         versions:{
           appVersion:window.QS_CONFIG?.version || null,
           buildId:window.QS_CONFIG?.buildId || null,
@@ -2572,7 +2584,9 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
           closedSmileDeltaSideValid:CLOSED_SMILE_DELTA_SIDE_VALID,
           closedSmileLateralMin:CLOSED_SMILE_LATERAL_MIN,
           closedSmileWidthIncreaseMin:CLOSED_SMILE_WIDTH_INCREASE_MIN,
-          closedSmilePersistenceMs:CLOSED_SMILE_PERSISTENCE_MS
+          closedSmilePersistenceMs:CLOSED_SMILE_PERSISTENCE_MS,
+          dynamicAsymCandidateThreshold:DYNAMIC_ASYM_CANDIDATE_THRESHOLD,
+          dynamicGeometryMinMagnitude:DYNAMIC_GEOMETRY_MIN_MAGNITUDE
         }
       });
     } catch (error) {
@@ -2780,6 +2794,131 @@ function currentGeometryRiseAggregation(){
   };
 }
 
+function pairedBlendAsymmetry(frame){
+  const left=Number(frame?.smileLeft), right=Number(frame?.smileRight);
+  if (!Number.isFinite(left)||!Number.isFinite(right)) return null;
+  const total=left+right;
+  return total>0.05 ? Math.abs(left-right)/total : null;
+}
+function pairedGeometryAsymmetry(frame){
+  const left=Number(frame?.normalizedSignedDisplacementLeft);
+  const right=Number(frame?.normalizedSignedDisplacementRight);
+  if (!Number.isFinite(left)||!Number.isFinite(right)) return null;
+  const magnitude=Math.abs(left)+Math.abs(right);
+  if (magnitude<DYNAMIC_GEOMETRY_MIN_MAGNITUDE) return null;
+  // Signed per-frame values are retained; no positive-only clamp is applied.
+  return Math.abs(left-right)/magnitude;
+}
+function summarizeDynamicAsymmetry(frames){
+  const ordered=frames
+    .filter((frame)=>Number.isFinite(Number(frame?.tMs)))
+    .slice()
+    .sort((a,b)=>Number(a.tMs)-Number(b.tMs));
+  const paired=ordered
+    .filter((frame)=>
+      frame.phase==='ACTION_WAIT_SMILE' &&
+      frame.poseValid===true &&
+      frame.mouthAssessable===true &&
+      frame.smileConfirmed===true
+    )
+    .map((frame)=>{
+      const blend=pairedBlendAsymmetry(frame);
+      const geometry=pairedGeometryAsymmetry(frame);
+      const candidates=[blend,geometry].filter(Number.isFinite);
+      return {
+        frame,
+        tMs:Number(frame.tMs),
+        blend,
+        geometry,
+        representative:candidates.length?Math.max(...candidates):null
+      };
+    })
+    .filter((row)=>Number.isFinite(row.representative));
+
+  const blendValues=paired.map((row)=>row.blend).filter(Number.isFinite);
+  const geometryValues=paired.map((row)=>row.geometry).filter(Number.isFinite);
+  const representativeValues=paired.map((row)=>row.representative).filter(Number.isFinite);
+
+  let longestContinuousAsymmetryMs=0;
+  let segmentStart=null, previousT=null;
+  const maxGap=Math.max(RESEARCH_SAMPLE_INTERVAL_MS*2.5,250);
+  for (const row of paired){
+    if (row.representative>=DYNAMIC_ASYM_CANDIDATE_THRESHOLD){
+      if (segmentStart===null || previousT===null || row.tMs-previousT>maxGap) segmentStart=row.tMs;
+      previousT=row.tMs;
+      longestContinuousAsymmetryMs=Math.max(
+        longestContinuousAsymmetryMs,
+        row.tMs-segmentStart+RESEARCH_SAMPLE_INTERVAL_MS
+      );
+    } else {
+      segmentStart=null;
+      previousT=null;
+    }
+  }
+
+  const actionFrames=ordered.filter((frame)=>
+    (frame.phase==='ACTION_PHASE'||frame.phase==='ACTION_WAIT_SMILE') &&
+    frame.poseValid===true &&
+    frame.mouthAssessable===true
+  );
+  const firstOnset=(side)=>{
+    const key=side==='left'?'deltaSmileLeft':'deltaSmileRight';
+    const found=actionFrames.find((frame)=>
+      Number.isFinite(Number(frame[key])) &&
+      Number(frame[key])>=CLOSED_SMILE_DELTA_SIDE_VALID
+    );
+    return found?Number(found.tMs):null;
+  };
+  const leftOnsetMs=firstOnset('left');
+  const rightOnsetMs=firstOnset('right');
+
+  const peakTiming=(side)=>{
+    const key=side==='left'?'smileLeft':'smileRight';
+    let best=null;
+    for (const row of paired){
+      const value=Number(row.frame[key]);
+      if (!Number.isFinite(value)) continue;
+      if (!best || value>best.value) best={value,tMs:row.tMs};
+    }
+    return best;
+  };
+  const leftPeak=peakTiming('left'), rightPeak=peakTiming('right');
+  const leftPeakValue=leftPeak?.value ?? null, rightPeakValue=rightPeak?.value ?? null;
+  const weakSideByPeakBlend=Number.isFinite(leftPeakValue)&&Number.isFinite(rightPeakValue)
+    ? (leftPeakValue<=rightPeakValue?'left':'right')
+    : null;
+  const strongOnsetMs=weakSideByPeakBlend==='left'?rightOnsetMs:leftOnsetMs;
+  const weakOnsetMs=weakSideByPeakBlend==='left'?leftOnsetMs:rightOnsetMs;
+
+  return {
+    method:'paired-valid-smile-frames-shadow-v1',
+    pairedFrameCount:paired.length,
+    candidateThreshold:DYNAMIC_ASYM_CANDIDATE_THRESHOLD,
+    geometryMinMagnitude:DYNAMIC_GEOMETRY_MIN_MAGNITUDE,
+    pairedAsymMedian:median(representativeValues),
+    pairedAsymP75:percentile(representativeValues,0.75),
+    pairedAsymP90:percentile(representativeValues,0.90),
+    pairedBlendAsymMedian:median(blendValues),
+    pairedBlendAsymP75:percentile(blendValues,0.75),
+    pairedBlendAsymP90:percentile(blendValues,0.90),
+    pairedGeometryAsymMedian:median(geometryValues),
+    pairedGeometryAsymP75:percentile(geometryValues,0.75),
+    pairedGeometryAsymP90:percentile(geometryValues,0.90),
+    framesOverCandidateThresholdRatio:paired.length
+      ? paired.filter((row)=>row.representative>=DYNAMIC_ASYM_CANDIDATE_THRESHOLD).length/paired.length
+      : null,
+    longestContinuousAsymmetryMs:paired.length?longestContinuousAsymmetryMs:null,
+    leftOnsetMs,
+    rightOnsetMs,
+    onsetDelayMs:Number.isFinite(leftOnsetMs)&&Number.isFinite(rightOnsetMs)?rightOnsetMs-leftOnsetMs:null,
+    weakSideByPeakBlend,
+    weakSideLagMs:Number.isFinite(weakOnsetMs)&&Number.isFinite(strongOnsetMs)?weakOnsetMs-strongOnsetMs:null,
+    leftTimeToPeakMs:leftPeak?.tMs ?? null,
+    rightTimeToPeakMs:rightPeak?.tMs ?? null,
+    timeToPeakDifferenceMs:leftPeak&&rightPeak?rightPeak.tMs-leftPeak.tMs:null
+  };
+}
+
 function summarizeAttemptFrames(frames){
   const total = frames.length;
   const count = (predicate) => frames.filter(predicate).length;
@@ -2972,6 +3111,7 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
   const frames = getAttemptFrames(attemptId || attemptNo);
   const summary = summarizeAttemptFrames(frames);
   const compensation = summarizeCompensationFrames(frames);
+  const dynamicAsymmetry = summarizeDynamicAsymmetry(frames);
   const riseAggregation = currentGeometryRiseAggregation();
   const invalidReasonCode = outcome === 'invalid'
     ? resolveAttemptInvalidReason(requestedInvalidReasonCode, summary)
@@ -3006,6 +3146,9 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
       maxEyeDistanceRatioFromBaseline: roundMetric(summary.maxEyeDistanceRatioFromBaseline)
     },
     compensationAnalysis: JSON.parse(JSON.stringify(compensation, (key,value) =>
+      Number.isFinite(value) ? roundMetric(value) : value
+    )),
+    dynamicAsymmetry: JSON.parse(JSON.stringify(dynamicAsymmetry, (key,value) =>
       Number.isFinite(value) ? roundMetric(value) : value
     )),
     metrics: {
@@ -3143,6 +3286,8 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       closedSmileLateralMin: CLOSED_SMILE_LATERAL_MIN,
       closedSmileWidthIncreaseMin: CLOSED_SMILE_WIDTH_INCREASE_MIN,
       closedSmilePersistenceMs: CLOSED_SMILE_PERSISTENCE_MS,
+      dynamicAsymCandidateThreshold: DYNAMIC_ASYM_CANDIDATE_THRESHOLD,
+      dynamicGeometryMinMagnitude: DYNAMIC_GEOMETRY_MIN_MAGNITUDE,
       geometryFrameDisplacement: FACE_CFG.geometryFrameDisplacement || 'signed-baseline-minus-current',
       geometryRiseAggregation: FACE_CFG.geometryRiseAggregation || 'median-of-valid-smile-frames',
       geometryEffectiveRisePolicy: FACE_CFG.geometryEffectiveRisePolicy || 'max-zero-after-aggregation',
@@ -4429,6 +4574,7 @@ function onResults(results, handResults=null){
     relativeSmileCandidate:inActionPhase ? smileEvidence.relativeCandidate : null,
     relativeSmilePersisted:phase==='ACTION_PHASE' && relativeSmileCandidateSinceMs !== null
       ? (Date.now()-relativeSmileCandidateSinceMs >= CLOSED_SMILE_PERSISTENCE_MS) : null,
+    smileConfirmed:inActionPhase ? smileEvidence.confirmed : null,
     baselineNeutralValid:neutral ? neutral.valid : null,
     baselineMouthActivity:neutral ? roundMetric(neutral.mouthActivity) : null,
     riseLeft:roundMetric(signedRiseLn),
