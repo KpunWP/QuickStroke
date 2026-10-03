@@ -144,6 +144,12 @@ window.QS_CONFIG = {
 
       maxWaitForSmileMs: 14000,
       baselineAlignmentTimeoutMs: 30000,
+      // P0-B engineering/pre-pilot baseline gates. These are NOT clinical cutoffs.
+      baselineMinValidFrames: 12,
+      baselineNeutralSmileMax: 0.08,
+      baselineNeutralMouthActivityMax: 0.20,
+      baselineCornerMadMax: 0.020,
+      baselineEyeDistanceRelativeMadMax: 0.040,
       smileLostGraceMs: 1400,
       smileOcclusionResetMs: 120,
       minValidSmileRatio: 0.05,
