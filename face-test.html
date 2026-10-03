@@ -1934,7 +1934,7 @@ let mouthCtx = null;
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
 const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.4.0";
-const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.3.0";
+const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.4.0";
 const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.3.0";
 
 function stableStringify(value) {
@@ -2008,9 +2008,12 @@ const SMILE_ASYM_BAD = FACE_CFG.smileAsymBad ?? 0.40;
 const REST_ASYM_CRITICAL = FACE_CFG.restAsymCritical ?? 0.30;
 const CRITICAL_NOTICE_MS = FACE_CFG.criticalNoticeMs ?? 2000;
 
-const MAX_ALLOWED_YAW = FACE_CFG.maxAllowedYaw ?? 28;
-const MAX_ALLOWED_PITCH = FACE_CFG.maxAllowedPitch ?? 24;
-const MAX_ALLOWED_ROLL = FACE_CFG.maxAllowedRoll ?? 20;
+const MAX_ALLOWED_YAW = FACE_CFG.maxAllowedYaw ?? 15;
+const MAX_ALLOWED_PITCH = FACE_CFG.maxAllowedPitch ?? 18;
+const MAX_ALLOWED_ROLL = FACE_CFG.maxAllowedRoll ?? 15;
+const REST_SAFETY_MAX_YAW = FACE_CFG.restSafetyMaxYaw ?? 12;
+const REST_SAFETY_MAX_PITCH = FACE_CFG.restSafetyMaxPitch ?? 15;
+const REST_SAFETY_MAX_ROLL = FACE_CFG.restSafetyMaxRoll ?? 12;
 const POSE_BAD_TRIP_FRAMES = FACE_CFG.poseBadTripFrames ?? 3;      // หลุดกรอบติดกันกี่เฟรมถึงเตือน
 const POSE_GOOD_RESUME_FRAMES = FACE_CFG.poseGoodResumeFrames ?? 8; // นิ่งติดกันกี่เฟรมถึงไปต่อ
 const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
@@ -2019,7 +2022,7 @@ const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioM
 const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
 const DYNAMIC_ASYM_CANDIDATE_THRESHOLD = FACE_CFG.dynamicAsymCandidateThreshold ?? 0.22;
 const DYNAMIC_GEOMETRY_MIN_MAGNITUDE = FACE_CFG.dynamicGeometryMinMagnitude ?? 0.01;
-const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.5.0';
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.6.0';
 
 // Stable eye-corner pairs from MediaPipe Face Landmarker.
 // Centers are deterministic midpoints of x/y landmarks; iris and landmark z are not used.
@@ -2586,7 +2589,15 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
           closedSmileWidthIncreaseMin:CLOSED_SMILE_WIDTH_INCREASE_MIN,
           closedSmilePersistenceMs:CLOSED_SMILE_PERSISTENCE_MS,
           dynamicAsymCandidateThreshold:DYNAMIC_ASYM_CANDIDATE_THRESHOLD,
-          dynamicGeometryMinMagnitude:DYNAMIC_GEOMETRY_MIN_MAGNITUDE
+          dynamicGeometryMinMagnitude:DYNAMIC_GEOMETRY_MIN_MAGNITUDE,
+          maxAllowedYaw:MAX_ALLOWED_YAW,
+          maxAllowedPitch:MAX_ALLOWED_PITCH,
+          maxAllowedRoll:MAX_ALLOWED_ROLL,
+          restSafetyMaxYaw:REST_SAFETY_MAX_YAW,
+          restSafetyMaxPitch:REST_SAFETY_MAX_PITCH,
+          restSafetyMaxRoll:REST_SAFETY_MAX_ROLL,
+          poseBadTripFrames:POSE_BAD_TRIP_FRAMES,
+          poseGoodResumeFrames:POSE_GOOD_RESUME_FRAMES
         }
       });
     } catch (error) {
@@ -3288,6 +3299,14 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       closedSmilePersistenceMs: CLOSED_SMILE_PERSISTENCE_MS,
       dynamicAsymCandidateThreshold: DYNAMIC_ASYM_CANDIDATE_THRESHOLD,
       dynamicGeometryMinMagnitude: DYNAMIC_GEOMETRY_MIN_MAGNITUDE,
+      maxAllowedYaw: MAX_ALLOWED_YAW,
+      maxAllowedPitch: MAX_ALLOWED_PITCH,
+      maxAllowedRoll: MAX_ALLOWED_ROLL,
+      restSafetyMaxYaw: REST_SAFETY_MAX_YAW,
+      restSafetyMaxPitch: REST_SAFETY_MAX_PITCH,
+      restSafetyMaxRoll: REST_SAFETY_MAX_ROLL,
+      poseBadTripFrames: POSE_BAD_TRIP_FRAMES,
+      poseGoodResumeFrames: POSE_GOOD_RESUME_FRAMES,
       geometryFrameDisplacement: FACE_CFG.geometryFrameDisplacement || 'signed-baseline-minus-current',
       geometryRiseAggregation: FACE_CFG.geometryRiseAggregation || 'median-of-valid-smile-frames',
       geometryEffectiveRisePolicy: FACE_CFG.geometryEffectiveRisePolicy || 'max-zero-after-aggregation',
@@ -3816,6 +3835,17 @@ function buildEyeFrame2D(lm){
     rollDeg:rollRad * 180/Math.PI,
     normalize
   };
+}
+
+function poseWithinMeasurementGate(yawDeg,pitchDeg,rollDeg){
+  return Math.abs(yawDeg)<=MAX_ALLOWED_YAW &&
+    Math.abs(pitchDeg)<=MAX_ALLOWED_PITCH &&
+    Math.abs(rollDeg)<=MAX_ALLOWED_ROLL;
+}
+function poseWithinRestSafetyGate(yawDeg,pitchDeg,rollDeg){
+  return Math.abs(yawDeg)<=REST_SAFETY_MAX_YAW &&
+    Math.abs(pitchDeg)<=REST_SAFETY_MAX_PITCH &&
+    Math.abs(rollDeg)<=REST_SAFETY_MAX_ROLL;
 }
 
 function computePose(lm){
@@ -4510,11 +4540,13 @@ function onResults(results, handResults=null){
   lastMouthDarkRatio = mouthVis.darkRatio;
   lastMouthVisible = mouthVis.visible && !lastHandMouthOverlap;
 
-  const sampledPoseValid = Math.abs(yawDeg) <= MAX_ALLOWED_YAW && Math.abs(pitchDeg) <= MAX_ALLOWED_PITCH && Math.abs(rollDeg) <= MAX_ALLOWED_ROLL;
+  const sampledPoseValid = poseWithinMeasurementGate(yawDeg,pitchDeg,rollDeg);
+  const restSafetyPoseValid = poseWithinRestSafetyGate(yawDeg,pitchDeg,rollDeg);
   const neutral = phase==='RESTING_PHASE' ? baselineNeutrality(blend) : null;
   recordResearchFrame({
     faceDetected:true,
     poseValid:sampledPoseValid,
+    restSafetyPoseValid:phase==='RESTING_PHASE' ? restSafetyPoseValid : null,
     yawDeg:roundMetric(yawDeg,2),
     pitchDeg:roundMetric(pitchDeg,2),
     rollDeg:roundMetric(rollDeg,2),
@@ -4612,7 +4644,7 @@ function onResults(results, handResults=null){
   //       → หัวสั่นนิดเดียวใกล้เส้นขีดจำกัด จอ/เสียงจะเด้ง เตือน↔ยิ้ม↔เตือน รัวๆ = อาการกระตุกหลักของแอป
   // ใหม่: ต้องหลุดติดกัน 3 เฟรมถึงเตือน และต้องนิ่ง (ต่ำกว่า 85% ของ limit) ติดกัน 8 เฟรมถึงกลับมาทดสอบต่อ
   const absYaw=Math.abs(yawDeg), absPitch=Math.abs(pitchDeg), absRoll=Math.abs(rollDeg);
-  const poseBadNow  = absYaw>MAX_ALLOWED_YAW || absPitch>MAX_ALLOWED_PITCH || absRoll>MAX_ALLOWED_ROLL;
+  const poseBadNow  = !poseWithinMeasurementGate(yawDeg,pitchDeg,rollDeg);
   const poseGoodNow = absYaw<MAX_ALLOWED_YAW*0.85 && absPitch<MAX_ALLOWED_PITCH*0.85 && absRoll<MAX_ALLOWED_ROLL*0.85;
   if (poseBadNow){ poseBadFrames++; poseGoodFrames=0; }
   else { poseBadFrames=0; poseGoodFrames = poseGoodNow ? poseGoodFrames+1 : 0; }
@@ -4675,7 +4707,7 @@ function onResults(results, handResults=null){
     restCornerAsymSamples = [...restCornerAsymSamples.slice(-7), restAsym];
     if (restCornerAsymSamples.length >= 8){
       const avg = average(restCornerAsymSamples);
-      if (avg > REST_ASYM_CRITICAL && !criticalFired && absRoll < 12){
+      if (avg > REST_ASYM_CRITICAL && !criticalFired && restSafetyPoseValid){
         // Option B: retain the safety flag but continue to the smile action so the
         // pre-pilot dataset contains both resting and smile measurements.
         criticalFired = true;
