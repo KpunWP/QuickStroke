@@ -2792,7 +2792,16 @@ function buildArmJssfResearchTelemetry(samples = [], legacy = null, details = {}
       baselineScreenZ:armResearchRound(legacy?.baseline?.vectorScreen?.z,4),
       flatZThreshold:FLAT_Z_THR,
       portraitYMin:PORTRAIT_Y_MIN,
-      preMeasureMaxDeltaDeg:ARM_READINESS_CFG.preMeasureMaxDeltaDeg
+      preMeasureMaxDeltaDeg:ARM_READINESS_CFG.preMeasureMaxDeltaDeg,
+      lastReadinessSnapshot:legacy?.lastReadinessSnapshot ? {
+        stage:legacy.lastReadinessSnapshot.stage || null,
+        invalidReason:legacy.lastReadinessSnapshot.invalidReason || null,
+        screenY:armResearchRound(legacy.lastReadinessSnapshot.gravityScreen?.y,4),
+        screenZ:armResearchRound(legacy.lastReadinessSnapshot.gravityScreen?.z,4),
+        screenAngle:Number.isFinite(Number(legacy.lastReadinessSnapshot.screen?.angle)) ? Number(legacy.lastReadinessSnapshot.screen.angle) : null,
+        screenType:legacy.lastReadinessSnapshot.screen?.type || null,
+        sensorSource:legacy.lastReadinessSnapshot.sensorSource || null
+      } : null
     },
     sensor:{
       acceptedSamples:Number.isFinite(legacy?.sensorSamples) ? legacy.sensorSamples : null,
@@ -3216,6 +3225,20 @@ function finalizeOpenArmLifecycle(reason = 'USER_NAVIGATED_AWAY') {
     armModuleRunRecord = {...armModuleRunRecord, moduleRunStatus:'interrupted', completedAt,
       completionReasonCode:normalizeArmReasonCode(reason)};
   }
+}
+
+function captureArmReadinessResearchSnapshot(readiness, stage) {
+  if (!currentReadinessAttempt || !readiness) return;
+  currentReadinessAttempt.lastReadinessSnapshot = {
+    stage,
+    capturedAt:new Date().toISOString(),
+    invalidReason:readiness.invalidReason || null,
+    checks:cloneArmResearchValue(readiness.checks || {}),
+    gravityScreen:cloneArmResearchValue(readiness.gravityScreen || null),
+    screen:cloneArmResearchValue(readiness.screen || null),
+    sensorSource:gravitySource || null,
+    gravityMagnitude:Number.isFinite(gravityMagnitude) ? gravityMagnitude : null
+  };
 }
 
 function recordReadinessEvent(type, details = {}) {
@@ -3684,6 +3707,7 @@ function tickCalib() {
   if (phase !== 'CALIB' || !gravityReady) return;
 
   const readiness = evaluateReadiness();
+  captureArmReadinessResearchSnapshot(readiness, 'calibration');
 
   if (!readiness.ready) {
     resetCalibrationWindow();
@@ -3788,6 +3812,7 @@ function tickPreMeasureRecheck() {
   if (phase !== 'PRE_MEASURE_RECHECK' || !gravityBase || !gravityReady) return;
 
   const readiness = evaluateReadiness();
+  captureArmReadinessResearchSnapshot(readiness, 'pre_measure_recheck');
   if (!readiness.ready) {
     returnToCalibration(readiness.invalidReason);
     return;
@@ -4028,6 +4053,7 @@ function startMeasure() {
   preMeasureWaitingForFreshSample = false;
 
   const readiness = evaluateReadiness();
+  captureArmReadinessResearchSnapshot(readiness, 'measurement_entry');
   currentPreMeasureDelta = angleBetweenVectors(gravityBase, gravityFilt);
 
   if (!readiness.ready) {
