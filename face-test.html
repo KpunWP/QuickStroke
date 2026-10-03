@@ -2563,6 +2563,7 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
         attemptSummary:legacySnapshot,
         frames:frameSnapshot,
         dynamic:legacySnapshot?.dynamicAsymmetry || summarizeDynamicAsymmetry(frameSnapshot),
+        runtime:resultRuntimeMetadata(),
         versions:{
           appVersion:window.QS_CONFIG?.version || null,
           buildId:window.QS_CONFIG?.buildId || null,
@@ -2597,7 +2598,27 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
           restSafetyMaxPitch:REST_SAFETY_MAX_PITCH,
           restSafetyMaxRoll:REST_SAFETY_MAX_ROLL,
           poseBadTripFrames:POSE_BAD_TRIP_FRAMES,
-          poseGoodResumeFrames:POSE_GOOD_RESUME_FRAMES
+          poseGoodResumeFrames:POSE_GOOD_RESUME_FRAMES,
+          minValidSmileFrames:MIN_VALID_SMILE_FRAMES,
+          minVisibleMouthFrames:MIN_VISIBLE_MOUTH_FRAMES,
+          minMouthVisibilityScore:MIN_MOUTH_VISIBILITY_SCORE,
+          minMouthDarkRatio:MIN_MOUTH_DARK_RATIO,
+          minMouthCentralDarkRatio:MIN_MOUTH_CENTRAL_DARK_RATIO,
+          minMouthLineScore:MIN_MOUTH_LINE_SCORE,
+          handMouthOverlapMin:HAND_MOUTH_OVERLAP_MIN,
+          maxWaitForSmileMs:MAX_WAIT_FOR_SMILE_MS,
+          baselineAlignmentTimeoutMs:BASELINE_ALIGNMENT_TIMEOUT_MS,
+          baselineMinValidFrames:BASELINE_MIN_VALID_FRAMES,
+          baselineNeutralSmileMax:BASELINE_NEUTRAL_SMILE_MAX,
+          baselineNeutralMouthActivityMax:BASELINE_NEUTRAL_MOUTH_ACTIVITY_MAX,
+          baselineCornerMadMax:BASELINE_CORNER_MAD_MAX,
+          baselineEyeDistanceRelativeMadMax:BASELINE_EYE_DISTANCE_REL_MAD_MAX,
+          smileLostGraceMs:SMILE_LOST_GRACE_MS,
+          smileOcclusionResetMs:SMILE_OCCLUSION_RESET_MS,
+          minValidSmileRatio:MIN_VALID_SMILE_RATIO,
+          attemptMouthAssessableRatioMin:ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN,
+          attemptHandOverlapRatioMin:ATTEMPT_HAND_OVERLAP_RATIO_MIN,
+          enforceHandModel:ENFORCE_HAND_MODEL
         }
       });
     } catch (error) {
