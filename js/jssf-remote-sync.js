@@ -107,6 +107,67 @@
     return [...new Set(flags.filter(x=>typeof x==="string"&&/^[\w.:-]{1,64}$/.test(x)))].slice(0,16);
   }
   function safeId(value) {return typeof value==="string"&&ID.test(value)?value:null;}
+  function safeFinite(value,min,max,digits=4) {
+    const number=Number(value);
+    if (!Number.isFinite(number)||number<min||number>max) return undefined;
+    return Number(number.toFixed(digits));
+  }
+  function safeArmResearch(source) {
+    if (!source || typeof source!=="object" || Array.isArray(source)) return undefined;
+    const understanding=source.protocolUnderstanding && typeof source.protocolUnderstanding==="object"
+      ? {
+          answer:["understood","not_understood"].includes(source.protocolUnderstanding.answer)?source.protocolUnderstanding.answer:undefined,
+          questionVersion:typeof source.protocolUnderstanding.questionVersion==="string"&&/^[\w.:-]{1,80}$/.test(source.protocolUnderstanding.questionVersion)?source.protocolUnderstanding.questionVersion:undefined
+        }
+      : undefined;
+    const raise=source.raiseGesture && typeof source.raiseGesture==="object"
+      ? {
+          detected:typeof source.raiseGesture.detected==="boolean"?source.raiseGesture.detected:undefined,
+          maxAngleFromRestDeg:safeFinite(source.raiseGesture.maxAngleFromRestDeg,0,180),
+          thresholdDeg:safeFinite(source.raiseGesture.thresholdDeg,0,180),
+          hardGate:false
+        }
+      : undefined;
+    const cutoffs=Array.isArray(source.measurement?.cutoffs)
+      ? source.measurement.cutoffs.slice(0,7).map(row=>({
+          second:int(row?.second,3,10),
+          available:row?.available===true,
+          capturedThroughMs:int(row?.capturedThroughMs,0,12000),
+          driftMaxDeg:safeFinite(row?.driftMaxDeg,0,180),
+          peakDeltaX:safeFinite(row?.peakDeltaX,-2,2),
+          peakDeltaZ:safeFinite(row?.peakDeltaZ,-2,2),
+          ratioZX:safeFinite(row?.ratioZX,0,100),
+          motionClass:typeof row?.motionClass==="string"&&/^[a-z_]{1,40}$/.test(row.motionClass)?row.motionClass:undefined
+        }))
+      : [];
+    const trace=Array.isArray(source.trace)
+      ? source.trace.slice(0,21).map(row=>({
+          tMs:int(row?.tMs,0,12000),
+          driftDeg:safeFinite(row?.driftDeg,0,180),
+          driftMaxDeg:safeFinite(row?.driftMaxDeg,0,180),
+          deltaX:safeFinite(row?.deltaX,-2,2),
+          deltaZ:safeFinite(row?.deltaZ,-2,2),
+          ratioZX:safeFinite(row?.ratioZX,0,100),
+          screenY:safeFinite(row?.screenY,-1.2,1.2),
+          screenZ:safeFinite(row?.screenZ,-1.2,1.2),
+          sensorFresh:row?.sensorFresh===true
+        }))
+      : [];
+    return {
+      schemaVersion:typeof source.schemaVersion==="string"&&/^[\w.:-]{1,80}$/.test(source.schemaVersion)?source.schemaVersion:undefined,
+      protocolUnderstanding:understanding,
+      raiseGesture:raise,
+      measurement:{
+        targetDurationMs:int(source.measurement?.targetDurationMs,1000,20000),
+        observedDurationMs:int(source.measurement?.observedDurationMs,0,20000),
+        finalDriftMaxDeg:safeFinite(source.measurement?.finalDriftMaxDeg,0,180),
+        finalRatioZX:safeFinite(source.measurement?.finalRatioZX,0,100),
+        finalMotionClass:typeof source.measurement?.finalMotionClass==="string"&&/^[a-z_]{1,40}$/.test(source.measurement.finalMotionClass)?source.measurement.finalMotionClass:undefined,
+        cutoffs
+      },
+      trace
+    };
+  }
   function runPayload(record) {
     return {
       moduleRunId:safeId(record.moduleRunId),
@@ -134,7 +195,8 @@
       invalidReasonCode:typeof record.invalidReasonCode==="string"&&/^[\w.:-]{1,80}$/.test(record.invalidReasonCode)?record.invalidReasonCode:undefined,
       qualityStatus:pick(record.qualityStatus,QUALITY),
       qualityFlags:safeFlags(record.qualityFlags),
-      durationMs:record.startedAt&&record.completedAt?int(Date.parse(record.completedAt)-Date.parse(record.startedAt),0,3600000):undefined
+      durationMs:record.startedAt&&record.completedAt?int(Date.parse(record.completedAt)-Date.parse(record.startedAt),0,3600000):undefined,
+      armResearch:record.module==="arm" ? safeArmResearch(record.armResearchTelemetry) : undefined
     };
   }
   function eventFromRecord(kind,record) {
