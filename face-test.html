@@ -4499,10 +4499,19 @@ function onResults(results, handResults=null){
       showSmilePrompt(FL.smilePrompt);
     }
 
-    // Blendshape is required to confirm that a smile began. Normalized geometry
-    // may support a closed-mouth smile, but geometry alone can never open the window.
-    const startEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, 'start');
-    if (startEvidence.confirmed){
+    // Clear/open smiles can start immediately from absolute blendshape evidence.
+    // A subtle closed-mouth candidate must persist and must include baseline-
+    // relative expression change plus geometry, preventing a low absolute
+    // threshold from treating a naturally high neutral score as a smile.
+    const startEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, mouthWidth, 'start');
+    let startConfirmed = startEvidence.directConfirmed;
+    if (!startConfirmed && startEvidence.baselineRelativeClosedCandidate){
+      if (closedSmileEvidenceSinceMs === null) closedSmileEvidenceSinceMs = now;
+      startConfirmed = now - closedSmileEvidenceSinceMs >= CLOSED_SMILE_EVIDENCE_HOLD_MS;
+    } else if (!startEvidence.baselineRelativeClosedCandidate) {
+      closedSmileEvidenceSinceMs = null;
+    }
+    if (startConfirmed){
       clearSmileCaptureWindow();
       smileEverDetected = true;
       smileStartMs = now;
@@ -4537,7 +4546,7 @@ function onResults(results, handResults=null){
 
     // ใช้ "ข้างที่ขยับมากที่สุด" เป็นตัวตรวจว่ามีความพยายามยิ้ม
     // เพราะ stroke-like smile อาจขยับชัดแค่ข้างเดียว
-    const validEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, 'valid');
+    const validEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, mouthWidth, 'valid');
     const validSmileNow = validEvidence.confirmed && mouthAssessable;
 
     // If a hand covers the mouth or the mouth becomes unassessable after the
