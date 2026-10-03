@@ -16,18 +16,18 @@ const configSource=read("config.js");
 // 1) Arm canonical/local persistence contract: attempt -> module measurement -> sensor observations.
 assert.ok(arm.includes("function finalizeCanonicalArmAttempt"));
 assert.ok(arm.includes("const armResearchTelemetry = buildArmJssfResearchTelemetry"));
-assert.match(arm,/ARM_RESEARCH_STORE.finalizeTestAttempt(attemptSnapshot.testAttemptId, attemptSnapshot)/);
-assert.match(arm,/ARM_DATA_CONTRACT.createModuleMeasurement(/);
-assert.match(arm,/protocolUnderstanding:armProtocolUnderstandingCopy()/);
-assert.match(arm,/raiseGesture:armRaiseGestureShadowSnapshot(legacy)/);
-assert.match(arm,/researchTelemetry:cloneArmResearchValue(attemptSnapshot.armResearchTelemetry)/);
-assert.match(arm,/ARM_RESEARCH_STORE.addModuleMeasurement(measurement)/);
-assert.match(arm,/ARM_RESEARCH_STORE.appendSensorObservations(observations)/);
+assert.ok(arm.includes("ARM_RESEARCH_STORE.finalizeTestAttempt(attemptSnapshot.testAttemptId, attemptSnapshot)"));
+assert.ok(arm.includes("ARM_DATA_CONTRACT.createModuleMeasurement("));
+assert.ok(arm.includes("protocolUnderstanding:armProtocolUnderstandingCopy()"));
+assert.ok(arm.includes("raiseGesture:armRaiseGestureShadowSnapshot(legacy)"));
+assert.ok(arm.includes("researchTelemetry:cloneArmResearchValue(attemptSnapshot.armResearchTelemetry)"));
+assert.ok(arm.includes("ARM_RESEARCH_STORE.addModuleMeasurement(measurement)"));
+assert.ok(arm.includes("ARM_RESEARCH_STORE.appendSensorObservations(observations)"));
 
 // 2) Research export includes rich local records needed for retrospective analysis.
-assert.match(store,/readBundle([sS]*moduleMeasurements[sS]*sensorObservations/);
-assert.match(store,/exportSession([sS]*...bundle/);
-assert.match(store,/sanitizeResearchExport(output)/);
+assert.ok(store.includes("async function readBundle") && store.includes("moduleMeasurements") && store.includes("sensorObservations"));
+assert.ok(store.includes("async function exportSession") && store.includes("...bundle"));
+assert.ok(store.includes("sanitizeResearchExport(output)"));
 
 // 3) Build the same browser client used by the app and convert a realistic Arm attempt.
 let currentContext={
@@ -140,10 +140,10 @@ assert.doesNotMatch(JSON.stringify(edgeEvent),/DROP_SERVER_SIDE|LOCAL_ONLY_DROP|
 assert.ok(JSON.stringify(edgeEvent).length<8000);
 
 // 5) Isolation invariants remain explicit.
-assert.match(remoteSource,/record.module==="arm" ? safeArmResearch(record.armResearchTelemetry) : undefined/);
-assert.match(remoteSource,/researchProfile!=="community_remote_qr"/);
-assert.match(remoteSource,/appMode!=="research"/);
-assert.match(configSource,/community_remote_qr/);
+assert.ok(remoteSource.includes('record.module==="arm" ? safeArmResearch(record.armResearchTelemetry) : undefined'));
+assert.ok(remoteSource.includes('researchProfile!=="community_remote_qr"'));
+assert.ok(remoteSource.includes('appMode!=="research"'));
+assert.ok(configSource.includes("community_remote_qr"));
 
 // 6) Full P0 suites are linked into CI; production source thresholds stay guarded elsewhere.
 for(const file of [
