@@ -97,7 +97,7 @@ window.QS_CONFIG = {
       version: "face-prepilot-1.6.0",
       algorithmVersion: "face-asymmetry-1.6.0",
       resultSchemaVersion: "face-result-1.3.0",
-      researchPayloadVersion: "face-research-0.8.0",
+      researchPayloadVersion: "face-research-0.9.0",
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
@@ -114,6 +114,7 @@ window.QS_CONFIG = {
       smileDetectMin: 0.030,
       smileDetectSide: 0.045,
       smileValidStrength: 0.020,
+      // Deprecated/unused in Face 1.6.0; retained for config compatibility only.
       realMoveMin: 0.0018,
       closedSmileRiseMin: 0.0018,
       smileRealMin: 0.018,
