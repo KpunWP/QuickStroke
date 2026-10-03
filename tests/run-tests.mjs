@@ -161,7 +161,7 @@ test('legacy Face/Arm/Speech thresholds remain unchanged except explicit additiv
     !Object.prototype.hasOwnProperty.call(baselineThresholds.face || {}, key)
   );
   assert.deepEqual(new Set(extraFaceKeys), allowedFaceP0Additions);
-  assert.equal(actualThresholds.face.version, 'face-prepilot-1.5.0');
+  assert.equal(actualThresholds.face.version, 'face-prepilot-1.6.0');
   assert.equal(actualThresholds.face.algorithmVersion, 'face-asymmetry-1.6.0');
   assert.equal(actualThresholds.face.researchPayloadVersion, 'face-research-0.8.0');
   assert.equal(actualThresholds.face.maxAllowedYaw, 15);
