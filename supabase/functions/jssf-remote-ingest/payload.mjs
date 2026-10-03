@@ -1,6 +1,6 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
 export const CONTRACT_VERSION = "jssf-remote-ingest-0.1.0";
-const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
+const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_summary", "face_research_chunk", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECORD_ID = /^[A-Za-z0-9_-]{3,110}$/;
@@ -44,6 +44,66 @@ function optionalDuration(value) {
   if (value == null) return undefined;
   return intInRange(value, 0, 3600000, "durationMs");
 }
+const FACE_PHASES = new Set(["RESTING_PHASE","ACTION_PHASE","ACTION_WAIT_SMILE","RETRYING"]);
+const FACE_SUMMARY_KEYS = new Set([
+  "representativeAsym","blendAsym","riseAsym","weakRatio","geometryRiseUsable",
+  "aggregatedSignedRiseLeft","aggregatedSignedRiseRight","effectiveRiseLeft","effectiveRiseRight",
+  "restingCriticalTriggered","restAsym","peakSmileL","peakSmileR","peakRiseL","peakRiseR",
+  "validSmileFrames","smileFrameCount","validSmileRatio","visibleMouthFrames","avgMouthVisibility",
+  "pairedBlendAsymMedian","pairedBlendAsymP75","pairedBlendAsymP90","pairedBlendAsymMax",
+  "pairedBlendAsymOverWarnRatio","pairedBlendAsymOverBadRatio","pairedBlendAsymLongestMs",
+  "riskLevel","validityStatus","invalidReasonCode"
+]);
+const FACE_BASELINE_KEYS = new Set([
+  "sampleCount","baseLeft","baseRight","baseEyeDistance","baseRawMouthLeftY","baseRawMouthRightY",
+  "baseEyeCenterX","baseEyeCenterY","baseEyeLineRollDeg","baseSmileLeft","baseSmileRight","baseMouthWidth",
+  "restAsymMean","restAsymMedian","restAsymMax","restStabilityMad","criticalTriggered","criticalRestAsym"
+]);
+const FACE_THRESHOLD_KEYS = new Set([
+  "version","algorithmVersion","resultSchemaVersion","researchPayloadVersion",
+  "calibrationSeconds","actionDurationMs","maxAssessAttempts","retryDelayMs","smileNudgeMinMs",
+  "weakSideRatioBad","weakSideRatioShadow","smileDetectMin","smileDetectSide","smileValidStrength",
+  "realMoveMin","closedSmileRiseMin","smileRealMin","minValidSmileFrames","minVisibleMouthFrames",
+  "minMouthVisibilityScore","minMouthDarkRatio","minMouthCentralDarkRatio","minMouthLineScore",
+  "handMouthOverlapMin","maxWaitForSmileMs","baselineAlignmentTimeoutMs","smileLostGraceMs",
+  "smileOcclusionResetMs","minValidSmileRatio","smileAsymWarn","smileAsymBad","restAsymCritical",
+  "criticalNoticeMs","maxAllowedYaw","maxAllowedPitch","maxAllowedRoll","poseBadTripFrames",
+  "poseGoodResumeFrames","enforceHandModel","researchSampleIntervalMs",
+  "attemptMouthAssessableRatioMin","attemptHandOverlapRatioMin"
+]);
+const FACE_FRAME_KEYS = new Set([
+  "tMs","phase","faceDetected","poseValid","yawDeg","pitchDeg","rollDeg","eyeDistance","eyeDistanceRatioFromBaseline",
+  "rawEyeCenterX","rawEyeCenterY","normalizedMouthLeftX","normalizedMouthLeftY","normalizedMouthRightX","normalizedMouthRightY",
+  "normalizedSignedDisplacementLeft","normalizedSignedDisplacementRight","smileLeft","smileRight","smileDeltaLeft","smileDeltaRight",
+  "pairedBlendAsymmetry","mouthWidth","mouthWidthDelta","cornerLateralLeft","cornerLateralRight",
+  "blendSmileEvidence","geometrySmileEvidence","mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
+  "mouthContrast","mouthEdge","mouthOpen","mouthAssessable","handMouthOverlap","handModelAvailable","distanceValid","neutralExpressionValid"
+]);
+function finite(value,key) {
+  if (value == null) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value) || Math.abs(value) > 1000000) throw new TypeError("Invalid "+key);
+  return value;
+}
+function scalarObject(source, allowed, key) {
+  if (!object(source)) return {};
+  const out={};
+  for (const [name,value] of Object.entries(source)) {
+    if (!allowed.has(name)) continue;
+    if (typeof value === "number") out[name]=finite(value,key+"."+name);
+    else if (typeof value === "boolean") out[name]=value;
+    else if (typeof value === "string") out[name]=optionalString(value,100,key+"."+name);
+    else if (value === null) out[name]=null;
+  }
+  return out;
+}
+function faceFrame(source) {
+  if (!object(source)) throw new TypeError("Invalid Face frame");
+  const out=scalarObject(source,FACE_FRAME_KEYS,"faceFrame");
+  if (out.phase != null && !FACE_PHASES.has(out.phase)) throw new TypeError("Invalid Face phase");
+  if (out.tMs != null && (out.tMs < 0 || out.tMs > 120000)) throw new TypeError("Invalid Face tMs");
+  return out;
+}
+
 function payloadFor(type, source) {
   if (!object(source)) throw new TypeError("Invalid event payload");
   if (type === "module_run_completed") {
@@ -81,6 +141,32 @@ function payloadFor(type, source) {
     if (!TECH_CODES.has(source.code)) throw new TypeError("Unrecognized technical event");
     return { code: source.code, relatedModuleRunId: source.relatedModuleRunId ? identifier(source.relatedModuleRunId, "relatedModuleRunId") : undefined };
   }
+  if (type === "face_research_summary") {
+    const frameCount=intInRange(source.frameCount ?? 0,0,1000,"frameCount");
+    return {
+      moduleRunId:identifier(source.moduleRunId,"moduleRunId"),
+      testAttemptId:identifier(source.testAttemptId,"testAttemptId"),
+      algorithmVersion:optionalString(source.algorithmVersion,100,"algorithmVersion"),
+      researchPayloadVersion:optionalString(source.researchPayloadVersion,100,"researchPayloadVersion"),
+      sampleIntervalMs:source.sampleIntervalMs == null ? undefined : intInRange(source.sampleIntervalMs,20,5000,"sampleIntervalMs"),
+      storesImagesOrVideo:source.storesImagesOrVideo === false ? false : (()=>{throw new TypeError("Face research must not store images or video");})(),
+      frameCount,
+      baseline:scalarObject(source.baseline,FACE_BASELINE_KEYS,"baseline"),
+      summary:scalarObject(source.summary,FACE_SUMMARY_KEYS,"summary"),
+      thresholds:scalarObject(source.thresholds,FACE_THRESHOLD_KEYS,"thresholds")
+    };
+  }
+  if (type === "face_research_chunk") {
+    if (!Array.isArray(source.frames) || source.frames.length < 1 || source.frames.length > 8) throw new TypeError("Invalid Face research frame chunk");
+    return {
+      moduleRunId:identifier(source.moduleRunId,"moduleRunId"),
+      testAttemptId:identifier(source.testAttemptId,"testAttemptId"),
+      chunkNo:intInRange(source.chunkNo,1,500,"chunkNo"),
+      chunkCount:intInRange(source.chunkCount,1,500,"chunkCount"),
+      sampleIntervalMs:source.sampleIntervalMs == null ? undefined : intInRange(source.sampleIntervalMs,20,5000,"sampleIntervalMs"),
+      frames:source.frames.map(faceFrame)
+    };
+  }
   const completed = source.completedModules;
   if (!Array.isArray(completed) || completed.length > 3 || completed.some(x => !MODULES.has(x)) || new Set(completed).size !== completed.length) {
     throw new TypeError("Invalid completedModules");
@@ -93,7 +179,8 @@ export function sanitizeEvent(source) {
   const type = source.eventType;
   const module = source.module == null ? null : source.module;
   if (module !== null && !MODULES.has(module)) throw new TypeError("Invalid module");
-  if ((type === "module_run_completed" || type === "test_attempt_completed") && !module) throw new TypeError("Missing module");
+  if ((type === "module_run_completed" || type === "test_attempt_completed" || type === "face_research_summary" || type === "face_research_chunk") && !module) throw new TypeError("Missing module");
+  if ((type === "face_research_summary" || type === "face_research_chunk") && module !== "face") throw new TypeError("Face research event requires face module");
   // Explicit allowlist: unknown user-controlled properties are never forwarded to storage.
   const sanitized = {
     client_event_id: source.eventId,
@@ -103,7 +190,7 @@ export function sanitizeEvent(source) {
     payload: payloadFor(type, source.payload),
     schema_version: CONTRACT_VERSION
   };
-  if (JSON.stringify(sanitized).length > 4000) throw new TypeError("Event too large");
+  if (JSON.stringify(sanitized).length > 15000) throw new TypeError("Event too large");
   return sanitized;
 }
 export function sanitizeBatch(events) {
