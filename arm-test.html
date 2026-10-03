@@ -4053,7 +4053,6 @@ function startMeasure() {
   preMeasureWaitingForFreshSample = false;
 
   const readiness = evaluateReadiness();
-  captureArmReadinessResearchSnapshot(readiness, 'measurement_entry');
   currentPreMeasureDelta = angleBetweenVectors(gravityBase, gravityFilt);
 
   if (!readiness.ready) {
