@@ -4,11 +4,15 @@ on:
   push:
     branches:
       - fix/jssf-public-sticky-v6
+      - research/face-p0-data-contract-20261003
     paths:
       - .github/workflows/jssf-closed-smoke.yml
       - tests/jssf-remote-*.mjs
       - js/jssf-remote-sync.js
       - supabase/functions/jssf-remote-ingest/**
+      - supabase/migrations/**
+      - face-test.html
+      - jssf-consent.html
   workflow_dispatch:
 
 permissions:
@@ -28,6 +32,8 @@ jobs:
         run: |
           node tests/jssf-remote-client.mjs
           node tests/jssf-remote-staging.mjs
+          node tests/jssf-face-research-contract.mjs
+          node tests/jssf-retention-static.mjs
       - name: Exercise synthetic offline retry and idempotency
         run: node tests/jssf-remote-sync-flow.mjs
       - name: Check real Supabase API is CLOSED and refuses enrollment
