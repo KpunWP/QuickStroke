@@ -2450,12 +2450,19 @@ function canonicalFaceObservationStatus(riskLevel, validityStatus){
 function currentFaceBaselineSnapshot(){
   return {
     sampleCount:restCornerL.length,
-    baseLeft:roundMetric(baseL), baseRight:roundMetric(baseR), baseEyeDistance:roundMetric(baseEyeW),
+    baseLeft:roundMetric(baseL), baseRight:roundMetric(baseR),
+    baseMouthLeftX:roundMetric(baseLX), baseMouthRightX:roundMetric(baseRX),
+    baseEyeDistance:roundMetric(baseEyeW),
+    baseSmileLeft:roundMetric(baseSmileL), baseSmileRight:roundMetric(baseSmileR),
+    baseMouthWidth:roundMetric(baseMouthWidth),
     baseRawMouthLeftY:roundMetric(baseRawMouthLeftY), baseRawMouthRightY:roundMetric(baseRawMouthRightY),
     baseEyeCenterX:roundMetric(baseEyeCenterX), baseEyeCenterY:roundMetric(baseEyeCenterY),
     baseEyeLineRollDeg:roundMetric(baseEyeLineRollDeg,2),
     restAsymMean:roundMetric(average(restCornerAsymSamples)),
+    restAsymMedian:roundMetric(median(restCornerAsymSamples)),
     restAsymMax:roundMetric(restCornerAsymSamples.length ? Math.max(...restCornerAsymSamples) : null),
+    restStabilityMad:roundMetric(baselineCornerMad),
+    baselineEyeMadRatio:roundMetric(baselineEyeMadRatio),
     criticalTriggered:criticalFired, criticalRestAsym:roundMetric(criticalRestAsym)
   };
 }
@@ -4353,6 +4360,13 @@ function onResults(results, handResults=null){
 
     smileLeft:roundMetric(smileL),
     smileRight:roundMetric(smileR),
+    smileDeltaLeft:roundMetric(smileDeltaLeft),
+    smileDeltaRight:roundMetric(smileDeltaRight),
+    pairedBlendAsymmetry:roundMetric(frameAsym),
+    mouthWidth:roundMetric(mouthWidth),
+    mouthWidthDelta:roundMetric(mouthWidthDelta),
+    cornerLateralLeft:roundMetric(cornerLateralLeft),
+    cornerLateralRight:roundMetric(cornerLateralRight),
     riseLeft:roundMetric(signedRiseLn),
     riseRight:roundMetric(signedRiseRn),
     blendSmileEvidence:inActionPhase ? smileEvidence.blendSmileEvidence : null,
@@ -4361,8 +4375,12 @@ function onResults(results, handResults=null){
     mouthDarkRatio:roundMetric(mouthVis.darkRatio),
     mouthCentralDarkRatio:roundMetric(mouthVis.centralDarkRatio),
     mouthLineScore:roundMetric(mouthVis.mouthLineScore),
+    mouthContrast:roundMetric(mouthVis.contrast),
+    mouthEdge:roundMetric(mouthVis.edge),
+    mouthOpen:roundMetric(mouthVis.mouthOpen),
     mouthAssessable:inActionPhase ? isMouthAssessable(mouthVis) : null,
-    handMouthOverlap:lastHandMouthOverlap
+    handMouthOverlap:lastHandMouthOverlap,
+    handModelAvailable:!!handLandmarker
   });
 
   // debug — เขียน DOM เฉพาะตอนเปิด panel เท่านั้น (เดิมยิง getElementById ~16 ครั้ง/เฟรมตลอดเวลา)
