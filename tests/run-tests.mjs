@@ -146,7 +146,10 @@ test('legacy Face/Arm/Speech thresholds remain unchanged except explicit additiv
     'closedSmileWidthIncreaseMin',
     'closedSmilePersistenceMs',
     'dynamicAsymCandidateThreshold',
-    'dynamicGeometryMinMagnitude'
+    'dynamicGeometryMinMagnitude',
+    'restSafetyMaxYaw',
+    'restSafetyMaxPitch',
+    'restSafetyMaxRoll'
   ]);
   const actualThresholds = structuredClone(newConfig.thresholds);
   const baselineThresholds = structuredClone(BASELINE.thresholds);
@@ -155,10 +158,16 @@ test('legacy Face/Arm/Speech thresholds remain unchanged except explicit additiv
   );
   assert.deepEqual(new Set(extraFaceKeys), allowedFaceP0Additions);
   for (const key of extraFaceKeys) delete actualThresholds.face[key];
-  assert.equal(actualThresholds.face.algorithmVersion, 'face-asymmetry-1.3.0');
-  assert.equal(actualThresholds.face.researchPayloadVersion, 'face-research-0.5.0');
+  assert.equal(actualThresholds.face.algorithmVersion, 'face-asymmetry-1.4.0');
+  assert.equal(actualThresholds.face.researchPayloadVersion, 'face-research-0.6.0');
+  assert.equal(actualThresholds.face.maxAllowedYaw, 15);
+  assert.equal(actualThresholds.face.maxAllowedPitch, 18);
+  assert.equal(actualThresholds.face.maxAllowedRoll, 15);
   actualThresholds.face.algorithmVersion = baselineThresholds.face.algorithmVersion;
   actualThresholds.face.researchPayloadVersion = baselineThresholds.face.researchPayloadVersion;
+  actualThresholds.face.maxAllowedYaw = baselineThresholds.face.maxAllowedYaw;
+  actualThresholds.face.maxAllowedPitch = baselineThresholds.face.maxAllowedPitch;
+  actualThresholds.face.maxAllowedRoll = baselineThresholds.face.maxAllowedRoll;
   assert.deepEqual(actualThresholds, baselineThresholds);
   assert.deepEqual(newConfig.scoring, BASELINE.scoring);
 });
