@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/arm-p0-ab-20261003
+      - research/arm-p0-c-replay-20261003
   workflow_dispatch:
 
 permissions:
@@ -24,5 +25,7 @@ jobs:
         run: node tests/jssf-remote-client.mjs
       - name: Arm remote sanitizer contract
         run: node tests/arm-p0-remote-contract.mjs
+      - name: Deterministic Arm sensor replay
+        run: node tests/arm-sensor-replay.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
