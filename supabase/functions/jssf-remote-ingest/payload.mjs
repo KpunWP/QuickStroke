@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.7.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.8.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_attempt", "face_research_samples", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -201,6 +201,10 @@ function faceResearchAttemptPayload(source) {
       closedSmilePersistenceMs: thresholds.closedSmilePersistenceMs == null ? null : intInRange(thresholds.closedSmilePersistenceMs, 0, 10000, "thresholds.closedSmilePersistenceMs"),
       dynamicAsymCandidateThreshold: finiteOrNull(thresholds.dynamicAsymCandidateThreshold, "thresholds.dynamicAsymCandidateThreshold", 0, 10),
       dynamicGeometryMinMagnitude: finiteOrNull(thresholds.dynamicGeometryMinMagnitude, "thresholds.dynamicGeometryMinMagnitude", 0, 10),
+      distanceIdealMin: finiteOrNull(thresholds.distanceIdealMin, "thresholds.distanceIdealMin", 0, 10),
+      distanceIdealMax: finiteOrNull(thresholds.distanceIdealMax, "thresholds.distanceIdealMax", 0, 10),
+      distanceAcceptMin: finiteOrNull(thresholds.distanceAcceptMin, "thresholds.distanceAcceptMin", 0, 10),
+      distanceAcceptMax: finiteOrNull(thresholds.distanceAcceptMax, "thresholds.distanceAcceptMax", 0, 10),
       maxAllowedYaw: finiteOrNull(thresholds.maxAllowedYaw, "thresholds.maxAllowedYaw", 0, 90),
       maxAllowedPitch: finiteOrNull(thresholds.maxAllowedPitch, "thresholds.maxAllowedPitch", 0, 90),
       maxAllowedRoll: finiteOrNull(thresholds.maxAllowedRoll, "thresholds.maxAllowedRoll", 0, 90),
