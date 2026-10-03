@@ -2472,6 +2472,42 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
       });
       await FACE_RESEARCH_STORE.appendSensorObservations(observations);
     }
+    try {
+      await window.QuickStrokeJssfRemote?.queueFaceResearch?.({
+        testAttemptId:finalizedAttempt.testAttemptId,
+        moduleRunId:finalizedAttempt.moduleRunId,
+        attemptNo:finalizedAttempt.attemptSequenceNo || legacySnapshot?.attemptNo || 1,
+        completedAt:finalizedAttempt.completedAt,
+        sampleIntervalMs:RESEARCH_SAMPLE_INTERVAL_MS,
+        baseline:baselineSnapshot,
+        attemptSummary:legacySnapshot,
+        frames:frameSnapshot,
+        dynamic:null,
+        versions:{
+          appVersion:window.QS_CONFIG?.version || null,
+          buildId:window.QS_CONFIG?.buildId || null,
+          configVersion:window.QS_CONFIG?.configVersion || null,
+          faceModuleVersion:FACE_MODULE_VERSION,
+          algorithmVersion:FACE_ALGORITHM_VERSION,
+          researchPayloadVersion:FACE_RESEARCH_PAYLOAD_VERSION,
+          configHash:FACE_CONFIG_HASH
+        },
+        thresholds:{
+          weakSideRatioBad:WEAK_SIDE_RATIO_BAD,
+          weakSideRatioShadow:WEAK_SIDE_RATIO_SHADOW,
+          smileAsymWarn:SMILE_ASYM_WARN,
+          smileAsymBad:SMILE_ASYM_BAD,
+          restAsymCritical:REST_ASYM_CRITICAL,
+          smileDetectMin:SMILE_DETECT_MIN,
+          smileDetectSide:SMILE_DETECT_SIDE,
+          smileValidStrength:SMILE_VALID_STRENGTH,
+          smileRealMin:SMILE_REAL_MIN,
+          closedSmileRiseMin:CLOSED_SMILE_RISE_MIN
+        }
+      });
+    } catch (error) {
+      console.warn('JSSF Face research telemetry queue deferred.', error);
+    }
   });
 }
 function finalizeCanonicalFaceAttempt(outcome, reasonCode, legacyRecord, extra={}){
