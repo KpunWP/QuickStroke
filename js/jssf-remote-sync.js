@@ -330,11 +330,12 @@
       "version","algorithmVersion","resultSchemaVersion","researchPayloadVersion",
       "calibrationSeconds","actionDurationMs","maxAssessAttempts","retryDelayMs","smileNudgeMinMs",
       "weakSideRatioBad","weakSideRatioShadow","smileDetectMin","smileDetectSide","smileValidStrength",
-      "realMoveMin","closedSmileRiseMin","smileRealMin","minValidSmileFrames","minVisibleMouthFrames",
+      "realMoveMin","closedSmileRiseMin","smileRealMin","smileDeltaMin","closedSmileWidthMin","closedSmileEvidenceHoldMs",
+      "baselineCornerMadMax","baselineEyeMadRatioMax","minValidSmileFrames","minVisibleMouthFrames",
       "minMouthVisibilityScore","minMouthDarkRatio","minMouthCentralDarkRatio","minMouthLineScore",
       "handMouthOverlapMin","maxWaitForSmileMs","baselineAlignmentTimeoutMs","smileLostGraceMs",
       "smileOcclusionResetMs","minValidSmileRatio","smileAsymWarn","smileAsymBad","restAsymCritical",
-      "criticalNoticeMs","maxAllowedYaw","maxAllowedPitch","maxAllowedRoll","poseBadTripFrames",
+      "criticalNoticeMs","maxAllowedYaw","maxAllowedPitch","maxAllowedRoll","restMaxAllowedYaw","restMaxAllowedPitch","restMaxAllowedRoll","poseBadTripFrames",
       "poseGoodResumeFrames","enforceHandModel","researchSampleIntervalMs",
       "attemptMouthAssessableRatioMin","attemptHandOverlapRatioMin"
     ];
