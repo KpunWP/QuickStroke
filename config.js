@@ -95,9 +95,9 @@ window.QS_CONFIG = {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
       version: "face-prepilot-1.4.0",
-      algorithmVersion: "face-asymmetry-1.2.0",
+      algorithmVersion: "face-asymmetry-1.3.0",
       resultSchemaVersion: "face-result-1.3.0",
-      researchPayloadVersion: "face-research-0.3.0",
+      researchPayloadVersion: "face-research-0.4.0",
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
@@ -117,6 +117,15 @@ window.QS_CONFIG = {
       realMoveMin: 0.0018,
       closedSmileRiseMin: 0.0018,
       smileRealMin: 0.018,
+
+      // P0-C engineering/pre-pilot closed-mouth path. NOT clinical cutoffs.
+      // Strong absolute blendshape remains the fast path; the relative path
+      // requires blendshape delta + vertical/lateral geometry + persistence.
+      closedSmileDeltaSideStart: 0.020,
+      closedSmileDeltaSideValid: 0.012,
+      closedSmileLateralMin: 0.006,
+      closedSmileWidthIncreaseMin: 0.012,
+      closedSmilePersistenceMs: 250,
 
       // v1.1 algorithm policy:
       // - blendshape must support smile confirmation
