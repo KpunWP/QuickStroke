@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.8.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.9.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_attempt", "face_research_samples", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -213,6 +213,13 @@ function faceResearchAttemptPayload(source) {
       restSafetyMaxRoll: finiteOrNull(thresholds.restSafetyMaxRoll, "thresholds.restSafetyMaxRoll", 0, 90),
       poseBadTripFrames: thresholds.poseBadTripFrames == null ? null : intInRange(thresholds.poseBadTripFrames, 1, 100, "thresholds.poseBadTripFrames"),
       poseGoodResumeFrames: thresholds.poseGoodResumeFrames == null ? null : intInRange(thresholds.poseGoodResumeFrames, 1, 100, "thresholds.poseGoodResumeFrames"),
+      calibrationSeconds: thresholds.calibrationSeconds == null ? null : intInRange(thresholds.calibrationSeconds, 0, 60, "thresholds.calibrationSeconds"),
+      actionDurationMs: thresholds.actionDurationMs == null ? null : intInRange(thresholds.actionDurationMs, 0, 60000, "thresholds.actionDurationMs"),
+      maxAssessAttempts: thresholds.maxAssessAttempts == null ? null : intInRange(thresholds.maxAssessAttempts, 1, 20, "thresholds.maxAssessAttempts"),
+      retryDelayMs: thresholds.retryDelayMs == null ? null : intInRange(thresholds.retryDelayMs, 0, 30000, "thresholds.retryDelayMs"),
+      smileNudgeMinMs: thresholds.smileNudgeMinMs == null ? null : intInRange(thresholds.smileNudgeMinMs, 0, 30000, "thresholds.smileNudgeMinMs"),
+      criticalNoticeMs: thresholds.criticalNoticeMs == null ? null : intInRange(thresholds.criticalNoticeMs, 0, 30000, "thresholds.criticalNoticeMs"),
+      researchSampleIntervalMs: thresholds.researchSampleIntervalMs == null ? null : intInRange(thresholds.researchSampleIntervalMs, 50, 1000, "thresholds.researchSampleIntervalMs"),
       minValidSmileFrames: thresholds.minValidSmileFrames == null ? null : intInRange(thresholds.minValidSmileFrames, 0, 1000, "thresholds.minValidSmileFrames"),
       minVisibleMouthFrames: thresholds.minVisibleMouthFrames == null ? null : intInRange(thresholds.minVisibleMouthFrames, 0, 1000, "thresholds.minVisibleMouthFrames"),
       minMouthVisibilityScore: finiteOrNull(thresholds.minMouthVisibilityScore, "thresholds.minMouthVisibilityScore", 0, 10),
