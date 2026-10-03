@@ -1933,7 +1933,7 @@ let mouthCtx = null;
 
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
-const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.4.0";
+const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.6.0";
 const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.6.0";
 const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.3.0";
 
@@ -1967,12 +1967,11 @@ const SMILE_NUDGE_MIN_MS = FACE_CFG.smileNudgeMinMs ?? 2500;      // keep “smi
 const WEAK_SIDE_RATIO_BAD = FACE_CFG.weakSideRatioBad ?? 0.45;      // active result threshold
 const WEAK_SIDE_RATIO_SHADOW = FACE_CFG.weakSideRatioShadow ?? 0.30; // research-only; never changes result
 
-const SMILE_DETECT_MIN = FACE_CFG.smileDetectMin ?? 0.045;
-const SMILE_DETECT_SIDE = FACE_CFG.smileDetectSide ?? 0.07;
-const SMILE_VALID_STRENGTH = FACE_CFG.smileValidStrength ?? 0.028;
-const REAL_MOVE_MIN = FACE_CFG.realMoveMin ?? 0.0025;
-const CLOSED_SMILE_RISE_MIN = FACE_CFG.closedSmileRiseMin ?? 0.003;
-const SMILE_REAL_MIN = FACE_CFG.smileRealMin ?? 0.045;
+const SMILE_DETECT_MIN = FACE_CFG.smileDetectMin ?? 0.030;
+const SMILE_DETECT_SIDE = FACE_CFG.smileDetectSide ?? 0.045;
+const SMILE_VALID_STRENGTH = FACE_CFG.smileValidStrength ?? 0.020;
+const CLOSED_SMILE_RISE_MIN = FACE_CFG.closedSmileRiseMin ?? 0.0018;
+const SMILE_REAL_MIN = FACE_CFG.smileRealMin ?? 0.018;
 const CLOSED_SMILE_DELTA_SIDE_START = FACE_CFG.closedSmileDeltaSideStart ?? 0.020;
 const CLOSED_SMILE_DELTA_SIDE_VALID = FACE_CFG.closedSmileDeltaSideValid ?? 0.012;
 const CLOSED_SMILE_LATERAL_MIN = FACE_CFG.closedSmileLateralMin ?? 0.006;
@@ -2001,10 +2000,10 @@ const BASELINE_CORNER_MAD_MAX = FACE_CFG.baselineCornerMadMax ?? 0.020;
 const BASELINE_EYE_DISTANCE_REL_MAD_MAX = FACE_CFG.baselineEyeDistanceRelativeMadMax ?? 0.040;
 const SMILE_LOST_GRACE_MS = FACE_CFG.smileLostGraceMs ?? 1400;
 const SMILE_OCCLUSION_RESET_MS = FACE_CFG.smileOcclusionResetMs ?? 300;
-const MIN_VALID_SMILE_RATIO = FACE_CFG.minValidSmileRatio ?? 0.08;
+const MIN_VALID_SMILE_RATIO = FACE_CFG.minValidSmileRatio ?? 0.05;
 
-const SMILE_ASYM_WARN = FACE_CFG.smileAsymWarn ?? 0.26;
-const SMILE_ASYM_BAD = FACE_CFG.smileAsymBad ?? 0.40;
+const SMILE_ASYM_WARN = FACE_CFG.smileAsymWarn ?? 0.22;
+const SMILE_ASYM_BAD = FACE_CFG.smileAsymBad ?? 0.32;
 const REST_ASYM_CRITICAL = FACE_CFG.restAsymCritical ?? 0.30;
 const CRITICAL_NOTICE_MS = FACE_CFG.criticalNoticeMs ?? 2000;
 
@@ -2026,7 +2025,7 @@ const DISTANCE_IDEAL_MIN = FACE_CFG.distanceIdealMin ?? 0.85;
 const DISTANCE_IDEAL_MAX = FACE_CFG.distanceIdealMax ?? 1.15;
 const DISTANCE_ACCEPT_MIN = FACE_CFG.distanceAcceptMin ?? 0.80;
 const DISTANCE_ACCEPT_MAX = FACE_CFG.distanceAcceptMax ?? 1.20;
-const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.8.0';
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.9.0';
 
 // Stable eye-corner pairs from MediaPipe Face Landmarker.
 // Centers are deterministic midpoints of x/y landmarks; iris and landmark z are not used.
@@ -2608,6 +2607,13 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
           restSafetyMaxRoll:REST_SAFETY_MAX_ROLL,
           poseBadTripFrames:POSE_BAD_TRIP_FRAMES,
           poseGoodResumeFrames:POSE_GOOD_RESUME_FRAMES,
+          calibrationSeconds:CALIBRATION_SECONDS,
+          actionDurationMs:ACTION_DURATION_MS,
+          maxAssessAttempts:MAX_ASSESS_ATTEMPTS,
+          retryDelayMs:RETRY_DELAY_MS,
+          smileNudgeMinMs:SMILE_NUDGE_MIN_MS,
+          criticalNoticeMs:CRITICAL_NOTICE_MS,
+          researchSampleIntervalMs:RESEARCH_SAMPLE_INTERVAL_MS,
           minValidSmileFrames:MIN_VALID_SMILE_FRAMES,
           minVisibleMouthFrames:MIN_VISIBLE_MOUTH_FRAMES,
           minMouthVisibilityScore:MIN_MOUTH_VISIBILITY_SCORE,
@@ -3343,6 +3349,31 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       restSafetyMaxRoll: REST_SAFETY_MAX_ROLL,
       poseBadTripFrames: POSE_BAD_TRIP_FRAMES,
       poseGoodResumeFrames: POSE_GOOD_RESUME_FRAMES,
+      calibrationSeconds: CALIBRATION_SECONDS,
+      actionDurationMs: ACTION_DURATION_MS,
+      maxAssessAttempts: MAX_ASSESS_ATTEMPTS,
+      retryDelayMs: RETRY_DELAY_MS,
+      smileNudgeMinMs: SMILE_NUDGE_MIN_MS,
+      maxWaitForSmileMs: MAX_WAIT_FOR_SMILE_MS,
+      baselineAlignmentTimeoutMs: BASELINE_ALIGNMENT_TIMEOUT_MS,
+      minValidSmileFrames: MIN_VALID_SMILE_FRAMES,
+      minVisibleMouthFrames: MIN_VISIBLE_MOUTH_FRAMES,
+      minMouthVisibilityScore: MIN_MOUTH_VISIBILITY_SCORE,
+      minMouthDarkRatio: MIN_MOUTH_DARK_RATIO,
+      minMouthCentralDarkRatio: MIN_MOUTH_CENTRAL_DARK_RATIO,
+      minMouthLineScore: MIN_MOUTH_LINE_SCORE,
+      handMouthOverlapMin: HAND_MOUTH_OVERLAP_MIN,
+      baselineMinValidFrames: BASELINE_MIN_VALID_FRAMES,
+      baselineNeutralSmileMax: BASELINE_NEUTRAL_SMILE_MAX,
+      baselineNeutralMouthActivityMax: BASELINE_NEUTRAL_MOUTH_ACTIVITY_MAX,
+      baselineCornerMadMax: BASELINE_CORNER_MAD_MAX,
+      baselineEyeDistanceRelativeMadMax: BASELINE_EYE_DISTANCE_REL_MAD_MAX,
+      smileLostGraceMs: SMILE_LOST_GRACE_MS,
+      smileOcclusionResetMs: SMILE_OCCLUSION_RESET_MS,
+      minValidSmileRatio: MIN_VALID_SMILE_RATIO,
+      criticalNoticeMs: CRITICAL_NOTICE_MS,
+      researchSampleIntervalMs: RESEARCH_SAMPLE_INTERVAL_MS,
+      enforceHandModel: ENFORCE_HAND_MODEL,
       geometryFrameDisplacement: FACE_CFG.geometryFrameDisplacement || 'signed-baseline-minus-current',
       geometryRiseAggregation: FACE_CFG.geometryRiseAggregation || 'median-of-valid-smile-frames',
       geometryEffectiveRisePolicy: FACE_CFG.geometryEffectiveRisePolicy || 'max-zero-after-aggregation',
