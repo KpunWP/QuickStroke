@@ -55,6 +55,8 @@ assert.equal(summary.payload.thresholds.smileOcclusionResetMs,300);
 assert.equal(summary.payload.thresholds.enforceHandModel,false);
 assert.equal(summary.payload.thresholds.distanceIdealMin,0.85);
 assert.equal(summary.payload.thresholds.distanceAcceptMax,1.20);
+assert.ok(JSON.stringify(summary).length > 4000,"Fixture should prove Face summary exceeds legacy 4 KB limit");
+assert.ok(JSON.stringify(summary).length < 8000,"Face summary must remain bounded below 8 KB");
 
 const fieldsCount=42;
 const row=[
