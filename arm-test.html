@@ -404,6 +404,21 @@
   .screen-direction{display:none!important;}
 
 
+  /* ── Research-only protocol-understanding prompt ─────────── */
+  #arm-understanding-card{
+    display:none;position:absolute;left:18px;right:18px;bottom:92px;z-index:125;
+    padding:16px;border-radius:20px;background:rgba(255,255,255,.96);
+    border:1px solid rgba(27,42,58,.12);box-shadow:0 14px 34px rgba(27,42,58,.18);
+    text-align:center;color:var(--ink,#1b2a3a);
+  }
+  #arm-understanding-card.show{display:block}
+  #arm-understanding-question{font-size:18px;font-weight:800;line-height:1.45;margin-bottom:12px}
+  .arm-understanding-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .arm-understanding-btn{min-height:50px;border:0;border-radius:14px;font:700 16px inherit;cursor:pointer}
+  .arm-understanding-btn.yes{background:#0F6FFF;color:#fff}
+  .arm-understanding-btn.no{background:rgba(27,42,58,.08);color:var(--ink,#1b2a3a)}
+  @media (max-width:420px){#arm-understanding-question{font-size:17px}.arm-understanding-btn{font-size:15px}}
+
   /* ── Developer sensor HUD (?dev=1) ───────────────────────── */
   #arm-dev-toggle,
   #arm-dev-panel { display:none; }
@@ -1611,6 +1626,13 @@
 </div>
 <div id="final-banner"><span class="fb-icon" id="fb-icon"></span><span class="fb-title" id="fb-title"></span><span class="fb-sub" id="fb-sub"></span></div>
 </div>
+<div id="arm-understanding-card" role="group" aria-labelledby="arm-understanding-question">
+  <div id="arm-understanding-question">คุณเข้าใจวิธีทดสอบแขนหรือไม่?</div>
+  <div class="arm-understanding-actions">
+    <button class="arm-understanding-btn yes" id="arm-understanding-yes" type="button" onclick="answerArmProtocolUnderstanding('understood')">เข้าใจ</button>
+    <button class="arm-understanding-btn no" id="arm-understanding-no" type="button" onclick="answerArmProtocolUnderstanding('not_understood')">ยังไม่เข้าใจ</button>
+  </div>
+</div>
 <div id="action-dock">
 <button id="action-btn" onclick="handleBtn()" disabled>Start Test</button>
 </div>
@@ -2285,6 +2307,9 @@ let pendingRetryReason = null;
 let armModuleRunRecord = null;
 let previousArmModuleRunIdForRetry = null;
 let armSideConfirmation = { side:null, confirmedAt:null, method:null };
+let armProtocolUnderstanding = null;
+const ARM_PROTOCOL_UNDERSTANDING_VERSION = 'arm-protocol-understanding-1.0.0';
+const ARM_JSSF_TELEMETRY_VERSION = 'arm-jssf-telemetry-0.1.0';
 let activeArmAttemptRecord = null;
 let lastCompletedArmAttemptBySide = { left:null, right:null };
 let selectedArmAttemptIds = { left:null, right:null };
@@ -2633,6 +2658,151 @@ function armSideIsConfirmed() {
   return armSideConfirmation.side === arm && Boolean(armSideConfirmation.confirmedAt);
 }
 
+function armResearchModeActive() {
+  return getArmScreeningContext()?.appMode === 'research';
+}
+
+function armProtocolUnderstandingCopy() {
+  return armProtocolUnderstanding ? { ...armProtocolUnderstanding } : null;
+}
+
+function armUnderstandingLabels() {
+  const lang = normaliseArmLang(document.documentElement.lang || sessionStorage.getItem('fast_lang') || 'th');
+  if (lang === 'en') return { question:'Do you understand how to perform the arm test?', yes:'I understand', no:'I do not understand yet' };
+  if (lang === 'ja') return { question:'腕のテスト方法を理解していますか？', yes:'理解した', no:'まだ理解していない' };
+  return { question:'คุณเข้าใจวิธีทดสอบแขนหรือไม่?', yes:'เข้าใจ', no:'ยังไม่เข้าใจ' };
+}
+
+function showArmUnderstandingPrompt() {
+  const card = $('arm-understanding-card');
+  if (!card) return false;
+  if (!armResearchModeActive() || armProtocolUnderstanding) {
+    card.classList.remove('show');
+    return false;
+  }
+  const labels = armUnderstandingLabels();
+  $('arm-understanding-question').textContent = labels.question;
+  $('arm-understanding-yes').textContent = labels.yes;
+  $('arm-understanding-no').textContent = labels.no;
+  card.classList.add('show');
+  $('action-btn').disabled = true;
+  return true;
+}
+
+function answerArmProtocolUnderstanding(answer) {
+  if (!['understood','not_understood'].includes(answer)) return;
+  armProtocolUnderstanding = {
+    answer,
+    questionVersion:ARM_PROTOCOL_UNDERSTANDING_VERSION,
+    answeredAt:new Date().toISOString(),
+    blocksTest:false
+  };
+  $('arm-understanding-card')?.classList.remove('show');
+  $('action-btn').disabled = false;
+  window.QuickStrokeDevMode?.logEvent?.('ARM_PROTOCOL_UNDERSTANDING_RECORDED', {
+    module:'arm', answer, questionVersion:ARM_PROTOCOL_UNDERSTANDING_VERSION
+  });
+}
+
+function armRaiseGestureShadowSnapshot(legacy = null) {
+  const maxDeg = Number(legacy?.maxAngleFromRestDeg ?? maxAngleFromRest);
+  const thresholdDeg = Number(ARM_READINESS_CFG.movedFromRestMinDeg);
+  return {
+    detected:Number.isFinite(maxDeg) && Number.isFinite(thresholdDeg) ? maxDeg >= thresholdDeg : null,
+    maxAngleFromRestDeg:Number.isFinite(maxDeg) ? Number(maxDeg.toFixed(3)) : null,
+    thresholdDeg:Number.isFinite(thresholdDeg) ? thresholdDeg : null,
+    evidence:'device_rotation_from_rest',
+    hardGate:false
+  };
+}
+
+function armResearchRound(value, digits = 3) {
+  return Number.isFinite(Number(value)) ? Number(Number(value).toFixed(digits)) : null;
+}
+
+function buildArmJssfResearchTelemetry(samples = [], legacy = null, details = {}) {
+  const measured = Array.isArray(samples) ? samples.filter(sample => sample?.phase === 'MEASURE' && Number.isFinite(sample?.tMs)) : [];
+  const firstT = measured.length ? measured[0].tMs : null;
+  const relative = measured.map(sample => ({ sample, relMs:Math.max(0, sample.tMs - firstT) }));
+  const cutoffs = [3,4,5,6,7,8,10].map(second => {
+    const candidates = relative.filter(row => row.relMs <= second * 1000);
+    const row = candidates[candidates.length - 1];
+    if (!row) return { second, available:false };
+    const sample = row.sample;
+    return {
+      second, available:true,
+      capturedThroughMs:Math.round(row.relMs),
+      driftMaxDeg:armResearchRound(sample.driftMaxDeg),
+      peakDeltaX:armResearchRound(sample.peakDelta?.x,4),
+      peakDeltaZ:armResearchRound(sample.peakDelta?.z,4),
+      ratioZX:armResearchRound(sample.peakRatioZX,4),
+      motionClass:sample.motionClass || null
+    };
+  });
+  const maxTracePoints = 21;
+  const trace = [];
+  if (relative.length) {
+    const step = Math.max(1, Math.ceil(relative.length / maxTracePoints));
+    for (let i=0;i<relative.length;i+=step) {
+      const row = relative[i], sample = row.sample;
+      trace.push({
+        tMs:Math.round(row.relMs),
+        driftDeg:armResearchRound(sample.currentDriftDeg),
+        driftMaxDeg:armResearchRound(sample.driftMaxDeg),
+        deltaX:armResearchRound(sample.currentDelta?.x,4),
+        deltaZ:armResearchRound(sample.currentDelta?.z,4),
+        ratioZX:armResearchRound(sample.peakRatioZX,4),
+        screenY:armResearchRound(sample.gravityScreen?.y,4),
+        screenZ:armResearchRound(sample.gravityScreen?.z,4),
+        sensorFresh:sample.sensorFresh === true
+      });
+      if (trace.length >= maxTracePoints) break;
+    }
+    const last = relative[relative.length - 1];
+    if (trace.length < maxTracePoints && trace[trace.length - 1]?.tMs !== Math.round(last.relMs)) {
+      const sample = last.sample;
+      trace.push({
+        tMs:Math.round(last.relMs),
+        driftDeg:armResearchRound(sample.currentDriftDeg),
+        driftMaxDeg:armResearchRound(sample.driftMaxDeg),
+        deltaX:armResearchRound(sample.currentDelta?.x,4),
+        deltaZ:armResearchRound(sample.currentDelta?.z,4),
+        ratioZX:armResearchRound(sample.peakRatioZX,4),
+        screenY:armResearchRound(sample.gravityScreen?.y,4),
+        screenZ:armResearchRound(sample.gravityScreen?.z,4),
+        sensorFresh:sample.sensorFresh === true
+      });
+    }
+  }
+  return {
+    schemaVersion:ARM_JSSF_TELEMETRY_VERSION,
+    protocolUnderstanding:armProtocolUnderstandingCopy(),
+    raiseGesture:armRaiseGestureShadowSnapshot(legacy),
+    measurement:{
+      targetDurationMs:MEASURE_SEC * 1000,
+      observedDurationMs:relative.length ? Math.round(relative[relative.length - 1].relMs) : null,
+      finalDriftMaxDeg:armResearchRound(details?.driftMaxDeg),
+      finalRatioZX:armResearchRound(details?.ratioZX,4),
+      finalMotionClass:details?.motionClass || null,
+      cutoffs
+    },
+    posture:{
+      baselineStableSpreadDeg:armResearchRound(legacy?.baseline?.stableSpreadDeg),
+      baselineScreenY:armResearchRound(legacy?.baseline?.vectorScreen?.y,4),
+      baselineScreenZ:armResearchRound(legacy?.baseline?.vectorScreen?.z,4),
+      flatZThreshold:FLAT_Z_THR,
+      portraitYMin:PORTRAIT_Y_MIN,
+      preMeasureMaxDeltaDeg:ARM_READINESS_CFG.preMeasureMaxDeltaDeg
+    },
+    sensor:{
+      acceptedSamples:Number.isFinite(legacy?.sensorSamples) ? legacy.sensorSamples : null,
+      sourceSwitches:Number.isFinite(legacy?.sensorSourceSwitches) ? legacy.sensorSourceSwitches : null,
+      telemetrySamples:measured.length
+    },
+    trace
+  };
+}
+
 function armStartButtonText(side = arm, retry = false) {
   if (!T) return retry ? 'Confirm side and retry' : 'Confirm side and start';
   const key = retry ? `btnConfirmRetry_${side}` : `btnConfirmStart_${side}`;
@@ -2898,7 +3068,10 @@ function persistCanonicalArmAttempt(finalizedAttempt, legacySnapshot, detailSnap
           confirmedArmSide:legacy?.confirmedArmSide || attemptSnapshot.measurementTarget?.replace('_arm','') || null,
           armSideConfirmationStatus:legacy?.armSideConfirmationStatus || 'not_confirmed',
           armSideConfirmationMethod:legacy?.armSideConfirmationMethod || null,
-          armSideConfirmedAt:legacy?.armSideConfirmedAt || null
+          armSideConfirmedAt:legacy?.armSideConfirmedAt || null,
+          protocolUnderstanding:armProtocolUnderstandingCopy(),
+          raiseGesture:armRaiseGestureShadowSnapshot(legacy),
+          researchTelemetry:cloneArmResearchValue(attemptSnapshot.armResearchTelemetry)
         }
       });
       await ARM_RESEARCH_STORE.addModuleMeasurement(measurement);
@@ -2925,6 +3098,8 @@ function persistCanonicalArmAttempt(finalizedAttempt, legacySnapshot, detailSnap
 function finalizeCanonicalArmAttempt(status, invalidReason = null, legacySnapshot = null, details = {}) {
   if (!activeArmAttemptRecord) return null;
   const current = activeArmAttemptRecord;
+  const researchSamples = armResearchSamplesByAttempt.get(current.testAttemptId) || [];
+  const armResearchTelemetry = buildArmJssfResearchTelemetry(researchSamples, legacySnapshot, details);
   const reasonCode = invalidReason ? normalizeArmReasonCode(invalidReason) : null;
   const technicalFailure = invalidReason ? isArmTechnicalFailure(invalidReason) : false;
   const validityStatus = status === 'completed_valid'
@@ -2966,7 +3141,11 @@ function finalizeCanonicalArmAttempt(status, invalidReason = null, legacySnapsho
       qualityFlags, invalidReasonCode:validityStatus === 'valid' ? null : reasonCode,
       completedAt:new Date().toISOString()};
   }
-  const samples = armResearchSamplesByAttempt.get(finalized.testAttemptId) || [];
+  finalized = Object.freeze({
+    ...finalized,
+    armResearchTelemetry
+  });
+  const samples = researchSamples;
   persistCanonicalArmAttempt(finalized, legacySnapshot, details, samples);
   armResearchSamplesByAttempt.delete(finalized.testAttemptId);
   lastCompletedArmAttemptBySide[arm] = finalized;
@@ -4182,6 +4361,7 @@ function handleBtn() {
   initAudio();
 
   if (phase === 'IDLE') {
+    if (showArmUnderstandingPrompt()) return;
     arm = 'left';
     confirmCurrentArmSide('explicit_start_button');
     // Prime TTS immediately inside the original user gesture. On iOS, doing this
@@ -4275,7 +4455,7 @@ function resetAll() {
   activeArmAttemptRecord = null;
   selectedArmAttemptIds = { left:null, right:null };
   removeFastNavButton();
-  phase='IDLE'; arm='left'; clearArmSideConfirmation(); results={right:null,left:null};
+  phase='IDLE'; arm='left'; clearArmSideConfirmation(); armProtocolUnderstanding=null; results={right:null,left:null};
   gravityBase=null;
   baselineMeta=null;
   screenOrientationAtBaseline=null;
@@ -4579,6 +4759,7 @@ async function selectLang(code) {
   refreshArmLanguageUI();
   actionBtn.textContent = armStartButtonText('left');
   actionBtn.disabled = false;
+  showArmUnderstandingPrompt();
 }
 
 // ═══════════════════════════════════════════════════
