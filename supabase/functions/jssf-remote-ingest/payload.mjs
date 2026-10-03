@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.1.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.2.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -44,7 +44,84 @@ function optionalDuration(value) {
   if (value == null) return undefined;
   return intInRange(value, 0, 3600000, "durationMs");
 }
-function payloadFor(type, source) {
+function optionalNumber(value, min, max, key, digits = 4) {
+  if (value == null) return undefined;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new TypeError("Invalid " + key);
+  return Number(value.toFixed(digits));
+}
+function sanitizeArmResearch(source) {
+  if (source == null) return undefined;
+  if (!object(source)) throw new TypeError("Invalid armResearch");
+  let protocolUnderstanding;
+  if (source.protocolUnderstanding != null) {
+    if (!object(source.protocolUnderstanding)) throw new TypeError("Invalid arm protocol understanding");
+    if (!["understood","not_understood"].includes(source.protocolUnderstanding.answer)) throw new TypeError("Invalid arm protocol understanding answer");
+    protocolUnderstanding = {
+      answer:source.protocolUnderstanding.answer,
+      questionVersion:optionalString(source.protocolUnderstanding.questionVersion,80,"armQuestionVersion")
+    };
+  }
+  let raiseGesture;
+  if (source.raiseGesture != null) {
+    if (!object(source.raiseGesture)) throw new TypeError("Invalid raiseGesture");
+    if (source.raiseGesture.detected != null && typeof source.raiseGesture.detected !== "boolean") throw new TypeError("Invalid raiseGesture detected");
+    raiseGesture = {
+      detected:source.raiseGesture.detected,
+      maxAngleFromRestDeg:optionalNumber(source.raiseGesture.maxAngleFromRestDeg,0,180,"maxAngleFromRestDeg"),
+      thresholdDeg:optionalNumber(source.raiseGesture.thresholdDeg,0,180,"raiseGestureThresholdDeg"),
+      hardGate:false
+    };
+  }
+  if (!object(source.measurement)) throw new TypeError("Missing arm measurement research summary");
+  const rawCutoffs=source.measurement.cutoffs;
+  if (!Array.isArray(rawCutoffs)||rawCutoffs.length>7) throw new TypeError("Invalid arm cutoffs");
+  const cutoffs=rawCutoffs.map(row=>{
+    if (!object(row)) throw new TypeError("Invalid arm cutoff");
+    if (typeof row.available !== "boolean") throw new TypeError("Invalid arm cutoff availability");
+    return {
+      second:intInRange(row.second,3,10,"armCutoffSecond"),
+      available:row.available,
+      capturedThroughMs:row.capturedThroughMs==null?undefined:intInRange(row.capturedThroughMs,0,12000,"armCapturedThroughMs"),
+      driftMaxDeg:optionalNumber(row.driftMaxDeg,0,180,"armCutoffDrift"),
+      peakDeltaX:optionalNumber(row.peakDeltaX,-2,2,"armPeakDeltaX"),
+      peakDeltaZ:optionalNumber(row.peakDeltaZ,-2,2,"armPeakDeltaZ"),
+      ratioZX:optionalNumber(row.ratioZX,0,100,"armRatioZX"),
+      motionClass:optionalString(row.motionClass,40,"armMotionClass")
+    };
+  });
+  const rawTrace=source.trace==null?[]:source.trace;
+  if (!Array.isArray(rawTrace)||rawTrace.length>21) throw new TypeError("Invalid arm trace");
+  const trace=rawTrace.map(row=>{
+    if (!object(row)) throw new TypeError("Invalid arm trace point");
+    if (row.sensorFresh != null && typeof row.sensorFresh !== "boolean") throw new TypeError("Invalid sensorFresh");
+    return {
+      tMs:intInRange(row.tMs,0,12000,"armTraceTime"),
+      driftDeg:optionalNumber(row.driftDeg,0,180,"armTraceDrift"),
+      driftMaxDeg:optionalNumber(row.driftMaxDeg,0,180,"armTraceMaxDrift"),
+      deltaX:optionalNumber(row.deltaX,-2,2,"armTraceDeltaX"),
+      deltaZ:optionalNumber(row.deltaZ,-2,2,"armTraceDeltaZ"),
+      ratioZX:optionalNumber(row.ratioZX,0,100,"armTraceRatio"),
+      screenY:optionalNumber(row.screenY,-1.2,1.2,"armTraceScreenY"),
+      screenZ:optionalNumber(row.screenZ,-1.2,1.2,"armTraceScreenZ"),
+      sensorFresh:row.sensorFresh
+    };
+  });
+  return {
+    schemaVersion:optionalString(source.schemaVersion,80,"armResearchSchemaVersion"),
+    protocolUnderstanding,
+    raiseGesture,
+    measurement:{
+      targetDurationMs:source.measurement.targetDurationMs==null?undefined:intInRange(source.measurement.targetDurationMs,1000,20000,"targetDurationMs"),
+      observedDurationMs:source.measurement.observedDurationMs==null?undefined:intInRange(source.measurement.observedDurationMs,0,20000,"observedDurationMs"),
+      finalDriftMaxDeg:optionalNumber(source.measurement.finalDriftMaxDeg,0,180,"finalDriftMaxDeg"),
+      finalRatioZX:optionalNumber(source.measurement.finalRatioZX,0,100,"finalRatioZX"),
+      finalMotionClass:optionalString(source.measurement.finalMotionClass,40,"finalMotionClass"),
+      cutoffs
+    },
+    trace
+  };
+}
+function payloadFor(type, source, module = null) {
   if (!object(source)) throw new TypeError("Invalid event payload");
   if (type === "module_run_completed") {
     const p = {
@@ -74,7 +151,8 @@ function payloadFor(type, source) {
       invalidReasonCode: optionalString(source.invalidReasonCode, 80, "invalidReasonCode"),
       qualityStatus: optionalEnum(source.qualityStatus, QUALITY, "qualityStatus"),
       qualityFlags: flags(source.qualityFlags),
-      durationMs: optionalDuration(source.durationMs)
+      durationMs: optionalDuration(source.durationMs),
+      armResearch: module === "arm" ? sanitizeArmResearch(source.armResearch) : undefined
     };
   }
   if (type === "technical_event") {
@@ -100,7 +178,7 @@ export function sanitizeEvent(source) {
     event_type: type,
     module,
     occurred_at: isoDate(source.occurredAt, "occurredAt"),
-    payload: payloadFor(type, source.payload),
+    payload: payloadFor(type, source.payload, module),
     schema_version: CONTRACT_VERSION
   };
   if (JSON.stringify(sanitized).length > 4000) throw new TypeError("Event too large");
