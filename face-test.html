@@ -3973,15 +3973,18 @@ function startScreening(){
   lastInvalidReasonCode=null;
   criticalRestAsym=null;
   criticalNoticeUntilMs=0;
-  restCornerAsymSamples=[]; restCornerL=[]; restCornerR=[]; restEyeW=[];
+  restCornerAsymSamples=[]; restCornerL=[]; restCornerR=[]; restCornerLX=[]; restCornerRX=[]; restEyeW=[];
+  restSmileL=[]; restSmileR=[]; restMouthWidth=[];
   restRawMouthLeftY=[]; restRawMouthRightY=[];
   restEyeCenterX=[]; restEyeCenterY=[]; restEyeLineRollDeg=[];
-  baseL=null; baseR=null; baseEyeW=null;
+  baseL=null; baseR=null; baseLX=null; baseRX=null; baseEyeW=null;
+  baseSmileL=null; baseSmileR=null; baseMouthWidth=null;
   baseRawMouthLeftY=null; baseRawMouthRightY=null;
   baseEyeCenterX=null; baseEyeCenterY=null; baseEyeLineRollDeg=null;
+  baselineCornerMad=null; baselineEyeMadRatio=null;
   criticalFired=false; noFaceCount=0; poseBadFrames=0; poseGoodFrames=0;
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
-  smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
+  smileStartMs=null; frameAsymScores=[]; validFrameAsymmetryTimeline=[]; closedSmileEvidenceSinceMs=null; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   actionWaitStartMs=null; lastSmileVoiceMs=0; smileNudgeUntilMs=0; lastRepAsym=0;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0; validSignedRiseL=[]; validSignedRiseR=[];
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
@@ -4023,14 +4026,46 @@ function calibrationTick(){
   }
 
   clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
-  baseL = average(restCornerL);
-  baseR = average(restCornerR);
-  baseEyeW = average(restEyeW) || 0.1;
-  baseRawMouthLeftY = average(restRawMouthLeftY);
-  baseRawMouthRightY = average(restRawMouthRightY);
-  baseEyeCenterX = average(restEyeCenterX);
-  baseEyeCenterY = average(restEyeCenterY);
-  baseEyeLineRollDeg = average(restEyeLineRollDeg);
+  const candidateEyeDistance = median(restEyeW) || 0.1;
+  baselineCornerMad = Math.max(
+    medianAbsoluteDeviation(restCornerL) || 0,
+    medianAbsoluteDeviation(restCornerR) || 0
+  );
+  baselineEyeMadRatio = candidateEyeDistance > 0
+    ? (medianAbsoluteDeviation(restEyeW) || 0) / candidateEyeDistance
+    : 0;
+  const baselineStable =
+    baselineCornerMad <= BASELINE_CORNER_MAD_MAX &&
+    baselineEyeMadRatio <= BASELINE_EYE_MAD_RATIO_MAX;
+  if (!baselineStable) {
+    const elapsed = baselineWaitStartMs ? Date.now() - baselineWaitStartMs : 0;
+    if (elapsed < BASELINE_ALIGNMENT_TIMEOUT_MS) {
+      countdownVal = 1;
+      showCenterCountdown(countdownVal);
+      return;
+    }
+    clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
+    finishInvalid('BASELINE_UNSTABLE', {
+      allowAutoRetry:false,
+      detail:{baselineSamples:restCornerL.length, baselineCornerMad, baselineEyeMadRatio}
+    });
+    return;
+  }
+
+  clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
+  baseL = median(restCornerL);
+  baseR = median(restCornerR);
+  baseLX = median(restCornerLX);
+  baseRX = median(restCornerRX);
+  baseEyeW = candidateEyeDistance;
+  baseSmileL = median(restSmileL);
+  baseSmileR = median(restSmileR);
+  baseMouthWidth = median(restMouthWidth);
+  baseRawMouthLeftY = median(restRawMouthLeftY);
+  baseRawMouthRightY = median(restRawMouthRightY);
+  baseEyeCenterX = median(restEyeCenterX);
+  baseEyeCenterY = median(restEyeCenterY);
+  baseEyeLineRollDeg = median(restEyeLineRollDeg);
   startActionPhase();
 }
 
@@ -4048,7 +4083,7 @@ function startActionPhase(){
   phase='ACTION_PHASE';
   attemptStartedAtMs=Date.now();
   poseInterruptedSmile=false;
-  smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
+  smileStartMs=null; frameAsymScores=[]; validFrameAsymmetryTimeline=[]; closedSmileEvidenceSinceMs=null; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0; validSignedRiseL=[]; validSignedRiseR=[];
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now(); smileNudgeUntilMs=0;
@@ -4068,6 +4103,8 @@ function resetSmileAttemptAfterPose(){
   poseGoodFrames=0;
   smileStartMs=null;
   frameAsymScores=[];
+  validFrameAsymmetryTimeline=[];
+  closedSmileEvidenceSinceMs=null;
   validSmileFrames=0;
   smileFrameCount=0;
   smileLostSinceMs=null;
@@ -4099,6 +4136,8 @@ function resetSmileAttemptAfterPose(){
 function clearSmileCaptureWindow(){
   smileStartMs = null;
   frameAsymScores = [];
+  validFrameAsymmetryTimeline = [];
+  closedSmileEvidenceSinceMs = null;
   validSmileFrames = 0;
   smileFrameCount = 0;
   smileLostSinceMs = null;
