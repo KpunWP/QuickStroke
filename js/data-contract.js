@@ -131,7 +131,7 @@
 
   const MODULE_VERSION_FALLBACKS = Object.freeze({
     face: Object.freeze({
-      moduleVersion: 'face-prepilot-1.4.0',
+      moduleVersion: 'face-prepilot-1.5.0',
       algorithmVersion: 'face-asymmetry-1.6.0',
       resultSchemaVersion: 'face-result-1.3.0',
       researchPayloadVersion: 'face-research-0.8.0',
