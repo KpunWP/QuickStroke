@@ -24,9 +24,10 @@ const event=sanitizeEvent({
         targetDurationMs:10000,observedDurationMs:9900,finalDriftMaxDeg:4.8,finalRatioZX:.12,finalMotionClass:"normal",
         cutoffs:[3,4,5,6,7,8,10].map(second=>({second,available:true,capturedThroughMs:second*1000,driftMaxDeg:4,peakDeltaX:.1,peakDeltaZ:.02,ratioZX:.2,motionClass:"normal"}))
       },
-      posture:{baselineStableSpreadDeg:1.1,baselineScreenY:-.9,baselineScreenZ:.1,flatZThreshold:.9,portraitYMin:.55,preMeasureMaxDeltaDeg:5},
+      posture:{baselineStableSpreadDeg:1.1,baselineScreenY:-.9,baselineScreenZ:.1,flatZThreshold:.9,portraitYMin:.55,preMeasureMaxDeltaDeg:5,
+        lastReadinessSnapshot:{stage:"calibration",invalidReason:"device_flat",screenY:-.1,screenZ:.99,screenAngle:0,screenType:"portrait-primary",sensorSource:"device-motion",extra:"remove"}},
       sensor:{acceptedSamples:500,sourceSwitches:0,telemetrySamples:100},
-      trace:[{tMs:0,driftDeg:0,driftMaxDeg:0,deltaX:0,deltaZ:0,ratioZX:0,screenY:-.9,screenZ:.1,sensorFresh:true,extra:"remove"}],
+      trace:Array.from({length:21},(_,i)=>({tMs:i*500,driftDeg:i/10,driftMaxDeg:i/10,deltaX:.1,deltaZ:.04,ratioZX:.4,screenY:-.8,screenZ:.1,sensorFresh:true,extra:"remove"})),
       extra:"remove"
     }
   }
@@ -38,7 +39,10 @@ assert.equal(event.payload.armResearch.raiseGesture.hardGate,false);
 assert.equal(event.payload.armResearch.measurement.cutoffs.length,7);
 assert.equal(event.payload.armResearch.posture.flatZThreshold,.9);
 assert.equal(event.payload.armResearch.sensor.telemetrySamples,100);
-assert.equal(event.payload.armResearch.trace.length,1);
+assert.equal(event.payload.armResearch.trace.length,21);
+assert.equal(event.payload.armResearch.posture.lastReadinessSnapshot.invalidReason,"device_flat");
+assert.equal(event.payload.armResearch.posture.lastReadinessSnapshot.screenZ,.99);
+assert.ok(JSON.stringify(event).length < 8000);
 assert.ok(!JSON.stringify(event).includes("remove"));
 
 assert.throws(()=>sanitizeEvent({
