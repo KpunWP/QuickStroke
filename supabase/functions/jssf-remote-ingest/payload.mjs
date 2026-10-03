@@ -109,13 +109,27 @@ function sanitizeArmResearch(source) {
   let posture;
   if (source.posture != null) {
     if (!object(source.posture)) throw new TypeError("Invalid arm posture");
+    let lastReadinessSnapshot;
+    if (source.posture.lastReadinessSnapshot != null) {
+      if (!object(source.posture.lastReadinessSnapshot)) throw new TypeError("Invalid arm readiness snapshot");
+      lastReadinessSnapshot = {
+        stage:optionalString(source.posture.lastReadinessSnapshot.stage,40,"armReadinessStage"),
+        invalidReason:optionalString(source.posture.lastReadinessSnapshot.invalidReason,80,"armReadinessInvalidReason"),
+        screenY:optionalNumber(source.posture.lastReadinessSnapshot.screenY,-1.2,1.2,"armReadinessScreenY"),
+        screenZ:optionalNumber(source.posture.lastReadinessSnapshot.screenZ,-1.2,1.2,"armReadinessScreenZ"),
+        screenAngle:optionalNumber(source.posture.lastReadinessSnapshot.screenAngle,-360,360,"armReadinessScreenAngle"),
+        screenType:optionalString(source.posture.lastReadinessSnapshot.screenType,40,"armReadinessScreenType"),
+        sensorSource:optionalString(source.posture.lastReadinessSnapshot.sensorSource,40,"armReadinessSensorSource")
+      };
+    }
     posture = {
       baselineStableSpreadDeg:optionalNumber(source.posture.baselineStableSpreadDeg,0,180,"baselineStableSpreadDeg"),
       baselineScreenY:optionalNumber(source.posture.baselineScreenY,-1.2,1.2,"baselineScreenY"),
       baselineScreenZ:optionalNumber(source.posture.baselineScreenZ,-1.2,1.2,"baselineScreenZ"),
       flatZThreshold:optionalNumber(source.posture.flatZThreshold,0,1.2,"flatZThreshold"),
       portraitYMin:optionalNumber(source.posture.portraitYMin,0,1.2,"portraitYMin"),
-      preMeasureMaxDeltaDeg:optionalNumber(source.posture.preMeasureMaxDeltaDeg,0,180,"preMeasureMaxDeltaDeg")
+      preMeasureMaxDeltaDeg:optionalNumber(source.posture.preMeasureMaxDeltaDeg,0,180,"preMeasureMaxDeltaDeg"),
+      lastReadinessSnapshot
     };
   }
   let sensor;
@@ -204,7 +218,7 @@ export function sanitizeEvent(source) {
     payload: payloadFor(type, source.payload, module),
     schema_version: CONTRACT_VERSION
   };
-  if (JSON.stringify(sanitized).length > 4000) throw new TypeError("Event too large");
+  if (JSON.stringify(sanitized).length > 8000) throw new TypeError("Event too large");
   return sanitized;
 }
 export function sanitizeBatch(events) {
