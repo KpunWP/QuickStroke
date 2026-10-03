@@ -162,7 +162,10 @@
     "rawMouthLeftX","rawMouthLeftY","rawMouthRightX","rawMouthRightY",
     "normalizedMouthLeftX","normalizedMouthLeftY","normalizedMouthRightX","normalizedMouthRightY",
     "rawSignedDisplacementLeft","rawSignedDisplacementRight","normalizedSignedDisplacementLeft","normalizedSignedDisplacementRight",
-    "smileLeft","smileRight","mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
+    "smileLeft","smileRight","deltaSmileLeft","deltaSmileRight","mouthWidth","mouthWidthDelta",
+    "lateralOutwardLeft","lateralOutwardRight","relativeBlendEvidence","relativeGeometryEvidence",
+    "relativeSmileCandidate","relativeSmilePersisted",
+    "mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
     "mouthAssessable","handMouthOverlap","blendSmileEvidence","geometrySmileEvidence"
   ]);
   const FACE_PHASE_CODE = Object.freeze({
@@ -185,6 +188,11 @@
       finite(frame?.rawSignedDisplacementLeft),finite(frame?.rawSignedDisplacementRight),
       finite(frame?.normalizedSignedDisplacementLeft),finite(frame?.normalizedSignedDisplacementRight),
       finite(frame?.smileLeft,0,10),finite(frame?.smileRight,0,10),
+      finite(frame?.deltaSmileLeft,-10,10),finite(frame?.deltaSmileRight,-10,10),
+      finite(frame?.mouthWidth,0,10),finite(frame?.mouthWidthDelta,-10,10),
+      finite(frame?.lateralOutwardLeft,-10,10),finite(frame?.lateralOutwardRight,-10,10),
+      boolNumber(frame?.relativeBlendEvidence),boolNumber(frame?.relativeGeometryEvidence),
+      boolNumber(frame?.relativeSmileCandidate),boolNumber(frame?.relativeSmilePersisted),
       finite(frame?.mouthVisibilityScore,0,10),finite(frame?.mouthDarkRatio,0,10),
       finite(frame?.mouthCentralDarkRatio,0,10),finite(frame?.mouthLineScore,0,10),
       boolNumber(frame?.mouthAssessable),boolNumber(frame?.handMouthOverlap),
@@ -212,6 +220,11 @@
         aggregatedSignedRiseRight:summary.metrics.aggregatedSignedRiseRight,
         effectiveRiseLeft:summary.metrics.effectiveRiseLeft,
         effectiveRiseRight:summary.metrics.effectiveRiseRight
+      } : {},
+      detection:summary.metrics ? {
+        startPath:summary.metrics.smileStartEvidencePath,
+        relativeCandidateFrames:summary.metrics.relativeSmileCandidateFrames,
+        relativeValidSmileFrames:summary.metrics.relativeValidSmileFrames
       } : {},
       dynamic:source.dynamic||null,
       versions:source.versions||{},
