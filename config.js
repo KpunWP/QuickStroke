@@ -95,9 +95,9 @@ window.QS_CONFIG = {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
       version: "face-prepilot-1.4.0",
-      algorithmVersion: "face-asymmetry-1.4.0",
+      algorithmVersion: "face-asymmetry-1.5.0",
       resultSchemaVersion: "face-result-1.3.0",
-      researchPayloadVersion: "face-research-0.6.0",
+      researchPayloadVersion: "face-research-0.7.0",
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
@@ -164,7 +164,9 @@ window.QS_CONFIG = {
       baselineCornerMadMax: 0.020,
       baselineEyeDistanceRelativeMadMax: 0.040,
       smileLostGraceMs: 1400,
-      smileOcclusionResetMs: 120,
+      // Pixel-only mouth-visibility loss must persist before reset. Confirmed
+      // hand overlap still resets immediately in face-test.html.
+      smileOcclusionResetMs: 300,
       minValidSmileRatio: 0.05,
 
       smileAsymWarn: 0.22,
