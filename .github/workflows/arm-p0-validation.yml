@@ -6,6 +6,7 @@ on:
       - research/arm-p0-ab-20261003
       - research/arm-p0-c-replay-20261003
       - research/arm-p0-d-dynamics-20261003
+      - research/arm-p0-e-device-browser-20261003
   workflow_dispatch:
 
 permissions:
@@ -30,5 +31,7 @@ jobs:
         run: node tests/arm-sensor-replay.mjs
       - name: Arm dynamics and duration replay
         run: node tests/arm-dynamics-duration.mjs
+      - name: Arm device/browser hardening
+        run: node tests/arm-device-browser-hardening.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
