@@ -166,7 +166,7 @@
     "lateralOutwardLeft","lateralOutwardRight","relativeBlendEvidence","relativeGeometryEvidence",
     "relativeSmileCandidate","relativeSmilePersisted","smileConfirmed",
     "mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
-    "mouthAssessable","handMouthOverlap","blendSmileEvidence","geometrySmileEvidence"
+    "mouthVisibilityHeuristicAvailable","mouthAssessable","handMouthOverlap","blendSmileEvidence","geometrySmileEvidence"
   ]);
   const FACE_PHASE_CODE = Object.freeze({
     RESTING_PHASE:1,ACTION_PHASE:2,ACTION_WAIT_SMILE:3,BEFORE_START:0
@@ -195,6 +195,7 @@
       boolNumber(frame?.relativeSmileCandidate),boolNumber(frame?.relativeSmilePersisted),boolNumber(frame?.smileConfirmed),
       finite(frame?.mouthVisibilityScore,0,10),finite(frame?.mouthDarkRatio,0,10),
       finite(frame?.mouthCentralDarkRatio,0,10),finite(frame?.mouthLineScore,0,10),
+      boolNumber(frame?.mouthVisibilityHeuristicAvailable),
       boolNumber(frame?.mouthAssessable),boolNumber(frame?.handMouthOverlap),
       boolNumber(frame?.blendSmileEvidence),boolNumber(frame?.geometrySmileEvidence)
     ];
