@@ -227,6 +227,15 @@
         relativeValidSmileFrames:summary.metrics.relativeValidSmileFrames
       } : {},
       dynamic:source.dynamic||null,
+      runtime:source.runtime ? {
+        faceDelegate:typeof source.runtime.faceDelegate==="string"?source.runtime.faceDelegate:undefined,
+        handDelegate:typeof source.runtime.handDelegate==="string"?source.runtime.handDelegate:undefined,
+        handModelAvailable:source.runtime.handModelAvailable===true,
+        degradedMode:typeof source.runtime.degradedMode==="string"?source.runtime.degradedMode:undefined,
+        faceDetectErrorCount:int(source.runtime.faceDetectErrorCount,0,100000),
+        handDetectErrorCount:int(source.runtime.handDetectErrorCount,0,100000),
+        qualityFlags:safeFlags(source.runtime.qualityFlags)
+      } : {},
       versions:source.versions||{},
       thresholds:source.thresholds||{},
       derivedNumericTelemetryOnly:true
