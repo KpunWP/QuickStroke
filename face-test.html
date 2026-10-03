@@ -1973,7 +1973,15 @@ const SMILE_VALID_STRENGTH = FACE_CFG.smileValidStrength ?? 0.028;
 const REAL_MOVE_MIN = FACE_CFG.realMoveMin ?? 0.0025;
 const CLOSED_SMILE_RISE_MIN = FACE_CFG.closedSmileRiseMin ?? 0.003;
 const SMILE_REAL_MIN = FACE_CFG.smileRealMin ?? 0.045;
+const CLOSED_SMILE_DELTA_SIDE_START = FACE_CFG.closedSmileDeltaSideStart ?? 0.020;
+const CLOSED_SMILE_DELTA_SIDE_VALID = FACE_CFG.closedSmileDeltaSideValid ?? 0.012;
+const CLOSED_SMILE_LATERAL_MIN = FACE_CFG.closedSmileLateralMin ?? 0.006;
+const CLOSED_SMILE_WIDTH_INCREASE_MIN = FACE_CFG.closedSmileWidthIncreaseMin ?? 0.012;
+const CLOSED_SMILE_PERSISTENCE_MS = FACE_CFG.closedSmilePersistenceMs ?? 250;
 
+// P0-C policy: absolute blendshape remains the fast path. The relative path
+// requires baseline-relative blendshape change plus smile-consistent geometry
+// and persistence; geometry alone can never confirm a smile.
 // v1.1 policy: threshold values are unchanged. The logic now prevents
 // normalized geometry from confirming a smile without blendshape support.
 const MIN_VALID_SMILE_FRAMES = FACE_CFG.minValidSmileFrames ?? 2;
@@ -2052,6 +2060,10 @@ let baseEyeCenterX = null, baseEyeCenterY = null, baseEyeLineRollDeg = null;
 let criticalFired = false;
 
 let smileStartMs = null;
+let relativeSmileCandidateSinceMs = null;
+let relativeSmileCandidateFrames = 0;
+let relativeValidSmileFrames = 0;
+let smileStartEvidencePath = null;
 let frameAsymScores = [];
 let validSmileFrames = 0;
 let smileFrameCount = 0;
@@ -2555,7 +2567,12 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
           smileDetectSide:SMILE_DETECT_SIDE,
           smileValidStrength:SMILE_VALID_STRENGTH,
           smileRealMin:SMILE_REAL_MIN,
-          closedSmileRiseMin:CLOSED_SMILE_RISE_MIN
+          closedSmileRiseMin:CLOSED_SMILE_RISE_MIN,
+          closedSmileDeltaSideStart:CLOSED_SMILE_DELTA_SIDE_START,
+          closedSmileDeltaSideValid:CLOSED_SMILE_DELTA_SIDE_VALID,
+          closedSmileLateralMin:CLOSED_SMILE_LATERAL_MIN,
+          closedSmileWidthIncreaseMin:CLOSED_SMILE_WIDTH_INCREASE_MIN,
+          closedSmilePersistenceMs:CLOSED_SMILE_PERSISTENCE_MS
         }
       });
     } catch (error) {
@@ -3000,6 +3017,9 @@ function captureAttempt(outcome, requestedInvalidReasonCode=null, extra={}){
       lastMouthVisibilityScore: roundMetric(lastMouthVisibilityScore),
       lastMouthDarkRatio: roundMetric(lastMouthDarkRatio),
       smileEverDetected,
+      smileStartEvidencePath,
+      relativeSmileCandidateFrames,
+      relativeValidSmileFrames,
       peakSmileLeft: roundMetric(peakSmileL),
       peakSmileRight: roundMetric(peakSmileR),
       peakNormalizedRiseLeft: roundMetric(peakRiseL),
@@ -3118,6 +3138,11 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       smileValidStrength: SMILE_VALID_STRENGTH,
       smileRealMin: SMILE_REAL_MIN,
       closedSmileRiseMin: CLOSED_SMILE_RISE_MIN,
+      closedSmileDeltaSideStart: CLOSED_SMILE_DELTA_SIDE_START,
+      closedSmileDeltaSideValid: CLOSED_SMILE_DELTA_SIDE_VALID,
+      closedSmileLateralMin: CLOSED_SMILE_LATERAL_MIN,
+      closedSmileWidthIncreaseMin: CLOSED_SMILE_WIDTH_INCREASE_MIN,
+      closedSmilePersistenceMs: CLOSED_SMILE_PERSISTENCE_MS,
       geometryFrameDisplacement: FACE_CFG.geometryFrameDisplacement || 'signed-baseline-minus-current',
       geometryRiseAggregation: FACE_CFG.geometryRiseAggregation || 'median-of-valid-smile-frames',
       geometryEffectiveRisePolicy: FACE_CFG.geometryEffectiveRisePolicy || 'max-zero-after-aggregation',
@@ -3705,19 +3730,46 @@ function computePose(lm){
   };
 }
 
-function evaluateSmileEvidence(smileL, smileR, riseL, riseR, mode='valid'){
+function evaluateSmileEvidence(smileL, smileR, riseL, riseR, mode='valid', relative={}){
   const smileStrength = (smileL + smileR) / 2;
   const strongBlend = Math.max(smileL, smileR);
   const strongRise = Math.max(riseL, riseR);
 
-  // Existing thresholds only. Geometry is allowed to support a closed-mouth
-  // smile only when blendshape already supplies at least minimal real-smile evidence.
   const blendSmileEvidence = strongBlend >= SMILE_REAL_MIN;
   const geometrySmileEvidence = strongRise >= CLOSED_SMILE_RISE_MIN;
   const directBlendThreshold = mode === 'start'
     ? (smileStrength >= SMILE_DETECT_MIN || strongBlend >= SMILE_DETECT_SIDE)
     : (smileStrength >= SMILE_VALID_STRENGTH || strongBlend >= SMILE_DETECT_SIDE);
   const blendSupportedGeometry = blendSmileEvidence && geometrySmileEvidence;
+  const absoluteConfirmed = directBlendThreshold || blendSupportedGeometry;
+
+  const deltaSmileLeft = Number(relative.deltaSmileLeft);
+  const deltaSmileRight = Number(relative.deltaSmileRight);
+  const mouthWidthDelta = Number(relative.mouthWidthDelta);
+  const lateralOutwardLeft = Number(relative.lateralOutwardLeft);
+  const lateralOutwardRight = Number(relative.lateralOutwardRight);
+  const relativeDeltaThreshold = mode === 'start'
+    ? CLOSED_SMILE_DELTA_SIDE_START
+    : CLOSED_SMILE_DELTA_SIDE_VALID;
+  const strongDeltaBlend = Math.max(
+    Number.isFinite(deltaSmileLeft) ? deltaSmileLeft : -Infinity,
+    Number.isFinite(deltaSmileRight) ? deltaSmileRight : -Infinity
+  );
+  const strongLateralOutward = Math.max(
+    Number.isFinite(lateralOutwardLeft) ? lateralOutwardLeft : -Infinity,
+    Number.isFinite(lateralOutwardRight) ? lateralOutwardRight : -Infinity
+  );
+
+  // Relative blendshape change is mandatory. Geometry only supports it.
+  // Require vertical rise plus either lateral corner motion or mouth widening.
+  const relativeBlendEvidence = strongDeltaBlend >= relativeDeltaThreshold;
+  const relativeGeometryEvidence =
+    strongRise >= CLOSED_SMILE_RISE_MIN &&
+    (
+      strongLateralOutward >= CLOSED_SMILE_LATERAL_MIN ||
+      (Number.isFinite(mouthWidthDelta) && mouthWidthDelta >= CLOSED_SMILE_WIDTH_INCREASE_MIN)
+    );
+  const relativeCandidate = relativeBlendEvidence && relativeGeometryEvidence;
 
   return {
     smileStrength,
@@ -3726,7 +3778,14 @@ function evaluateSmileEvidence(smileL, smileR, riseL, riseR, mode='valid'){
     blendSmileEvidence,
     geometrySmileEvidence,
     blendSupportedGeometry,
-    confirmed:directBlendThreshold || blendSupportedGeometry
+    absoluteConfirmed,
+    strongDeltaBlend:Number.isFinite(strongDeltaBlend) ? strongDeltaBlend : null,
+    strongLateralOutward:Number.isFinite(strongLateralOutward) ? strongLateralOutward : null,
+    relativeBlendEvidence,
+    relativeGeometryEvidence,
+    relativeCandidate,
+    // Persistence is enforced by ACTION_PHASE before the window can start.
+    confirmed:absoluteConfirmed || (mode === 'valid' && relativeCandidate)
   };
 }
 
@@ -4017,7 +4076,7 @@ function startScreening(){
   baseEyeCenterX=null; baseEyeCenterY=null; baseEyeLineRollDeg=null;
   criticalFired=false; noFaceCount=0; poseBadFrames=0; poseGoodFrames=0;
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
-  smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
+  smileStartMs=null; relativeSmileCandidateSinceMs=null; relativeSmileCandidateFrames=0; relativeValidSmileFrames=0; smileStartEvidencePath=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   actionWaitStartMs=null; lastSmileVoiceMs=0; smileNudgeUntilMs=0; lastRepAsym=0;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0; validSignedRiseL=[]; validSignedRiseR=[];
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
@@ -4096,7 +4155,7 @@ function startActionPhase(){
   phase='ACTION_PHASE';
   attemptStartedAtMs=Date.now();
   poseInterruptedSmile=false;
-  smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
+  smileStartMs=null; relativeSmileCandidateSinceMs=null; relativeSmileCandidateFrames=0; relativeValidSmileFrames=0; smileStartEvidencePath=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   peakSmileL=0; peakSmileR=0; peakRiseL=0; peakRiseR=0; validSignedRiseL=[]; validSignedRiseR=[];
   visibleMouthFrames=0; mouthVisibilityScores=[]; lastMouthVisibilityScore=0; lastMouthDarkRatio=0; lastMouthVisible=false;
   actionWaitStartMs=Date.now(); lastSmileVoiceMs=Date.now(); smileNudgeUntilMs=0;
@@ -4115,6 +4174,10 @@ function resetSmileAttemptAfterPose(){
   poseBadFrames=0;
   poseGoodFrames=0;
   smileStartMs=null;
+  relativeSmileCandidateSinceMs=null;
+  relativeSmileCandidateFrames=0;
+  relativeValidSmileFrames=0;
+  smileStartEvidencePath=null;
   frameAsymScores=[];
   validSmileFrames=0;
   smileFrameCount=0;
@@ -4146,6 +4209,9 @@ function resetSmileAttemptAfterPose(){
 
 function clearSmileCaptureWindow(){
   smileStartMs = null;
+  relativeSmileCandidateSinceMs = null;
+  relativeValidSmileFrames = 0;
+  smileStartEvidencePath = null;
   frameAsymScores = [];
   validSmileFrames = 0;
   smileFrameCount = 0;
@@ -4267,12 +4333,24 @@ function onResults(results, handResults=null){
 
   const inActionPhase = (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE');
   const eyeDistanceRatioFromBaseline = baseEyeW ? eyeW / baseEyeW : null;
+  const currentMouthWidth = Math.abs(normalizedMouthRightX-normalizedMouthLeftX);
+  const deltaSmileLeft = Number.isFinite(baselineSmileLeft) ? smileL-baselineSmileLeft : null;
+  const deltaSmileRight = Number.isFinite(baselineSmileRight) ? smileR-baselineSmileRight : null;
+  const mouthWidthDelta = Number.isFinite(baseMouthWidth) ? currentMouthWidth-baseMouthWidth : null;
+  const lateralOutwardLeft = Number.isFinite(baseNormalizedMouthLeftX)
+    ? baseNormalizedMouthLeftX-normalizedMouthLeftX : null;
+  const lateralOutwardRight = Number.isFinite(baseNormalizedMouthRightX)
+    ? normalizedMouthRightX-baseNormalizedMouthRightX : null;
+  const relativeSmileInputs = {
+    deltaSmileLeft,deltaSmileRight,mouthWidthDelta,lateralOutwardLeft,lateralOutwardRight
+  };
   const smileEvidence = evaluateSmileEvidence(
     smileL,
     smileR,
     signedRiseLn,
     signedRiseRn,
-    phase === 'ACTION_PHASE' ? 'start' : 'valid'
+    phase === 'ACTION_PHASE' ? 'start' : 'valid',
+    relativeSmileInputs
   );
 
   // ⚡ getMouthVisibility ทำ drawImage + getImageData (pixel readback) ทุกครั้งที่เรียก
@@ -4340,6 +4418,17 @@ function onResults(results, handResults=null){
 
     smileLeft:roundMetric(smileL),
     smileRight:roundMetric(smileR),
+    deltaSmileLeft:roundMetric(deltaSmileLeft),
+    deltaSmileRight:roundMetric(deltaSmileRight),
+    mouthWidth:roundMetric(currentMouthWidth),
+    mouthWidthDelta:roundMetric(mouthWidthDelta),
+    lateralOutwardLeft:roundMetric(lateralOutwardLeft),
+    lateralOutwardRight:roundMetric(lateralOutwardRight),
+    relativeBlendEvidence:inActionPhase ? smileEvidence.relativeBlendEvidence : null,
+    relativeGeometryEvidence:inActionPhase ? smileEvidence.relativeGeometryEvidence : null,
+    relativeSmileCandidate:inActionPhase ? smileEvidence.relativeCandidate : null,
+    relativeSmilePersisted:phase==='ACTION_PHASE' && relativeSmileCandidateSinceMs !== null
+      ? (Date.now()-relativeSmileCandidateSinceMs >= CLOSED_SMILE_PERSISTENCE_MS) : null,
     baselineNeutralValid:neutral ? neutral.valid : null,
     baselineMouthActivity:neutral ? roundMetric(neutral.mouthActivity) : null,
     riseLeft:roundMetric(signedRiseLn),
@@ -4491,11 +4580,23 @@ function onResults(results, handResults=null){
       showSmilePrompt(FL.smilePrompt);
     }
 
-    // Blendshape is required to confirm that a smile began. Normalized geometry
-    // may support a closed-mouth smile, but geometry alone can never open the window.
-    const startEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, 'start');
-    if (startEvidence.confirmed){
+    // Absolute blendshape remains the immediate fast path. The subtle/closed-mouth
+    // path requires baseline-relative blendshape + geometry to persist first.
+    const startEvidence = evaluateSmileEvidence(
+      smileL, smileR, signedRiseLn, signedRiseRn, 'start', relativeSmileInputs
+    );
+    let relativePersisted = false;
+    if (startEvidence.relativeCandidate){
+      relativeSmileCandidateFrames++;
+      if (relativeSmileCandidateSinceMs === null) relativeSmileCandidateSinceMs = now;
+      relativePersisted = now-relativeSmileCandidateSinceMs >= CLOSED_SMILE_PERSISTENCE_MS;
+    } else {
+      relativeSmileCandidateSinceMs = null;
+    }
+    if (startEvidence.absoluteConfirmed || relativePersisted){
+      const startPath = startEvidence.absoluteConfirmed ? 'absolute' : 'relative';
       clearSmileCaptureWindow();
+      smileStartEvidencePath = startPath;
       smileEverDetected = true;
       smileStartMs = now;
       smileLostSinceMs = null;
@@ -4529,7 +4630,9 @@ function onResults(results, handResults=null){
 
     // ใช้ "ข้างที่ขยับมากที่สุด" เป็นตัวตรวจว่ามีความพยายามยิ้ม
     // เพราะ stroke-like smile อาจขยับชัดแค่ข้างเดียว
-    const validEvidence = evaluateSmileEvidence(smileL, smileR, signedRiseLn, signedRiseRn, 'valid');
+    const validEvidence = evaluateSmileEvidence(
+      smileL, smileR, signedRiseLn, signedRiseRn, 'valid', relativeSmileInputs
+    );
     const validSmileNow = validEvidence.confirmed && mouthAssessable;
 
     // If a hand covers the mouth or the mouth becomes unassessable after the
@@ -4554,6 +4657,7 @@ function onResults(results, handResults=null){
     if (validSmileNow){
       smileLostSinceMs = null;
       validSmileFrames++;
+      if (validEvidence.relativeCandidate) relativeValidSmileFrames++;
       frameAsymScores.push(frameAsym);
       validSignedRiseL.push(signedRiseLn);
       validSignedRiseR.push(signedRiseRn);
