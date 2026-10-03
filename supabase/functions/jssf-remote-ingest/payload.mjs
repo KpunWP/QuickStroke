@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.3.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.4.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_attempt", "face_research_samples", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -16,7 +16,7 @@ const FACE_SAMPLE_FIELDS = Object.freeze([
   "rawSignedDisplacementLeft","rawSignedDisplacementRight","normalizedSignedDisplacementLeft","normalizedSignedDisplacementRight",
   "smileLeft","smileRight","deltaSmileLeft","deltaSmileRight","mouthWidth","mouthWidthDelta",
   "lateralOutwardLeft","lateralOutwardRight","relativeBlendEvidence","relativeGeometryEvidence",
-  "relativeSmileCandidate","relativeSmilePersisted",
+  "relativeSmileCandidate","relativeSmilePersisted","smileConfirmed",
   "mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
   "mouthAssessable","handMouthOverlap","blendSmileEvidence","geometrySmileEvidence"
 ]);
@@ -140,6 +140,13 @@ function faceResearchAttemptPayload(source) {
       relativeValidSmileFrames: detection.relativeValidSmileFrames == null ? null : intInRange(detection.relativeValidSmileFrames, 0, 1000, "detection.relativeValidSmileFrames")
     },
     dynamic: object(source.dynamic) ? {
+      method: optionalString(source.dynamic.method, 80, "dynamic.method"),
+      pairedFrameCount: source.dynamic.pairedFrameCount == null ? null : intInRange(source.dynamic.pairedFrameCount, 0, 1000, "dynamic.pairedFrameCount"),
+      candidateThreshold: finiteOrNull(source.dynamic.candidateThreshold, "dynamic.candidateThreshold", 0, 10),
+      geometryMinMagnitude: finiteOrNull(source.dynamic.geometryMinMagnitude, "dynamic.geometryMinMagnitude", 0, 10),
+      pairedAsymMedian: finiteOrNull(source.dynamic.pairedAsymMedian, "dynamic.pairedAsymMedian", 0, 10),
+      pairedAsymP75: finiteOrNull(source.dynamic.pairedAsymP75, "dynamic.pairedAsymP75", 0, 10),
+      pairedAsymP90: finiteOrNull(source.dynamic.pairedAsymP90, "dynamic.pairedAsymP90", 0, 10),
       pairedBlendAsymMedian: finiteOrNull(source.dynamic.pairedBlendAsymMedian, "dynamic.pairedBlendAsymMedian", 0, 10),
       pairedBlendAsymP75: finiteOrNull(source.dynamic.pairedBlendAsymP75, "dynamic.pairedBlendAsymP75", 0, 10),
       pairedBlendAsymP90: finiteOrNull(source.dynamic.pairedBlendAsymP90, "dynamic.pairedBlendAsymP90", 0, 10),
@@ -148,8 +155,13 @@ function faceResearchAttemptPayload(source) {
       pairedGeometryAsymP90: finiteOrNull(source.dynamic.pairedGeometryAsymP90, "dynamic.pairedGeometryAsymP90", 0, 10),
       framesOverCandidateThresholdRatio: finiteOrNull(source.dynamic.framesOverCandidateThresholdRatio, "dynamic.framesOverCandidateThresholdRatio", 0, 1),
       longestContinuousAsymmetryMs: finiteOrNull(source.dynamic.longestContinuousAsymmetryMs, "dynamic.longestContinuousAsymmetryMs", 0, 60000),
+      leftOnsetMs: finiteOrNull(source.dynamic.leftOnsetMs, "dynamic.leftOnsetMs", 0, 3600000),
+      rightOnsetMs: finiteOrNull(source.dynamic.rightOnsetMs, "dynamic.rightOnsetMs", 0, 3600000),
       onsetDelayMs: finiteOrNull(source.dynamic.onsetDelayMs, "dynamic.onsetDelayMs", -60000, 60000),
+      weakSideByPeakBlend: optionalEnum(source.dynamic.weakSideByPeakBlend, new Set(["left","right"]), "dynamic.weakSideByPeakBlend"),
       weakSideLagMs: finiteOrNull(source.dynamic.weakSideLagMs, "dynamic.weakSideLagMs", -60000, 60000),
+      leftTimeToPeakMs: finiteOrNull(source.dynamic.leftTimeToPeakMs, "dynamic.leftTimeToPeakMs", 0, 3600000),
+      rightTimeToPeakMs: finiteOrNull(source.dynamic.rightTimeToPeakMs, "dynamic.rightTimeToPeakMs", 0, 3600000),
       timeToPeakDifferenceMs: finiteOrNull(source.dynamic.timeToPeakDifferenceMs, "dynamic.timeToPeakDifferenceMs", -60000, 60000)
     } : null,
     versions: {
@@ -176,7 +188,9 @@ function faceResearchAttemptPayload(source) {
       closedSmileDeltaSideValid: finiteOrNull(thresholds.closedSmileDeltaSideValid, "thresholds.closedSmileDeltaSideValid", 0, 10),
       closedSmileLateralMin: finiteOrNull(thresholds.closedSmileLateralMin, "thresholds.closedSmileLateralMin", 0, 10),
       closedSmileWidthIncreaseMin: finiteOrNull(thresholds.closedSmileWidthIncreaseMin, "thresholds.closedSmileWidthIncreaseMin", 0, 10),
-      closedSmilePersistenceMs: thresholds.closedSmilePersistenceMs == null ? null : intInRange(thresholds.closedSmilePersistenceMs, 0, 10000, "thresholds.closedSmilePersistenceMs")
+      closedSmilePersistenceMs: thresholds.closedSmilePersistenceMs == null ? null : intInRange(thresholds.closedSmilePersistenceMs, 0, 10000, "thresholds.closedSmilePersistenceMs"),
+      dynamicAsymCandidateThreshold: finiteOrNull(thresholds.dynamicAsymCandidateThreshold, "thresholds.dynamicAsymCandidateThreshold", 0, 10),
+      dynamicGeometryMinMagnitude: finiteOrNull(thresholds.dynamicGeometryMinMagnitude, "thresholds.dynamicGeometryMinMagnitude", 0, 10)
     },
     derivedNumericTelemetryOnly: source.derivedNumericTelemetryOnly === true
   };
