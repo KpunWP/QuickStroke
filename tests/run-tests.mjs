@@ -149,7 +149,11 @@ test('legacy Face/Arm/Speech thresholds remain unchanged except explicit additiv
     'dynamicGeometryMinMagnitude',
     'restSafetyMaxYaw',
     'restSafetyMaxPitch',
-    'restSafetyMaxRoll'
+    'restSafetyMaxRoll',
+    'distanceIdealMin',
+    'distanceIdealMax',
+    'distanceAcceptMin',
+    'distanceAcceptMax'
   ]);
   const actualThresholds = structuredClone(newConfig.thresholds);
   const baselineThresholds = structuredClone(BASELINE.thresholds);
@@ -158,18 +162,23 @@ test('legacy Face/Arm/Speech thresholds remain unchanged except explicit additiv
   );
   assert.deepEqual(new Set(extraFaceKeys), allowedFaceP0Additions);
   for (const key of extraFaceKeys) delete actualThresholds.face[key];
-  assert.equal(actualThresholds.face.algorithmVersion, 'face-asymmetry-1.5.0');
-  assert.equal(actualThresholds.face.researchPayloadVersion, 'face-research-0.7.0');
+  assert.equal(actualThresholds.face.algorithmVersion, 'face-asymmetry-1.6.0');
+  assert.equal(actualThresholds.face.researchPayloadVersion, 'face-research-0.8.0');
   assert.equal(actualThresholds.face.maxAllowedYaw, 15);
   assert.equal(actualThresholds.face.maxAllowedPitch, 18);
   assert.equal(actualThresholds.face.maxAllowedRoll, 15);
   assert.equal(actualThresholds.face.smileOcclusionResetMs, 300);
+  assert.equal(actualThresholds.face.distanceIdealMin, 0.85);
+  assert.equal(actualThresholds.face.distanceIdealMax, 1.15);
+  assert.equal(actualThresholds.face.distanceAcceptMin, 0.80);
+  assert.equal(actualThresholds.face.distanceAcceptMax, 1.20);
   actualThresholds.face.algorithmVersion = baselineThresholds.face.algorithmVersion;
   actualThresholds.face.researchPayloadVersion = baselineThresholds.face.researchPayloadVersion;
   actualThresholds.face.maxAllowedYaw = baselineThresholds.face.maxAllowedYaw;
   actualThresholds.face.maxAllowedPitch = baselineThresholds.face.maxAllowedPitch;
   actualThresholds.face.maxAllowedRoll = baselineThresholds.face.maxAllowedRoll;
   actualThresholds.face.smileOcclusionResetMs = baselineThresholds.face.smileOcclusionResetMs;
+  for (const key of ['distanceIdealMin','distanceIdealMax','distanceAcceptMin','distanceAcceptMax']) delete actualThresholds.face[key];
   assert.deepEqual(actualThresholds, baselineThresholds);
   assert.deepEqual(newConfig.scoring, BASELINE.scoring);
 });
