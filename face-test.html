@@ -3544,7 +3544,16 @@ function applyFaceLang(){
       if (sl && saved.riskLevel) sl.textContent = saved.riskLevel==='invalid'?FL.resultInvalid:(saved.riskLevel==='ok'?FL.resultOk:saved.riskLevel==='warn'?FL.resultWarn:FL.resultBad);
       const sn = scoreNum;
       if (sn && saved.riskLevel==='invalid') sn.textContent = FL.resultInvalid;
-      else if (sn && typeof saved.score==='number') sn.textContent = saved.score + ' ' + FL.resultScore;
+      else if (sn && saved.riskLevel) {
+        const category = saved.riskLevel==='ok'
+          ? FL.resultOk
+          : saved.riskLevel==='warn'
+            ? FL.resultWarn
+            : FL.resultBad;
+        sn.textContent = FACE_DEV_MODE && typeof saved.score==='number'
+          ? saved.score + ' ' + FL.resultScore
+          : category;
+      }
     } catch(e){}
   }
 
@@ -4379,6 +4388,7 @@ function startScreening(){
   if (retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
   pitchNeutralRatio=null;
   scoreNum.textContent='—';
+  const scoreLabelReset=document.getElementById('score-label'); if(scoreLabelReset) scoreLabelReset.style.display='';
   noFaceBanner.style.display='none'; poseWarnMsg.style.display='none';
   hideCenterCountdown(); hideSmilePrompt();
   const oldNav=document.getElementById('fast-nav-btn'); if(oldNav) oldNav.remove();
@@ -5219,7 +5229,7 @@ function finalizeInvalidResult(reasonCode, detail={}){
   speakFace(reasonText, {force:true});
   scoreNum.textContent = FL.resultInvalid; scoreNum.style.color='#fff';
   const sl=document.getElementById('score-label');
-  if(sl){ sl.textContent=FL.resultInvalid; sl.style.background='rgba(232,155,60,0.4)'; sl.style.color='#FFD479'; sl.style.borderColor='#E89B3C'; }
+  if(sl){ sl.style.display=''; sl.textContent=FL.resultInvalid; sl.style.background='rgba(232,155,60,0.4)'; sl.style.color='#FFD479'; sl.style.borderColor='#E89B3C'; }
   const invalidThresholdEl=document.getElementById('score-threshold');
   if (invalidThresholdEl){
     invalidThresholdEl.textContent=reasonText;
@@ -5330,10 +5340,15 @@ function saveAndShow(score, riskLevel, breakdown){
     msg: criticalFired ? FL.critical : (ok?FL.faceDone:FL.faceAbnormal), showReset:true, showScore:true,
     pulse: riskLevel==='bad'
   });
-  scoreNum.textContent = score + ' ' + FL.resultScore; scoreNum.style.color='#fff';
+  const userFacingCategory = ok?FL.resultOk:(riskLevel==='warn'?FL.resultWarn:FL.resultBad);
+  scoreNum.textContent = FACE_DEV_MODE
+    ? score + ' ' + FL.resultScore
+    : userFacingCategory;
+  scoreNum.style.color='#fff';
   const sl=document.getElementById('score-label');
   if(sl){
-    sl.textContent = ok?FL.resultOk:(riskLevel==='warn'?FL.resultWarn:FL.resultBad);
+    sl.textContent = FACE_DEV_MODE ? userFacingCategory : '';
+    sl.style.display = FACE_DEV_MODE ? '' : 'none';
     sl.style.background = ok?'rgba(31,169,143,0.4)':(riskLevel==='warn'?'rgba(232,155,60,0.4)':'rgba(229,84,78,0.4)');
     sl.style.color = ok?'#A8F5C3':(riskLevel==='warn'?'#FFD479':'#FF6B6B');
     sl.style.borderColor = ok?'#1FA98F':(riskLevel==='warn'?'#E89B3C':'#E5544E');
