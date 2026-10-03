@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.4.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.5.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_attempt", "face_research_samples", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -190,7 +190,15 @@ function faceResearchAttemptPayload(source) {
       closedSmileWidthIncreaseMin: finiteOrNull(thresholds.closedSmileWidthIncreaseMin, "thresholds.closedSmileWidthIncreaseMin", 0, 10),
       closedSmilePersistenceMs: thresholds.closedSmilePersistenceMs == null ? null : intInRange(thresholds.closedSmilePersistenceMs, 0, 10000, "thresholds.closedSmilePersistenceMs"),
       dynamicAsymCandidateThreshold: finiteOrNull(thresholds.dynamicAsymCandidateThreshold, "thresholds.dynamicAsymCandidateThreshold", 0, 10),
-      dynamicGeometryMinMagnitude: finiteOrNull(thresholds.dynamicGeometryMinMagnitude, "thresholds.dynamicGeometryMinMagnitude", 0, 10)
+      dynamicGeometryMinMagnitude: finiteOrNull(thresholds.dynamicGeometryMinMagnitude, "thresholds.dynamicGeometryMinMagnitude", 0, 10),
+      maxAllowedYaw: finiteOrNull(thresholds.maxAllowedYaw, "thresholds.maxAllowedYaw", 0, 90),
+      maxAllowedPitch: finiteOrNull(thresholds.maxAllowedPitch, "thresholds.maxAllowedPitch", 0, 90),
+      maxAllowedRoll: finiteOrNull(thresholds.maxAllowedRoll, "thresholds.maxAllowedRoll", 0, 90),
+      restSafetyMaxYaw: finiteOrNull(thresholds.restSafetyMaxYaw, "thresholds.restSafetyMaxYaw", 0, 90),
+      restSafetyMaxPitch: finiteOrNull(thresholds.restSafetyMaxPitch, "thresholds.restSafetyMaxPitch", 0, 90),
+      restSafetyMaxRoll: finiteOrNull(thresholds.restSafetyMaxRoll, "thresholds.restSafetyMaxRoll", 0, 90),
+      poseBadTripFrames: thresholds.poseBadTripFrames == null ? null : intInRange(thresholds.poseBadTripFrames, 1, 100, "thresholds.poseBadTripFrames"),
+      poseGoodResumeFrames: thresholds.poseGoodResumeFrames == null ? null : intInRange(thresholds.poseGoodResumeFrames, 1, 100, "thresholds.poseGoodResumeFrames")
     },
     derivedNumericTelemetryOnly: source.derivedNumericTelemetryOnly === true
   };
