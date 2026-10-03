@@ -56,7 +56,7 @@ assert.match(result,/state = 'urgent'/);
 assert.match(result,/className = 'emergency-call'/);
 assert.match(result,/location\.href = `tel:\$\{phone\}`/);
 
-assert.match(config,/version:\s*"face-prepilot-1\.5\.0"/);
+assert.match(config,/version:\s*"face-prepilot-1\.6\.0"/);
 assert.match(config,/algorithmVersion:\s*"face-asymmetry-1\.6\.0"/);
 
 console.log("PASS: resting abnormal offers optional early safety exit without auto-stopping research flow, preserves bad evidence, and reaches emergency guidance");
