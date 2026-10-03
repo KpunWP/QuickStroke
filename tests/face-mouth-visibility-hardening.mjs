@@ -6,7 +6,7 @@ const config=fs.readFileSync(new URL("../config.js",import.meta.url),"utf8");
 
 assert.match(config,/smileOcclusionResetMs:\s*300/);
 assert.match(config,/algorithmVersion:\s*"face-asymmetry-1\.6\.0"/);
-assert.match(config,/researchPayloadVersion:\s*"face-research-0\.8\.0"/);
+assert.match(config,/researchPayloadVersion:\s*"face-research-0\.9\.0"/);
 
 const reasonStart=face.indexOf("function mouthAssessabilityReason");
 const reasonEnd=face.indexOf("function isMouthAssessable",reasonStart);
