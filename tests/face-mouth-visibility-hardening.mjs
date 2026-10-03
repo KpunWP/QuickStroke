@@ -15,9 +15,10 @@ assert.match(reasonFn,/lastHandMouthOverlap.*HAND_OCCLUSION/s);
 assert.match(reasonFn,/heuristicAvailable !== true.*PIXEL_HEURISTIC_FAILURE/s);
 assert.match(reasonFn,/visible !== true.*MOUTH_VISIBILITY_LOW/s);
 
-const waitStart=face.indexOf("if (phase==='ACTION_WAIT_SMILE')");
-const waitEnd=face.indexOf("/* ──",waitStart+10);
-const wait=face.slice(waitStart,waitEnd>waitStart?waitEnd:waitStart+9000);
+const waitStart=face.indexOf("if (lastHandMouthOverlap){",face.indexOf("const validSmileNow"));
+const waitEnd=face.indexOf("smileFrameCount++;",waitStart);
+assert.ok(waitStart>=0 && waitEnd>waitStart,"mouth visibility smile-window block not found");
+const wait=face.slice(waitStart,waitEnd);
 assert.match(wait,/if \(lastHandMouthOverlap\)\{[\s\S]*?resetSmileWindowToAction/);
 assert.match(wait,/now - mouthBlockedSinceMs >= SMILE_OCCLUSION_RESET_MS/);
 assert.match(wait,/mouthVis\?\.heuristicAvailable === true[\s\S]*?'mouth_visibility_low'[\s\S]*?'pixel_heuristic_failure'/);
