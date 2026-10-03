@@ -16,14 +16,14 @@ const summary=sanitizeBatch([{
     detection:{startPath:"relative",relativeCandidateFrames:5,relativeValidSmileFrames:22},
     dynamic:{method:"paired-valid-smile-frames-shadow-v1",pairedFrameCount:20,candidateThreshold:0.22,geometryMinMagnitude:0.01,pairedAsymMedian:0.05,pairedAsymP75:0.08,pairedAsymP90:0.12,pairedBlendAsymMedian:0.04,pairedBlendAsymP75:0.06,pairedBlendAsymP90:0.09,pairedGeometryAsymMedian:0.03,pairedGeometryAsymP75:0.05,pairedGeometryAsymP90:0.08,framesOverCandidateThresholdRatio:0.1,longestContinuousAsymmetryMs:300,leftOnsetMs:900,rightOnsetMs:1100,onsetDelayMs:200,weakSideByPeakBlend:"right",weakSideLagMs:200,leftTimeToPeakMs:1800,rightTimeToPeakMs:2100,timeToPeakDifferenceMs:300},
     runtime:{faceDelegate:"GPU",handDelegate:"CPU",handModelAvailable:true,degradedMode:null,faceDetectErrorCount:1,handDetectErrorCount:2,qualityFlags:["HAND_MODEL_UNAVAILABLE"]},
-    versions:{appVersion:"1.0.21",buildId:"20261003-face-p0",configVersion:"face-prepilot",faceModuleVersion:"face-prepilot-1.4.0",algorithmVersion:"face-asymmetry-1.5.0",researchPayloadVersion:"face-research-0.7.0",configHash:"abc123"},
-    thresholds:{weakSideRatioBad:0.4,weakSideRatioShadow:0.55,smileAsymWarn:0.35,smileAsymBad:0.5,restAsymCritical:0.4,smileDetectMin:0.25,smileDetectSide:0.35,smileValidStrength:0.2,smileRealMin:0.045,closedSmileRiseMin:0.003,closedSmileDeltaSideStart:0.02,closedSmileDeltaSideValid:0.012,closedSmileLateralMin:0.006,closedSmileWidthIncreaseMin:0.012,closedSmilePersistenceMs:250,dynamicAsymCandidateThreshold:0.22,dynamicGeometryMinMagnitude:0.01,maxAllowedYaw:15,maxAllowedPitch:18,maxAllowedRoll:15,restSafetyMaxYaw:12,restSafetyMaxPitch:15,restSafetyMaxRoll:12,poseBadTripFrames:3,poseGoodResumeFrames:8,minValidSmileFrames:2,minVisibleMouthFrames:5,minMouthVisibilityScore:0.052,minMouthDarkRatio:0.003,minMouthCentralDarkRatio:0.002,minMouthLineScore:0.010,handMouthOverlapMin:0.08,maxWaitForSmileMs:14000,baselineAlignmentTimeoutMs:30000,baselineMinValidFrames:12,baselineNeutralSmileMax:0.08,baselineNeutralMouthActivityMax:0.20,baselineCornerMadMax:0.020,baselineEyeDistanceRelativeMadMax:0.040,smileLostGraceMs:1400,smileOcclusionResetMs:300,minValidSmileRatio:0.05,attemptMouthAssessableRatioMin:0.25,attemptHandOverlapRatioMin:0.15,enforceHandModel:false},
+    versions:{appVersion:"1.0.21",buildId:"20261003-face-p0",configVersion:"face-prepilot",faceModuleVersion:"face-prepilot-1.4.0",algorithmVersion:"face-asymmetry-1.6.0",researchPayloadVersion:"face-research-0.8.0",configHash:"abc123"},
+    thresholds:{weakSideRatioBad:0.4,weakSideRatioShadow:0.55,smileAsymWarn:0.35,smileAsymBad:0.5,restAsymCritical:0.4,smileDetectMin:0.25,smileDetectSide:0.35,smileValidStrength:0.2,smileRealMin:0.045,closedSmileRiseMin:0.003,closedSmileDeltaSideStart:0.02,closedSmileDeltaSideValid:0.012,closedSmileLateralMin:0.006,closedSmileWidthIncreaseMin:0.012,closedSmilePersistenceMs:250,dynamicAsymCandidateThreshold:0.22,dynamicGeometryMinMagnitude:0.01,distanceIdealMin:0.85,distanceIdealMax:1.15,distanceAcceptMin:0.80,distanceAcceptMax:1.20,maxAllowedYaw:15,maxAllowedPitch:18,maxAllowedRoll:15,restSafetyMaxYaw:12,restSafetyMaxPitch:15,restSafetyMaxRoll:12,poseBadTripFrames:3,poseGoodResumeFrames:8,minValidSmileFrames:2,minVisibleMouthFrames:5,minMouthVisibilityScore:0.052,minMouthDarkRatio:0.003,minMouthCentralDarkRatio:0.002,minMouthLineScore:0.010,handMouthOverlapMin:0.08,maxWaitForSmileMs:14000,baselineAlignmentTimeoutMs:30000,baselineMinValidFrames:12,baselineNeutralSmileMax:0.08,baselineNeutralMouthActivityMax:0.20,baselineCornerMadMax:0.020,baselineEyeDistanceRelativeMadMax:0.040,smileLostGraceMs:1400,smileOcclusionResetMs:300,minValidSmileRatio:0.05,attemptMouthAssessableRatioMin:0.25,attemptHandOverlapRatioMin:0.15,enforceHandModel:false},
     derivedNumericTelemetryOnly:true,
     rawImage:"FORBIDDEN_IMAGE",rawVideo:"FORBIDDEN_VIDEO",userAgent:"FORBIDDEN_PRECISE_UA"
   }
 }])[0];
 
-assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.7.0");
+assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.8.0");
 assert.equal(summary.event_type,"face_research_attempt");
 assert.equal(summary.module,"face");
 assert.equal(summary.payload.testAttemptId,ids.attempt);
@@ -53,6 +53,8 @@ assert.equal(summary.payload.thresholds.minMouthVisibilityScore,0.052);
 assert.equal(summary.payload.thresholds.baselineMinValidFrames,12);
 assert.equal(summary.payload.thresholds.smileOcclusionResetMs,300);
 assert.equal(summary.payload.thresholds.enforceHandModel,false);
+assert.equal(summary.payload.thresholds.distanceIdealMin,0.85);
+assert.equal(summary.payload.thresholds.distanceAcceptMax,1.20);
 
 const fieldsCount=42;
 const row=[
