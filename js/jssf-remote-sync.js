@@ -10,7 +10,7 @@
   const DB_VERSION = 1;
   const RETENTION_DAYS = 90; // Matches the deployed primary-database retention migration.
   const OUTBOX_MARKER = "quickstroke_jssf_outbox_present";
-  const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
+  const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_summary", "face_research_chunk", "session_completed"]);
   const OBSERVATION = new Set(["no_alert", "attention", "abnormal", "indeterminate", "not_available"]);
   const VALIDITY = new Set(["valid", "invalid", "not_evaluable"]);
   const QUALITY = new Set(["acceptable", "limited", "unusable", "not_assessed"]);
@@ -287,6 +287,103 @@
     if (!evt||record.screeningSessionId!==context().screeningSessionId) return false;
     return enqueue(evt);
   }
+  function finiteNumber(value) {
+    const n=Number(value);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  function safeBoolean(value) {
+    return typeof value === "boolean" ? value : undefined;
+  }
+  function safePhase(value) {
+    return ["RESTING_PHASE","ACTION_PHASE","ACTION_WAIT_SMILE","RETRYING"].includes(value) ? value : undefined;
+  }
+  function faceResearchFrame(frame={}) {
+    const out={
+      tMs:Number.isFinite(Number(frame.tMs)) ? Math.max(0,Math.round(Number(frame.tMs))) : undefined,
+      phase:safePhase(frame.phase),
+      faceDetected:safeBoolean(frame.faceDetected),
+      poseValid:safeBoolean(frame.poseValid),
+      yawDeg:finiteNumber(frame.yawDeg), pitchDeg:finiteNumber(frame.pitchDeg), rollDeg:finiteNumber(frame.rollDeg),
+      eyeDistance:finiteNumber(frame.eyeDistance), eyeDistanceRatioFromBaseline:finiteNumber(frame.eyeDistanceRatioFromBaseline),
+      rawEyeCenterX:finiteNumber(frame.rawEyeCenterX), rawEyeCenterY:finiteNumber(frame.rawEyeCenterY),
+      normalizedMouthLeftX:finiteNumber(frame.normalizedMouthLeftX), normalizedMouthLeftY:finiteNumber(frame.normalizedMouthLeftY),
+      normalizedMouthRightX:finiteNumber(frame.normalizedMouthRightX), normalizedMouthRightY:finiteNumber(frame.normalizedMouthRightY),
+      normalizedSignedDisplacementLeft:finiteNumber(frame.normalizedSignedDisplacementLeft),
+      normalizedSignedDisplacementRight:finiteNumber(frame.normalizedSignedDisplacementRight),
+      smileLeft:finiteNumber(frame.smileLeft), smileRight:finiteNumber(frame.smileRight),
+      smileDeltaLeft:finiteNumber(frame.smileDeltaLeft), smileDeltaRight:finiteNumber(frame.smileDeltaRight),
+      pairedBlendAsymmetry:finiteNumber(frame.pairedBlendAsymmetry),
+      mouthWidth:finiteNumber(frame.mouthWidth), mouthWidthDelta:finiteNumber(frame.mouthWidthDelta),
+      cornerLateralLeft:finiteNumber(frame.cornerLateralLeft), cornerLateralRight:finiteNumber(frame.cornerLateralRight),
+      blendSmileEvidence:safeBoolean(frame.blendSmileEvidence), geometrySmileEvidence:safeBoolean(frame.geometrySmileEvidence),
+      mouthVisibilityScore:finiteNumber(frame.mouthVisibilityScore), mouthDarkRatio:finiteNumber(frame.mouthDarkRatio),
+      mouthCentralDarkRatio:finiteNumber(frame.mouthCentralDarkRatio), mouthLineScore:finiteNumber(frame.mouthLineScore),
+      mouthContrast:finiteNumber(frame.mouthContrast), mouthEdge:finiteNumber(frame.mouthEdge), mouthOpen:finiteNumber(frame.mouthOpen),
+      mouthAssessable:safeBoolean(frame.mouthAssessable), handMouthOverlap:safeBoolean(frame.handMouthOverlap),
+      handModelAvailable:safeBoolean(frame.handModelAvailable), distanceValid:safeBoolean(frame.distanceValid),
+      neutralExpressionValid:safeBoolean(frame.neutralExpressionValid)
+    };
+    return Object.fromEntries(Object.entries(out).filter(([,value])=>value!==undefined));
+  }
+  function safeFaceThresholdSnapshot(source={}) {
+    const allowed=[
+      "version","algorithmVersion","resultSchemaVersion","researchPayloadVersion",
+      "calibrationSeconds","actionDurationMs","maxAssessAttempts","retryDelayMs","smileNudgeMinMs",
+      "weakSideRatioBad","weakSideRatioShadow","smileDetectMin","smileDetectSide","smileValidStrength",
+      "realMoveMin","closedSmileRiseMin","smileRealMin","minValidSmileFrames","minVisibleMouthFrames",
+      "minMouthVisibilityScore","minMouthDarkRatio","minMouthCentralDarkRatio","minMouthLineScore",
+      "handMouthOverlapMin","maxWaitForSmileMs","baselineAlignmentTimeoutMs","smileLostGraceMs",
+      "smileOcclusionResetMs","minValidSmileRatio","smileAsymWarn","smileAsymBad","restAsymCritical",
+      "criticalNoticeMs","maxAllowedYaw","maxAllowedPitch","maxAllowedRoll","poseBadTripFrames",
+      "poseGoodResumeFrames","enforceHandModel","researchSampleIntervalMs",
+      "attemptMouthAssessableRatioMin","attemptHandOverlapRatioMin"
+    ];
+    const out={};
+    for(const key of allowed){
+      const value=source[key];
+      if(typeof value==="number"&&Number.isFinite(value)) out[key]=value;
+      else if(typeof value==="boolean"||typeof value==="string") out[key]=value;
+    }
+    return out;
+  }
+  async function queueFaceResearchAttempt(bundle={}) {
+    if (!canSync()) return {queued:0,reason:"disabled"};
+    const ctx=context();
+    if (bundle.screeningSessionId!==ctx.screeningSessionId) return {queued:0,reason:"session_mismatch"};
+    if (!safeId(bundle.testAttemptId) || !safeId(bundle.moduleRunId)) return {queued:0,reason:"invalid_identity"};
+    const frames=Array.isArray(bundle.frames) ? bundle.frames.map(faceResearchFrame) : [];
+    const baseline=(bundle.baseline&&typeof bundle.baseline==="object") ? bundle.baseline : {};
+    const summary=(bundle.summary&&typeof bundle.summary==="object") ? bundle.summary : {};
+    const thresholds=safeFaceThresholdSnapshot(bundle.thresholds||{});
+    let queued=0;
+    queued += await enqueue({
+      eventType:"face_research_summary",module:"face",occurredAt:bundle.completedAt||new Date().toISOString(),
+      payload:{
+        moduleRunId:bundle.moduleRunId,testAttemptId:bundle.testAttemptId,
+        algorithmVersion:String(bundle.algorithmVersion||thresholds.algorithmVersion||"").slice(0,100),
+        researchPayloadVersion:String(bundle.researchPayloadVersion||thresholds.researchPayloadVersion||"").slice(0,100),
+        sampleIntervalMs:Number.isFinite(Number(bundle.sampleIntervalMs))?Math.round(Number(bundle.sampleIntervalMs)):undefined,
+        storesImagesOrVideo:false,baseline,summary,thresholds,frameCount:frames.length
+      },
+      dedupeKey:"face-research-summary:"+bundle.testAttemptId
+    }) ? 1 : 0;
+    const chunkSize=8;
+    const chunkCount=Math.ceil(frames.length/chunkSize);
+    for(let i=0;i<chunkCount;i++){
+      const chunk=frames.slice(i*chunkSize,(i+1)*chunkSize);
+      queued += await enqueue({
+        eventType:"face_research_chunk",module:"face",occurredAt:bundle.completedAt||new Date().toISOString(),
+        payload:{
+          moduleRunId:bundle.moduleRunId,testAttemptId:bundle.testAttemptId,
+          chunkNo:i+1,chunkCount,sampleIntervalMs:Number.isFinite(Number(bundle.sampleIntervalMs))?Math.round(Number(bundle.sampleIntervalMs)):undefined,
+          frames:chunk
+        },
+        dedupeKey:"face-research-chunk:"+bundle.testAttemptId+":"+(i+1)
+      }) ? 1 : 0;
+    }
+    return {queued,frameCount:frames.length,chunkCount};
+  }
+
   async function queueTechnicalEvent(code,module=null,relatedModuleRunId=null,dedupeSuffix="") {
     if (!canSync() || !TECH_CODES.has(code)) return false;
     const safeModule = module===null ? null : (MODULE.has(module) ? module : null);
@@ -582,7 +679,7 @@
   });
   if (global.document) global.document.addEventListener("visibilitychange",()=>{if(!global.document.hidden&&canSync())void flush().catch(()=>{});});
   const api=Object.freeze({version:VERSION,featureReady,isRemoteContext,canSync,eventFromRecord,openOutbox,enroll,activate,
-    enqueue,queueFinalized,queueTechnicalEvent,recoverCompleted,pending,flush,completeSession,
+    enqueue,queueFinalized,queueTechnicalEvent,queueFaceResearchAttempt,recoverCompleted,pending,flush,completeSession,
     hasEnrollment,listWithdrawableEnrollments,getWithdrawalDiagnostics,requestWithdrawal,resumePendingWithdrawals,purgeExpiredLocal,privacyMaintenance});
   Object.defineProperty(global,"QuickStrokeJssfRemote",{value:api,enumerable:true,configurable:false,writable:false});
   if (global.document) global.document.addEventListener("DOMContentLoaded",()=>{
