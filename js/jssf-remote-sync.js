@@ -415,19 +415,34 @@
       if (!isActiveCredential(cred)) return {sent:0,reason:"not_enrolled"};
       if (cred.withdrawalPending) return {sent:0,reason:"withdrawal_pending"};
       if (retentionExpired(cred) || Date.parse(cred.expiresAt)<=Date.now()) return {sent:0,reason:"expired"};
-      const rows=(await pending(cred.sessionId)).slice(0,25);
-      if (!rows.length) return {sent:0,reason:"empty"};
-      const res=await global.fetch(config().endpoint.replace(/\/$/,"")+"/events",{
-        method:"POST",
-        headers:{"content-type":"application/json","x-qs-session-token":cred.uploadToken},
-        body:JSON.stringify({sessionId:cred.sessionId,events:rows.map(row=>row.event)})
-      });
-      if (!res.ok) throw new Error("Upload failed; retry on next open (HTTP "+res.status+")");
-      const reply=await res.json(),ack=new Set(reply.acknowledged||[]);
-      const db=await openOutbox(),tx=db.transaction("queue","readwrite"),store=tx.objectStore("queue");
-      for (const row of rows) if (ack.has(row.clientEventId))store.put({...row,state:"acked",event:null,ackedAt:new Date().toISOString()});
-      await txResult(tx);
-      return {sent:rows.filter(row=>ack.has(row.clientEventId)).length,reason:"ok"};
+      let sent=0,batches=0;
+      // Research chunks can make a single attempt larger than the original
+      // four-event lifecycle batch. Drain several bounded batches while keeping
+      // each request comfortably below the Edge 64 kB body limit.
+      while (batches < 20) {
+        const rows=(await pending(cred.sessionId)).slice(0,8);
+        if (!rows.length) return {sent,reason:sent?"ok":"empty"};
+        const res=await global.fetch(config().endpoint.replace(/\/$/,"")+"/events",{
+          method:"POST",
+          headers:{"content-type":"application/json","x-qs-session-token":cred.uploadToken},
+          body:JSON.stringify({sessionId:cred.sessionId,events:rows.map(row=>row.event)})
+        });
+        if (!res.ok) throw new Error("Upload failed; retry on next open (HTTP "+res.status+")");
+        const reply=await res.json(),ack=new Set(reply.acknowledged||[]);
+        const db=await openOutbox(),tx=db.transaction("queue","readwrite"),store=tx.objectStore("queue");
+        let batchSent=0;
+        for (const row of rows) {
+          if (!ack.has(row.clientEventId)) continue;
+          store.put({...row,state:"acked",event:null,ackedAt:new Date().toISOString()});
+          batchSent++;
+        }
+        await txResult(tx);
+        sent+=batchSent;
+        batches++;
+        // Avoid a tight retry loop if the server acknowledges nothing.
+        if (batchSent===0) return {sent,reason:"unacknowledged"};
+      }
+      return {sent,reason:"batch_limit"};
     })().finally(()=>{flushing=null;});
     return flushing;
   }
