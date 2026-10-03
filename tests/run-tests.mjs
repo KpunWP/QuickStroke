@@ -154,7 +154,7 @@ test('legacy Face/Arm/Speech thresholds remain unchanged except explicit additiv
 
 test('critical algorithm functions are unchanged', () => {
   const targets = {
-    'face-test.html': ['makeResultPayload', 'saveAndShow', 'finalizeInvalidResult'],
+    'face-test.html': ['saveAndShow', 'finalizeInvalidResult'],
     'arm-test.html': ['classifyArmMotion', 'driftToScore', 'evaluateReadiness', 'startMeasure'],
     'speech-test.html': ['makeSpeechResultPayload', 'finalizeCanonicalSpeechAttempt', 'finalizeSpeechModuleRun'],
     'result.html': ['moduleClass', 'calculate']
@@ -167,6 +167,21 @@ test('critical algorithm functions are unchanged', () => {
       assert.equal(digest, BASELINE.criticalFunctionSha256[file][fn], `${file}:${fn} changed`);
     }
   }
+});
+
+test('Face result decision semantics remain intact while P0 baseline telemetry is additive', () => {
+  const source = fs.readFileSync(path.join(ROOT, 'face-test.html'), 'utf8');
+  const fn = extractFunction(source, 'makeResultPayload');
+  assert.match(fn,/canonicalFaceObservationStatus\(riskLevel, validityStatus\)/);
+  assert.match(fn,/clinicalScore: validityStatus === 'valid' \? score : null/);
+  assert.match(fn,/scoreUsable: validityStatus === 'valid'/);
+  assert.match(fn,/score: validityStatus === 'valid' \? score : 0/);
+  assert.match(fn,/riskLevel,/);
+  assert.match(fn,/passed,/);
+  assert.match(fn,/aggregationMethod:'median-neutral-valid-frames'/);
+  assert.match(fn,/baselineSmileLeft:roundMetric\(baselineSmileLeft\)/);
+  assert.match(fn,/baseMouthWidth:roundMetric\(baseMouthWidth\)/);
+  assert.match(fn,/stability:JSON\.parse/);
 });
 
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {
