@@ -187,7 +187,7 @@ test('legacy Face/Arm/Speech thresholds remain unchanged except explicit additiv
 
 test('critical algorithm functions are unchanged', () => {
   const targets = {
-    'face-test.html': ['saveAndShow', 'finalizeInvalidResult'],
+    'face-test.html': ['finalizeInvalidResult'],
     'arm-test.html': ['classifyArmMotion', 'driftToScore', 'evaluateReadiness', 'startMeasure'],
     'speech-test.html': ['makeSpeechResultPayload', 'finalizeCanonicalSpeechAttempt', 'finalizeSpeechModuleRun'],
     'result.html': ['moduleClass', 'calculate']
@@ -218,6 +218,22 @@ test('Face result decision semantics remain intact while P0 baseline telemetry i
   assert.match(fn,/baselineSmileLeft\s*:\s*roundMetric\(baselineSmileLeft\)/);
   assert.match(fn,/baseMouthWidth\s*:\s*roundMetric\(baseMouthWidth\)/);
   assert.match(fn,/stability\s*:\s*JSON\.parse/);
+});
+
+test('Face saveAndShow preserves result semantics while numeric score presentation is research-only', () => {
+  const source = fs.readFileSync(path.join(ROOT, 'face-test.html'), 'utf8');
+  const start = source.indexOf('function saveAndShow');
+  const end = source.indexOf('/* ───────────── camera', start);
+  assert.ok(start >= 0 && end > start, 'saveAndShow source range not found');
+  const fn = source.slice(start, end);
+  assert.match(fn,/const clinicalResult = riskLevel === 'ok' \? 'normal'/);
+  assert.match(fn,/makeResultPayload\(\{[\s\S]*?validityStatus:'valid'/);
+  assert.match(fn,/riskLevel,/);
+  assert.match(fn,/passed:riskLevel === 'ok'/);
+  assert.match(fn,/persistFacePayload\(payload\)/);
+  assert.match(fn,/scoreNum\.textContent = FACE_DEV_MODE/);
+  assert.match(fn,/userFacingCategory/);
+  assert.match(fn,/addNavButton\(\)/);
 });
 
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {
