@@ -42,7 +42,7 @@ for (const key of [
 ]) assert.match(face,new RegExp(key));
 
 assert.match(config,/algorithmVersion:\s*"face-asymmetry-1\.3\.0"/);
-assert.match(config,/researchPayloadVersion:\s*"face-research-0\.4\.0"/);
+assert.match(config,/researchPayloadVersion:\s*"face-research-0\.5\.0"/);
 assert.match(config,/P0-C engineering\/pre-pilot closed-mouth path\. NOT clinical cutoffs\./);
 assert.match(config,/closedSmilePersistenceMs:\s*250/);
 
