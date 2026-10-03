@@ -132,10 +132,21 @@ test('app version and policy versions are 1.0.21', () => {
   assert.equal(c.QuickStrokeResearchPolicy.selectionPolicyVersion, 'quickstroke-selection-policy-1.0.0');
 });
 
-test('Face/Arm/Speech thresholds are unchanged from 1.0.20', () => {
+test('Arm/Speech thresholds and scoring remain unchanged while Face P0 changes are explicitly versioned', () => {
   const newConfig = loadConfig(path.join(ROOT, 'config.js'));
-  assert.deepEqual(newConfig.thresholds, BASELINE.thresholds);
+  assert.deepEqual(newConfig.thresholds.arm, BASELINE.thresholds.arm);
+  assert.deepEqual(newConfig.thresholds.armReadiness, BASELINE.thresholds.armReadiness);
+  assert.deepEqual(newConfig.thresholds.speech, BASELINE.thresholds.speech);
   assert.deepEqual(newConfig.scoring, BASELINE.scoring);
+
+  assert.equal(newConfig.thresholds.face.version, 'face-prepilot-1.5.0');
+  assert.equal(newConfig.thresholds.face.algorithmVersion, 'face-asymmetry-1.3.0');
+  assert.equal(newConfig.thresholds.face.researchPayloadVersion, 'face-research-0.4.0');
+  assert.equal(newConfig.thresholds.face.maxAllowedYaw, 15);
+  assert.equal(newConfig.thresholds.face.maxAllowedPitch, 18);
+  assert.equal(newConfig.thresholds.face.maxAllowedRoll, 15);
+  assert.equal(newConfig.thresholds.face.smileDeltaMin, 0.018);
+  assert.equal(newConfig.thresholds.face.closedSmileEvidenceHoldMs, 250);
 });
 
 test('critical algorithm functions are unchanged', () => {
