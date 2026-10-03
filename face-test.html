@@ -3814,6 +3814,76 @@ function toggleDebug(){
   poseHud.style.display = (debugVisible && inTest) ? 'flex' : 'none';
 }
 
+function clearEarlySafetyAction(){
+  const btn=document.getElementById('face-early-safety-btn');
+  if (btn) btn.remove();
+}
+function ensureEarlySafetyAction(){
+  if (!criticalFired) return;
+  const row=document.getElementById('btn-row');
+  if (!row) return;
+  let btn=document.getElementById('face-early-safety-btn');
+  if (!btn) {
+    btn=document.createElement('button');
+    btn.type='button';
+    btn.id='face-early-safety-btn';
+    btn.className='action-btn';
+    btn.style.cssText='background:#B3261E;border:1px solid rgba(255,255,255,.24);color:#fff;font-weight:800;min-height:54px;padding:12px 16px;border-radius:18px;width:100%;';
+    btn.onclick=async()=>{
+      if (btn.disabled) return;
+      btn.disabled=true;
+      try {
+        await exitToEarlySafetyResult();
+      } finally {
+        btn.disabled=false;
+      }
+    };
+    row.appendChild(btn);
+  }
+  btn.textContent=FL.earlySafetyAction || FL.navResult;
+}
+async function exitToEarlySafetyResult(){
+  if (!criticalFired) return;
+  if (countdownTimer){ clearInterval(countdownTimer); countdownTimer=null; }
+  if (retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
+  hideCenterCountdown();
+  hideSmilePrompt();
+
+  // Record that smile was intentionally not completed because the participant
+  // chose the safety path after valid resting-abnormal evidence.
+  if (!activeFaceAttemptRecord) {
+    ensureFaceTestAttemptIdentity({
+      stage:'baseline',
+      trigger:'initial_attempt',
+      triggerReasonCode:'EARLY_SAFETY_EXIT'
+    });
+  }
+  if (activeFaceAttemptRecord?.attemptStatus === 'in_progress') {
+    captureAttempt('invalid','EARLY_SAFETY_EXIT',{
+      stage:'baseline',
+      patientSafetyExit:true,
+      restingCriticalTriggered:true,
+      restAsym:criticalRestAsym,
+      actionPerformed:false
+    });
+    assessAttempts++;
+  }
+  runtimeQualityFlags.add('EARLY_SAFETY_EXIT');
+  saveAndShow(20,'bad',{
+    method:'resting_asymmetry_early_safety_exit',
+    restingCriticalTriggered:true,
+    restAsym:criticalRestAsym,
+    actionValidityStatus:'not_performed_safety_exit',
+    smileActionPerformed:false,
+    patientSafetyExit:true
+  });
+  await Promise.race([
+    flushFaceResearchPersistence(),
+    new Promise((resolve)=>setTimeout(resolve,1200))
+  ]);
+  window.location.href='result.html';
+}
+
 function goBackHome(){
   if (!['BEFORE_START','FACE_DONE','CRITICAL_ASYMMETRY'].includes(phase)) {
     if (!confirm(FL.quit)) return;
@@ -4312,6 +4382,7 @@ function startScreening(){
   noFaceBanner.style.display='none'; poseWarnMsg.style.display='none';
   hideCenterCountdown(); hideSmilePrompt();
   const oldNav=document.getElementById('fast-nav-btn'); if(oldNav) oldNav.remove();
+  clearEarlySafetyAction();
 
   phase='RESTING_PHASE';
   setUI({glassColor:'var(--col-orange-glass)', msg:FL.step1, showReset:true, showHud:true});
@@ -4806,8 +4877,10 @@ function onResults(results, handResults=null){
         criticalRestAsym = avg;
         criticalNoticeUntilMs = Date.now() + CRITICAL_NOTICE_MS;
         setUI({glassColor:'var(--col-red-glass)', msg:FL.critical, showReset:true, showHud:true, pulse:true});
+        ensureEarlySafetyAction();
       }
     }
+    if (criticalFired) ensureEarlySafetyAction();
     if (criticalFired && Date.now() < criticalNoticeUntilMs) showStatusPanel(FL.critical);
     else if (activeNoticeKind !== 'status' || activeNoticeText !== FL.step1) showStatusPanel(FL.step1);
     const db=document.getElementById('dashboard'); if(db) db.style.background='var(--col-orange-glass)';
@@ -5207,6 +5280,7 @@ function finishInvalid(reasonCode='UNABLE_TO_ASSESS', options={}){
 function addNavButton(){
   setTimeout(()=>{
     const old=document.getElementById('fast-nav-btn'); if(old) old.remove();
+    clearEarlySafetyAction();
     const mode = sessionStorage.getItem('fast_mode');
     let label = FL.navResult;
     let target = 'result.html';
