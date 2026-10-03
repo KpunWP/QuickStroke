@@ -7,6 +7,7 @@ on:
       - research/arm-p0-c-replay-20261003
       - research/arm-p0-d-dynamics-20261003
       - research/arm-p0-e-device-browser-20261003
+      - research/arm-p0-f-e2e-audit-20261003
   workflow_dispatch:
 
 permissions:
@@ -33,5 +34,7 @@ jobs:
         run: node tests/arm-dynamics-duration.mjs
       - name: Arm device/browser hardening
         run: node tests/arm-device-browser-hardening.mjs
+      - name: Arm research E2E audit
+        run: node tests/arm-research-e2e-audit.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
