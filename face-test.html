@@ -4668,7 +4668,12 @@ function finishFace(){
   // Gate 1: the stronger side must have produced a REAL smile, otherwise we never
   // truly saw the person smile (weak attempt / occlusion) → unable to assess.
   const strongBlend = Math.max(peakSmileL, peakSmileR);
+  const strongBlendDelta = Math.max(
+    Number.isFinite(baseSmileL) ? peakSmileL - baseSmileL : 0,
+    Number.isFinite(baseSmileR) ? peakSmileR - baseSmileR : 0
+  );
   const riseAggregation = currentGeometryRiseAggregation();
+  const pairedAsymmetry = summarizePairedBlendAsymmetry();
   const aggregatedSignedRiseL = riseAggregation.aggregatedSignedRiseLeft;
   const aggregatedSignedRiseR = riseAggregation.aggregatedSignedRiseRight;
   const effectiveRiseL = riseAggregation.effectiveRiseLeft;
@@ -4687,7 +4692,7 @@ function finishFace(){
     finishInvalid('INSUFFICIENT_VALID_FRAMES');
     return;
   }
-  if (strongBlend < SMILE_REAL_MIN){
+  if (strongBlend < SMILE_REAL_MIN && strongBlendDelta < SMILE_DELTA_MIN){
     finishInvalid('SMILE_TOO_WEAK');
     return;
   }
@@ -4728,11 +4733,21 @@ function finishFace(){
     weakRatio:roundMetric(weakRatio),
     representativeAsym:roundMetric(rep),
     geometryRiseUsable:riseAggregation.geometryRiseUsable,
+    pairedBlendAsymMedian:roundMetric(pairedAsymmetry.median),
+    pairedBlendAsymP90:roundMetric(pairedAsymmetry.p90),
     riskLevel,
     observationStatus:canonicalFaceObservationStatus(riskLevel, 'valid')
   });
   saveAndShow(score, riskLevel, {
     representativeAsym: rep, blendAsym, riseAsym, weakRatio,
+    strongBlendDelta,
+    pairedBlendAsymMedian:pairedAsymmetry.median,
+    pairedBlendAsymP75:pairedAsymmetry.p75,
+    pairedBlendAsymP90:pairedAsymmetry.p90,
+    pairedBlendAsymMax:pairedAsymmetry.max,
+    pairedBlendAsymOverWarnRatio:pairedAsymmetry.overWarnRatio,
+    pairedBlendAsymOverBadRatio:pairedAsymmetry.overBadRatio,
+    pairedBlendAsymLongestMs:pairedAsymmetry.longestOverWarnMs,
     geometryRiseUsable:riseAggregation.geometryRiseUsable,
     riseAggregationMethod:riseAggregation.aggregationMethod,
     aggregatedSignedRiseLeft:aggregatedSignedRiseL,
@@ -4741,7 +4756,7 @@ function finishFace(){
     effectiveRiseRight:effectiveRiseR,
     activeWeakSideRatioBad: WEAK_SIDE_RATIO_BAD,
     shadowWeakSideRatioBad: WEAK_SIDE_RATIO_SHADOW,
-    shadowWouldFlagWeakSide: weakRatio < WEAK_SIDE_RATIO_SHADOW,
+    shadowWouldFlagWeakSide: weakRatio !== null && weakRatio < WEAK_SIDE_RATIO_SHADOW,
     restingCriticalTriggered: criticalFired,
     restAsym: criticalRestAsym,
     peakSmileL, peakSmileR, peakRiseL, peakRiseR,
@@ -4752,7 +4767,8 @@ function finishFace(){
     geometryEffectiveRisePolicy: 'max-zero-after-aggregation',
     geometryPerFrameClamp: false,
     usesLandmarkZ: false,
-    smileConfirmation: 'blendshape_required_geometry_support_allowed',
+    smileConfirmation: 'absolute_or_baseline_relative_blendshape_with_geometry_support',
+    pairedDynamicAsymmetryRole: 'shadow_research_only',
     method: 'continuous_blend_confirmed_smile_with_signed_median_2d_geometry'
   });
 }
