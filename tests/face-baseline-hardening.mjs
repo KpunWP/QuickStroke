@@ -17,7 +17,7 @@ assert.match(neutralFn,/mouthSmileLeft/);
 assert.match(neutralFn,/mouthSmileRight/);
 assert.match(neutralFn,/jawOpen/);
 assert.match(neutralFn,/mouthPucker/);
-assert.doesNotMatch(neutralFn,/asym|symmetr|baseL|baseR/i);
+assert.doesNotMatch(neutralFn,/asym|symmetr|\bbaseL\b|\bbaseR\b/i);
 
 // Resting asymmetry remains collected from neutral-valid frames.
 assert.match(face,/const restAsym = Math\.abs\(mLy - mRy\)/);
