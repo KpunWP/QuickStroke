@@ -165,6 +165,19 @@
         finalMotionClass:typeof source.measurement?.finalMotionClass==="string"&&/^[a-z_]{1,40}$/.test(source.measurement.finalMotionClass)?source.measurement.finalMotionClass:undefined,
         cutoffs
       },
+      posture:{
+        baselineStableSpreadDeg:safeFinite(source.posture?.baselineStableSpreadDeg,0,180),
+        baselineScreenY:safeFinite(source.posture?.baselineScreenY,-1.2,1.2),
+        baselineScreenZ:safeFinite(source.posture?.baselineScreenZ,-1.2,1.2),
+        flatZThreshold:safeFinite(source.posture?.flatZThreshold,0,1.2),
+        portraitYMin:safeFinite(source.posture?.portraitYMin,0,1.2),
+        preMeasureMaxDeltaDeg:safeFinite(source.posture?.preMeasureMaxDeltaDeg,0,180)
+      },
+      sensor:{
+        acceptedSamples:int(source.sensor?.acceptedSamples,0,100000),
+        sourceSwitches:int(source.sensor?.sourceSwitches,0,1000),
+        telemetrySamples:int(source.sensor?.telemetrySamples,0,100000)
+      },
       trace
     };
   }
