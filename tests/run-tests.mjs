@@ -155,6 +155,21 @@ test('critical algorithm functions are unchanged', () => {
   }
 });
 
+test('Arm P0-A/B research instrumentation is non-gating and threshold-neutral', () => {
+  const arm = fs.readFileSync(path.join(ROOT, 'arm-test.html'), 'utf8');
+  const remote = fs.readFileSync(path.join(ROOT, 'js/jssf-remote-sync.js'), 'utf8');
+  const ingest = fs.readFileSync(path.join(ROOT, 'supabase/functions/jssf-remote-ingest/payload.mjs'), 'utf8');
+  assert.match(arm, /คุณเข้าใจวิธีทดสอบแขนหรือไม่/);
+  assert.match(arm, /blocksTest:false/);
+  assert.match(arm, /hardGate:false/);
+  assert.match(arm, /\[3,4,5,6,7,8,10\]/);
+  assert.match(arm, /maxTracePoints = 21/);
+  assert.match(arm, /appMode === 'research'/);
+  assert.match(remote, /slice\(0,21\)/);
+  assert.match(ingest, /rawTrace\.length>21|rawTrace\.length > 21/);
+  assert.match(ingest, /jssf-remote-ingest-0\.2\.0/);
+});
+
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {
   const c = loadCurrent();
   const ctx = c.QuickStrokeDataContract.ensureScreeningContext();
