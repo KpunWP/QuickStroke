@@ -110,7 +110,19 @@ function faceResearchAttemptPayload(source) {
       effectiveRiseLeft: finiteOrNull(capacity.effectiveRiseLeft, "capacity.effectiveRiseLeft"),
       effectiveRiseRight: finiteOrNull(capacity.effectiveRiseRight, "capacity.effectiveRiseRight")
     },
-    dynamic: object(source.dynamic) ? source.dynamic : null,
+    dynamic: object(source.dynamic) ? {
+      pairedBlendAsymMedian: finiteOrNull(source.dynamic.pairedBlendAsymMedian, "dynamic.pairedBlendAsymMedian", 0, 10),
+      pairedBlendAsymP75: finiteOrNull(source.dynamic.pairedBlendAsymP75, "dynamic.pairedBlendAsymP75", 0, 10),
+      pairedBlendAsymP90: finiteOrNull(source.dynamic.pairedBlendAsymP90, "dynamic.pairedBlendAsymP90", 0, 10),
+      pairedGeometryAsymMedian: finiteOrNull(source.dynamic.pairedGeometryAsymMedian, "dynamic.pairedGeometryAsymMedian", 0, 10),
+      pairedGeometryAsymP75: finiteOrNull(source.dynamic.pairedGeometryAsymP75, "dynamic.pairedGeometryAsymP75", 0, 10),
+      pairedGeometryAsymP90: finiteOrNull(source.dynamic.pairedGeometryAsymP90, "dynamic.pairedGeometryAsymP90", 0, 10),
+      framesOverCandidateThresholdRatio: finiteOrNull(source.dynamic.framesOverCandidateThresholdRatio, "dynamic.framesOverCandidateThresholdRatio", 0, 1),
+      longestContinuousAsymmetryMs: finiteOrNull(source.dynamic.longestContinuousAsymmetryMs, "dynamic.longestContinuousAsymmetryMs", 0, 60000),
+      onsetDelayMs: finiteOrNull(source.dynamic.onsetDelayMs, "dynamic.onsetDelayMs", -60000, 60000),
+      weakSideLagMs: finiteOrNull(source.dynamic.weakSideLagMs, "dynamic.weakSideLagMs", -60000, 60000),
+      timeToPeakDifferenceMs: finiteOrNull(source.dynamic.timeToPeakDifferenceMs, "dynamic.timeToPeakDifferenceMs", -60000, 60000)
+    } : null,
     versions: {
       appVersion: optionalString(versions.appVersion, 100, "versions.appVersion"),
       buildId: optionalString(versions.buildId, 120, "versions.buildId"),
