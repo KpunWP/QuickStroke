@@ -94,10 +94,10 @@ window.QS_CONFIG = {
   thresholds: {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
-      version: "face-prepilot-1.4.0",
-      algorithmVersion: "face-asymmetry-1.2.0",
+      version: "face-prepilot-1.5.0",
+      algorithmVersion: "face-asymmetry-1.3.0",
       resultSchemaVersion: "face-result-1.3.0",
-      researchPayloadVersion: "face-research-0.3.0",
+      researchPayloadVersion: "face-research-0.4.0",
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
@@ -117,6 +117,18 @@ window.QS_CONFIG = {
       realMoveMin: 0.0018,
       closedSmileRiseMin: 0.0018,
       smileRealMin: 0.018,
+
+      // P0 pre-JSSF closed-mouth support. These are engineering starting
+      // values, not clinically validated cutoffs. Closed-mouth onset requires
+      // change from that participant's own neutral baseline plus geometry.
+      smileDeltaMin: 0.018,
+      closedSmileWidthMin: 0.010,
+      closedSmileEvidenceHoldMs: 250,
+
+      // Robust neutral baseline readiness. We use medians for the baseline and
+      // extend collection when short-term landmark dispersion is high.
+      baselineCornerMadMax: 0.035,
+      baselineEyeMadRatioMax: 0.060,
 
       // v1.1 algorithm policy:
       // - blendshape must support smile confirmation
@@ -153,9 +165,16 @@ window.QS_CONFIG = {
       restAsymCritical: 0.30,
       criticalNoticeMs: 2000,
 
-      maxAllowedYaw: 28,
-      maxAllowedPitch: 24,
-      maxAllowedRoll: 20,
+      // P0 pre-JSSF engineering quality envelope. These remain candidates for
+      // later empirical calibration from JSSF and patient/control data.
+      maxAllowedYaw: 15,
+      maxAllowedPitch: 18,
+      maxAllowedRoll: 15,
+
+      // Resting-asymmetry safety evidence uses a tighter frontal-pose envelope.
+      restMaxAllowedYaw: 12,
+      restMaxAllowedPitch: 15,
+      restMaxAllowedRoll: 12,
       poseBadTripFrames: 3,
       poseGoodResumeFrames: 8,
 
