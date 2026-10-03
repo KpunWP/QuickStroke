@@ -1,6 +1,6 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.1.0";
-const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.2.0";
+const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_attempt", "face_research_samples", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const RECORD_ID = /^[A-Za-z0-9_-]{3,110}$/;
@@ -9,6 +9,16 @@ const OBSERVATIONS = new Set(["no_alert", "attention", "abnormal", "indeterminat
 const QUALITY = new Set(["acceptable", "limited", "unusable", "not_assessed"]);
 const RUN_STATUSES = new Set(["completed", "aborted", "interrupted"]);
 const TECH_CODES = new Set(["PERMISSION_DENIED", "SENSOR_UNAVAILABLE", "SENSOR_STALE", "PAGE_HIDDEN", "STORAGE_WRITE_FAILED", "MODULE_RETRY_REQUESTED", "MIC_PERMISSION_DENIED", "CAMERA_UNAVAILABLE", "TTS_UNAVAILABLE", "ASR_UNAVAILABLE", "OTHER_TECHNICAL_ERROR", "ASR_NO_SPEECH", "ASR_AUDIO_CAPTURE", "ASR_PERMISSION_OR_SERVICE_DENIED", "ASR_NETWORK", "ASR_LANGUAGE_OR_GRAMMAR", "ASR_ABORTED", "ASR_NO_TRANSCRIPT", "ASR_OTHER_ERROR"]);
+const FACE_SAMPLE_FIELDS = Object.freeze([
+  "tMs","phaseCode","poseValid","yawDeg","pitchDeg","rollDeg","eyeDistance","eyeDistanceRatioFromBaseline",
+  "rawMouthLeftX","rawMouthLeftY","rawMouthRightX","rawMouthRightY",
+  "normalizedMouthLeftX","normalizedMouthLeftY","normalizedMouthRightX","normalizedMouthRightY",
+  "rawSignedDisplacementLeft","rawSignedDisplacementRight","normalizedSignedDisplacementLeft","normalizedSignedDisplacementRight",
+  "smileLeft","smileRight","mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
+  "mouthAssessable","handMouthOverlap","blendSmileEvidence","geometrySmileEvidence"
+]);
+const FACE_OUTCOMES = new Set(["valid","invalid","not_evaluable","aborted","interrupted"]);
+
 
 function object(value) { return value && typeof value === "object" && !Array.isArray(value); }
 function optionalEnum(value, allowed, key) {
@@ -44,6 +54,110 @@ function optionalDuration(value) {
   if (value == null) return undefined;
   return intInRange(value, 0, 3600000, "durationMs");
 }
+function finiteOrNull(value, key, min = -1000000, max = 1000000) {
+  if (value == null) return null;
+  if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new TypeError("Invalid " + key);
+  return value;
+}
+function boolOrNull(value, key) {
+  if (value == null) return null;
+  if (typeof value !== "boolean") throw new TypeError("Invalid " + key);
+  return value;
+}
+function faceResearchAttemptPayload(source) {
+  const baseline = object(source.baseline) ? source.baseline : {};
+  const quality = object(source.quality) ? source.quality : {};
+  const capacity = object(source.capacity) ? source.capacity : {};
+  const versions = object(source.versions) ? source.versions : {};
+  const thresholds = object(source.thresholds) ? source.thresholds : {};
+  return {
+    testAttemptId: identifier(source.testAttemptId, "testAttemptId"),
+    moduleRunId: identifier(source.moduleRunId, "moduleRunId"),
+    attemptNo: intInRange(source.attemptNo, 1, 100, "attemptNo"),
+    sampleIntervalMs: intInRange(source.sampleIntervalMs, 50, 1000, "sampleIntervalMs"),
+    sourceFrameCount: intInRange(source.sourceFrameCount, 0, 1000, "sourceFrameCount"),
+    outcome: optionalEnum(source.outcome, FACE_OUTCOMES, "outcome"),
+    invalidReasonCode: optionalString(source.invalidReasonCode, 80, "invalidReasonCode"),
+    baseline: {
+      sampleCount: baseline.sampleCount == null ? null : intInRange(baseline.sampleCount, 0, 1000, "baseline.sampleCount"),
+      baseLeft: finiteOrNull(baseline.baseLeft, "baseline.baseLeft"),
+      baseRight: finiteOrNull(baseline.baseRight, "baseline.baseRight"),
+      baseEyeDistance: finiteOrNull(baseline.baseEyeDistance, "baseline.baseEyeDistance", 0, 10),
+      baseRawMouthLeftY: finiteOrNull(baseline.baseRawMouthLeftY, "baseline.baseRawMouthLeftY"),
+      baseRawMouthRightY: finiteOrNull(baseline.baseRawMouthRightY, "baseline.baseRawMouthRightY"),
+      restAsymMean: finiteOrNull(baseline.restAsymMean, "baseline.restAsymMean", 0, 10),
+      restAsymMax: finiteOrNull(baseline.restAsymMax, "baseline.restAsymMax", 0, 10),
+      criticalTriggered: boolOrNull(baseline.criticalTriggered, "baseline.criticalTriggered"),
+      criticalRestAsym: finiteOrNull(baseline.criticalRestAsym, "baseline.criticalRestAsym", 0, 10)
+    },
+    quality: {
+      faceDetectedRatio: finiteOrNull(quality.faceDetectedRatio, "quality.faceDetectedRatio", 0, 1),
+      poseValidRatio: finiteOrNull(quality.poseValidRatio, "quality.poseValidRatio", 0, 1),
+      mouthAssessableRatio: finiteOrNull(quality.mouthAssessableRatio, "quality.mouthAssessableRatio", 0, 1),
+      handOverlapRatio: finiteOrNull(quality.handOverlapRatio, "quality.handOverlapRatio", 0, 1),
+      avgMouthVisibilityScore: finiteOrNull(quality.avgMouthVisibilityScore, "quality.avgMouthVisibilityScore", 0, 10),
+      avgEyeDistance: finiteOrNull(quality.avgEyeDistance, "quality.avgEyeDistance", 0, 10),
+      minEyeDistanceRatioFromBaseline: finiteOrNull(quality.minEyeDistanceRatioFromBaseline, "quality.minEyeDistanceRatioFromBaseline", 0, 10),
+      maxEyeDistanceRatioFromBaseline: finiteOrNull(quality.maxEyeDistanceRatioFromBaseline, "quality.maxEyeDistanceRatioFromBaseline", 0, 10)
+    },
+    capacity: {
+      peakSmileLeft: finiteOrNull(capacity.peakSmileLeft, "capacity.peakSmileLeft", 0, 10),
+      peakSmileRight: finiteOrNull(capacity.peakSmileRight, "capacity.peakSmileRight", 0, 10),
+      peakNormalizedRiseLeft: finiteOrNull(capacity.peakNormalizedRiseLeft, "capacity.peakNormalizedRiseLeft"),
+      peakNormalizedRiseRight: finiteOrNull(capacity.peakNormalizedRiseRight, "capacity.peakNormalizedRiseRight"),
+      aggregatedSignedRiseLeft: finiteOrNull(capacity.aggregatedSignedRiseLeft, "capacity.aggregatedSignedRiseLeft"),
+      aggregatedSignedRiseRight: finiteOrNull(capacity.aggregatedSignedRiseRight, "capacity.aggregatedSignedRiseRight"),
+      effectiveRiseLeft: finiteOrNull(capacity.effectiveRiseLeft, "capacity.effectiveRiseLeft"),
+      effectiveRiseRight: finiteOrNull(capacity.effectiveRiseRight, "capacity.effectiveRiseRight")
+    },
+    dynamic: object(source.dynamic) ? source.dynamic : null,
+    versions: {
+      appVersion: optionalString(versions.appVersion, 100, "versions.appVersion"),
+      buildId: optionalString(versions.buildId, 120, "versions.buildId"),
+      configVersion: optionalString(versions.configVersion, 100, "versions.configVersion"),
+      faceModuleVersion: optionalString(versions.faceModuleVersion, 100, "versions.faceModuleVersion"),
+      algorithmVersion: optionalString(versions.algorithmVersion, 100, "versions.algorithmVersion"),
+      researchPayloadVersion: optionalString(versions.researchPayloadVersion, 100, "versions.researchPayloadVersion"),
+      configHash: optionalString(versions.configHash, 120, "versions.configHash")
+    },
+    thresholds: {
+      weakSideRatioBad: finiteOrNull(thresholds.weakSideRatioBad, "thresholds.weakSideRatioBad", 0, 10),
+      weakSideRatioShadow: finiteOrNull(thresholds.weakSideRatioShadow, "thresholds.weakSideRatioShadow", 0, 10),
+      smileAsymWarn: finiteOrNull(thresholds.smileAsymWarn, "thresholds.smileAsymWarn", 0, 10),
+      smileAsymBad: finiteOrNull(thresholds.smileAsymBad, "thresholds.smileAsymBad", 0, 10),
+      restAsymCritical: finiteOrNull(thresholds.restAsymCritical, "thresholds.restAsymCritical", 0, 10),
+      smileDetectMin: finiteOrNull(thresholds.smileDetectMin, "thresholds.smileDetectMin", 0, 10),
+      smileDetectSide: finiteOrNull(thresholds.smileDetectSide, "thresholds.smileDetectSide", 0, 10),
+      smileValidStrength: finiteOrNull(thresholds.smileValidStrength, "thresholds.smileValidStrength", 0, 10),
+      smileRealMin: finiteOrNull(thresholds.smileRealMin, "thresholds.smileRealMin", 0, 10),
+      closedSmileRiseMin: finiteOrNull(thresholds.closedSmileRiseMin, "thresholds.closedSmileRiseMin", 0, 10)
+    },
+    derivedNumericTelemetryOnly: source.derivedNumericTelemetryOnly === true
+  };
+}
+function faceResearchSamplesPayload(source) {
+  if (!Array.isArray(source.rows) || source.rows.length < 1 || source.rows.length > 6) throw new TypeError("Invalid face sample rows");
+  const rows = source.rows.map((row, rowIndex) => {
+    if (!Array.isArray(row) || row.length !== FACE_SAMPLE_FIELDS.length) throw new TypeError("Invalid face sample row");
+    return row.map((value, columnIndex) => {
+      if (value == null) return null;
+      if (typeof value !== "number" || !Number.isFinite(value) || Math.abs(value) > 10000000) {
+        throw new TypeError("Invalid face sample value " + rowIndex + ":" + columnIndex);
+      }
+      return value;
+    });
+  });
+  return {
+    testAttemptId: identifier(source.testAttemptId, "testAttemptId"),
+    moduleRunId: identifier(source.moduleRunId, "moduleRunId"),
+    batchNo: intInRange(source.batchNo, 1, 100, "batchNo"),
+    totalBatches: intInRange(source.totalBatches, 1, 100, "totalBatches"),
+    sampleIntervalMs: intInRange(source.sampleIntervalMs, 50, 1000, "sampleIntervalMs"),
+    fields: FACE_SAMPLE_FIELDS,
+    rows
+  };
+}
+
 function payloadFor(type, source) {
   if (!object(source)) throw new TypeError("Invalid event payload");
   if (type === "module_run_completed") {
@@ -77,6 +191,8 @@ function payloadFor(type, source) {
       durationMs: optionalDuration(source.durationMs)
     };
   }
+  if (type === "face_research_attempt") return faceResearchAttemptPayload(source);
+  if (type === "face_research_samples") return faceResearchSamplesPayload(source);
   if (type === "technical_event") {
     if (!TECH_CODES.has(source.code)) throw new TypeError("Unrecognized technical event");
     return { code: source.code, relatedModuleRunId: source.relatedModuleRunId ? identifier(source.relatedModuleRunId, "relatedModuleRunId") : undefined };
@@ -93,7 +209,8 @@ export function sanitizeEvent(source) {
   const type = source.eventType;
   const module = source.module == null ? null : source.module;
   if (module !== null && !MODULES.has(module)) throw new TypeError("Invalid module");
-  if ((type === "module_run_completed" || type === "test_attempt_completed") && !module) throw new TypeError("Missing module");
+  if ((type === "module_run_completed" || type === "test_attempt_completed" || type === "face_research_attempt" || type === "face_research_samples") && !module) throw new TypeError("Missing module");
+  if ((type === "face_research_attempt" || type === "face_research_samples") && module !== "face") throw new TypeError("Face research events require face module");
   // Explicit allowlist: unknown user-controlled properties are never forwarded to storage.
   const sanitized = {
     client_event_id: source.eventId,
