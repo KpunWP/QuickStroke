@@ -69,7 +69,7 @@ assert.deepEqual(
 );
 assert.deepEqual(
   orientationCase({legacyAngle:-90,width:844,height:390}),
-  {angle:-90,type:"landscape-primary",source:"window.orientation",inferred:false}
+  {angle:270,type:"landscape-primary",source:"window.orientation",inferred:false}
 );
 assert.deepEqual(
   orientationCase({width:390,height:844}),
