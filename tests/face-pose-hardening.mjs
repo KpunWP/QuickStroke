@@ -43,6 +43,6 @@ assert.match(face,/pitchDeg:roundMetric\(pitchDeg,2\)/);
 assert.match(face,/rollDeg:roundMetric\(rollDeg,2\)/);
 
 assert.match(config,/algorithmVersion:\s*"face-asymmetry-1\.6\.0"/);
-assert.match(config,/researchPayloadVersion:\s*"face-research-0\.8\.0"/);
+assert.match(config,/researchPayloadVersion:\s*"face-research-0\.9\.0"/);
 
 console.log("PASS: P0-E uses 15/18/15 measurement pose, 12/15/12 rest-safety pose, preserves 3/8 hysteresis and raw pose telemetry");
