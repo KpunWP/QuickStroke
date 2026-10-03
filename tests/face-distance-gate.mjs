@@ -9,7 +9,7 @@ assert.match(config,/distanceIdealMax:\s*1\.15/);
 assert.match(config,/distanceAcceptMin:\s*0\.80/);
 assert.match(config,/distanceAcceptMax:\s*1\.20/);
 assert.match(config,/algorithmVersion:\s*"face-asymmetry-1\.6\.0"/);
-assert.match(config,/researchPayloadVersion:\s*"face-research-0\.8\.0"/);
+assert.match(config,/researchPayloadVersion:\s*"face-research-0\.9\.0"/);
 
 assert.match(face,/function distanceWithinAcceptableGate\(ratio\)/);
 assert.match(face,/ratio>=DISTANCE_ACCEPT_MIN && ratio<=DISTANCE_ACCEPT_MAX/);
