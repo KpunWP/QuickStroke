@@ -1986,6 +1986,11 @@ const HAND_MOUTH_OVERLAP_MIN = FACE_CFG.handMouthOverlapMin ?? 0.08;
 
 const MAX_WAIT_FOR_SMILE_MS = FACE_CFG.maxWaitForSmileMs ?? 14000;
 const BASELINE_ALIGNMENT_TIMEOUT_MS = FACE_CFG.baselineAlignmentTimeoutMs ?? 30000;
+const BASELINE_MIN_VALID_FRAMES = FACE_CFG.baselineMinValidFrames ?? 12;
+const BASELINE_NEUTRAL_SMILE_MAX = FACE_CFG.baselineNeutralSmileMax ?? 0.08;
+const BASELINE_NEUTRAL_MOUTH_ACTIVITY_MAX = FACE_CFG.baselineNeutralMouthActivityMax ?? 0.20;
+const BASELINE_CORNER_MAD_MAX = FACE_CFG.baselineCornerMadMax ?? 0.020;
+const BASELINE_EYE_DISTANCE_REL_MAD_MAX = FACE_CFG.baselineEyeDistanceRelativeMadMax ?? 0.040;
 const SMILE_LOST_GRACE_MS = FACE_CFG.smileLostGraceMs ?? 1400;
 const SMILE_OCCLUSION_RESET_MS = FACE_CFG.smileOcclusionResetMs ?? 120;
 const MIN_VALID_SMILE_RATIO = FACE_CFG.minValidSmileRatio ?? 0.08;
@@ -2035,9 +2040,14 @@ let poseGoodFrames = 0;  // debounce: ต้องนิ่งติดกัน
 let restCornerAsymSamples = [];   // resting asymmetry in normalized eye frame
 let restCornerL = [], restCornerR = [], restEyeW = [];
 let restRawMouthLeftY = [], restRawMouthRightY = [];
+let restNormalizedMouthLeftX = [], restNormalizedMouthRightX = [], restMouthWidth = [];
+let restSmileLeft = [], restSmileRight = [];
+let baselineNeutralRejectedFrames = 0;
 let restEyeCenterX = [], restEyeCenterY = [], restEyeLineRollDeg = [];
 let baseL = null, baseR = null, baseEyeW = null;
 let baseRawMouthLeftY = null, baseRawMouthRightY = null;
+let baseNormalizedMouthLeftX = null, baseNormalizedMouthRightX = null, baseMouthWidth = null;
+let baselineSmileLeft = null, baselineSmileRight = null;
 let baseEyeCenterX = null, baseEyeCenterY = null, baseEyeLineRollDeg = null;
 let criticalFired = false;
 
@@ -2170,6 +2180,40 @@ function median(values){
   return finite.length % 2
     ? finite[middle]
     : (finite[middle - 1] + finite[middle]) / 2;
+}
+function medianAbsoluteDeviation(values){
+  const center = median(values);
+  if (!Number.isFinite(center)) return null;
+  return median(values.filter(Number.isFinite).map((value)=>Math.abs(value-center)));
+}
+function baselineStabilitySummary(){
+  const eyeMedian = median(restEyeW);
+  const eyeMad = medianAbsoluteDeviation(restEyeW);
+  const leftMad = medianAbsoluteDeviation(restCornerL);
+  const rightMad = medianAbsoluteDeviation(restCornerR);
+  const eyeRelativeMad = Number.isFinite(eyeMedian) && eyeMedian > 1e-9 && Number.isFinite(eyeMad)
+    ? eyeMad / eyeMedian
+    : null;
+  const stable = restCornerL.length >= BASELINE_MIN_VALID_FRAMES
+    && Number.isFinite(leftMad) && leftMad <= BASELINE_CORNER_MAD_MAX
+    && Number.isFinite(rightMad) && rightMad <= BASELINE_CORNER_MAD_MAX
+    && Number.isFinite(eyeRelativeMad) && eyeRelativeMad <= BASELINE_EYE_DISTANCE_REL_MAD_MAX;
+  return {stable,leftMad,rightMad,eyeMad,eyeRelativeMad,validFrameCount:restCornerL.length,rejectedNeutralFrameCount:baselineNeutralRejectedFrames};
+}
+function baselineNeutrality(blend){
+  const smileLeft = bs(blend,'mouthSmileLeft');
+  const smileRight = bs(blend,'mouthSmileRight');
+  const mouthActivity = Math.max(
+    bs(blend,'jawOpen'),
+    bs(blend,'mouthFunnel'),
+    bs(blend,'mouthPucker'),
+    bs(blend,'cheekPuff')
+  );
+  return {
+    valid:Math.max(smileLeft,smileRight) <= BASELINE_NEUTRAL_SMILE_MAX
+      && mouthActivity <= BASELINE_NEUTRAL_MOUTH_ACTIVITY_MAX,
+    smileLeft,smileRight,mouthActivity
+  };
 }
 function roundMetric(value, digits=4){
   return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
@@ -2422,7 +2466,16 @@ function canonicalFaceObservationStatus(riskLevel, validityStatus){
 function currentFaceBaselineSnapshot(){
   return {
     sampleCount:restCornerL.length,
+    aggregationMethod:'median-neutral-valid-frames',
     baseLeft:roundMetric(baseL), baseRight:roundMetric(baseR), baseEyeDistance:roundMetric(baseEyeW),
+    baseLeftMean:roundMetric(average(restCornerL)), baseRightMean:roundMetric(average(restCornerR)),
+    baseEyeDistanceMean:roundMetric(average(restEyeW)),
+    baselineSmileLeft:roundMetric(baselineSmileLeft), baselineSmileRight:roundMetric(baselineSmileRight),
+    baselineSmileLeftMean:roundMetric(average(restSmileLeft)), baselineSmileRightMean:roundMetric(average(restSmileRight)),
+    baseNormalizedMouthLeftX:roundMetric(baseNormalizedMouthLeftX),
+    baseNormalizedMouthRightX:roundMetric(baseNormalizedMouthRightX),
+    baseMouthWidth:roundMetric(baseMouthWidth), baseMouthWidthMean:roundMetric(average(restMouthWidth)),
+    stability:JSON.parse(JSON.stringify(baselineStabilitySummary(),(key,value)=>Number.isFinite(value)?roundMetric(value):value)),
     baseRawMouthLeftY:roundMetric(baseRawMouthLeftY), baseRawMouthRightY:roundMetric(baseRawMouthRightY),
     baseEyeCenterX:roundMetric(baseEyeCenterX), baseEyeCenterY:roundMetric(baseEyeCenterY),
     baseEyeLineRollDeg:roundMetric(baseEyeLineRollDeg,2),
@@ -3099,7 +3152,20 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       sampleCount: restCornerL.length,
       baseLeft: roundMetric(baseL),
       baseRight: roundMetric(baseR),
+      aggregationMethod:'median-neutral-valid-frames',
       baseEyeDistance: roundMetric(baseEyeW),
+      baseLeftMean:roundMetric(average(restCornerL)),
+      baseRightMean:roundMetric(average(restCornerR)),
+      baseEyeDistanceMean:roundMetric(average(restEyeW)),
+      baselineSmileLeft:roundMetric(baselineSmileLeft),
+      baselineSmileRight:roundMetric(baselineSmileRight),
+      baselineSmileLeftMean:roundMetric(average(restSmileLeft)),
+      baselineSmileRightMean:roundMetric(average(restSmileRight)),
+      baseNormalizedMouthLeftX:roundMetric(baseNormalizedMouthLeftX),
+      baseNormalizedMouthRightX:roundMetric(baseNormalizedMouthRightX),
+      baseMouthWidth:roundMetric(baseMouthWidth),
+      baseMouthWidthMean:roundMetric(average(restMouthWidth)),
+      stability:JSON.parse(JSON.stringify(baselineStabilitySummary(),(key,value)=>Number.isFinite(value)?roundMetric(value):value)),
       // Deprecated compatibility alias; now represents center-to-center eye distance.
       baseEyeWidth: roundMetric(baseEyeW),
       baseRawMouthLeftY: roundMetric(baseRawMouthLeftY),
@@ -3467,6 +3533,7 @@ function updateFaceStatusCards(){
     const baselineFailureCodes = new Set([
       'NO_FACE_TIMEOUT',
       'BASELINE_INSUFFICIENT',
+      'BASELINE_UNSTABLE',
       'POSE_ALIGNMENT_TIMEOUT',
       'CAMERA_PERMISSION_DENIED',
       'CAMERA_NOT_AVAILABLE',
@@ -3940,9 +4007,13 @@ function startScreening(){
   criticalNoticeUntilMs=0;
   restCornerAsymSamples=[]; restCornerL=[]; restCornerR=[]; restEyeW=[];
   restRawMouthLeftY=[]; restRawMouthRightY=[];
+  restNormalizedMouthLeftX=[]; restNormalizedMouthRightX=[]; restMouthWidth=[];
+  restSmileLeft=[]; restSmileRight=[]; baselineNeutralRejectedFrames=0;
   restEyeCenterX=[]; restEyeCenterY=[]; restEyeLineRollDeg=[];
   baseL=null; baseR=null; baseEyeW=null;
   baseRawMouthLeftY=null; baseRawMouthRightY=null;
+  baseNormalizedMouthLeftX=null; baseNormalizedMouthRightX=null; baseMouthWidth=null;
+  baselineSmileLeft=null; baselineSmileRight=null;
   baseEyeCenterX=null; baseEyeCenterY=null; baseEyeLineRollDeg=null;
   criticalFired=false; noFaceCount=0; poseBadFrames=0; poseGoodFrames=0;
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
@@ -3972,10 +4043,10 @@ function calibrationTick(){
   countdownVal--;
   if (countdownVal > 0){ showCenterCountdown(countdownVal); return; }
 
-  // The 3-second countdown is the minimum neutral collection period, not the
-  // maximum alignment wait. Keep waiting for enough baseline samples up to the
-  // configured 30-second readiness timeout.
-  if (restCornerL.length < 5){
+  // The countdown is only the minimum neutral-collection period. Continue until
+  // enough neutral-valid frames are present AND the robust baseline is stable.
+  const stability = baselineStabilitySummary();
+  if (!stability.stable){
     const elapsed = baselineWaitStartMs ? Date.now() - baselineWaitStartMs : 0;
     if (elapsed < BASELINE_ALIGNMENT_TIMEOUT_MS){
       countdownVal = 1;
@@ -3983,19 +4054,31 @@ function calibrationTick(){
       return;
     }
     clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
-    finishInvalid('BASELINE_INSUFFICIENT', {allowAutoRetry:false, detail:{baselineSamples:restCornerL.length}});
+    const reason = restCornerL.length < BASELINE_MIN_VALID_FRAMES ? 'BASELINE_INSUFFICIENT' : 'BASELINE_UNSTABLE';
+    finishInvalid(reason, {allowAutoRetry:false, detail:{
+      baselineSamples:restCornerL.length,
+      neutralRejectedFrames:baselineNeutralRejectedFrames,
+      leftMad:stability.leftMad,
+      rightMad:stability.rightMad,
+      eyeRelativeMad:stability.eyeRelativeMad
+    }});
     return;
   }
 
   clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
-  baseL = average(restCornerL);
-  baseR = average(restCornerR);
-  baseEyeW = average(restEyeW) || 0.1;
-  baseRawMouthLeftY = average(restRawMouthLeftY);
-  baseRawMouthRightY = average(restRawMouthRightY);
-  baseEyeCenterX = average(restEyeCenterX);
-  baseEyeCenterY = average(restEyeCenterY);
-  baseEyeLineRollDeg = average(restEyeLineRollDeg);
+  baseL = median(restCornerL);
+  baseR = median(restCornerR);
+  baseEyeW = median(restEyeW) || 0.1;
+  baseRawMouthLeftY = median(restRawMouthLeftY);
+  baseRawMouthRightY = median(restRawMouthRightY);
+  baseNormalizedMouthLeftX = median(restNormalizedMouthLeftX);
+  baseNormalizedMouthRightX = median(restNormalizedMouthRightX);
+  baseMouthWidth = median(restMouthWidth);
+  baselineSmileLeft = median(restSmileLeft);
+  baselineSmileRight = median(restSmileRight);
+  baseEyeCenterX = median(restEyeCenterX);
+  baseEyeCenterY = median(restEyeCenterY);
+  baseEyeLineRollDeg = median(restEyeLineRollDeg);
   startActionPhase();
 }
 
@@ -4205,6 +4288,7 @@ function onResults(results, handResults=null){
   lastMouthVisible = mouthVis.visible && !lastHandMouthOverlap;
 
   const sampledPoseValid = Math.abs(yawDeg) <= MAX_ALLOWED_YAW && Math.abs(pitchDeg) <= MAX_ALLOWED_PITCH && Math.abs(rollDeg) <= MAX_ALLOWED_ROLL;
+  const neutral = phase==='RESTING_PHASE' ? baselineNeutrality(blend) : null;
   recordResearchFrame({
     faceDetected:true,
     poseValid:sampledPoseValid,
@@ -4256,6 +4340,8 @@ function onResults(results, handResults=null){
 
     smileLeft:roundMetric(smileL),
     smileRight:roundMetric(smileR),
+    baselineNeutralValid:neutral ? neutral.valid : null,
+    baselineMouthActivity:neutral ? roundMetric(neutral.mouthActivity) : null,
     riseLeft:roundMetric(signedRiseLn),
     riseRight:roundMetric(signedRiseRn),
     blendSmileEvidence:inActionPhase ? smileEvidence.blendSmileEvidence : null,
@@ -4333,9 +4419,20 @@ function onResults(results, handResults=null){
 
   /* ── RESTING: collect neutral baseline + resting-droop check ── */
   if (phase==='RESTING_PHASE'){
+    // Neutral gate intentionally does NOT require left/right symmetry. A real
+    // resting droop must remain eligible baseline/safety evidence.
+    if (!neutral?.valid){
+      baselineNeutralRejectedFrames++;
+      if (activeNoticeKind !== 'status' || activeNoticeText !== FL.step1) showStatusPanel(FL.step1);
+      return;
+    }
     restCornerL.push(mLy); restCornerR.push(mRy); restEyeW.push(eyeW);
     restRawMouthLeftY.push(rawMouthLeftY);
     restRawMouthRightY.push(rawMouthRightY);
+    restNormalizedMouthLeftX.push(normalizedMouthLeftX);
+    restNormalizedMouthRightX.push(normalizedMouthRightX);
+    restMouthWidth.push(Math.abs(normalizedMouthRightX-normalizedMouthLeftX));
+    restSmileLeft.push(smileL); restSmileRight.push(smileR);
     restEyeCenterX.push(rawEyeCenterX);
     restEyeCenterY.push(rawEyeCenterY);
     restEyeLineRollDeg.push(rollDeg);
