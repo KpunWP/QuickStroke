@@ -171,7 +171,18 @@
         baselineScreenZ:safeFinite(source.posture?.baselineScreenZ,-1.2,1.2),
         flatZThreshold:safeFinite(source.posture?.flatZThreshold,0,1.2),
         portraitYMin:safeFinite(source.posture?.portraitYMin,0,1.2),
-        preMeasureMaxDeltaDeg:safeFinite(source.posture?.preMeasureMaxDeltaDeg,0,180)
+        preMeasureMaxDeltaDeg:safeFinite(source.posture?.preMeasureMaxDeltaDeg,0,180),
+        lastReadinessSnapshot:source.posture?.lastReadinessSnapshot && typeof source.posture.lastReadinessSnapshot==="object"
+          ? {
+              stage:typeof source.posture.lastReadinessSnapshot.stage==="string"&&/^[a-z_]{1,40}$/.test(source.posture.lastReadinessSnapshot.stage)?source.posture.lastReadinessSnapshot.stage:undefined,
+              invalidReason:typeof source.posture.lastReadinessSnapshot.invalidReason==="string"&&/^[a-z_]{1,80}$/.test(source.posture.lastReadinessSnapshot.invalidReason)?source.posture.lastReadinessSnapshot.invalidReason:undefined,
+              screenY:safeFinite(source.posture.lastReadinessSnapshot.screenY,-1.2,1.2),
+              screenZ:safeFinite(source.posture.lastReadinessSnapshot.screenZ,-1.2,1.2),
+              screenAngle:safeFinite(source.posture.lastReadinessSnapshot.screenAngle,-360,360),
+              screenType:typeof source.posture.lastReadinessSnapshot.screenType==="string"&&/^[\w-]{1,40}$/.test(source.posture.lastReadinessSnapshot.screenType)?source.posture.lastReadinessSnapshot.screenType:undefined,
+              sensorSource:typeof source.posture.lastReadinessSnapshot.sensorSource==="string"&&/^[\w-]{1,40}$/.test(source.posture.lastReadinessSnapshot.sensorSource)?source.posture.lastReadinessSnapshot.sensorSource:undefined
+            }
+          : undefined
       },
       sensor:{
         acceptedSamples:int(source.sensor?.acceptedSamples,0,100000),
