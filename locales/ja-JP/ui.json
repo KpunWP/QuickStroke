@@ -91,6 +91,7 @@
     "distanceTooClose": "↔️ カメラから少し離れてください",
     "distanceTooFar": "↔️ カメラに少し近づいてください",
     "critical": "🚨 顔の左右差が大きい可能性\n脳卒中が疑われる場合は救急要請",
+    "earlySafetyAction": "結果と緊急時の案内を見る",
     "faceDone": "顔の判定が完了",
     "faceAbnormal": "⚠️ 顔の左右差の可能性",
     "navResult": "結果",
