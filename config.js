@@ -95,9 +95,9 @@ window.QS_CONFIG = {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
       version: "face-prepilot-1.4.0",
-      algorithmVersion: "face-asymmetry-1.3.0",
+      algorithmVersion: "face-asymmetry-1.4.0",
       resultSchemaVersion: "face-result-1.3.0",
-      researchPayloadVersion: "face-research-0.5.0",
+      researchPayloadVersion: "face-research-0.6.0",
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
@@ -172,9 +172,15 @@ window.QS_CONFIG = {
       restAsymCritical: 0.30,
       criticalNoticeMs: 2000,
 
-      maxAllowedYaw: 28,
-      maxAllowedPitch: 24,
-      maxAllowedRoll: 20,
+      // P0-E engineering/pre-pilot pose gates. NOT clinical cutoffs.
+      // Measurement gate applies to baseline/smile validity. Resting high-weight
+      // safety evidence requires the tighter second gate below.
+      maxAllowedYaw: 15,
+      maxAllowedPitch: 18,
+      maxAllowedRoll: 15,
+      restSafetyMaxYaw: 12,
+      restSafetyMaxPitch: 15,
+      restSafetyMaxRoll: 12,
       poseBadTripFrames: 3,
       poseGoodResumeFrames: 8,
 
