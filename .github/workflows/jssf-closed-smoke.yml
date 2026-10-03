@@ -12,6 +12,7 @@ on:
       - face-test.html
       - config.js
       - tests/face-p0-static.mjs
+      - tests/run-tests.mjs
       - supabase/functions/jssf-remote-ingest/**
       - supabase/migrations/20261003072000_jssf_face_research_events.sql
   workflow_dispatch:
