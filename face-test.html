@@ -2752,6 +2752,34 @@ function currentGeometryRiseAggregation(){
   };
 }
 
+function summarizePairedBlendAsymmetry(){
+  const values = validFrameAsymmetryTimeline
+    .map((item)=>Number(item.value))
+    .filter(Number.isFinite);
+  const overWarn = values.filter((value)=>value >= SMILE_ASYM_WARN).length;
+  const overBad = values.filter((value)=>value >= SMILE_ASYM_BAD).length;
+  let longestMs = 0, segmentStart = null, previousAt = null;
+  for (const item of validFrameAsymmetryTimeline){
+    const at = Number(item.atMs), value = Number(item.value);
+    if (!Number.isFinite(at) || !Number.isFinite(value) || value < SMILE_ASYM_WARN){
+      segmentStart = null; previousAt = null; continue;
+    }
+    if (segmentStart === null || previousAt === null || at - previousAt > 200) segmentStart = at;
+    previousAt = at;
+    longestMs = Math.max(longestMs, at - segmentStart);
+  }
+  return {
+    frameCount:values.length,
+    median:median(values),
+    p75:percentile(values,0.75),
+    p90:percentile(values,0.90),
+    max:values.length ? Math.max(...values) : null,
+    overWarnRatio:values.length ? overWarn / values.length : null,
+    overBadRatio:values.length ? overBad / values.length : null,
+    longestOverWarnMs:longestMs
+  };
+}
+
 function summarizeAttemptFrames(frames){
   const total = frames.length;
   const count = (predicate) => frames.filter(predicate).length;
@@ -4590,6 +4618,7 @@ function onResults(results, handResults=null){
       smileLostSinceMs = null;
       validSmileFrames++;
       frameAsymScores.push(frameAsym);
+      validFrameAsymmetryTimeline.push({atMs:now,value:frameAsym});
       validSignedRiseL.push(signedRiseLn);
       validSignedRiseR.push(signedRiseRn);
       peakSmileL = Math.max(peakSmileL, smileL);
