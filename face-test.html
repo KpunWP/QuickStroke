@@ -4428,23 +4428,31 @@ function onResults(results, handResults=null){
     }
   }
 
-  /* ── RESTING: collect neutral baseline + resting-droop check ── */
+  /* ── RESTING: collect robust neutral baseline + resting-droop evidence ── */
   if (phase==='RESTING_PHASE'){
-    restCornerL.push(mLy); restCornerR.push(mRy); restEyeW.push(eyeW);
+    restCornerL.push(mLy); restCornerR.push(mRy);
+    restCornerLX.push(normalizedMouthLeftX); restCornerRX.push(normalizedMouthRightX);
+    restEyeW.push(eyeW);
+    restSmileL.push(smileL); restSmileR.push(smileR); restMouthWidth.push(mouthWidth);
     restRawMouthLeftY.push(rawMouthLeftY);
     restRawMouthRightY.push(rawMouthRightY);
     restEyeCenterX.push(rawEyeCenterX);
     restEyeCenterY.push(rawEyeCenterY);
     restEyeLineRollDeg.push(rollDeg);
+
     const restAsym = Math.abs(mLy - mRy);
     restCornerAsymSamples = [...restCornerAsymSamples.slice(-7), restAsym];
-    if (restCornerAsymSamples.length >= 8){
-      const avg = average(restCornerAsymSamples);
-      if (avg > REST_ASYM_CRITICAL && !criticalFired && absRoll < 12){
-        // Option B: retain the safety flag but continue to the smile action so the
-        // pre-pilot dataset contains both resting and smile measurements.
+    const restPoseEligible =
+      absYaw <= REST_MAX_ALLOWED_YAW &&
+      absPitch <= REST_MAX_ALLOWED_PITCH &&
+      absRoll <= REST_MAX_ALLOWED_ROLL;
+    if (restCornerAsymSamples.length >= 8 && restPoseEligible){
+      const robustRestAsym = median(restCornerAsymSamples);
+      if (robustRestAsym > REST_ASYM_CRITICAL && !criticalFired){
+        // Preserve resting asymmetry as independent safety evidence while still
+        // continuing to smile collection for research concordance/discordance.
         criticalFired = true;
-        criticalRestAsym = avg;
+        criticalRestAsym = robustRestAsym;
         criticalNoticeUntilMs = Date.now() + CRITICAL_NOTICE_MS;
         setUI({glassColor:'var(--col-red-glass)', msg:FL.critical, showReset:true, showHud:true, pulse:true});
       }
