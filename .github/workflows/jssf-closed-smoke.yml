@@ -17,6 +17,7 @@ on:
       - tests/face-baseline-hardening.mjs
       - tests/face-closed-smile-path.mjs
       - tests/face-dynamic-asymmetry-shadow.mjs
+      - tests/face-pose-hardening.mjs
       - tests/run-tests.mjs
       - jssf-consent.html
   workflow_dispatch:
@@ -42,6 +43,7 @@ jobs:
           node tests/face-baseline-hardening.mjs
           node tests/face-closed-smile-path.mjs
           node tests/face-dynamic-asymmetry-shadow.mjs
+          node tests/face-pose-hardening.mjs
           node tests/run-tests.mjs
           node tests/jssf-retention-static.mjs
       - name: Exercise synthetic offline retry and idempotency
