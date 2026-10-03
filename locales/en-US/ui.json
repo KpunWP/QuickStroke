@@ -91,6 +91,7 @@
     "distanceTooClose": "↔️ Move slightly farther from the camera",
     "distanceTooFar": "↔️ Move slightly closer to the camera",
     "critical": "🚨 Marked facial asymmetry detected\nIf stroke is suspected, call emergency services now",
+    "earlySafetyAction": "View result and emergency guidance",
     "faceDone": "Face assessment complete",
     "faceAbnormal": "⚠️ Possible facial asymmetry",
     "navResult": "Results",
