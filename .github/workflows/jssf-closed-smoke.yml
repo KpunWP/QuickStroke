@@ -36,6 +36,7 @@ jobs:
           node tests/jssf-remote-staging.mjs
           node tests/jssf-face-research-contract.mjs
           node tests/face-baseline-hardening.mjs
+          node tests/run-tests.mjs
           node tests/jssf-retention-static.mjs
       - name: Exercise synthetic offline retry and idempotency
         run: node tests/jssf-remote-sync-flow.mjs
