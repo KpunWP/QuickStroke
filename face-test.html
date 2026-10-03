@@ -2472,6 +2472,49 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
       });
       await FACE_RESEARCH_STORE.appendSensorObservations(observations);
     }
+    // JSSF remote profile receives only sanitized derived telemetry. Raw images,
+    // video and audio are never queued. The remote client applies a second
+    // allowlist before upload and the Edge function validates it again.
+    if (window.QuickStrokeJssfRemote?.queueFaceResearchAttempt) {
+      const safeSummary = {
+        validityStatus:finalizedAttempt.validityStatus || null,
+        invalidReasonCode:finalizedAttempt.invalidReasonCode || null,
+        riskLevel:legacySnapshot?.riskLevel || legacySnapshot?.breakdown?.riskLevel || null,
+        representativeAsym:legacySnapshot?.representativeAsym ?? legacySnapshot?.breakdown?.representativeAsym ?? null,
+        blendAsym:legacySnapshot?.blendAsym ?? legacySnapshot?.breakdown?.blendAsym ?? null,
+        riseAsym:legacySnapshot?.riseAsym ?? legacySnapshot?.breakdown?.riseAsym ?? null,
+        weakRatio:legacySnapshot?.weakRatio ?? legacySnapshot?.breakdown?.weakRatio ?? null,
+        geometryRiseUsable:legacySnapshot?.geometryRiseUsable ?? legacySnapshot?.breakdown?.geometryRiseUsable ?? null,
+        aggregatedSignedRiseLeft:legacySnapshot?.aggregatedSignedRiseLeft ?? legacySnapshot?.breakdown?.aggregatedSignedRiseLeft ?? null,
+        aggregatedSignedRiseRight:legacySnapshot?.aggregatedSignedRiseRight ?? legacySnapshot?.breakdown?.aggregatedSignedRiseRight ?? null,
+        effectiveRiseLeft:legacySnapshot?.effectiveRiseLeft ?? legacySnapshot?.breakdown?.effectiveRiseLeft ?? null,
+        effectiveRiseRight:legacySnapshot?.effectiveRiseRight ?? legacySnapshot?.breakdown?.effectiveRiseRight ?? null,
+        restingCriticalTriggered:legacySnapshot?.restingCriticalTriggered ?? legacySnapshot?.breakdown?.restingCriticalTriggered ?? null,
+        restAsym:legacySnapshot?.restAsym ?? legacySnapshot?.breakdown?.restAsym ?? null,
+        peakSmileL:legacySnapshot?.peakSmileL ?? legacySnapshot?.breakdown?.peakSmileL ?? null,
+        peakSmileR:legacySnapshot?.peakSmileR ?? legacySnapshot?.breakdown?.peakSmileR ?? null,
+        peakRiseL:legacySnapshot?.peakRiseL ?? legacySnapshot?.breakdown?.peakRiseL ?? null,
+        peakRiseR:legacySnapshot?.peakRiseR ?? legacySnapshot?.breakdown?.peakRiseR ?? null,
+        validSmileFrames:legacySnapshot?.validSmileFrames ?? legacySnapshot?.breakdown?.validSmileFrames ?? null,
+        smileFrameCount:legacySnapshot?.smileFrameCount ?? legacySnapshot?.breakdown?.smileFrameCount ?? null,
+        validSmileRatio:legacySnapshot?.validSmileRatio ?? legacySnapshot?.breakdown?.validSmileRatio ?? null,
+        visibleMouthFrames:legacySnapshot?.visibleMouthFrames ?? legacySnapshot?.breakdown?.visibleMouthFrames ?? null,
+        avgMouthVisibility:legacySnapshot?.avgMouthVisibility ?? legacySnapshot?.breakdown?.avgMouthVisibility ?? null
+      };
+      await window.QuickStrokeJssfRemote.queueFaceResearchAttempt({
+        screeningSessionId:finalizedAttempt.screeningSessionId,
+        moduleRunId:finalizedAttempt.moduleRunId,
+        testAttemptId:finalizedAttempt.testAttemptId,
+        completedAt:finalizedAttempt.completedAt,
+        algorithmVersion:FACE_ALGORITHM_VERSION,
+        researchPayloadVersion:FACE_RESEARCH_PAYLOAD_VERSION,
+        sampleIntervalMs:RESEARCH_SAMPLE_INTERVAL_MS,
+        thresholds:FACE_CFG,
+        baseline:baselineSnapshot,
+        summary:safeSummary,
+        frames:frameSnapshot
+      });
+    }
   });
 }
 function finalizeCanonicalFaceAttempt(outcome, reasonCode, legacyRecord, extra={}){
