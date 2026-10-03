@@ -88,6 +88,8 @@
     "turnLeft": "⬅️ Face forward",
     "lookUp": "⬇️ Lift your head slightly",
     "lookDown": "⬆️ Lower your head slightly",
+    "distanceTooClose": "↔️ Move slightly farther from the camera",
+    "distanceTooFar": "↔️ Move slightly closer to the camera",
     "critical": "🚨 Marked facial asymmetry detected\nIf stroke is suspected, call emergency services now",
     "faceDone": "Face assessment complete",
     "faceAbnormal": "⚠️ Possible facial asymmetry",
