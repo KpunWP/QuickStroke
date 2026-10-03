@@ -322,7 +322,9 @@ export function sanitizeEvent(source) {
     payload: payloadFor(type, source.payload),
     schema_version: CONTRACT_VERSION
   };
-  if (JSON.stringify(sanitized).length > 4000) throw new TypeError("Event too large");
+  const serializedLength = JSON.stringify(sanitized).length;
+  const maxEventBytes = type === "face_research_attempt" ? 8000 : 4000;
+  if (serializedLength > maxEventBytes) throw new TypeError("Event too large");
   return sanitized;
 }
 export function sanitizeBatch(events) {
