@@ -86,14 +86,30 @@ const interrupted=sync.eventFromRecord("module_run",{...sample,moduleRunStatus:"
 assert.equal(interrupted.payload.observationStatus,"indeterminate");
 const attempt=sync.eventFromRecord("test_attempt",{
  ...sample,testAttemptId:"TA-abc123456789",attemptSequenceNo:2,
- invalidReasonCode:"WRIST_MOVEMENT"
+ invalidReasonCode:"WRIST_MOVEMENT",
+ armResearchTelemetry:{
+   schemaVersion:"arm-jssf-telemetry-0.1.0",
+   protocolUnderstanding:{answer:"not_understood",questionVersion:"arm-protocol-understanding-1.0.0",note:"drop-me"},
+   raiseGesture:{detected:true,maxAngleFromRestDeg:12.3456,thresholdDeg:8,hardGate:true},
+   measurement:{targetDurationMs:10000,observedDurationMs:9912,finalDriftMaxDeg:11.4,finalRatioZX:0.25,finalMotionClass:"possible_arm_drift",
+     cutoffs:[3,4,5,6,7,8,10].map(second=>({second,available:true,capturedThroughMs:second*1000,driftMaxDeg:second,peakDeltaX:.1,peakDeltaZ:.04,ratioZX:.4,motionClass:"normal"}))},
+   posture:{baselineStableSpreadDeg:1.2,baselineScreenY:-.88,baselineScreenZ:.12,flatZThreshold:.9,portraitYMin:.55,preMeasureMaxDeltaDeg:5},
+   sensor:{acceptedSamples:500,sourceSwitches:0,telemetrySamples:100},
+   trace:Array.from({length:30},(_,i)=>({tMs:Math.min(i*400,12000),driftDeg:i/10,driftMaxDeg:i/10,deltaX:.1,deltaZ:.04,ratioZX:.4,screenY:-.8,screenZ:.1,sensorFresh:true,extra:"drop-me"}))
+ }
 });
 assert.equal(attempt.eventType,"test_attempt_completed");
 assert.equal(attempt.payload.attemptNo,2);
 assert.equal(attempt.payload.invalidReasonCode,"WRIST_MOVEMENT");
 assert.equal(attempt.payload.qualityStatus,"limited");
-assert.doesNotMatch(JSON.stringify(attempt),/FORBIDDEN/);
-console.log("PASS: post-commit canonical event conversion preserves retry data and excludes raw media");
+assert.equal(attempt.payload.armResearch.protocolUnderstanding.answer,"not_understood");
+assert.equal(attempt.payload.armResearch.raiseGesture.hardGate,false);
+assert.equal(attempt.payload.armResearch.measurement.cutoffs.length,7);
+assert.equal(attempt.payload.armResearch.trace.length,21);
+assert.equal(attempt.payload.armResearch.posture.flatZThreshold,.9);
+assert.equal(attempt.payload.armResearch.sensor.telemetrySamples,100);
+assert.doesNotMatch(JSON.stringify(attempt),/drop-me|rawSensorValues/);
+console.log("PASS: canonical event conversion sends bounded sanitized Arm research telemetry");
 
 assert.match(source,/quickstroke:research-record-finalized/);
 assert.match(source,/store\.put\(next\); await done;[\s\S]*?quickstroke:research-record-finalized/);
