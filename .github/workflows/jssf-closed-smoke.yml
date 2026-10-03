@@ -12,6 +12,8 @@ on:
       - supabase/functions/jssf-remote-ingest/**
       - supabase/migrations/**
       - face-test.html
+      - config.js
+      - tests/face-baseline-hardening.mjs
       - jssf-consent.html
   workflow_dispatch:
 
@@ -33,6 +35,7 @@ jobs:
           node tests/jssf-remote-client.mjs
           node tests/jssf-remote-staging.mjs
           node tests/jssf-face-research-contract.mjs
+          node tests/face-baseline-hardening.mjs
           node tests/jssf-retention-static.mjs
       - name: Exercise synthetic offline retry and idempotency
         run: node tests/jssf-remote-sync-flow.mjs
