@@ -57,7 +57,7 @@ assert.match(edge,/stillExists/);
 assert.match(edge,/db\.rpc\("withdraw_jssf_session"/);
 assert.match(edge,/consentAccepted !== true/);
 assert.match(edge,/!db \|\| \(!enabled && !isWithdrawal\)/);
-assert.match(edge,/allowExpired:isWithdrawal/);
+assert.match(edge,/allowExpired\s*:\s*isWithdrawal/);
 assert.match(edge,/db\.rpc\("withdraw_jssf_session"/);
 console.log("PASS: server syntax, consent gate, session-token authorization and idempotency guards");
 
