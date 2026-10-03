@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.2.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.3.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_attempt", "face_research_samples", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -14,7 +14,10 @@ const FACE_SAMPLE_FIELDS = Object.freeze([
   "rawMouthLeftX","rawMouthLeftY","rawMouthRightX","rawMouthRightY",
   "normalizedMouthLeftX","normalizedMouthLeftY","normalizedMouthRightX","normalizedMouthRightY",
   "rawSignedDisplacementLeft","rawSignedDisplacementRight","normalizedSignedDisplacementLeft","normalizedSignedDisplacementRight",
-  "smileLeft","smileRight","mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
+  "smileLeft","smileRight","deltaSmileLeft","deltaSmileRight","mouthWidth","mouthWidthDelta",
+  "lateralOutwardLeft","lateralOutwardRight","relativeBlendEvidence","relativeGeometryEvidence",
+  "relativeSmileCandidate","relativeSmilePersisted",
+  "mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
   "mouthAssessable","handMouthOverlap","blendSmileEvidence","geometrySmileEvidence"
 ]);
 const FACE_OUTCOMES = new Set(["valid","invalid","not_evaluable","aborted","interrupted"]);
@@ -68,6 +71,7 @@ function faceResearchAttemptPayload(source) {
   const baseline = object(source.baseline) ? source.baseline : {};
   const quality = object(source.quality) ? source.quality : {};
   const capacity = object(source.capacity) ? source.capacity : {};
+  const detection = object(source.detection) ? source.detection : {};
   const versions = object(source.versions) ? source.versions : {};
   const thresholds = object(source.thresholds) ? source.thresholds : {};
   return {
@@ -130,6 +134,11 @@ function faceResearchAttemptPayload(source) {
       effectiveRiseLeft: finiteOrNull(capacity.effectiveRiseLeft, "capacity.effectiveRiseLeft"),
       effectiveRiseRight: finiteOrNull(capacity.effectiveRiseRight, "capacity.effectiveRiseRight")
     },
+    detection: {
+      startPath: optionalEnum(detection.startPath, new Set(["absolute","relative"]), "detection.startPath"),
+      relativeCandidateFrames: detection.relativeCandidateFrames == null ? null : intInRange(detection.relativeCandidateFrames, 0, 1000, "detection.relativeCandidateFrames"),
+      relativeValidSmileFrames: detection.relativeValidSmileFrames == null ? null : intInRange(detection.relativeValidSmileFrames, 0, 1000, "detection.relativeValidSmileFrames")
+    },
     dynamic: object(source.dynamic) ? {
       pairedBlendAsymMedian: finiteOrNull(source.dynamic.pairedBlendAsymMedian, "dynamic.pairedBlendAsymMedian", 0, 10),
       pairedBlendAsymP75: finiteOrNull(source.dynamic.pairedBlendAsymP75, "dynamic.pairedBlendAsymP75", 0, 10),
@@ -162,7 +171,12 @@ function faceResearchAttemptPayload(source) {
       smileDetectSide: finiteOrNull(thresholds.smileDetectSide, "thresholds.smileDetectSide", 0, 10),
       smileValidStrength: finiteOrNull(thresholds.smileValidStrength, "thresholds.smileValidStrength", 0, 10),
       smileRealMin: finiteOrNull(thresholds.smileRealMin, "thresholds.smileRealMin", 0, 10),
-      closedSmileRiseMin: finiteOrNull(thresholds.closedSmileRiseMin, "thresholds.closedSmileRiseMin", 0, 10)
+      closedSmileRiseMin: finiteOrNull(thresholds.closedSmileRiseMin, "thresholds.closedSmileRiseMin", 0, 10),
+      closedSmileDeltaSideStart: finiteOrNull(thresholds.closedSmileDeltaSideStart, "thresholds.closedSmileDeltaSideStart", 0, 10),
+      closedSmileDeltaSideValid: finiteOrNull(thresholds.closedSmileDeltaSideValid, "thresholds.closedSmileDeltaSideValid", 0, 10),
+      closedSmileLateralMin: finiteOrNull(thresholds.closedSmileLateralMin, "thresholds.closedSmileLateralMin", 0, 10),
+      closedSmileWidthIncreaseMin: finiteOrNull(thresholds.closedSmileWidthIncreaseMin, "thresholds.closedSmileWidthIncreaseMin", 0, 10),
+      closedSmilePersistenceMs: thresholds.closedSmilePersistenceMs == null ? null : intInRange(thresholds.closedSmilePersistenceMs, 0, 10000, "thresholds.closedSmilePersistenceMs")
     },
     derivedNumericTelemetryOnly: source.derivedNumericTelemetryOnly === true
   };
