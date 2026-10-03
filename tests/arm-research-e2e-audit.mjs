@@ -14,7 +14,8 @@ const remoteSource=read("js/jssf-remote-sync.js");
 const configSource=read("config.js");
 
 // 1) Arm canonical/local persistence contract: attempt -> module measurement -> sensor observations.
-assert.match(arm,/finalizeCanonicalArmAttempt([sS]*armResearchTelemetry/);
+assert.ok(arm.includes("function finalizeCanonicalArmAttempt"));
+assert.ok(arm.includes("const armResearchTelemetry = buildArmJssfResearchTelemetry"));
 assert.match(arm,/ARM_RESEARCH_STORE.finalizeTestAttempt(attemptSnapshot.testAttemptId, attemptSnapshot)/);
 assert.match(arm,/ARM_DATA_CONTRACT.createModuleMeasurement(/);
 assert.match(arm,/protocolUnderstanding:armProtocolUnderstandingCopy()/);
