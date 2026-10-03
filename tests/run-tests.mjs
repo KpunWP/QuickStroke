@@ -171,17 +171,20 @@ test('critical algorithm functions are unchanged', () => {
 
 test('Face result decision semantics remain intact while P0 baseline telemetry is additive', () => {
   const source = fs.readFileSync(path.join(ROOT, 'face-test.html'), 'utf8');
-  const fn = extractFunction(source, 'makeResultPayload');
-  assert.match(fn,/canonicalFaceObservationStatus\(riskLevel, validityStatus\)/);
-  assert.match(fn,/clinicalScore: validityStatus === 'valid' \? score : null/);
-  assert.match(fn,/scoreUsable: validityStatus === 'valid'/);
-  assert.match(fn,/score: validityStatus === 'valid' \? score : 0/);
-  assert.match(fn,/riskLevel,/);
-  assert.match(fn,/passed,/);
-  assert.match(fn,/aggregationMethod:'median-neutral-valid-frames'/);
-  assert.match(fn,/baselineSmileLeft:roundMetric\(baselineSmileLeft\)/);
-  assert.match(fn,/baseMouthWidth:roundMetric\(baseMouthWidth\)/);
-  assert.match(fn,/stability:JSON\.parse/);
+  const start = source.indexOf('function makeResultPayload');
+  const end = source.indexOf('const FACE_NOTICE_CLASSES', start);
+  assert.ok(start >= 0 && end > start, 'makeResultPayload source range not found');
+  const fn = source.slice(start, end);
+  assert.match(fn,/canonicalFaceObservationStatus\s*\(\s*riskLevel\s*,\s*validityStatus\s*\)/);
+  assert.match(fn,/clinicalScore\s*:\s*validityStatus\s*===\s*'valid'\s*\?\s*score\s*:\s*null/);
+  assert.match(fn,/scoreUsable\s*:\s*validityStatus\s*===\s*'valid'/);
+  assert.match(fn,/score\s*:\s*validityStatus\s*===\s*'valid'\s*\?\s*score\s*:\s*0/);
+  assert.match(fn,/\briskLevel\s*,/);
+  assert.match(fn,/\bpassed\s*,/);
+  assert.match(fn,/aggregationMethod\s*:\s*'median-neutral-valid-frames'/);
+  assert.match(fn,/baselineSmileLeft\s*:\s*roundMetric\(baselineSmileLeft\)/);
+  assert.match(fn,/baseMouthWidth\s*:\s*roundMetric\(baseMouthWidth\)/);
+  assert.match(fn,/stability\s*:\s*JSON\.parse/);
 });
 
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {
