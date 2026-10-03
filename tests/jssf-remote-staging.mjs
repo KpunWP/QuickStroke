@@ -73,5 +73,5 @@ assert.match(withdrawalMigration,/DELETE FROM public\.jssf_remote_sessions[\s\S]
 assert.match(withdrawalMigration,/REVOKE ALL ON FUNCTION public\.withdraw_jssf_session/);
 assert.match(withdrawalMigration,/GRANT EXECUTE ON FUNCTION public\.withdraw_jssf_session[\s\S]*service_role/);
 assert.match(read("js/research-store.js"),/purgeRemoteSessionLocal/);
-assert.match(read("jssf-withdraw.html"),/requestWithdrawal\(\)/);
+assert.match(read("jssf-withdraw.html"),/requestWithdrawal\(selected\.clientSessionId\)/);
 console.log("PASS: atomic withdrawal migration and local per-session erasure are wired but not live");
