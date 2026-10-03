@@ -10,7 +10,7 @@ const summary=sanitizeBatch([{
   payload:{
     testAttemptId:ids.attempt,moduleRunId:ids.run,attemptNo:1,sampleIntervalMs:100,sourceFrameCount:40,
     outcome:"valid",invalidReasonCode:null,
-    baseline:{sampleCount:30,baseLeft:0.12,baseRight:0.13,baseEyeDistance:0.18,restAsymMean:0.01,restAsymMax:0.02,criticalTriggered:false},
+    baseline:{sampleCount:30,baseLeft:0.12,baseRight:0.13,baseEyeDistance:0.18,baseLeftMean:0.121,baseRightMean:0.131,baseEyeDistanceMean:0.181,baselineSmileLeft:0.02,baselineSmileRight:0.03,baselineSmileLeftMean:0.021,baselineSmileRightMean:0.031,baseNormalizedMouthLeftX:-0.48,baseNormalizedMouthRightX:0.49,baseMouthWidth:0.97,baseMouthWidthMean:0.971,stability:{stable:true,leftMad:0.004,rightMad:0.005,eyeMad:0.002,eyeRelativeMad:0.011,validFrameCount:30,rejectedNeutralFrameCount:4},restAsymMean:0.01,restAsymMax:0.02,criticalTriggered:false},
     quality:{faceDetectedRatio:1,poseValidRatio:0.95,mouthAssessableRatio:0.9,handOverlapRatio:0,avgMouthVisibilityScore:0.2,avgEyeDistance:0.18,minEyeDistanceRatioFromBaseline:0.9,maxEyeDistanceRatioFromBaseline:1.08},
     capacity:{peakSmileLeft:0.71,peakSmileRight:0.68,peakNormalizedRiseLeft:0.07,peakNormalizedRiseRight:0.06,aggregatedSignedRiseLeft:0.05,aggregatedSignedRiseRight:0.04,effectiveRiseLeft:0.05,effectiveRiseRight:0.04},
     dynamic:{pairedBlendAsymMedian:0.04,pairedBlendAsymP75:0.06,pairedBlendAsymP90:0.09,framesOverCandidateThresholdRatio:0.1,longestContinuousAsymmetryMs:300},
@@ -30,6 +30,10 @@ assert.equal(summary.payload.rawImage,undefined);
 assert.equal(summary.payload.rawVideo,undefined);
 assert.equal(summary.payload.userAgent,undefined);
 assert.equal(summary.payload.dynamic.pairedBlendAsymP90,0.09);
+assert.equal(summary.payload.baseline.baselineSmileLeft,0.02);
+assert.equal(summary.payload.baseline.baseMouthWidth,0.97);
+assert.equal(summary.payload.baseline.stability.stable,true);
+assert.equal(summary.payload.baseline.stability.rejectedNeutralFrameCount,4);
 
 const fieldsCount=30;
 const row=[
