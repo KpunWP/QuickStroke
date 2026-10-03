@@ -132,9 +132,23 @@ test('app version and policy versions are 1.0.21', () => {
   assert.equal(c.QuickStrokeResearchPolicy.selectionPolicyVersion, 'quickstroke-selection-policy-1.0.0');
 });
 
-test('Face/Arm/Speech thresholds are unchanged from 1.0.20', () => {
+test('legacy Face/Arm/Speech thresholds remain unchanged except explicit additive Face P0 keys', () => {
   const newConfig = loadConfig(path.join(ROOT, 'config.js'));
-  assert.deepEqual(newConfig.thresholds, BASELINE.thresholds);
+  const allowedFaceP0Additions = new Set([
+    'baselineMinValidFrames',
+    'baselineNeutralSmileMax',
+    'baselineNeutralMouthActivityMax',
+    'baselineCornerMadMax',
+    'baselineEyeDistanceRelativeMadMax'
+  ]);
+  const actualThresholds = structuredClone(newConfig.thresholds);
+  const baselineThresholds = structuredClone(BASELINE.thresholds);
+  const extraFaceKeys = Object.keys(actualThresholds.face || {}).filter((key) =>
+    !Object.prototype.hasOwnProperty.call(baselineThresholds.face || {}, key)
+  );
+  assert.deepEqual(new Set(extraFaceKeys), allowedFaceP0Additions);
+  for (const key of extraFaceKeys) delete actualThresholds.face[key];
+  assert.deepEqual(actualThresholds, baselineThresholds);
   assert.deepEqual(newConfig.scoring, BASELINE.scoring);
 });
 
