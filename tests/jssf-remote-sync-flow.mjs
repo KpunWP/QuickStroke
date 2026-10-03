@@ -206,6 +206,8 @@ const faceUploads=uploads.slice(faceUploadStart);
 assert.equal(faceUploads.length,2);
 assert.deepEqual(faceUploads.map(x=>x.eventType).sort(),["face_research_attempt","face_research_samples"]);
 assert.equal(faceUploads.find(x=>x.eventType==="face_research_samples").payload.rows.length,2);
+assert.equal(faceUploads.find(x=>x.eventType==="face_research_samples").payload.fields.length,41);
+assert.ok(faceUploads.find(x=>x.eventType==="face_research_samples").payload.fields.includes("smileConfirmed"));
 assert.doesNotMatch(JSON.stringify(faceUploads),/rawImage|rawVideo|uploadToken|userAgent/);
 console.log("PASS: derived Face research summary and 10 Hz numeric rows persist through the outbox without raw media");
 const uploadsAfterFace=uploads.length;
