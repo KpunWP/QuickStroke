@@ -106,6 +106,27 @@ function sanitizeArmResearch(source) {
       sensorFresh:row.sensorFresh
     };
   });
+  let posture;
+  if (source.posture != null) {
+    if (!object(source.posture)) throw new TypeError("Invalid arm posture");
+    posture = {
+      baselineStableSpreadDeg:optionalNumber(source.posture.baselineStableSpreadDeg,0,180,"baselineStableSpreadDeg"),
+      baselineScreenY:optionalNumber(source.posture.baselineScreenY,-1.2,1.2,"baselineScreenY"),
+      baselineScreenZ:optionalNumber(source.posture.baselineScreenZ,-1.2,1.2,"baselineScreenZ"),
+      flatZThreshold:optionalNumber(source.posture.flatZThreshold,0,1.2,"flatZThreshold"),
+      portraitYMin:optionalNumber(source.posture.portraitYMin,0,1.2,"portraitYMin"),
+      preMeasureMaxDeltaDeg:optionalNumber(source.posture.preMeasureMaxDeltaDeg,0,180,"preMeasureMaxDeltaDeg")
+    };
+  }
+  let sensor;
+  if (source.sensor != null) {
+    if (!object(source.sensor)) throw new TypeError("Invalid arm sensor summary");
+    sensor = {
+      acceptedSamples:source.sensor.acceptedSamples==null?undefined:intInRange(source.sensor.acceptedSamples,0,100000,"acceptedSamples"),
+      sourceSwitches:source.sensor.sourceSwitches==null?undefined:intInRange(source.sensor.sourceSwitches,0,1000,"sourceSwitches"),
+      telemetrySamples:source.sensor.telemetrySamples==null?undefined:intInRange(source.sensor.telemetrySamples,0,100000,"telemetrySamples")
+    };
+  }
   return {
     schemaVersion:optionalString(source.schemaVersion,80,"armResearchSchemaVersion"),
     protocolUnderstanding,
@@ -118,6 +139,8 @@ function sanitizeArmResearch(source) {
       finalMotionClass:optionalString(source.measurement.finalMotionClass,40,"finalMotionClass"),
       cutoffs
     },
+    posture,
+    sensor,
     trace
   };
 }
