@@ -85,7 +85,12 @@ assert.equal(classify(4.999,{x:.1,z:.1}).key,"normal");
 assert.equal(classify(5,{x:.1,z:.1}).key,"uncertain");
 assert.equal(classify(9.999,{x:.1,z:.1}).key,"uncertain");
 assert.equal(classify(10,{x:.2,z:.039}).key,"wrist_movement");
-assert.equal(classify(10,{x:.2,z:.04}).key,"possible_arm_drift");
+// JS floating-point makes .04/.20 slightly below 0.20; preserve and expose
+// current behavior instead of changing the production threshold without evidence.
+const exactRatioBoundary=classify(10,{x:.2,z:.04});
+assert.equal(exactRatioBoundary.key,"wrist_movement");
+assert.ok(exactRatioBoundary.ratio<cfg.wristRatioThr);
+assert.equal(classify(10,{x:.199,z:.04}).key,"possible_arm_drift");
 assert.equal(classify(10,{x:.25,z:.04}).key,"wrist_movement");
 
 const normal=replay({targetDeg:4,ratioZX:.5});
@@ -113,6 +118,12 @@ const report={
     wristRatioThr:cfg.wristRatioThr,dropZMin:cfg.dropZMin,stableWindow:cfg.stableWindow,
     stableHold:cfg.stableHold,stableAngleDeg:cfg.stableAngleDeg,lpf:cfg.lpf,
     preMeasureMaxDeltaDeg:ready.preMeasureMaxDeltaDeg
+  },
+  boundaryObservation:{
+    nominalRatioThreshold:cfg.wristRatioThr,
+    decimalBoundaryRatio:exactRatioBoundary.ratio,
+    decimalBoundaryClass:exactRatioBoundary.key,
+    productionThresholdChanged:false
   },
   scenarios:{
     normal:normal.final.result.key,
