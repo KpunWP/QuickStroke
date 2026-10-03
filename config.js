@@ -97,7 +97,7 @@ window.QS_CONFIG = {
       version: "face-prepilot-1.4.0",
       algorithmVersion: "face-asymmetry-1.3.0",
       resultSchemaVersion: "face-result-1.3.0",
-      researchPayloadVersion: "face-research-0.4.0",
+      researchPayloadVersion: "face-research-0.5.0",
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
@@ -126,6 +126,10 @@ window.QS_CONFIG = {
       closedSmileLateralMin: 0.006,
       closedSmileWidthIncreaseMin: 0.012,
       closedSmilePersistenceMs: 250,
+
+      // P0-D research/shadow only; these values never change the user-facing result.
+      dynamicAsymCandidateThreshold: 0.22,
+      dynamicGeometryMinMagnitude: 0.01,
 
       // v1.1 algorithm policy:
       // - blendshape must support smile confirmation
