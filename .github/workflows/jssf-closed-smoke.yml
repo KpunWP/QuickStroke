@@ -9,11 +9,13 @@ on:
       - .github/workflows/jssf-closed-smoke.yml
       - tests/jssf-remote-*.mjs
       - js/jssf-remote-sync.js
+      - js/data-contract.js
       - supabase/functions/jssf-remote-ingest/**
       - supabase/migrations/**
       - face-test.html
       - config.js
       - tests/face-baseline-hardening.mjs
+      - tests/face-closed-smile-path.mjs
       - tests/run-tests.mjs
       - jssf-consent.html
   workflow_dispatch:
@@ -37,6 +39,7 @@ jobs:
           node tests/jssf-remote-staging.mjs
           node tests/jssf-face-research-contract.mjs
           node tests/face-baseline-hardening.mjs
+          node tests/face-closed-smile-path.mjs
           node tests/run-tests.mjs
           node tests/jssf-retention-static.mjs
       - name: Exercise synthetic offline retry and idempotency
