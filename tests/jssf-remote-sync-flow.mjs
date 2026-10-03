@@ -180,9 +180,39 @@ assert.equal(uploads[0].payload.retryCount,0);
 assert.doesNotMatch(JSON.stringify(uploads),/SENSITIVE-NEVER-UPLOAD/);
 console.log("PASS: automatic retry delivers a sanitized event and persists acknowledgement");
 
+const faceUploadStart=uploads.length;
+const faceQueued=await sync.queueFaceResearch({
+  testAttemptId:"TA-faceResearch123",
+  moduleRunId:"MR-faceResearch123",
+  attemptNo:1,
+  completedAt:new Date().toISOString(),
+  sampleIntervalMs:100,
+  baseline:{sampleCount:20,baseLeft:0.1,baseRight:0.11,baseEyeDistance:0.18,restAsymMean:0.01,restAsymMax:0.02,criticalTriggered:false},
+  attemptSummary:{
+    outcome:"valid",invalidReasonCode:null,
+    quality:{faceDetectedRatio:1,poseValidRatio:1,mouthAssessableRatio:0.9,handOverlapRatio:0,avgMouthVisibilityScore:0.2,avgEyeDistance:0.18,minEyeDistanceRatioFromBaseline:0.95,maxEyeDistanceRatioFromBaseline:1.05},
+    metrics:{peakSmileLeft:0.7,peakSmileRight:0.65,peakNormalizedRiseLeft:0.06,peakNormalizedRiseRight:0.05,aggregatedSignedRiseLeft:0.05,aggregatedSignedRiseRight:0.04,effectiveRiseLeft:0.05,effectiveRiseRight:0.04}
+  },
+  versions:{algorithmVersion:"face-asymmetry-1.2.0",researchPayloadVersion:"face-research-0.3.0",configHash:"abc123"},
+  thresholds:{smileDetectMin:0.25,smileDetectSide:0.35,smileRealMin:0.045,closedSmileRiseMin:0.003},
+  frames:[
+    {tMs:100,phase:"RESTING_PHASE",poseValid:true,yawDeg:1,pitchDeg:2,rollDeg:0.5,eyeDistance:0.18,eyeDistanceRatioFromBaseline:1,rawMouthLeftX:0.4,rawMouthLeftY:0.6,rawMouthRightX:0.6,rawMouthRightY:0.6,normalizedMouthLeftX:-0.5,normalizedMouthLeftY:0.2,normalizedMouthRightX:0.5,normalizedMouthRightY:0.2,rawSignedDisplacementLeft:0,rawSignedDisplacementRight:0,normalizedSignedDisplacementLeft:0,normalizedSignedDisplacementRight:0,smileLeft:0.02,smileRight:0.02,mouthVisibilityScore:0.2,mouthDarkRatio:0.03,mouthCentralDarkRatio:0.02,mouthLineScore:0.04,mouthAssessable:true,handMouthOverlap:false,blendSmileEvidence:false,geometrySmileEvidence:false},
+    {tMs:200,phase:"ACTION_PHASE",poseValid:true,yawDeg:1,pitchDeg:2,rollDeg:0.5,eyeDistance:0.18,eyeDistanceRatioFromBaseline:1,rawMouthLeftX:0.4,rawMouthLeftY:0.58,rawMouthRightX:0.6,rawMouthRightY:0.59,normalizedMouthLeftX:-0.5,normalizedMouthLeftY:0.15,normalizedMouthRightX:0.5,normalizedMouthRightY:0.17,rawSignedDisplacementLeft:0.02,rawSignedDisplacementRight:0.01,normalizedSignedDisplacementLeft:0.05,normalizedSignedDisplacementRight:0.03,smileLeft:0.5,smileRight:0.4,mouthVisibilityScore:0.25,mouthDarkRatio:0.04,mouthCentralDarkRatio:0.03,mouthLineScore:0.05,mouthAssessable:true,handMouthOverlap:false,blendSmileEvidence:true,geometrySmileEvidence:true}
+  ]
+});
+assert.equal(faceQueued.queued,2);
+for(let i=0;i<5 && (await sync.pending(enrollment.sessionId)).length;i++) await sync.flush();
+const faceUploads=uploads.slice(faceUploadStart);
+assert.equal(faceUploads.length,2);
+assert.deepEqual(faceUploads.map(x=>x.eventType).sort(),["face_research_attempt","face_research_samples"]);
+assert.equal(faceUploads.find(x=>x.eventType==="face_research_samples").payload.rows.length,2);
+assert.doesNotMatch(JSON.stringify(faceUploads),/rawImage|rawVideo|uploadToken|userAgent/);
+console.log("PASS: derived Face research summary and 10 Hz numeric rows persist through the outbox without raw media");
+const uploadsAfterFace=uploads.length;
+
 await sync.queueFinalized("module_run",sample);
 await sync.flush();
-assert.equal(uploads.length,1);
+assert.equal(uploads.length,uploadsAfterFace);
 const reopened=clientWindow();
 const recoveredStore={
   stores:{screeningSessions:"screeningSessions",moduleRuns:"moduleRuns",testAttempts:"testAttempts"},
@@ -193,11 +223,11 @@ const recoveredStore={
 };
 await reopened.recoverCompleted(recoveredStore);
 await reopened.flush();
-assert.equal(uploads.length,2);
-assert.equal(uploads[1].eventType,"session_completed");
+assert.equal(uploads.length,uploadsAfterFace+1);
+assert.equal(uploads[uploads.length-1].eventType,"session_completed");
 await reopened.recoverCompleted(recoveredStore);
 await reopened.flush();
-assert.equal(uploads.length,2);
+assert.equal(uploads.length,uploadsAfterFace+1);
 console.log("PASS: reload recovery restores a missing finalized-session completion event once without duplicate upload");
 
 const savedContext={
