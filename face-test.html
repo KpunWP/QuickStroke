@@ -1973,6 +1973,11 @@ const SMILE_VALID_STRENGTH = FACE_CFG.smileValidStrength ?? 0.028;
 const REAL_MOVE_MIN = FACE_CFG.realMoveMin ?? 0.0025;
 const CLOSED_SMILE_RISE_MIN = FACE_CFG.closedSmileRiseMin ?? 0.003;
 const SMILE_REAL_MIN = FACE_CFG.smileRealMin ?? 0.045;
+const SMILE_DELTA_MIN = FACE_CFG.smileDeltaMin ?? 0.018;
+const CLOSED_SMILE_WIDTH_MIN = FACE_CFG.closedSmileWidthMin ?? 0.010;
+const CLOSED_SMILE_EVIDENCE_HOLD_MS = FACE_CFG.closedSmileEvidenceHoldMs ?? 250;
+const BASELINE_CORNER_MAD_MAX = FACE_CFG.baselineCornerMadMax ?? 0.035;
+const BASELINE_EYE_MAD_RATIO_MAX = FACE_CFG.baselineEyeMadRatioMax ?? 0.060;
 
 // v1.1 policy: threshold values are unchanged. The logic now prevents
 // normalized geometry from confirming a smile without blendshape support.
@@ -1998,6 +2003,9 @@ const CRITICAL_NOTICE_MS = FACE_CFG.criticalNoticeMs ?? 2000;
 const MAX_ALLOWED_YAW = FACE_CFG.maxAllowedYaw ?? 28;
 const MAX_ALLOWED_PITCH = FACE_CFG.maxAllowedPitch ?? 24;
 const MAX_ALLOWED_ROLL = FACE_CFG.maxAllowedRoll ?? 20;
+const REST_MAX_ALLOWED_YAW = FACE_CFG.restMaxAllowedYaw ?? 12;
+const REST_MAX_ALLOWED_PITCH = FACE_CFG.restMaxAllowedPitch ?? 15;
+const REST_MAX_ALLOWED_ROLL = FACE_CFG.restMaxAllowedRoll ?? 12;
 const POSE_BAD_TRIP_FRAMES = FACE_CFG.poseBadTripFrames ?? 3;      // หลุดกรอบติดกันกี่เฟรมถึงเตือน
 const POSE_GOOD_RESUME_FRAMES = FACE_CFG.poseGoodResumeFrames ?? 8; // นิ่งติดกันกี่เฟรมถึงไปต่อ
 const ENFORCE_HAND_MODEL = FACE_CFG.enforceHandModel === true;
@@ -2033,16 +2041,21 @@ let poseBadFrames = 0;   // hysteresis: กันเตือน pose เพร�
 let poseGoodFrames = 0;  // debounce: ต้องนิ่งติดกันหลายเฟรมก่อนกลับมาทดสอบต่อ
 
 let restCornerAsymSamples = [];   // resting asymmetry in normalized eye frame
-let restCornerL = [], restCornerR = [], restEyeW = [];
+let restCornerL = [], restCornerR = [], restCornerLX = [], restCornerRX = [], restEyeW = [];
+let restSmileL = [], restSmileR = [], restMouthWidth = [];
 let restRawMouthLeftY = [], restRawMouthRightY = [];
 let restEyeCenterX = [], restEyeCenterY = [], restEyeLineRollDeg = [];
-let baseL = null, baseR = null, baseEyeW = null;
+let baseL = null, baseR = null, baseLX = null, baseRX = null, baseEyeW = null;
+let baseSmileL = null, baseSmileR = null, baseMouthWidth = null;
 let baseRawMouthLeftY = null, baseRawMouthRightY = null;
 let baseEyeCenterX = null, baseEyeCenterY = null, baseEyeLineRollDeg = null;
+let baselineCornerMad = null, baselineEyeMadRatio = null;
 let criticalFired = false;
 
 let smileStartMs = null;
 let frameAsymScores = [];
+let validFrameAsymmetryTimeline = [];
+let closedSmileEvidenceSinceMs = null;
 let validSmileFrames = 0;
 let smileFrameCount = 0;
 let smileLostSinceMs = null;
@@ -2170,6 +2183,21 @@ function median(values){
   return finite.length % 2
     ? finite[middle]
     : (finite[middle - 1] + finite[middle]) / 2;
+}
+function percentile(values, q){
+  const finite = values.filter((value) => Number.isFinite(value)).sort((a,b)=>a-b);
+  if (!finite.length) return null;
+  const clamped = Math.max(0, Math.min(1, Number(q)));
+  const index = (finite.length - 1) * clamped;
+  const lo = Math.floor(index), hi = Math.ceil(index);
+  if (lo === hi) return finite[lo];
+  const weight = index - lo;
+  return finite[lo] * (1 - weight) + finite[hi] * weight;
+}
+function medianAbsoluteDeviation(values){
+  const med = median(values);
+  if (!Number.isFinite(med)) return null;
+  return median(values.filter(Number.isFinite).map((value)=>Math.abs(value-med)));
 }
 function roundMetric(value, digits=4){
   return Number.isFinite(value) ? Number(value.toFixed(digits)) : null;
