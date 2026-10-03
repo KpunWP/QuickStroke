@@ -3673,28 +3673,45 @@ function computePose(lm){
   };
 }
 
-function evaluateSmileEvidence(smileL, smileR, riseL, riseR, mode='valid'){
+function evaluateSmileEvidence(smileL, smileR, riseL, riseR, mouthWidth, mode='valid'){
   const smileStrength = (smileL + smileR) / 2;
   const strongBlend = Math.max(smileL, smileR);
   const strongRise = Math.max(riseL, riseR);
+  const smileDeltaLeft = Number.isFinite(baseSmileL) ? smileL - baseSmileL : 0;
+  const smileDeltaRight = Number.isFinite(baseSmileR) ? smileR - baseSmileR : 0;
+  const strongDelta = Math.max(smileDeltaLeft, smileDeltaRight);
+  const mouthWidthDelta = Number.isFinite(baseMouthWidth) && Number.isFinite(mouthWidth)
+    ? mouthWidth - baseMouthWidth
+    : 0;
 
-  // Existing thresholds only. Geometry is allowed to support a closed-mouth
-  // smile only when blendshape already supplies at least minimal real-smile evidence.
+  // Keep the existing absolute blendshape path for clear smiles. For subtle
+  // closed-mouth smiles, require change from this participant's own neutral
+  // baseline plus directional geometry. Geometry alone never confirms a smile.
   const blendSmileEvidence = strongBlend >= SMILE_REAL_MIN;
   const geometrySmileEvidence = strongRise >= CLOSED_SMILE_RISE_MIN;
   const directBlendThreshold = mode === 'start'
     ? (smileStrength >= SMILE_DETECT_MIN || strongBlend >= SMILE_DETECT_SIDE)
     : (smileStrength >= SMILE_VALID_STRENGTH || strongBlend >= SMILE_DETECT_SIDE);
   const blendSupportedGeometry = blendSmileEvidence && geometrySmileEvidence;
+  const baselineRelativeClosedCandidate =
+    strongDelta >= SMILE_DELTA_MIN &&
+    (geometrySmileEvidence || mouthWidthDelta >= CLOSED_SMILE_WIDTH_MIN);
+  const directConfirmed = directBlendThreshold || blendSupportedGeometry;
 
   return {
     smileStrength,
     strongBlend,
     strongRise,
+    smileDeltaLeft,
+    smileDeltaRight,
+    strongDelta,
+    mouthWidthDelta,
     blendSmileEvidence,
     geometrySmileEvidence,
     blendSupportedGeometry,
-    confirmed:directBlendThreshold || blendSupportedGeometry
+    baselineRelativeClosedCandidate,
+    directConfirmed,
+    confirmed:directConfirmed || baselineRelativeClosedCandidate
   };
 }
 
@@ -4254,6 +4271,12 @@ function onResults(results, handResults=null){
   // Final geometry asymmetry is calculated after robust smile-window aggregation.
   const geomAsym = 0;
   const frameAsym = smileAsym;
+  const mouthWidth = Math.abs(normalizedMouthRightX - normalizedMouthLeftX);
+  const mouthWidthDelta = Number.isFinite(baseMouthWidth) ? mouthWidth - baseMouthWidth : null;
+  const smileDeltaLeft = Number.isFinite(baseSmileL) ? smileL - baseSmileL : null;
+  const smileDeltaRight = Number.isFinite(baseSmileR) ? smileR - baseSmileR : null;
+  const cornerLateralLeft = Number.isFinite(baseLX) ? baseLX - normalizedMouthLeftX : null;
+  const cornerLateralRight = Number.isFinite(baseRX) ? normalizedMouthRightX - baseRX : null;
 
   const inActionPhase = (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE');
   const eyeDistanceRatioFromBaseline = baseEyeW ? eyeW / baseEyeW : null;
@@ -4262,6 +4285,7 @@ function onResults(results, handResults=null){
     smileR,
     signedRiseLn,
     signedRiseRn,
+    mouthWidth,
     phase === 'ACTION_PHASE' ? 'start' : 'valid'
   );
 
