@@ -14,6 +14,7 @@ on:
       - face-test.html
       - config.js
       - tests/face-baseline-hardening.mjs
+      - tests/run-tests.mjs
       - jssf-consent.html
   workflow_dispatch:
 
