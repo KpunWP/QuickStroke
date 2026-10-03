@@ -139,10 +139,17 @@ assert.equal(edgeEvent.payload.armResearch.posture.lastReadinessSnapshot.stage,"
 assert.doesNotMatch(JSON.stringify(edgeEvent),/DROP_SERVER_SIDE|LOCAL_ONLY_DROP|rawSensorObservations/);
 assert.ok(JSON.stringify(edgeEvent).length<8000);
 
-// 5) Isolation invariants remain explicit.
+// 5) Isolation invariants are verified behaviorally, not by source spelling.
 assert.ok(remoteSource.includes('record.module==="arm" ? safeArmResearch(record.armResearchTelemetry) : undefined'));
-assert.ok(remoteSource.includes('researchProfile!=="community_remote_qr"'));
-assert.ok(remoteSource.includes('appMode!=="research"'));
+assert.equal(sync.canSync(),true);
+currentContext={appMode:"research",screeningSessionId:"S-clinic-123456789",researchMetadata:{researchProfile:"clinic_supervised",consentStatus:"consented"}};
+assert.equal(sync.canSync(),false);
+currentContext={appMode:"public",screeningSessionId:"S-public-123456789",researchMetadata:null};
+assert.equal(sync.canSync(),false);
+currentContext={appMode:"dev",screeningSessionId:"S-dev-123456789",researchMetadata:null};
+assert.equal(sync.canSync(),false);
+currentContext={appMode:"research",screeningSessionId:"S-arm-p0f-123456789",researchMetadata:{researchProfile:"community_remote_qr",consentStatus:"consented"}};
+assert.equal(sync.canSync(),true);
 assert.ok(configSource.includes("community_remote_qr"));
 
 // 6) Full P0 suites are linked into CI; production source thresholds stay guarded elsewhere.
