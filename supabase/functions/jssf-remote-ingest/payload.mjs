@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.5.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.6.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "face_research_attempt", "face_research_samples", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -72,6 +72,7 @@ function faceResearchAttemptPayload(source) {
   const quality = object(source.quality) ? source.quality : {};
   const capacity = object(source.capacity) ? source.capacity : {};
   const detection = object(source.detection) ? source.detection : {};
+  const runtime = object(source.runtime) ? source.runtime : {};
   const versions = object(source.versions) ? source.versions : {};
   const thresholds = object(source.thresholds) ? source.thresholds : {};
   return {
@@ -164,6 +165,15 @@ function faceResearchAttemptPayload(source) {
       rightTimeToPeakMs: finiteOrNull(source.dynamic.rightTimeToPeakMs, "dynamic.rightTimeToPeakMs", 0, 3600000),
       timeToPeakDifferenceMs: finiteOrNull(source.dynamic.timeToPeakDifferenceMs, "dynamic.timeToPeakDifferenceMs", -60000, 60000)
     } : null,
+    runtime: {
+      faceDelegate: optionalEnum(runtime.faceDelegate, new Set(["GPU","CPU"]), "runtime.faceDelegate"),
+      handDelegate: optionalEnum(runtime.handDelegate, new Set(["GPU","CPU"]), "runtime.handDelegate"),
+      handModelAvailable: boolOrNull(runtime.handModelAvailable, "runtime.handModelAvailable"),
+      degradedMode: optionalString(runtime.degradedMode, 80, "runtime.degradedMode"),
+      faceDetectErrorCount: runtime.faceDetectErrorCount == null ? null : intInRange(runtime.faceDetectErrorCount, 0, 100000, "runtime.faceDetectErrorCount"),
+      handDetectErrorCount: runtime.handDetectErrorCount == null ? null : intInRange(runtime.handDetectErrorCount, 0, 100000, "runtime.handDetectErrorCount"),
+      qualityFlags: flags(runtime.qualityFlags)
+    },
     versions: {
       appVersion: optionalString(versions.appVersion, 100, "versions.appVersion"),
       buildId: optionalString(versions.buildId, 120, "versions.buildId"),
@@ -198,7 +208,27 @@ function faceResearchAttemptPayload(source) {
       restSafetyMaxPitch: finiteOrNull(thresholds.restSafetyMaxPitch, "thresholds.restSafetyMaxPitch", 0, 90),
       restSafetyMaxRoll: finiteOrNull(thresholds.restSafetyMaxRoll, "thresholds.restSafetyMaxRoll", 0, 90),
       poseBadTripFrames: thresholds.poseBadTripFrames == null ? null : intInRange(thresholds.poseBadTripFrames, 1, 100, "thresholds.poseBadTripFrames"),
-      poseGoodResumeFrames: thresholds.poseGoodResumeFrames == null ? null : intInRange(thresholds.poseGoodResumeFrames, 1, 100, "thresholds.poseGoodResumeFrames")
+      poseGoodResumeFrames: thresholds.poseGoodResumeFrames == null ? null : intInRange(thresholds.poseGoodResumeFrames, 1, 100, "thresholds.poseGoodResumeFrames"),
+      minValidSmileFrames: thresholds.minValidSmileFrames == null ? null : intInRange(thresholds.minValidSmileFrames, 0, 1000, "thresholds.minValidSmileFrames"),
+      minVisibleMouthFrames: thresholds.minVisibleMouthFrames == null ? null : intInRange(thresholds.minVisibleMouthFrames, 0, 1000, "thresholds.minVisibleMouthFrames"),
+      minMouthVisibilityScore: finiteOrNull(thresholds.minMouthVisibilityScore, "thresholds.minMouthVisibilityScore", 0, 10),
+      minMouthDarkRatio: finiteOrNull(thresholds.minMouthDarkRatio, "thresholds.minMouthDarkRatio", 0, 10),
+      minMouthCentralDarkRatio: finiteOrNull(thresholds.minMouthCentralDarkRatio, "thresholds.minMouthCentralDarkRatio", 0, 10),
+      minMouthLineScore: finiteOrNull(thresholds.minMouthLineScore, "thresholds.minMouthLineScore", 0, 10),
+      handMouthOverlapMin: finiteOrNull(thresholds.handMouthOverlapMin, "thresholds.handMouthOverlapMin", 0, 1),
+      maxWaitForSmileMs: thresholds.maxWaitForSmileMs == null ? null : intInRange(thresholds.maxWaitForSmileMs, 0, 120000, "thresholds.maxWaitForSmileMs"),
+      baselineAlignmentTimeoutMs: thresholds.baselineAlignmentTimeoutMs == null ? null : intInRange(thresholds.baselineAlignmentTimeoutMs, 0, 120000, "thresholds.baselineAlignmentTimeoutMs"),
+      baselineMinValidFrames: thresholds.baselineMinValidFrames == null ? null : intInRange(thresholds.baselineMinValidFrames, 0, 1000, "thresholds.baselineMinValidFrames"),
+      baselineNeutralSmileMax: finiteOrNull(thresholds.baselineNeutralSmileMax, "thresholds.baselineNeutralSmileMax", 0, 10),
+      baselineNeutralMouthActivityMax: finiteOrNull(thresholds.baselineNeutralMouthActivityMax, "thresholds.baselineNeutralMouthActivityMax", 0, 10),
+      baselineCornerMadMax: finiteOrNull(thresholds.baselineCornerMadMax, "thresholds.baselineCornerMadMax", 0, 10),
+      baselineEyeDistanceRelativeMadMax: finiteOrNull(thresholds.baselineEyeDistanceRelativeMadMax, "thresholds.baselineEyeDistanceRelativeMadMax", 0, 10),
+      smileLostGraceMs: thresholds.smileLostGraceMs == null ? null : intInRange(thresholds.smileLostGraceMs, 0, 30000, "thresholds.smileLostGraceMs"),
+      smileOcclusionResetMs: thresholds.smileOcclusionResetMs == null ? null : intInRange(thresholds.smileOcclusionResetMs, 0, 30000, "thresholds.smileOcclusionResetMs"),
+      minValidSmileRatio: finiteOrNull(thresholds.minValidSmileRatio, "thresholds.minValidSmileRatio", 0, 1),
+      attemptMouthAssessableRatioMin: finiteOrNull(thresholds.attemptMouthAssessableRatioMin, "thresholds.attemptMouthAssessableRatioMin", 0, 1),
+      attemptHandOverlapRatioMin: finiteOrNull(thresholds.attemptHandOverlapRatioMin, "thresholds.attemptHandOverlapRatioMin", 0, 1),
+      enforceHandModel: boolOrNull(thresholds.enforceHandModel, "thresholds.enforceHandModel")
     },
     derivedNumericTelemetryOnly: source.derivedNumericTelemetryOnly === true
   };
