@@ -95,9 +95,9 @@ window.QS_CONFIG = {
     face: {
       // Version identifiers are stored with every Face result for reproducibility.
       version: "face-prepilot-1.4.0",
-      algorithmVersion: "face-asymmetry-1.5.0",
+      algorithmVersion: "face-asymmetry-1.6.0",
       resultSchemaVersion: "face-result-1.3.0",
-      researchPayloadVersion: "face-research-0.7.0",
+      researchPayloadVersion: "face-research-0.8.0",
       calibrationSeconds: 3,
       actionDurationMs: 4000,
       maxAssessAttempts: 3,
@@ -130,6 +130,13 @@ window.QS_CONFIG = {
       // P0-D research/shadow only; these values never change the user-facing result.
       dynamicAsymCandidateThreshold: 0.22,
       dynamicGeometryMinMagnitude: 0.01,
+
+      // Distance is a quality/confounder gate only; normalized geometry already
+      // compensates scale using current eye distance, so no second correction is applied.
+      distanceIdealMin: 0.85,
+      distanceIdealMax: 1.15,
+      distanceAcceptMin: 0.80,
+      distanceAcceptMax: 1.20,
 
       // v1.1 algorithm policy:
       // - blendshape must support smile confirmation
