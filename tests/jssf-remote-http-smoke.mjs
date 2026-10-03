@@ -22,7 +22,7 @@ const health = await fetch(endpoint+"/health", {
 assert.equal(health.status,200,"JSSF API health must respond HTTP 200");
 const state = await health.json();
 assert.equal(state.ok,true,"Unexpected health payload");
-assert.equal(state.schemaVersion,"jssf-remote-ingest-0.5.0");
+assert.equal(state.schemaVersion,"jssf-remote-ingest-0.6.0");
 assert.equal(typeof state.collectionEnabled,"boolean","Health payload must expose collectionEnabled");
 console.log("PASS: hosted staging is reachable; collectionEnabled="+state.collectionEnabled);
 
