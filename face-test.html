@@ -4025,7 +4025,6 @@ function calibrationTick(){
     return;
   }
 
-  clearInterval(countdownTimer); countdownTimer=null; hideCenterCountdown();
   const candidateEyeDistance = median(restEyeW) || 0.1;
   baselineCornerMad = Math.max(
     medianAbsoluteDeviation(restCornerL) || 0,
