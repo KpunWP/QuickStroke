@@ -1,6 +1,6 @@
 # Face P0 Research Audit — JSSF nonclinical pilot
 
-Status: **P0-A through P0-E implemented on `research/face-p0-data-contract-20261003`; P0-F data-path audit in progress.**
+Status: **P0-A through P0-F implemented and code-audited on `research/face-p0-data-contract-20261003`. Hosted staging ingest is `0.9.0`; production remains untouched. Physical device verification is the remaining pre-pilot step.**
 
 Scope: JSSF is a **nonclinical usability/reliability pilot**. Nothing in this audit establishes clinical validation, stroke sensitivity/specificity, ROC cutoffs, or diagnostic performance.
 
@@ -54,22 +54,27 @@ The helper expands every sample row to named columns and joins the matching `fac
 - JSSF can estimate normal distributions, measurement variability, retry/failure rates, device/browser effects, pose/distance effects, and open-mouth versus closed-mouth performance.
 - JSSF must **not** be used to claim clinical sensitivity/specificity or set clinical cutoffs. A later patient/control study requires ground truth independent of QuickStroke.
 
-## Behavioral blockers still open after the data-path audit
+## Behavioral hardening completed after the data-path audit
 
-These are intentionally **not** hidden by a green data-contract audit:
+The blockers identified by the first audit are now closed in code:
 
-1. **Mouth visibility persistence** — `smileOcclusionResetMs` is still 120 ms. The agreed engineering direction is fast response for confirmed hand overlap but roughly 250–350 ms persistence/grace for pixel-only mouth-visibility loss.
-2. **Reason taxonomy** — the current code still uses `MOUTH_NOT_VISIBLE`. Before pilot freeze, separate at least `HAND_OCCLUSION`, `MOUTH_VISIBILITY_LOW`, `HAND_MODEL_UNAVAILABLE`, and pixel-heuristic failure where technically distinguishable.
-3. **Distance quality gate** — eye-distance ratio is already recorded and normalized geometry is available, but the candidate ideal ~0.85–1.15 / acceptable ~0.80–1.20 gate has not yet been activated.
-4. **Early safety / inability path** — resting abnormal evidence is preserved when smile becomes unassessable, but the full UX still needs explicit review so a participant with obvious FAST signs is not forced through every module before the safety/emergency path.
-5. **0–100 score interpretation** — remains a mathematical transform of asymmetry, not a validated clinical severity score; user-facing prominence should be reviewed.
-6. **Final Face Threshold Review** — all current thresholds remain engineering/pre-pilot values and require JSSF reliability data before further tuning. Clinical thresholds require a later patient/control study.
+1. **Mouth visibility persistence** — pixel-only visibility loss now uses 300 ms persistence; confirmed hand overlap resets immediately.
+2. **Reason taxonomy** — current records distinguish `HAND_OCCLUSION`, `MOUTH_VISIBILITY_LOW`, and `PIXEL_HEURISTIC_FAILURE`; hand-model availability/degraded mode is recorded separately. Legacy `MOUTH_NOT_VISIBLE` remains display-compatible only.
+3. **Distance quality gate** — ideal 0.85–1.15 × baseline and acceptable 0.80–1.20 × baseline are active as quality gates without a second geometry correction.
+4. **Early safety / inability path** — valid resting abnormal evidence is preserved if smile is unassessable, and resting critical evidence now offers an optional immediate safety/result exit without forcing completion of all modules.
+5. **0–100 score interpretation** — numeric Face score remains available for research/debug but is hidden from normal user-facing Face interpretation; categorical result status drives the user UI.
+6. **Final Face Threshold Review** — config, runtime fallbacks, local snapshot, remote sanitizer and research export are aligned. Active values remain explicitly engineering/pre-pilot and are documented in `docs/FACE_P0_THRESHOLD_REVIEW.md`.
+
+## Remaining pre-pilot requirement
+
+The remaining blocker is **physical/device verification**, not another algorithm rewrite. The branch must be exercised on the target browsers/devices with open-mouth and closed-mouth smiles, pose/distance deviations, hand/pixel occlusion, retries, early-safety flow and developer-gated hosted Supabase collection. See `docs/FACE_JSSF_PILOT_VERIFICATION.md`.
 
 ## P0-F exit condition
 
-P0-F data-path audit is complete when:
-- the runtime + full replay threshold payload is covered by contract tests,
+P0-F data-path audit exit criteria are met:
+- runtime + full replay threshold payload is covered by contract tests,
 - the analysis flattening helper passes,
-- staging ingest matches the branch contract,
+- staging ingest matches branch contract 0.9.0,
 - retention/withdrawal regression remains green,
-- and the open behavioral blockers above remain explicitly tracked rather than silently treated as solved.
+- behavioral blockers identified by the audit are closed in code,
+- and clinical-validation claims remain explicitly out of scope.
