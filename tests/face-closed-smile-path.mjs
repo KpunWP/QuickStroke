@@ -41,8 +41,8 @@ for (const key of [
   "relativeSmileCandidate","relativeSmilePersisted","smileStartEvidencePath"
 ]) assert.match(face,new RegExp(key));
 
-assert.match(config,/algorithmVersion:\s*"face-asymmetry-1\.4\.0"/);
-assert.match(config,/researchPayloadVersion:\s*"face-research-0\.6\.0"/);
+assert.match(config,/algorithmVersion:\s*"face-asymmetry-1\.5\.0"/);
+assert.match(config,/researchPayloadVersion:\s*"face-research-0\.7\.0"/);
 assert.match(config,/P0-C engineering\/pre-pilot closed-mouth path\. NOT clinical cutoffs\./);
 assert.match(config,/closedSmilePersistenceMs:\s*250/);
 
