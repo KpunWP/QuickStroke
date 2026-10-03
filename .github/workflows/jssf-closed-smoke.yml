@@ -21,6 +21,7 @@ on:
       - tests/face-mouth-visibility-hardening.mjs
       - tests/face-distance-gate.mjs
       - tests/face-early-safety-path.mjs
+      - tests/face-score-research-only.mjs
       - docs/FACE_P0_RESEARCH_AUDIT.md
       - tests/face-research-export.mjs
       - research/jssf-face-export.mjs
@@ -53,6 +54,7 @@ jobs:
           node tests/face-mouth-visibility-hardening.mjs
           node tests/face-distance-gate.mjs
           node tests/face-early-safety-path.mjs
+          node tests/face-score-research-only.mjs
           node tests/face-research-export.mjs
           node tests/run-tests.mjs
           node tests/jssf-retention-static.mjs
