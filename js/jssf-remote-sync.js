@@ -164,7 +164,7 @@
     "rawSignedDisplacementLeft","rawSignedDisplacementRight","normalizedSignedDisplacementLeft","normalizedSignedDisplacementRight",
     "smileLeft","smileRight","deltaSmileLeft","deltaSmileRight","mouthWidth","mouthWidthDelta",
     "lateralOutwardLeft","lateralOutwardRight","relativeBlendEvidence","relativeGeometryEvidence",
-    "relativeSmileCandidate","relativeSmilePersisted",
+    "relativeSmileCandidate","relativeSmilePersisted","smileConfirmed",
     "mouthVisibilityScore","mouthDarkRatio","mouthCentralDarkRatio","mouthLineScore",
     "mouthAssessable","handMouthOverlap","blendSmileEvidence","geometrySmileEvidence"
   ]);
@@ -192,7 +192,7 @@
       finite(frame?.mouthWidth,0,10),finite(frame?.mouthWidthDelta,-10,10),
       finite(frame?.lateralOutwardLeft,-10,10),finite(frame?.lateralOutwardRight,-10,10),
       boolNumber(frame?.relativeBlendEvidence),boolNumber(frame?.relativeGeometryEvidence),
-      boolNumber(frame?.relativeSmileCandidate),boolNumber(frame?.relativeSmilePersisted),
+      boolNumber(frame?.relativeSmileCandidate),boolNumber(frame?.relativeSmilePersisted),boolNumber(frame?.smileConfirmed),
       finite(frame?.mouthVisibilityScore,0,10),finite(frame?.mouthDarkRatio,0,10),
       finite(frame?.mouthCentralDarkRatio,0,10),finite(frame?.mouthLineScore,0,10),
       boolNumber(frame?.mouthAssessable),boolNumber(frame?.handMouthOverlap),
