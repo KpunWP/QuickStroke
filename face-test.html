@@ -1934,7 +1934,7 @@ let mouthCtx = null;
 /* ───────────── Tunable thresholds (calibrate on a real device) ───────────── */
 const FACE_CFG = window.QS_CONFIG?.thresholds?.face || {};
 const FACE_MODULE_VERSION = FACE_CFG.version || "face-prepilot-1.4.0";
-const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.5.0";
+const FACE_ALGORITHM_VERSION = FACE_CFG.algorithmVersion || "face-asymmetry-1.6.0";
 const FACE_RESULT_SCHEMA_VERSION = FACE_CFG.resultSchemaVersion || "face-result-1.3.0";
 
 function stableStringify(value) {
@@ -2022,7 +2022,11 @@ const ATTEMPT_MOUTH_ASSESSABLE_RATIO_MIN = FACE_CFG.attemptMouthAssessableRatioM
 const ATTEMPT_HAND_OVERLAP_RATIO_MIN = FACE_CFG.attemptHandOverlapRatioMin ?? 0.15;
 const DYNAMIC_ASYM_CANDIDATE_THRESHOLD = FACE_CFG.dynamicAsymCandidateThreshold ?? 0.22;
 const DYNAMIC_GEOMETRY_MIN_MAGNITUDE = FACE_CFG.dynamicGeometryMinMagnitude ?? 0.01;
-const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.7.0';
+const DISTANCE_IDEAL_MIN = FACE_CFG.distanceIdealMin ?? 0.85;
+const DISTANCE_IDEAL_MAX = FACE_CFG.distanceIdealMax ?? 1.15;
+const DISTANCE_ACCEPT_MIN = FACE_CFG.distanceAcceptMin ?? 0.80;
+const DISTANCE_ACCEPT_MAX = FACE_CFG.distanceAcceptMax ?? 1.20;
+const FACE_RESEARCH_PAYLOAD_VERSION = FACE_CFG.researchPayloadVersion || 'face-research-0.8.0';
 
 // Stable eye-corner pairs from MediaPipe Face Landmarker.
 // Centers are deterministic midpoints of x/y landmarks; iris and landmark z are not used.
@@ -2592,6 +2596,10 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
           closedSmilePersistenceMs:CLOSED_SMILE_PERSISTENCE_MS,
           dynamicAsymCandidateThreshold:DYNAMIC_ASYM_CANDIDATE_THRESHOLD,
           dynamicGeometryMinMagnitude:DYNAMIC_GEOMETRY_MIN_MAGNITUDE,
+          distanceIdealMin:DISTANCE_IDEAL_MIN,
+          distanceIdealMax:DISTANCE_IDEAL_MAX,
+          distanceAcceptMin:DISTANCE_ACCEPT_MIN,
+          distanceAcceptMax:DISTANCE_ACCEPT_MAX,
           maxAllowedYaw:MAX_ALLOWED_YAW,
           maxAllowedPitch:MAX_ALLOWED_PITCH,
           maxAllowedRoll:MAX_ALLOWED_ROLL,
@@ -3323,6 +3331,10 @@ function makeResultPayload({validityStatus, clinicalResult, score, riskLevel, pa
       closedSmilePersistenceMs: CLOSED_SMILE_PERSISTENCE_MS,
       dynamicAsymCandidateThreshold: DYNAMIC_ASYM_CANDIDATE_THRESHOLD,
       dynamicGeometryMinMagnitude: DYNAMIC_GEOMETRY_MIN_MAGNITUDE,
+      distanceIdealMin: DISTANCE_IDEAL_MIN,
+      distanceIdealMax: DISTANCE_IDEAL_MAX,
+      distanceAcceptMin: DISTANCE_ACCEPT_MIN,
+      distanceAcceptMax: DISTANCE_ACCEPT_MAX,
       maxAllowedYaw: MAX_ALLOWED_YAW,
       maxAllowedPitch: MAX_ALLOWED_PITCH,
       maxAllowedRoll: MAX_ALLOWED_ROLL,
@@ -3870,6 +3882,12 @@ function poseWithinRestSafetyGate(yawDeg,pitchDeg,rollDeg){
   return Math.abs(yawDeg)<=REST_SAFETY_MAX_YAW &&
     Math.abs(pitchDeg)<=REST_SAFETY_MAX_PITCH &&
     Math.abs(rollDeg)<=REST_SAFETY_MAX_ROLL;
+}
+function distanceWithinAcceptableGate(ratio){
+  return Number.isFinite(ratio) && ratio>=DISTANCE_ACCEPT_MIN && ratio<=DISTANCE_ACCEPT_MAX;
+}
+function distanceWithinIdealBand(ratio){
+  return Number.isFinite(ratio) && ratio>=DISTANCE_IDEAL_MIN && ratio<=DISTANCE_IDEAL_MAX;
 }
 
 function computePose(lm){
@@ -4539,6 +4557,12 @@ function onResults(results, handResults=null){
 
   const inActionPhase = (phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE');
   const eyeDistanceRatioFromBaseline = baseEyeW ? eyeW / baseEyeW : null;
+  const distanceAcceptable = eyeDistanceRatioFromBaseline === null
+    ? true
+    : distanceWithinAcceptableGate(eyeDistanceRatioFromBaseline);
+  const distanceIdeal = eyeDistanceRatioFromBaseline === null
+    ? null
+    : distanceWithinIdealBand(eyeDistanceRatioFromBaseline);
   const currentMouthWidth = Math.abs(normalizedMouthRightX-normalizedMouthLeftX);
   const deltaSmileLeft = Number.isFinite(baselineSmileLeft) ? smileL-baselineSmileLeft : null;
   const deltaSmileRight = Number.isFinite(baselineSmileRight) ? smileR-baselineSmileRight : null;
@@ -4584,6 +4608,8 @@ function onResults(results, handResults=null){
     eyeLineRollDeg:roundMetric(rollDeg,2),
     eyeDistance:roundMetric(eyeW),
     eyeDistanceRatioFromBaseline:roundMetric(eyeDistanceRatioFromBaseline),
+    distanceAcceptable:eyeDistanceRatioFromBaseline === null ? null : distanceAcceptable,
+    distanceIdeal,
 
     rawLeftEyeCenterX:roundMetric(rawLeftEyeCenterX),
     rawLeftEyeCenterY:roundMetric(rawLeftEyeCenterY),
@@ -4714,6 +4740,40 @@ function onResults(results, handResults=null){
       showStatusPanel(FL.step1);
       showCenterCountdown(countdownVal);
     }
+  }
+
+  // Distance is a quality gate, not a second geometry correction. Normalized
+  // geometry already scales by current eye distance; this only rejects
+  // perspectives too far from the neutral baseline scale.
+  if ((phase==='ACTION_PHASE' || phase==='ACTION_WAIT_SMILE') &&
+      eyeDistanceRatioFromBaseline !== null &&
+      !distanceAcceptable){
+    const tooClose = eyeDistanceRatioFromBaseline > DISTANCE_ACCEPT_MAX;
+    hideSmilePrompt();
+    setUI({
+      glassColor:'var(--col-orange-glass)',
+      msg:'',
+      poseWarn:tooClose ? FL.distanceTooClose : FL.distanceTooFar,
+      showReset:true,
+      showHud:true
+    });
+    if (phase==='ACTION_WAIT_SMILE'){
+      resetSmileWindowToAction(
+        tooClose ? FL.distanceTooClose : FL.distanceTooFar,
+        null,
+        {reason:'distance_out_of_range'}
+      );
+    }
+    if (actionWaitStartMs && Date.now()-actionWaitStartMs >= MAX_WAIT_FOR_SMILE_MS){
+      finishInvalid('DISTANCE_OUT_OF_RANGE', {
+        detail:{
+          eyeDistanceRatioFromBaseline,
+          distanceAcceptMin:DISTANCE_ACCEPT_MIN,
+          distanceAcceptMax:DISTANCE_ACCEPT_MAX
+        }
+      });
+    }
+    return;
   }
 
   /* ── RESTING: collect neutral baseline + resting-droop check ── */
@@ -5032,6 +5092,7 @@ function invalidDisplayText(reasonCode){
     case 'BASELINE_INSUFFICIENT':
       return FL.noFaceBaseline || FL.faceUnableAssess;
     case 'POSE_ALIGNMENT_TIMEOUT':
+    case 'DISTANCE_OUT_OF_RANGE':
       return FL.faceUnableAssess;
     case 'HAND_OCCLUSION':
     case 'MOUTH_VISIBILITY_LOW':
