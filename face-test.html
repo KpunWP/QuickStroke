@@ -2534,7 +2534,14 @@ function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
         smileFrameCount:legacySnapshot?.smileFrameCount ?? legacySnapshot?.breakdown?.smileFrameCount ?? null,
         validSmileRatio:legacySnapshot?.validSmileRatio ?? legacySnapshot?.breakdown?.validSmileRatio ?? null,
         visibleMouthFrames:legacySnapshot?.visibleMouthFrames ?? legacySnapshot?.breakdown?.visibleMouthFrames ?? null,
-        avgMouthVisibility:legacySnapshot?.avgMouthVisibility ?? legacySnapshot?.breakdown?.avgMouthVisibility ?? null
+        avgMouthVisibility:legacySnapshot?.avgMouthVisibility ?? legacySnapshot?.breakdown?.avgMouthVisibility ?? null,
+        pairedBlendAsymMedian:legacySnapshot?.pairedBlendAsymMedian ?? legacySnapshot?.breakdown?.pairedBlendAsymMedian ?? null,
+        pairedBlendAsymP75:legacySnapshot?.pairedBlendAsymP75 ?? legacySnapshot?.breakdown?.pairedBlendAsymP75 ?? null,
+        pairedBlendAsymP90:legacySnapshot?.pairedBlendAsymP90 ?? legacySnapshot?.breakdown?.pairedBlendAsymP90 ?? null,
+        pairedBlendAsymMax:legacySnapshot?.pairedBlendAsymMax ?? legacySnapshot?.breakdown?.pairedBlendAsymMax ?? null,
+        pairedBlendAsymOverWarnRatio:legacySnapshot?.pairedBlendAsymOverWarnRatio ?? legacySnapshot?.breakdown?.pairedBlendAsymOverWarnRatio ?? null,
+        pairedBlendAsymOverBadRatio:legacySnapshot?.pairedBlendAsymOverBadRatio ?? legacySnapshot?.breakdown?.pairedBlendAsymOverBadRatio ?? null,
+        pairedBlendAsymLongestMs:legacySnapshot?.pairedBlendAsymLongestMs ?? legacySnapshot?.breakdown?.pairedBlendAsymLongestMs ?? null
       };
       await window.QuickStrokeJssfRemote.queueFaceResearchAttempt({
         screeningSessionId:finalizedAttempt.screeningSessionId,
