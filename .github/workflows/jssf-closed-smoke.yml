@@ -4,11 +4,16 @@ on:
   push:
     branches:
       - fix/jssf-public-sticky-v6
+      - research/face-p0-hardening
     paths:
       - .github/workflows/jssf-closed-smoke.yml
       - tests/jssf-remote-*.mjs
       - js/jssf-remote-sync.js
+      - face-test.html
+      - config.js
+      - tests/face-p0-static.mjs
       - supabase/functions/jssf-remote-ingest/**
+      - supabase/migrations/20261003072000_jssf_face_research_events.sql
   workflow_dispatch:
 
 permissions:
@@ -24,6 +29,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Check Face P0 research hardening
+        run: |
+          node tests/face-p0-static.mjs
+          python tests/check-inline-scripts.py
+          node tests/run-tests.mjs
       - name: Check inactive mode isolation and staged payload
         run: |
           node tests/jssf-remote-client.mjs
