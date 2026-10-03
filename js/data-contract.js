@@ -134,7 +134,7 @@
       moduleVersion: 'face-prepilot-1.4.0',
       algorithmVersion: 'face-asymmetry-1.3.0',
       resultSchemaVersion: 'face-result-1.3.0',
-      researchPayloadVersion: 'face-research-0.4.0',
+      researchPayloadVersion: 'face-research-0.5.0',
       measurementDictionaryVersion: 'face-measurement-0.1.0'
     }),
     arm: Object.freeze({
