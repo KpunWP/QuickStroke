@@ -44,6 +44,6 @@ assert.match(face,/dynamic:legacySnapshot\?\.dynamicAsymmetry \|\| summarizeDyna
 assert.match(config,/P0-D research\/shadow only; these values never change the user-facing result\./);
 assert.match(config,/dynamicAsymCandidateThreshold:\s*0\.22/);
 assert.match(config,/dynamicGeometryMinMagnitude:\s*0\.01/);
-assert.match(config,/researchPayloadVersion:\s*"face-research-0\.6\.0"/);
+assert.match(config,/researchPayloadVersion:\s*"face-research-0\.7\.0"/);
 
 console.log("PASS: P0-D paired dynamics are signed, paired-frame, timing-rich, remotely persisted and shadow-only");
