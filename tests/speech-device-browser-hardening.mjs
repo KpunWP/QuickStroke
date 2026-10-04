@@ -65,14 +65,12 @@ assert.match(speech,/const healthyReuse = await probeExistingAudioPipeline\(\)/)
 assert.match(speech,/await stopAll\(true\);[\s\S]*await sleep\(RETRY_FULL_RELEASE_WAIT_MS\)/);
 console.log("PASS: iOS keep-alive is health-probed before reuse and stale pipelines are fully rebuilt");
 
-assert.match(speech,/const ANDROID_CONCURRENT_PCM_PROBE = ANDROID_EXCLUSIVE_ASR[\s\S]*androidPcmProbe/);
-assert.match(speech,/if \(ANDROID_EXCLUSIVE_ASR && !ANDROID_CONCURRENT_PCM_PROBE\) \{[\s\S]*await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(speech,/if \(ANDROID_EXCLUSIVE_ASR\) \{[\s\S]*await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(speech,/oldStream\.getTracks\(\)\.forEach\(track => track\.stop\(\)\)/);
 assert.match(speech,/const useAcousticTimingForScoring = !ANDROID_EXCLUSIVE_ASR/);
-assert.match(speech,/function buildAndroidPcmProbeTelemetry\(\)/);
-assert.match(speech,/policy:'calibrated_time_domain_vad_probe_v1'/);
+assert.doesNotMatch(speech,/ANDROID_CONCURRENT_PCM_PROBE|androidPcmProbe|buildAndroidPcmProbeTelemetry/);
 assert.match(speech,/ACOUSTIC_METRICS_UNAVAILABLE/);
-console.log("PASS: Android remains exclusive-ASR by default; opt-in PCM probe preserves ASR-only scoring timing while capturing derived VAD timing");
+console.log("PASS: Android production path stays exclusive-ASR and concurrent PCM probe is removed");
 
 assert.match(speech,/document\.addEventListener\('visibilitychange'/);
 assert.match(speech,/if \(!document\.hidden \|\| !activeSpeechAttemptRecord\?\.testAttemptId\) return/);
