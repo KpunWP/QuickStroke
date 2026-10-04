@@ -188,11 +188,13 @@ try{
   assert.equal(res.body.collectionEnabled,false);
   const enrollment={
     consentAccepted:true,age18plus:true,participationScope:"usability_nonclinical",
-    consentVersion:"JSSF-REMOTE-2026-10-04-v2",
+    consentVersion:"JSSF-REMOTE-2026-10-04-v3",
     clientSessionId:"S-"+randomUUID().replaceAll("-",""),
     studyId:"QS-AAAA-BBBB-CCCC-DDDD-EEEE-FFFF",
     uploadToken:"b".repeat(64),
     platformFamily:"desktop",browserFamily:"chrome",locale:"th",
+    runtimeProvenanceVersion:"jssf-runtime-provenance-1.0.0",
+    osMajorVersion:null,browserMajorVersion:154,deviceClass:"desktop",deviceModel:null,
     appVersion:"1.0.21",appBuildId:"SYNTHETIC_TEST",dataCollectionPhase:"engineering_preflight"
   };
   res=await request("enroll",enrollment);
@@ -222,8 +224,10 @@ try{
   assert.equal(sessions.size,0);
   res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-02-v1"});
   assert.equal(res.status,422);
+  res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-04-v2"});
+  assert.equal(res.status,422);
   assert.equal(sessions.size,0);
-  console.log("PASS: new legacy-v1 enrollment is rejected");
+  console.log("PASS: new pre-v3 enrollment is rejected");
 
   console.log("PASS: active local handler rejects invalid consent and origin");
   syntheticRateLimit={
@@ -266,22 +270,21 @@ try{
   assert.equal(sessions.size,1);
   console.log("PASS: enrollment retry recovers the same session only with the same capability");
 
-  // Release enrollment is locked to v2; a second v2 session verifies bounded Speech telemetry.
-  const v2Enrollment={
+  // A second v3 session verifies bounded Speech telemetry under the current release consent.
+  const v3Enrollment={
     ...enrollment,
-    consentVersion:"JSSF-REMOTE-2026-10-04-v2",
     clientSessionId:"S-"+randomUUID().replaceAll("-",""),
     studyId:"QS-1111-2222-3333-4444-5555-6666",
     uploadToken:"d".repeat(64)
   };
-  res=await request("enroll",v2Enrollment);
+  res=await request("enroll",v3Enrollment);
   assert.equal(res.status,201);
-  const v2Receipt=res.body;
-  const v2SpeechId=randomUUID();
-  res=await request("events",{sessionId:v2Receipt.sessionId,events:[{
-    eventId:v2SpeechId,eventType:"test_attempt_completed",module:"speech",occurredAt:new Date().toISOString(),
+  const v3Receipt=res.body;
+  const v3SpeechId=randomUUID();
+  res=await request("events",{sessionId:v3Receipt.sessionId,events:[{
+    eventId:v3SpeechId,eventType:"test_attempt_completed",module:"speech",occurredAt:new Date().toISOString(),
     payload:{
-      testAttemptId:"TA-v2speech123",moduleRunId:"MR-v2speech123",attemptNo:1,
+      testAttemptId:"TA-v3speech123",moduleRunId:"MR-v3speech123",attemptNo:1,
       measurementTarget:"speech",validityStatus:"valid",observationStatus:"no_alert",
       qualityStatus:"acceptable",
       speechResearch:{
@@ -295,15 +298,15 @@ try{
         privacy:{rawAudioStored:false,transcriptIncluded:false,rawFramesIncluded:false}
       }
     }
-  }]},v2Receipt.uploadToken);
+  }]},v3Receipt.uploadToken);
   assert.equal(res.status,200);
-  const v2Stored=[...events.values()].find(row=>row.client_event_id===v2SpeechId);
-  assert.equal(v2Stored.payload.speechResearch.timing.durationMs,1500);
-  res=await request("withdraw",{sessionId:v2Receipt.sessionId},v2Receipt.uploadToken);
+  const v3Stored=[...events.values()].find(row=>row.client_event_id===v3SpeechId);
+  assert.equal(v3Stored.payload.speechResearch.timing.durationMs,1500);
+  res=await request("withdraw",{sessionId:v3Receipt.sessionId},v3Receipt.uploadToken);
   assert.equal(res.status,200);
   assert.equal(sessions.size,1);
   assert.equal(events.size,0);
-  console.log("PASS: consent v2 enrollment persists bounded Speech telemetry");
+  console.log("PASS: consent v3 enrollment persists bounded Speech telemetry");
 
   const now=()=>new Date().toISOString();
   const sample=[
@@ -369,7 +372,7 @@ try{
   const legacyStored=[...events.values()].find(row=>row.client_event_id===legacySpeechId);
   assert.ok(!("speechResearch" in legacyStored.payload));
   assert.equal(events.size,5);
-  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-04-v2";
+  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-04-v3";
   console.log("PASS: existing legacy-consent session remains usable but new Speech telemetry is stripped server-side");
 
   res=await request("events",{sessionId:receipt.sessionId,events:[{
