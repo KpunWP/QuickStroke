@@ -11,10 +11,13 @@ type JsonObject = Record<string, unknown>;
 const MAX_BODY = 64000;
 const origins = new Set((Deno.env.get("JSSF_ALLOWED_ORIGINS") || "").split(",").map(x => x.trim()).filter(Boolean));
 const consentVersion = Deno.env.get("JSSF_CONSENT_VERSION") || "";
-const RELEASE_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v2";
-const SPEECH_TELEMETRY_CONSENT_VERSION = RELEASE_CONSENT_VERSION;
+const RELEASE_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v3";
+const SPEECH_TELEMETRY_CONSENT_VERSIONS = new Set([
+  "JSSF-REMOTE-2026-10-04-v2",
+  RELEASE_CONSENT_VERSION
+]);
 function consentVersionAccepted(value: unknown): value is string {
-  // Enrollment is release-locked to v2. The environment value remains an
+  // Enrollment is release-locked to v3. The environment value remains an
   // operational readiness gate, but it can no longer reopen legacy enrollment.
   return value === RELEASE_CONSENT_VERSION;
 }
@@ -174,6 +177,16 @@ function requiredText(value: unknown, max: number, field: string): string {
   if (typeof value !== "string" || value.length < 1 || value.length > max || !/^[A-Za-z0-9_.:-]+$/.test(value)) throw new TypeError("Invalid " + field);
   return value;
 }
+function optionalInt(value: unknown, min: number, max: number, field: string): number | null {
+  if (value == null) return null;
+  if (!Number.isInteger(value) || Number(value) < min || Number(value) > max) throw new TypeError("Invalid " + field);
+  return Number(value);
+}
+function optionalDeviceModel(value: unknown): string | null {
+  if (value == null || value === "") return null;
+  if (typeof value !== "string" || value.length > 80 || !/^[A-Za-z0-9 ._+()\/-]+$/.test(value)) throw new TypeError("Invalid deviceModel");
+  return value;
+}
 function parseEnrollment(body: JsonObject) {
   if (body.consentAccepted !== true || body.age18plus !== true ||
       body.participationScope !== "usability_nonclinical" ||
@@ -187,11 +200,17 @@ function parseEnrollment(body: JsonObject) {
   const platform = typeof body.platformFamily === "string" ? body.platformFamily : "";
   const browser = typeof body.browserFamily === "string" ? body.browserFamily : "";
   const dataCollectionPhase = typeof body.dataCollectionPhase === "string" ? body.dataCollectionPhase : "";
+  const runtimeProvenanceVersion = requiredText(body.runtimeProvenanceVersion, 80, "runtimeProvenanceVersion");
+  const osMajorVersion = optionalInt(body.osMajorVersion, 1, 99, "osMajorVersion");
+  const browserMajorVersion = optionalInt(body.browserMajorVersion, 1, 999, "browserMajorVersion");
+  const deviceClass = requiredText(body.deviceClass, 20, "deviceClass");
+  const deviceModel = optionalDeviceModel(body.deviceModel);
   if (!SESSION.test(clientSessionId)) throw new TypeError("Invalid clientSessionId");
   if (optionalStudyId != null && (typeof optionalStudyId !== "string" || !/^QS-([A-F0-9]{4}-){5}[A-F0-9]{4}$/.test(optionalStudyId))) throw new TypeError("Invalid studyId");
   if (!/^[0-9a-f]{64}$/.test(uploadToken)) throw new TypeError("Invalid uploadToken");
   if (!LOCALES.has(locale)) throw new TypeError("Invalid locale");
   if (!COARSE_PLATFORM.has(platform) || !COARSE_BROWSER.has(browser)) throw new TypeError("Invalid device category");
+  if (!["phone","tablet","desktop"].includes(deviceClass)) throw new TypeError("Invalid deviceClass");
   if (!["engineering_preflight","jssf_pilot"].includes(dataCollectionPhase)) throw new TypeError("Invalid dataCollectionPhase");
   return {
     uploadToken,
@@ -204,6 +223,11 @@ function parseEnrollment(body: JsonObject) {
       locale,
       platform_family:platform,
       browser_family:browser,
+      os_major_version:osMajorVersion,
+      browser_major_version:browserMajorVersion,
+      device_class:deviceClass,
+      device_model:deviceModel,
+      runtime_provenance_version:runtimeProvenanceVersion,
       app_version:requiredText(body.appVersion, 40, "appVersion"),
       app_build_id:requiredText(body.appBuildId, 120, "appBuildId"),
       data_collection_phase:dataCollectionPhase,
@@ -213,7 +237,7 @@ function parseEnrollment(body: JsonObject) {
   };
 }
 function enforceConsentScopedEventPayload(events: ReturnType<typeof sanitizeBatch>, sessionConsentVersion: string) {
-  if (sessionConsentVersion === SPEECH_TELEMETRY_CONSENT_VERSION) return events;
+  if (SPEECH_TELEMETRY_CONSENT_VERSIONS.has(sessionConsentVersion)) return events;
   return events.map(event => {
     if (event.module !== "speech" || event.event_type !== "test_attempt_completed" ||
         !event.payload || typeof event.payload !== "object" || !("speechResearch" in event.payload)) {
