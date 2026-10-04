@@ -38,6 +38,8 @@ jobs:
         run: node tests/jssf-provenance-contract.mjs
       - name: JSSF result completion UX
         run: node tests/jssf-result-completion-ux.mjs
+      - name: JSSF mobile-only gate
+        run: node tests/jssf-mobile-only-gate.mjs
       - name: Arm post-task understanding
         run: node tests/arm-post-task-understanding.mjs
       - name: Arm remote sanitizer contract
