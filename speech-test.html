@@ -1119,9 +1119,6 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
 const ANDROID_EXCLUSIVE_ASR = IS_ANDROID && (SPEECH_CFG.androidExclusiveAsr ?? true);
-const SPEECH_QUERY = new URLSearchParams(window.location.search);
-const ANDROID_CONCURRENT_PCM_PROBE = ANDROID_EXCLUSIVE_ASR
-  && SPEECH_QUERY.get('androidPcmProbe') === '1';
 const ANDROID_PHRASE_PAUSE_MS = SPEECH_CFG.androidPhrasePauseMs ?? 1800;
 const ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG.androidRecognitionSafetyMs ?? 12000;
 const SPEECH_DATA_CONTRACT = window.QuickStrokeDataContract || null;
@@ -1209,7 +1206,7 @@ function resetSpeechCards(){
   if (!T) return;
   const L = T;
   setSpeechCard('word','active',L.accuracy,L.ready,'🗣️');
-  setSpeechCard('rate','',L.rate,L.pending,'⏱️');
+  setSpeechCard('rate','',L.rate,L.statusRateDevelopment || L.pending,'🧪');
 }
 
 function updateSpeechLabels() {
@@ -1658,26 +1655,6 @@ function resolveSpeechTiming(nowMs = performance.now()) {
   return { start, end, startSource, endSource };
 }
 
-function buildAndroidPcmProbeTelemetry() {
-  if (!ANDROID_CONCURRENT_PCM_PROBE) return null;
-  const attemptStart = currentAttemptPerformanceStartedAt || recordingStartedMs || null;
-  const start = micSpeechStartMs;
-  const end = lastMicVoiceMs || micSpeechEndMs;
-  const durationMs = start && end && end >= start ? Math.round(end - start) : null;
-  const offset = value => Number.isFinite(value) && Number.isFinite(attemptStart)
-    ? Math.max(0, Math.round(value - attemptStart))
-    : null;
-  return {
-    enabled:true,
-    available:Number.isFinite(durationMs),
-    policy:'calibrated_time_domain_vad_probe_v1',
-    startOffsetMs:offset(start),
-    endOffsetMs:offset(end),
-    durationMs,
-    voiceFrameCount:Array.isArray(voiceHistory) ? voiceHistory.length : 0,
-    audioContextSampleRate:Number.isFinite(audioCtx?.sampleRate) ? Math.round(audioCtx.sampleRate) : null
-  };
-}
 
 
 function roundSpeechMetric(value, digits = 5) {
@@ -2784,7 +2761,7 @@ async function startRecording(forceDirectMic = false) {
   $('debug-toggle').style.display   = DEBUG_ON ? 'block' : 'none';
   $('debug-box').textContent        = 'calibrating noise floor...';
   setSpeechCard('word','active',T.noiseMetric,T.calibrating.replace(/\.\.\.|…/g,'').trim() || T.pending,'🔇');
-  setSpeechCard('rate','',T.rate,T.pending,'⏱️');
+  setSpeechCard('rate','',T.rate,T.statusRateDevelopment || T.pending,'🧪');
 
   try {
     const permLang = sessionStorage.getItem('fast_lang') || 'th';
@@ -3614,7 +3591,7 @@ function runLoop() {
       try { navigator.vibrate?.([70,50,70]); } catch (error) {}
       // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
       window.MEASURED_NOISY = false;
-      if (ANDROID_EXCLUSIVE_ASR && !ANDROID_CONCURRENT_PCM_PROBE) {
+      if (ANDROID_EXCLUSIVE_ASR) {
         drawWave(freqArr, N);
         animationFrameId = null;
         void (async () => {
@@ -3623,9 +3600,6 @@ function runLoop() {
           void beginSpeechRecognition();
         })();
         return;
-      }
-      if (ANDROID_CONCURRENT_PCM_PROBE) {
-        DBG('ANDROID PCM PROBE', 'WebAudio remains active while browser ASR starts; scoring stays on the exclusive-ASR timing path');
       }
       void beginSpeechRecognition();
     }
@@ -3716,10 +3690,9 @@ function runLoop() {
   const durSec = timingPreview.start && timingPreview.end && timingPreview.end >= timingPreview.start
     ? (timingPreview.end - timingPreview.start) / 1000
     : 0;
-  if (durSec > 0.3) {
-    const rate = T.syllables / durSec;
-    setBar('rate', rateToScore(rate), `${rate.toFixed(1)} ${rateUnitLabel()}`);
-  }
+  if ($('val-rate')) $('val-rate').textContent = T.statusRateDevelopment || '—';
+  if ($('bar-rate')) $('bar-rate').style.width = '0%';
+  if ($('score-rate')) $('score-rate').textContent = T.statusRateNotUsed || '';
   if (vowelEnergyBuf.length > 10) {
     const s = calcStab(vowelEnergyBuf);
     setBar('stab', s, `${s}%`);
@@ -3910,7 +3883,6 @@ function speechRuntimeInfo() {
     isAndroid: IS_ANDROID,
     keepMicAlive: KEEP_MIC_ALIVE,
     androidExclusiveAsr: ANDROID_EXCLUSIVE_ASR,
-    androidConcurrentPcmProbe: ANDROID_CONCURRENT_PCM_PROBE,
     androidPhrasePauseMs: ANDROID_EXCLUSIVE_ASR ? ANDROID_PHRASE_PAUSE_MS : null,
     coarseRuntime: SPEECH_DATA_CONTRACT?.getCoarseRuntimeSnapshot?.() || null,
     language: T?.langCode || document.documentElement.lang || null,
@@ -3944,7 +3916,6 @@ function buildSpeechJssfResearchTelemetry(payload, asrEvents = []) {
       startSource:derived.timingStartSource || null,
       endSource:derived.timingEndSource || null
     },
-    pcmProbe:buildAndroidPcmProbeTelemetry(),
     phrase:{
       exactAcceptedVariant:typeof derived.acceptedVariantMatched === 'boolean'
         ? derived.acceptedVariantMatched : null,
@@ -4704,7 +4675,9 @@ function evaluateSpeech(text, confidence) {
     ? Math.round(wordScore * 0.40 + rateScore * 0.40 + stabScore * 0.20)
     : null;
   setBar('word', wordScore, wordLabel);
-  setBar('rate', rateScore, rateLabel);
+  if ($('val-rate')) $('val-rate').textContent = T.statusRateDevelopment;
+  if ($('bar-rate')) $('bar-rate').style.width = '0%';
+  if ($('score-rate')) $('score-rate').textContent = T.statusRateNotUsed;
   if (Number.isFinite(stabScore)) setBar('stab', stabScore, stabLabel);
   else {
     $('bar-stab').style.width = '0%';
@@ -4744,27 +4717,22 @@ function evaluateSpeech(text, confidence) {
   const observationReasonCodes = [];
   if (phraseObservationStatus === 'attention') observationReasonCodes.push('PHRASE_DIFFERENCE_OBSERVED');
   if (phraseObservationStatus === 'unavailable') observationReasonCodes.push('ASR_TRANSCRIPT_INCOMPLETE');
-  if (rateReferenceStatus === 'below_reference') observationReasonCodes.push('RATE_BELOW_EXPLORATORY_REFERENCE');
-  if (rateReferenceStatus === 'above_reference') observationReasonCodes.push('RATE_ABOVE_EXPLORATORY_REFERENCE');
-  if (rateReferenceStatus === 'unavailable') observationReasonCodes.push('RATE_UNRELIABLE');
   const displayReasonCodes = [
     ...observationReasonCodes,
     ...uniqueQualityFlags.map(flag => `QUALITY_${flag}`)
   ];
 
-  // Technical quality is shown separately. A full-coverage interim transcript
-  // alone must not turn a no-alert phrase/rate observation into attention.
+  // Speech rate is research-only and must not affect the screening observation.
+  // Technical quality remains separate; the user-facing decision is phrase-only.
   const displayStatus = asrTranscriptIncomplete
     ? 'indeterminate'
-    : observationReasonCodes.length ? 'attention' : 'no_alert';
+    : phraseObservationStatus === 'attention' ? 'attention' : 'no_alert';
   const cls = displayStatus === 'no_alert' ? 'ok' : 'warn';
   const title = displayStatus === 'no_alert'
     ? T.displayNoAlertTitle
     : displayStatus === 'indeterminate' ? T.displayIndeterminateTitle : T.displayAttentionTitle;
   const attentionCount = [
-    phraseObservationStatus === 'attention',
-    rateReferenceStatus !== 'within_reference',
-    technicalQualityStatus === 'limited'
+    phraseObservationStatus === 'attention'
   ].filter(Boolean).length;
   const sub = displayStatus === 'no_alert'
     ? T.displayNoAlertSummary
@@ -4781,21 +4749,8 @@ function evaluateSpeech(text, confidence) {
     ? 'no-alert'
     : phraseObservationStatus === 'unavailable' ? 'unavailable' : 'attention';
 
-  let rateStatusText;
-  let rateStatusClass;
-  if (rateReferenceStatus === 'within_reference') {
-    rateStatusText = `✓ ${T.statusRateWithin}`;
-    rateStatusClass = 'no-alert';
-  } else if (rateReferenceStatus === 'below_reference') {
-    rateStatusText = `! ${T.statusRateSlow}`;
-    rateStatusClass = 'attention';
-  } else if (rateReferenceStatus === 'above_reference') {
-    rateStatusText = `! ${T.statusRateFast}`;
-    rateStatusClass = 'attention';
-  } else {
-    rateStatusText = `! ${T.statusRateUnavailable}`;
-    rateStatusClass = 'unavailable';
-  }
+  const rateStatusText = `ℹ ${T.statusRateDevelopment}`;
+  const rateStatusClass = 'unavailable';
 
   function qualityFlagReason(flag) {
     const key = {
@@ -4835,12 +4790,9 @@ function evaluateSpeech(text, confidence) {
     phraseObservationStatus === 'no_alert' ? T.statusPhraseExact
       : phraseObservationStatus === 'unavailable' ? T.statusPhraseUnavailable : T.statusPhraseAttention,
     phraseObservationStatus === 'no_alert' ? '✅' : '⚠️');
-  setSpeechCard('rate', rateReferenceStatus === 'within_reference' ? 'pass' : 'active', T.domainRateLabel,
-    rateReferenceStatus === 'within_reference' ? T.statusRateWithin
-      : rateReferenceStatus === 'below_reference' ? T.statusRateSlow
-      : rateReferenceStatus === 'above_reference' ? T.statusRateFast
-      : T.statusRateUnavailable,
-    rateReferenceStatus === 'within_reference' ? '✅' : '⚠️');
+  setSpeechCard('rate', '', T.domainRateLabel,
+    T.statusRateDevelopment,
+    '🧪');
 
   const domains = {
     phrase: {
@@ -4854,8 +4806,7 @@ function evaluateSpeech(text, confidence) {
         : phraseObservationStatus === 'unavailable' ? 'ASR_TRANSCRIPT_INCOMPLETE' : null
     },
     rate: {
-      status: rateReferenceStatus === 'within_reference' ? 'no_alert'
-        : rateReferenceStatus === 'unavailable' ? 'unavailable' : 'attention',
+      status: 'unavailable',
       reliable: rateReliable,
       referenceStatus: rateReferenceStatus,
       value: roundSpeechMetric(syllPerSec, 4),
@@ -4865,9 +4816,8 @@ function evaluateSpeech(text, confidence) {
       transcriptCoverageRatio: roundSpeechMetric(transcriptCoverageRatio, 5),
       reliabilityFlags: rateReliabilityFlags,
       score: rateScore,
-      reasonCode: rateReferenceStatus === 'below_reference' ? 'RATE_BELOW_EXPLORATORY_REFERENCE'
-        : rateReferenceStatus === 'above_reference' ? 'RATE_ABOVE_EXPLORATORY_REFERENCE'
-        : rateReferenceStatus === 'unavailable' ? 'RATE_UNRELIABLE' : null
+      usedForDecision: false,
+      reasonCode: 'RATE_RESEARCH_ONLY_NOT_USED'
     }
   };
   const technicalQuality = {
