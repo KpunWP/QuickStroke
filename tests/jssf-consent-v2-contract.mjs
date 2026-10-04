@@ -38,8 +38,8 @@ assert.match(edge,/consent_version:body\.consentVersion/);
 assert.match(edge,/\.select\("id,status,expires_at,consent_version"\)/);
 assert.match(edge,/enforceConsentScopedEventPayload/);
 assert.match(edge,/sessionConsentVersion === SPEECH_TELEMETRY_CONSENT_VERSION/);
-console.log("PASS: Edge supports zero-downtime v2 transition and scopes Speech telemetry to v2 consent");
+console.log("PASS: Edge locks new enrollment to v2 and scopes Speech telemetry to v2 consent");
 
 assert.match(docs,/JSSF-REMOTE-2026-10-04-v2/);
-assert.match(docs,/JSSF_CONSENT_VERSION/);
-console.log("PASS: release documentation records the consent-version transition requirement");
+assert.match(docs,/New enrollment is now server-locked to v2 only/);
+console.log("PASS: release documentation records v2-only enrollment");
