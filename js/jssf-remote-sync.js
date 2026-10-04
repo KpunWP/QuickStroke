@@ -322,6 +322,62 @@
     global.crypto.getRandomValues(bytes);
     return Array.from(bytes,value=>value.toString(16).padStart(2,"0")).join("");
   }
+
+  function runtimeMajorVersion(agent, family) {
+    const ua=String(agent||"");
+    const patterns={
+      edge:/(?:Edg|EdgA|EdgiOS)\/(\d+)/i,
+      chrome:/(?:Chrome|CriOS)\/(\d+)/i,
+      firefox:/(?:Firefox|FxiOS)\/(\d+)/i,
+      safari:/Version\/(\d+)/i
+    };
+    const match=patterns[family]?.exec(ua);
+    return match ? Number.parseInt(match[1],10) : null;
+  }
+
+  function osMajorVersion(agent, platform) {
+    const ua=String(agent||"");
+    if (platform==="android") {
+      const m=/Android\s+(\d+)/i.exec(ua);
+      return m ? Number.parseInt(m[1],10) : null;
+    }
+    if (platform==="ios") {
+      const m=/(?:CPU(?: iPhone)? OS|iPhone OS)\s+(\d+)[_\.]/i.exec(ua);
+      return m ? Number.parseInt(m[1],10) : null;
+    }
+    return null;
+  }
+
+  function coarseDeviceClass(agent) {
+    const ua=String(agent||"");
+    if (/iPad|Tablet/i.test(ua)) return "tablet";
+    if (/iPhone|iPod|Android.*Mobile|Mobile/i.test(ua)) return "phone";
+    if (/Android/i.test(ua)) return "tablet";
+    return "desktop";
+  }
+
+  function safeDeviceModel(value) {
+    const text=String(value||"").trim();
+    return /^[A-Za-z0-9 ._+()\/-]{1,80}$/.test(text) ? text : null;
+  }
+
+  async function collectRuntimeProvenance(platform,browser,agent) {
+    let deviceModel=null;
+    try {
+      const uaData=global.navigator?.userAgentData;
+      if (uaData?.getHighEntropyValues) {
+        const values=await uaData.getHighEntropyValues(["model"]);
+        deviceModel=safeDeviceModel(values?.model);
+      }
+    } catch (_) { /* Model is optional and must never block enrollment. */ }
+    return {
+      runtimeProvenanceVersion:"jssf-runtime-provenance-1.0.0",
+      osMajorVersion:osMajorVersion(agent,platform),
+      browserMajorVersion:runtimeMajorVersion(agent,browser),
+      deviceClass:coarseDeviceClass(agent),
+      deviceModel
+    };
+  }
   async function readCredential(clientSessionId) {
     const db=await openOutbox();
     const tx=db.transaction("credentials","readonly");
@@ -402,7 +458,8 @@
     }
     const agent=global.navigator?.userAgent||"";
     const platform=/iphone|ipad|ipod/i.test(agent)?"ios":/android/i.test(agent)?"android":/windows|macintosh|linux/i.test(agent)?"desktop":"other";
-    const browser=/edg/i.test(agent)?"edge":/firefox|fxios/i.test(agent)?"firefox":/chrome|crios/i.test(agent)?"chrome":/safari/i.test(agent)?"safari":"other";
+    const browser=/edg|edga|edgios/i.test(agent)?"edge":/firefox|fxios/i.test(agent)?"firefox":/chrome|crios/i.test(agent)?"chrome":/safari/i.test(agent)?"safari":"other";
+    const runtime=await collectRuntimeProvenance(platform,browser,agent);
     const res=await global.fetch(cfg.endpoint.replace(/\/$/,"")+"/enroll",{
       method:"POST",headers:{"content-type":"application/json"},
       body:JSON.stringify({
@@ -417,6 +474,11 @@
         appVersion:global.QS_CONFIG.version,
         appBuildId:global.QS_CONFIG.buildId,
         platformFamily:platform,browserFamily:browser,
+        runtimeProvenanceVersion:runtime.runtimeProvenanceVersion,
+        osMajorVersion:runtime.osMajorVersion,
+        browserMajorVersion:runtime.browserMajorVersion,
+        deviceClass:runtime.deviceClass,
+        deviceModel:runtime.deviceModel,
         locale:(global.QuickStrokeI18n?.getLocale?.()||"th").split("-")[0]
       })
     });
