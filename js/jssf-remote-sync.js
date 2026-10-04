@@ -47,7 +47,8 @@
       && typeof cfg.privacyContact === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cfg.privacyContact)
       && typeof cfg.endpoint === "string"
       && /^https:\/\//.test(cfg.endpoint)
-      && typeof cfg.consentVersion === "string" && cfg.consentVersion.length >= 5;
+      && typeof cfg.consentVersion === "string" && cfg.consentVersion.length >= 5
+      && ["engineering_preflight","jssf_pilot"].includes(cfg.dataCollectionPhase);
   }
   function context() { return global.QuickStrokeDataContract?.getSessionContext?.() || {}; }
   function isRemoteContext(value = context()) {
