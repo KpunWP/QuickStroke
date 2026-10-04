@@ -244,7 +244,15 @@ function payloadFor(type, source, module = null) {
       durationMs: optionalDuration(source.durationMs),
       attemptCount: source.attemptCount == null ? undefined : intInRange(source.attemptCount, 0, 100, "attemptCount"),
       retryCount: source.retryCount == null ? undefined : intInRange(source.retryCount, 0, 100, "retryCount"),
-      algorithmVersion: optionalString(source.algorithmVersion, 100, "algorithmVersion")
+      algorithmVersion: optionalString(source.algorithmVersion, 100, "algorithmVersion"),
+      protocolUnderstanding: source.protocolUnderstanding == null ? undefined : (() => {
+        if (module !== "arm" || !object(source.protocolUnderstanding)) throw new TypeError("Invalid arm protocol understanding");
+        return {
+          answer: optionalEnum(source.protocolUnderstanding.answer, new Set(["understood","not_understood"]), "armProtocolUnderstandingAnswer"),
+          questionVersion: optionalString(source.protocolUnderstanding.questionVersion, 80, "armProtocolUnderstandingVersion"),
+          timing: optionalEnum(source.protocolUnderstanding.timing, new Set(["post_task"]), "armProtocolUnderstandingTiming")
+        };
+      })()
     };
     if (p.runStatus !== "completed" && p.observationStatus === "abnormal") throw new TypeError("Incomplete run cannot be labelled abnormal");
     return p;
