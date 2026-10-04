@@ -30,6 +30,8 @@ jobs:
         run: node tests/speech-timing-rate-replay.mjs
       - name: Speech device/browser hardening
         run: node tests/speech-device-browser-hardening.mjs
+      - name: Speech research E2E audit
+        run: node tests/speech-research-e2e-audit.mjs
       - name: Android compatibility
         run: node tests/android-compat.mjs
       - name: Inline script syntax
