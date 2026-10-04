@@ -51,7 +51,8 @@ vm.createContext(mergeCtx);
 vm.runInContext(
   extractFunction(speech,"dropNormalizedPrefix")+"\n"+
   extractFunction(speech,"mergeSpeechTranscripts")+"\n"+
-  "this.merge=mergeSpeechTranscripts;",
+  extractFunction(speech,"mergeSpeechTranscriptList")+"\n"+
+  "this.merge=mergeSpeechTranscripts;this.mergeList=mergeSpeechTranscriptList;",
   mergeCtx
 );
 const merge=(a,b)=>mergeCtx.merge(a,b);
@@ -62,6 +63,20 @@ assert.equal(merge("วันนี้","วันนี้ท้องฟ้า
 assert.equal(merge("วันนี้ท้องฟ้าแจ่มใส","ท้องฟ้าแจ่มใส"),"วันนี้ท้องฟ้าแจ่มใส");
 assert.equal(merge("วันนี้ท้องฟ้า","วันนี้ท้องฟ้า"),"วันนี้ท้องฟ้า");
 console.log("PASS: transcript merging handles pause fragments, overlap, supersets, and duplicates");
+
+assert.equal(
+  mergeCtx.mergeList(["วันนี้ท้องฟ้าแจ่มใส","วันนี้ท้องฟ้าแจ่มใส"]),
+  "วันนี้ท้องฟ้าแจ่มใส"
+);
+assert.equal(
+  mergeCtx.mergeList(["วันนี้","วันนี้ท้องฟ้าแจ่มใส","วันนี้ท้องฟ้าแจ่มใส"]),
+  "วันนี้ท้องฟ้าแจ่มใส"
+);
+assert.equal(
+  mergeCtx.mergeList(["วันนี้ท้อง","ท้องฟ้าแจ่มใส","วันนี้ท้องฟ้าแจ่มใส"]),
+  "วันนี้ท้อง ฟ้าแจ่มใส"
+);
+console.log("PASS: Android duplicate full-phrase/cumulative ASR segments are deduplicated within one session");
 
 function replayAndroidSessions(sessionTranscripts){
   let accumulated="";
@@ -150,3 +165,10 @@ assert.match(speech,/ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG\.androidRecognit
 assert.match(speech,/if \(bestTranscript && !recognitionFinalTimer\)/);
 assert.match(speech,/setTimeout\(\(\) => startRecognitionSafely\(0\), 120\)/);
 console.log("PASS: Android pause/restart operational timings are explicit and source-wired");
+
+
+assert.match(
+  speech,
+  /const sessionTranscript = ANDROID_EXCLUSIVE_ASR[\s\S]*mergeSpeechTranscriptList\(ordered\.map\(item => item\.text\)\)/
+);
+console.log("PASS: Android runtime uses deduplicating session aggregation while non-Android path remains unchanged");
