@@ -7,7 +7,7 @@ const edge=fs.readFileSync("supabase/functions/jssf-remote-ingest/index.ts","utf
 const migration=fs.readFileSync("supabase/migrations/20261004062000_jssf_data_collection_phase.sql","utf8");
 const contract=fs.readFileSync("js/data-contract.js","utf8");
 
-assert.match(config,/buildId:\s*"20261004-jssf-pilot-freeze-v1"/);
+assert.match(config,/buildId:\s*"20261004-jssf-pilot-freeze-v2"/);
 assert.match(config,/dataCollectionPhase:\s*"jssf_pilot"/);
 assert.match(client,/dataCollectionPhase:cfg\.dataCollectionPhase/);
 assert.match(client,/\["engineering_preflight","jssf_pilot"\]\.includes\(cfg\.dataCollectionPhase\)/);
@@ -23,3 +23,14 @@ assert.match(contract,/resultSchemaVersion: 'speech-result-1\.4\.2'/);
 assert.match(contract,/researchPayloadVersion: 'speech-research-0\.5\.2'/);
 
 console.log("PASS: JSSF build and collection-phase provenance are explicit and machine-readable");
+
+assert.match(client,/runtimeProvenanceVersion:"jssf-runtime-provenance-1\.0\.0"/);
+assert.match(client,/osMajorVersion:runtime\.osMajorVersion/);
+assert.match(client,/browserMajorVersion:runtime\.browserMajorVersion/);
+assert.match(client,/deviceClass:runtime\.deviceClass/);
+assert.match(client,/deviceModel:runtime\.deviceModel/);
+assert.match(edge,/os_major_version:osMajorVersion/);
+assert.match(edge,/browser_major_version:browserMajorVersion/);
+assert.match(edge,/device_class:deviceClass/);
+assert.match(edge,/device_model:deviceModel/);
+assert.match(edge,/runtime_provenance_version:runtimeProvenanceVersion/);
