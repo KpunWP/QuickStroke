@@ -11,7 +11,7 @@ This is not a diagnostic-accuracy study.
 Primary analysis cohort:
 - `data_collection_phase = 'jssf_pilot'`
 - consent version `JSSF-REMOTE-2026-10-04-v3`
-- build `20261004-jssf-pilot-freeze-v4`
+- build `20261004-jssf-pilot-freeze-v5`
 
 Exclude from participant outcome analysis:
 - `engineering_preflight`
