@@ -34,6 +34,8 @@ jobs:
         run: node tests/speech-research-e2e-audit.mjs
       - name: JSSF consent v2 contract
         run: node tests/jssf-consent-v2-contract.mjs
+      - name: JSSF provenance contract
+        run: node tests/jssf-provenance-contract.mjs
       - name: Arm post-task understanding
         run: node tests/arm-post-task-understanding.mjs
       - name: Arm remote sanitizer contract
