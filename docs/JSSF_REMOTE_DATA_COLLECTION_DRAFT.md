@@ -27,7 +27,7 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
-**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-04-v2`. New enrollment is now server-locked to v2 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
+**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-04-v3`. New enrollment is now server-locked to v2 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
 
 ## Implemented staging work
 - Supabase Project: `quickstroke-jssf` (Singapore).
@@ -76,9 +76,9 @@ See `docs/SPEECH_RATE_MEASUREMENT_DECISION_2026-10-04.md` for the engineering ev
 Final engineering smoke tests passed on both iPhone Safari and Android Chrome using the production build immediately before freeze. Each flow completed Consent → Face → Arm → Speech → Result → Finalize and produced a `session_completed` event.
 
 Freeze provenance:
-- build ID: `20261004-jssf-pilot-freeze-v1`
+- build ID: `20261004-jssf-pilot-freeze-v2`
 - collection phase: `jssf_pilot`
-- consent: `JSSF-REMOTE-2026-10-04-v2` (new enrollment v2-only)
+- consent: `JSSF-REMOTE-2026-10-04-v3` (new enrollment v3-only)
 - service worker: `quickstroke-pwa-v62`
 - Face: `face-prepilot-1.4.0` / `face-asymmetry-1.2.0`
 - Arm: `arm-prepilot-1.1.0` / `arm-drift-1.0.0`
