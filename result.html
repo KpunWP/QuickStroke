@@ -815,6 +815,19 @@
    .finalization-actions button{min-height:44px;padding:10px 14px;border-radius:13px;font-family:inherit;font-size:13px;font-weight:850;cursor:pointer}
    .finalize-button{border:0;background:#1F7A4D;color:#fff;flex:1 1 220px}
    .finalize-button:disabled{opacity:.45;cursor:not-allowed}
+   .jssf-submit-bar{position:fixed;left:0;right:0;bottom:0;z-index:1200;padding:10px max(14px,env(safe-area-inset-right)) calc(10px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));background:rgba(255,255,255,.96);border-top:1px solid var(--line);box-shadow:0 -10px 28px rgba(31,50,69,.12);backdrop-filter:blur(10px)}
+   .jssf-submit-inner{max-width:760px;margin:0 auto;display:grid;gap:6px}
+   .jssf-submit-button{width:100%;min-height:52px;border:0;border-radius:16px;background:#1F7A4D;color:#fff;font-family:inherit;font-size:16px;font-weight:850;cursor:pointer}
+   .jssf-submit-button:disabled{opacity:.48;cursor:not-allowed}
+   .jssf-submit-hint{text-align:center;font-size:12px;color:var(--ink-soft);font-weight:700}
+   body.jssf-submit-visible main{padding-bottom:112px}
+   .jssf-participant-finalization .finalization-header,
+   .jssf-participant-finalization .integrity-box,
+   .jssf-participant-finalization .export-button{display:none!important}
+   .jssf-participant-finalization{border-color:#d7eadf;background:#f7fcf9}
+   .jssf-participant-finalization .finalization-actions{display:block}
+   .jssf-participant-finalization .finalize-button{width:100%;min-height:50px;font-size:15px}
+   .jssf-participant-finalization .finalization-status{text-align:center;font-weight:800}
    .export-button{border:1.5px solid var(--line);background:#fff;color:var(--ink);flex:1 1 150px}
    .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
   </style>
@@ -912,6 +925,12 @@
     </div>
     <div class="finalization-status" id="finalization-status" aria-live="polite"></div>
    </section>
+   <div class="jssf-submit-bar" id="jssf-submit-bar" hidden>
+    <div class="jssf-submit-inner">
+     <button class="jssf-submit-button" id="jssf-submit-button" type="button">ส่งผลและจบการทดสอบ</button>
+     <div class="jssf-submit-hint" id="jssf-submit-hint">ขั้นตอนสุดท้าย: กดปุ่มนี้เพื่อส่งผลการทดสอบ</div>
+    </div>
+   </div>
    <section class="dev-panel" hidden="" id="dev-panel">
     <div class="dev-card">
      <div class="dev-header">
@@ -983,6 +1002,11 @@
    }
 
    function isResearchResultSession() { return effectiveResultAppMode() === 'research'; }
+   function isRemoteJssfResultSession() {
+     const session = RESULT_DATA_CONTEXT?.session;
+     return isResearchResultSession()
+       && (session?.researchProfile || session?.researchMetadata?.researchProfile) === 'community_remote_qr';
+   }
    function isDevResultSession() {
      return effectiveResultAppMode() === 'dev' && window.QuickStrokeDevMode?.isEnabled?.() === true;
    }
@@ -2544,17 +2568,26 @@
 
      const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
      if (isResearchResultSession()) {
-       // Research uses per-module retry plus explicit finalization. Hide the
-       // generic "retry all / start over" action so an operator cannot
-       // accidentally abandon a participant before finalization.
+       // Research uses explicit finalization. Remote JSSF participants should
+       // have one obvious completion action and no exit path before submission.
        action(retry, '', null, true);
-       if (r.scope !== 'individual') {
-         action(primary, T.home || 'กลับหน้าหลัก', goHome);
-         action(secondary, '', null, true);
-       }
-       if (sessionStatus === 'finalized') {
-         action(primary, T.home || 'กลับหน้าหลัก', goHome);
-         action(secondary, '', null, true);
+       if (isRemoteJssfResultSession()) {
+         if (sessionStatus === 'finalized') {
+           action(primary, T.home || 'กลับหน้าหลัก', goHome);
+           action(secondary, '', null, true);
+         } else {
+           action(primary, '', null, true);
+           action(secondary, '', null, true);
+         }
+       } else {
+         if (r.scope !== 'individual') {
+           action(primary, T.home || 'กลับหน้าหลัก', goHome);
+           action(secondary, '', null, true);
+         }
+         if (sessionStatus === 'finalized') {
+           action(primary, T.home || 'กลับหน้าหลัก', goHome);
+           action(secondary, '', null, true);
+         }
        }
      }
      document.getElementById('legal-note').textContent = T.safetyNote;
@@ -2614,10 +2647,10 @@
      const session = RESULT_DATA_CONTEXT?.session;
      if (!isResearchResultSession() || !session?.screeningSessionId || !RESULT_RESEARCH_STORE?.finalizeResearchSession) return;
      const isRemoteJssf = (session.researchProfile || session.researchMetadata?.researchProfile) === 'community_remote_qr';
-     const confirmText = isRemoteJssf
-       ? 'ยืนยันจบการทดสอบและส่งผลรอบนี้หรือไม่? หลังจากส่งแล้วจะไม่สามารถเพิ่มผลใหม่ในรอบนี้ได้'
-       : 'หลัง finalize แล้ว จะไม่สามารถเพิ่มหรือแก้ข้อมูลใน session นี้ได้ ยืนยันจบการเก็บข้อมูลหรือไม่?';
-     if (!confirm(confirmText)) return;
+     if (!isRemoteJssf) {
+       const confirmText = 'หลัง finalize แล้ว จะไม่สามารถเพิ่มหรือแก้ข้อมูลใน session นี้ได้ ยืนยันจบการเก็บข้อมูลหรือไม่?';
+       if (!confirm(confirmText)) return;
+     }
      button.disabled = true;
      if (status) status.textContent = isRemoteJssf ? 'กำลังตรวจความครบถ้วนและส่งผล…' : 'กำลังตรวจ integrity และ finalize…';
      try {
@@ -2636,7 +2669,7 @@
        RESULT_DATA_CONTEXT = null;
        await ensureResultDataContext({ force:true });
        await buildResult();
-       if (status) status.textContent = isRemoteJssf ? 'ส่งผลเรียบร้อยแล้ว' : 'Finalize สำเร็จ ข้อมูล session ถูกล็อกแล้ว';
+       if (status) status.textContent = isRemoteJssf ? '✓ ส่งผลเรียบร้อยแล้ว คุณสามารถปิดหน้านี้ได้' : 'Finalize สำเร็จ ข้อมูล session ถูกล็อกแล้ว';
      } catch (error) {
        console.error('Research finalization failed.', error);
        if (status) status.textContent = `${isRemoteJssf ? 'ยังส่งผลไม่สำเร็จ' : 'Finalize ไม่สำเร็จ'}: ${error.message || error}`;
@@ -2656,8 +2689,12 @@
      const finalizeButton = document.getElementById('finalize-session');
      const exportButton = document.getElementById('export-research-session');
      const status = document.getElementById('finalization-status');
+     const submitBar = document.getElementById('jssf-submit-bar');
+     const submitButton = document.getElementById('jssf-submit-button');
+     const submitHint = document.getElementById('jssf-submit-hint');
      exportButton.onclick = exportCurrentResearchSession;
      finalizeButton.onclick = finalizeCurrentResearchSession;
+     if (submitButton) submitButton.onclick = finalizeCurrentResearchSession;
      if (!session) {
        badge.textContent = 'NO SESSION';
        box.className = 'integrity-box error';
@@ -2667,6 +2704,15 @@
        return;
      }
      const isRemoteJssf = (session.researchProfile || session.researchMetadata?.researchProfile) === 'community_remote_qr';
+     panel.classList.toggle('jssf-participant-finalization', isRemoteJssf);
+     if (isRemoteJssf) {
+       exportButton.hidden = true;
+       document.body.classList.toggle('jssf-submit-visible', session.sessionStatus !== 'finalized');
+     } else {
+       exportButton.hidden = false;
+       document.body.classList.remove('jssf-submit-visible');
+       if (submitBar) submitBar.hidden = true;
+     }
      const studyId = session.researchMetadata?.studyId || '—';
      meta.textContent = `Study ID: ${studyId} · Profile: ${session.researchProfile || 'clinic_supervised'} · Upload: ${session.uploadState || 'not_configured'} · Export: ${session.exportState || 'not_exported'}`;
      badge.textContent = String(session.sessionStatus || 'active').toUpperCase();
@@ -2676,9 +2722,13 @@
          ? `ส่งผลแล้ว: ${session.finalizedAt || '—'}`
          : `Finalized: ${session.finalizedAt || '—'} · การแก้ภายหลังต้องใช้ amendment/audit trail`;
        finalizeButton.disabled = true;
-       finalizeButton.textContent = isRemoteJssf ? 'จบการทดสอบและส่งผลแล้ว' : 'Session finalized แล้ว';
+       finalizeButton.textContent = isRemoteJssf ? 'ส่งผลเรียบร้อยแล้ว' : 'Session finalized แล้ว';
        exportButton.disabled = false;
-       if (status) status.textContent = '';
+       if (isRemoteJssf) {
+         if (submitBar) submitBar.hidden = true;
+         document.body.classList.remove('jssf-submit-visible');
+         if (status) status.textContent = '✓ ส่งผลเรียบร้อยแล้ว คุณสามารถปิดหน้านี้ได้';
+       } else if (status) status.textContent = '';
        return;
      }
      let integrity = null;
@@ -2706,9 +2756,17 @@
        });
        box.appendChild(list);
      }
-     finalizeButton.textContent = isRemoteJssf ? 'จบการทดสอบและส่งผล' : 'จบการเก็บข้อมูลผู้เข้าร่วมรายนี้';
+     finalizeButton.textContent = isRemoteJssf ? 'ส่งผลและจบการทดสอบ' : 'จบการเก็บข้อมูลผู้เข้าร่วมรายนี้';
      finalizeButton.disabled = !integrity?.canFinalize || session.sessionStatus !== 'protocol_completed';
      exportButton.disabled = false;
+     if (isRemoteJssf && submitBar && submitButton && submitHint) {
+       submitBar.hidden = false;
+       submitButton.disabled = finalizeButton.disabled;
+       submitButton.textContent = 'ส่งผลและจบการทดสอบ';
+       submitHint.textContent = finalizeButton.disabled
+         ? 'กรุณาทำ Face, Arm และ Speech ให้ครบก่อนส่งผล'
+         : 'ขั้นตอนสุดท้าย: กดปุ่มนี้เพื่อส่งผลการทดสอบ';
+     }
      if (status) status.textContent = session.sessionStatus === 'active'
        ? (isRemoteJssf ? 'กรุณาทำ ใบหน้า แขน และการพูดให้ครบก่อนส่งผล' : 'ต้องทำ Face, Arm และ Speech ครบตาม protocol ก่อน finalize')
        : integrity?.canFinalize
