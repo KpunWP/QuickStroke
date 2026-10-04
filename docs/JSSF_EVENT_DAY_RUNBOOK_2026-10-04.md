@@ -3,9 +3,9 @@
 ## Release
 
 - Participant entry URL: https://quickstroke.vercel.app/jssf-consent.html
-- Build: `20261004-jssf-pilot-freeze-v1`
+- Build: `20261004-jssf-pilot-freeze-v2`
 - Collection phase: `jssf_pilot`
-- Consent: `JSSF-REMOTE-2026-10-04-v2`
+- Consent: `JSSF-REMOTE-2026-10-04-v3`
 - Intended population: adults 18+ in a nonclinical community usability/reliability pilot.
 - QuickStroke is a screening/research prototype, not a diagnostic test.
 
@@ -64,9 +64,9 @@ If an observer notices the participant using the wrong hand, record the occurren
 
 Confirm:
 - production URL returns successfully,
-- config build ID is `20261004-jssf-pilot-freeze-v1`,
+- config build ID is `20261004-jssf-pilot-freeze-v2`,
 - `dataCollectionPhase = jssf_pilot`,
-- consent version is v2,
+- consent version is v3,
 - remote collection is enabled,
 - no new engineering/preflight session is mislabeled as pilot,
 - withdrawal page remains reachable.
@@ -121,3 +121,8 @@ Record:
 - any withdrawal/deletion requests.
 
 Do not merge engineering/preflight sessions into the pilot analysis cohort.
+
+
+## Device/runtime provenance note
+
+Consent v3 discloses collection of coarse device/runtime metadata for reliability analysis. The project may store OS/browser major versions, device class, and browser-exposed model when available. Raw User-Agent and persistent device identifiers are not stored.
