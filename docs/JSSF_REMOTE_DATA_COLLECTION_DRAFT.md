@@ -62,3 +62,10 @@
 5. **CLOSED:** upload, duplicate retry/idempotency, disconnection/reconnection, completion recovery, withdrawal, and public/research/dev isolation have passed the release test sequence.
 6. **CLOSED:** stable participant domain is `https://quickstroke.vercel.app`; the production participant entry is `https://quickstroke.vercel.app/jssf-consent.html`. Temporary Preview URLs must not be used for participant QR codes.
 7. **Withdrawal UX for many local enrollments — CLOSED in Safari acceptance on 2026-10-01.** The native long dropdown was replaced with a recent-first card chooser. One enrollment auto-selects; small sets show clear cards; larger sets add Study ID/date-time search and incremental display. The selected Study ID and timestamp are repeated before confirmation, pending-withdrawal state is visible, and only safe metadata is shown. A real iPhone Safari test with 100 synthetic enrollments plus existing prior test enrollments confirmed search/filter, newest-first ordering, incremental display, correct session selection, successful withdrawal of the intended session, immediate removal of the deleted row, count reduction, and continued access to the remaining sessions.
+
+
+## Speech-rate measurement decision (2026-10-04)
+
+Speech rate is retained as exploratory research telemetry but is not used to trigger the current Speech screening observation. Cross-platform pilot testing found browser/platform-dependent timing bias, and an Android concurrent PCM + browser-ASR probe caused unacceptable ASR contention. The production Android path therefore remains exclusive-ASR, and the user-facing rate status is marked as under development.
+
+See `docs/SPEECH_RATE_MEASUREMENT_DECISION_2026-10-04.md` for the engineering evidence, event-day explanation, limitations, and revisit criteria.
