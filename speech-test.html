@@ -3030,6 +3030,12 @@ function mergeSpeechTranscripts(base, next) {
   return `${left} ${suffix}`.trim();
 }
 
+function mergeSpeechTranscriptList(values) {
+  return (Array.isArray(values) ? values : [])
+    .reduce((merged, value) => mergeSpeechTranscripts(merged, value), '')
+    .trim();
+}
+
 function speechTranscriptMatchesAcceptedPhrase(value) {
   const normalized = normalizeSpeechText(value);
   if (!normalized) return false;
@@ -3100,12 +3106,11 @@ async function beginSpeechRecognition() {
     let accumulatedConfidences = [];
     const recognitionSegments = new Map();
 
-    const currentSessionTranscript = () => [...recognitionSegments.entries()]
-      .sort((a, b) => a[0] - b[0])
-      .map(([, value]) => value)
-      .map(item => item.text)
-      .join(' ')
-      .trim();
+    const currentSessionTranscript = () => mergeSpeechTranscriptList(
+      [...recognitionSegments.entries()]
+        .sort((a, b) => a[0] - b[0])
+        .map(([, value]) => value.text)
+    );
 
     const commitCurrentAndroidSession = () => {
       if (!ANDROID_EXCLUSIVE_ASR) return;
@@ -3189,7 +3194,9 @@ async function beginSpeechRecognition() {
       const ordered = [...recognitionSegments.entries()]
         .sort((a, b) => a[0] - b[0])
         .map(([, value]) => value);
-      const sessionTranscript = ordered.map(item => item.text).join(' ').trim();
+      const sessionTranscript = ANDROID_EXCLUSIVE_ASR
+        ? mergeSpeechTranscriptList(ordered.map(item => item.text))
+        : ordered.map(item => item.text).join(' ').trim();
       bestTranscript = ANDROID_EXCLUSIVE_ASR
         ? mergeSpeechTranscripts(accumulatedTranscript, sessionTranscript)
         : sessionTranscript;
