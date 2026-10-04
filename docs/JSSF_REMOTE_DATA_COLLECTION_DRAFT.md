@@ -27,7 +27,7 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
-**Final wording approval note (2026-10-02):** `jssf-consent.html` was approved at the project owner/advisor checkpoint. The production consent version is `JSSF-REMOTE-2026-10-02-v1`. The production server/client gates have now been explicitly opened after controlled production verification. The page still fails closed automatically if the required release gates are unavailable.
+**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The engineering candidate consent version is `JSSF-REMOTE-2026-10-04-v2`. Production remains on the previously approved version until release; when v2 is released, the client config and server `JSSF_CONSENT_VERSION` must be changed together so enrollment fails closed rather than accepting mismatched consent.
 
 ## Implemented staging work
 - Supabase Project: `quickstroke-jssf` (Singapore).
