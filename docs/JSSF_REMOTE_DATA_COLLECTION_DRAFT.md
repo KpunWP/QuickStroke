@@ -13,7 +13,7 @@
 
 การเข้าร่วมนี้มีวัตถุประสงค์เพื่อศึกษาความสะดวกในการใช้งานและความเสถียรของระบบตรวจสัญญาณ FAST ในบุคคลทั่วไป ไม่ใช่การประเมินความแม่นยำในการวินิจฉัยโรค และไม่สามารถยืนยันได้ว่าผู้ใช้งานไม่มีภาวะสโตรก หากมีอาการที่สงสัยว่าเป็นสโตรก ให้หยุดทดสอบและติดต่อบริการฉุกเฉินทันที (ประเทศไทยโทร 1669)
 
-หลังจากคุณกดยินยอม แอปจะสร้างรหัสแบบสุ่มและส่งข้อมูลผลการทดสอบแต่ละรายการ การทดสอบซ้ำ เวลาที่ใช้ และรหัสข้อผิดพลาดทางเทคนิคกลับสู่ฐานข้อมูลโครงการโดยอัตโนมัติ รวมถึงข้อมูลประเภทอุปกรณ์และเบราว์เซอร์อย่างคร่าว ๆ แอปไม่ส่งวิดีโอ ภาพใบหน้าดิบ ไฟล์เสียงดิบ บทพูดที่บันทึก หรือชื่อจริงของคุณ
+หลังจากคุณกดยินยอม แอปจะสร้างรหัสแบบสุ่มและส่งข้อมูลผลการทดสอบแต่ละรายการ การทดสอบซ้ำ เวลาที่ใช้ และรหัสข้อผิดพลาดทางเทคนิคกลับสู่ฐานข้อมูลโครงการโดยอัตโนมัติ รวมถึงข้อมูลทางเทคนิคของอุปกรณ์ที่จำเป็นต่อการวิเคราะห์ความเสถียร เช่น ระบบปฏิบัติการและรุ่นหลักของระบบปฏิบัติการ ประเภทและรุ่นหลักของเบราว์เซอร์ ชนิดอุปกรณ์ และชื่อรุ่นอุปกรณ์เฉพาะเมื่อเบราว์เซอร์เปิดเผยข้อมูลนี้อย่างเป็นทางการ โดยไม่เก็บ raw User-Agent หรือหมายเลขประจำเครื่อง แอปไม่ส่งวิดีโอ ภาพใบหน้าดิบ ไฟล์เสียงดิบ บทพูดที่บันทึก หรือชื่อจริงของคุณ
 
 โครงการนี้กำหนดผู้เข้าร่วม JSSF remote pilot อายุ 18 ปีขึ้นไป การเข้าร่วมเป็นความสมัครใจและสามารถหยุดได้ทุกเมื่อ การหยุดกลางทางอาจทำให้ข้อมูลเฉพาะขั้นตอนที่ส่งสำเร็จไปแล้วถูกเก็บไว้จนกว่าจะครบกำหนดหรือมีคำขอลบ
 
@@ -27,7 +27,7 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
-**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-04-v3`. New enrollment is now server-locked to v2 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
+**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-04-v3`. New enrollment is now server-locked to v3 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
 
 ## Implemented staging work
 - Supabase Project: `quickstroke-jssf` (Singapore).
