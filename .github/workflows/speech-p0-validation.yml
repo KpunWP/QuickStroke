@@ -24,6 +24,8 @@ jobs:
         run: node tests/jssf-remote-client.mjs
       - name: Speech remote sanitizer contract
         run: node tests/speech-p0-remote-contract.mjs
+      - name: Deterministic Speech ASR replay
+        run: node tests/speech-asr-replay.mjs
       - name: Android compatibility
         run: node tests/android-compat.mjs
       - name: Inline script syntax
