@@ -259,6 +259,46 @@ try{
   assert.equal(sessions.size,1);
   console.log("PASS: enrollment retry recovers the same session only with the same capability");
 
+  // Transitional release: the configured legacy consent remains accepted while the
+  // new v2 disclosure is deployed. Only v2 sessions may persist Speech telemetry.
+  const v2Enrollment={
+    ...enrollment,
+    consentVersion:"JSSF-REMOTE-2026-10-04-v2",
+    clientSessionId:"S-"+randomUUID().replaceAll("-",""),
+    studyId:"QS-1111-2222-3333-4444-5555-6666",
+    uploadToken:"d".repeat(64)
+  };
+  res=await request("enroll",v2Enrollment);
+  assert.equal(res.status,201);
+  const v2Receipt=res.body;
+  const v2SpeechId=randomUUID();
+  res=await request("events",{sessionId:v2Receipt.sessionId,events:[{
+    eventId:v2SpeechId,eventType:"test_attempt_completed",module:"speech",occurredAt:new Date().toISOString(),
+    payload:{
+      testAttemptId:"TA-v2speech123",moduleRunId:"MR-v2speech123",attemptNo:1,
+      measurementTarget:"speech",validityStatus:"valid",observationStatus:"no_alert",
+      qualityStatus:"acceptable",
+      speechResearch:{
+        schemaVersion:"speech-remote-research-0.1.0",
+        timing:{durationMs:1500,policy:"asr_mic_hybrid_v1_1",startSource:"asr_mic_confirmed",endSource:"mic_last_active"},
+        phrase:{exactAcceptedVariant:true,similarity:1,transcriptCoverageRatio:1,reliable:true,observationStatus:"no_alert",alternativeSelectionPolicy:"target_phrase_similarity_best_alternative"},
+        rate:{speechUnitsPerSec:4,reliable:true,referenceStatus:"within_reference"},
+        asr:{finalReceived:true,eventCount:2,startCount:1,restartCount:0,resultCount:1,finalResultCount:1,errorCount:0},
+        quality:{status:"acceptable",flags:[],acousticMetricsAvailable:true},
+        platform:{isIOS:true,isAndroid:false,androidExclusiveAsr:false},
+        privacy:{rawAudioStored:false,transcriptIncluded:false,rawFramesIncluded:false}
+      }
+    }
+  }]},v2Receipt.uploadToken);
+  assert.equal(res.status,200);
+  const v2Stored=[...events.values()].find(row=>row.client_event_id===v2SpeechId);
+  assert.equal(v2Stored.payload.speechResearch.timing.durationMs,1500);
+  res=await request("withdraw",{sessionId:v2Receipt.sessionId},v2Receipt.uploadToken);
+  assert.equal(res.status,200);
+  assert.equal(sessions.size,1);
+  assert.equal(events.size,0);
+  console.log("PASS: consent v2 enrollment persists bounded Speech telemetry");
+
   const now=()=>new Date().toISOString();
   const sample=[
     {eventId:randomUUID(),eventType:"module_run_completed",module:"face",
@@ -305,6 +345,25 @@ try{
   assert.equal(events.size,4,"Duplicate retry added events");
   console.log("PASS: 4 sanitized module/attempt events accepted; retry is idempotent");
 
+  const legacySpeechId=randomUUID();
+  res=await request("events",{sessionId:receipt.sessionId,events:[{
+    eventId:legacySpeechId,eventType:"test_attempt_completed",module:"speech",occurredAt:now(),
+    payload:{
+      testAttemptId:"TA-legacySpeech123",moduleRunId:"MR-legacySpeech123",attemptNo:1,
+      measurementTarget:"speech",validityStatus:"valid",observationStatus:"no_alert",
+      qualityStatus:"acceptable",
+      speechResearch:{
+        schemaVersion:"speech-remote-research-0.1.0",
+        timing:{durationMs:1600,policy:"asr_mic_hybrid_v1_1",startSource:"asr_mic_confirmed",endSource:"mic_last_active"}
+      }
+    }
+  }]},receipt.uploadToken);
+  assert.equal(res.status,200);
+  const legacyStored=[...events.values()].find(row=>row.client_event_id===legacySpeechId);
+  assert.ok(!("speechResearch" in legacyStored.payload));
+  assert.equal(events.size,5);
+  console.log("PASS: legacy-consent session remains usable but new Speech telemetry is stripped server-side");
+
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:randomUUID(),eventType:"module_run_completed",module:"arm",
     occurredAt:now(),payload:{moduleRunId:"MR-invalid12345",sequenceNo:2,
@@ -325,7 +384,7 @@ try{
     }
   }]},receipt.uploadToken);
   assert.equal(res.status,200);
-  assert.equal(events.size,5);
+  assert.equal(events.size,6);
   const storedAsr=[...events.values()].find(row=>row.client_event_id===asrEventId);
   assert.deepEqual(storedAsr.payload,{code:"ASR_NO_TRANSCRIPT",relatedModuleRunId:"MR-speech12345"});
   assert.ok(!JSON.stringify(storedAsr).includes("FORBIDDEN_TRANSCRIPT"));
@@ -340,7 +399,7 @@ try{
   res=await request("events",{sessionId:receipt.sessionId,events:[completion]},receipt.uploadToken);
   assert.equal(res.status,200);
   assert.equal(res.body.duplicates,true);
-  assert.equal(events.size,6);
+  assert.equal(events.size,7);
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:randomUUID(),eventType:"technical_event",occurredAt:now(),payload:{code:"PAGE_HIDDEN"}
   }]},receipt.uploadToken);
@@ -365,7 +424,7 @@ try{
   assert.equal(res.body.error, "Too many requests");
   assert.equal(res.headers.get("retry-after"), "41");
   assert.equal(sessions.size, 1);
-  assert.equal(events.size, 6);
+  assert.equal(events.size, 7);
 
   syntheticRateLimit = {
     allowed: true,
