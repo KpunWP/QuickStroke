@@ -2308,7 +2308,7 @@ let armModuleRunRecord = null;
 let previousArmModuleRunIdForRetry = null;
 let armSideConfirmation = { side:null, confirmedAt:null, method:null };
 let armProtocolUnderstanding = null;
-const ARM_PROTOCOL_UNDERSTANDING_VERSION = 'arm-protocol-understanding-1.0.0';
+const ARM_PROTOCOL_UNDERSTANDING_VERSION = 'arm-protocol-understanding-1.1.0';
 const ARM_JSSF_TELEMETRY_VERSION = 'arm-jssf-telemetry-0.1.0';
 let activeArmAttemptRecord = null;
 let lastCompletedArmAttemptBySide = { left:null, right:null };
@@ -2668,9 +2668,9 @@ function armProtocolUnderstandingCopy() {
 
 function armUnderstandingLabels() {
   const lang = normaliseArmLang(document.documentElement.lang || sessionStorage.getItem('fast_lang') || 'th');
-  if (lang === 'en') return { question:'Do you understand how to perform the arm test?', yes:'I understand', no:'I do not understand yet' };
-  if (lang === 'ja') return { question:'腕のテスト方法を理解していますか？', yes:'理解した', no:'まだ理解していない' };
-  return { question:'คุณเข้าใจวิธีทดสอบแขนหรือไม่?', yes:'เข้าใจ', no:'ยังไม่เข้าใจ' };
+  if (lang === 'en') return { question:'After completing the arm test, do you understand how to perform it?', yes:'I understand', no:'I do not understand' };
+  if (lang === 'ja') return { question:'腕のテストを終えた後、このテストの方法を理解できましたか？', yes:'理解した', no:'理解できなかった' };
+  return { question:'หลังจากทำการทดสอบแล้ว คุณเข้าใจวิธีทดสอบแขนหรือไม่?', yes:'เข้าใจ', no:'ไม่เข้าใจ' };
 }
 
 function showArmUnderstandingPrompt() {
@@ -2695,13 +2695,18 @@ function answerArmProtocolUnderstanding(answer) {
     answer,
     questionVersion:ARM_PROTOCOL_UNDERSTANDING_VERSION,
     answeredAt:new Date().toISOString(),
+    timing:'post_task',
     blocksTest:false
   };
   $('arm-understanding-card')?.classList.remove('show');
-  $('action-btn').disabled = false;
   window.QuickStrokeDevMode?.logEvent?.('ARM_PROTOCOL_UNDERSTANDING_RECORDED', {
-    module:'arm', answer, questionVersion:ARM_PROTOCOL_UNDERSTANDING_VERSION
+    module:'arm', answer, questionVersion:ARM_PROTOCOL_UNDERSTANDING_VERSION, timing:'post_task'
   });
+  if (phase === 'POST_TASK_QUESTION') {
+    showFinal();
+    return;
+  }
+  $('action-btn').disabled = false;
 }
 
 function armRaiseGestureShadowSnapshot(legacy = null) {
@@ -3185,7 +3190,8 @@ function finalizeArmModuleRun(payload, {writeProjection = true} = {}) {
         completionReasonCode:ARM_GUIDED_PROTOCOL_MODE ? 'ARM_DEV_PROTOCOL_COMPLETED' : 'ARM_RESULT_COMPLETED',
         selectedTestAttemptId,
         selectedTestAttemptIds:{...selectedArmAttemptIds},
-        validityStatus, observationStatus
+        validityStatus, observationStatus,
+        protocolUnderstanding:armProtocolUnderstandingCopy()
       });
       if (writeProjection) {
         await ARM_RESEARCH_STORE.putProjection({
@@ -3202,7 +3208,8 @@ function finalizeArmModuleRun(payload, {writeProjection = true} = {}) {
     });
   }
   armModuleRunRecord = {...armModuleRunRecord, moduleRunStatus:'completed', completedAt,
-    selectedTestAttemptId, selectedTestAttemptIds:{...selectedArmAttemptIds}, validityStatus, observationStatus};
+    selectedTestAttemptId, selectedTestAttemptIds:{...selectedArmAttemptIds}, validityStatus, observationStatus,
+    protocolUnderstanding:armProtocolUnderstandingCopy()};
 }
 
 function finalizeOpenArmLifecycle(reason = 'USER_NAVIGATED_AWAY') {
@@ -4267,6 +4274,12 @@ function rememberCompletedPublicArmAbnormal(payload, context) {
 
 function showFinal() {
   updateArmDevHUD();
+  if (armResearchModeActive() && !armProtocolUnderstanding) {
+    phase = 'POST_TASK_QUESTION';
+    $('action-btn').disabled = true;
+    showArmUnderstandingPrompt();
+    return;
+  }
   phase = 'DONE'; setDot(2,'done');
   const ok = results.right==='pass' && results.left==='pass';
 
@@ -4340,6 +4353,7 @@ function showFinal() {
         lastSource:gravitySource || null
       }
     },
+    protocolUnderstanding:armProtocolUnderstandingCopy(),
     researchMetrics:{
       legacyArmScore:armScore,
       rightScore:scoreR,
@@ -4386,7 +4400,6 @@ function handleBtn() {
   initAudio();
 
   if (phase === 'IDLE') {
-    if (showArmUnderstandingPrompt()) return;
     arm = 'left';
     confirmCurrentArmSide('explicit_start_button');
     // Prime TTS immediately inside the original user gesture. On iOS, doing this
@@ -4784,7 +4797,7 @@ async function selectLang(code) {
   refreshArmLanguageUI();
   actionBtn.textContent = armStartButtonText('left');
   actionBtn.disabled = false;
-  showArmUnderstandingPrompt();
+  $('arm-understanding-card')?.classList.remove('show');
 }
 
 // ═══════════════════════════════════════════════════
