@@ -34,6 +34,14 @@ jobs:
         run: node tests/speech-research-e2e-audit.mjs
       - name: JSSF consent v2 contract
         run: node tests/jssf-consent-v2-contract.mjs
+      - name: Arm post-task understanding
+        run: node tests/arm-post-task-understanding.mjs
+      - name: Arm remote sanitizer contract
+        run: node tests/arm-p0-remote-contract.mjs
+      - name: Arm research E2E audit
+        run: node tests/arm-research-e2e-audit.mjs
+      - name: Arm device/browser hardening
+        run: node tests/arm-device-browser-hardening.mjs
       - name: Android compatibility
         run: node tests/android-compat.mjs
       - name: Inline script syntax
