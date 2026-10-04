@@ -23,6 +23,7 @@ const event=sanitizeEvent({
     speechResearch:{
       schemaVersion:"speech-remote-research-0.1.0",
       timing:{durationMs:1320,policy:"asr_mic_hybrid_v1_1",startSource:"asr_mic_confirmed",endSource:"mic_last_active"},
+      pcmProbe:{enabled:true,available:true,policy:"calibrated_time_domain_vad_probe_v1",startOffsetMs:900,endOffsetMs:2150,durationMs:1250,voiceFrameCount:62,audioContextSampleRate:48000},
       phrase:{
         exactAcceptedVariant:true,similarity:1,transcriptCoverageRatio:1,reliable:true,
         observationStatus:"no_alert",
@@ -41,6 +42,8 @@ const event=sanitizeEvent({
 
 assert.equal(event.payload.speechResearch.phrase.exactAcceptedVariant,true);
 assert.equal(event.payload.speechResearch.asr.restartCount,1);
+assert.equal(event.payload.speechResearch.pcmProbe.durationMs,1250);
+assert.equal(event.payload.speechResearch.pcmProbe.audioContextSampleRate,48000);
 assert.equal(event.payload.speechResearch.platform.isIOS,true);
 assert.equal(event.payload.speechResearch.privacy.rawAudioStored,false);
 assert.equal(event.payload.speechResearch.privacy.transcriptIncluded,false);
@@ -57,5 +60,12 @@ assert.throws(()=>sanitizeEvent({
     speechResearch:{timing:{durationMs:999999}}}
 }),/speechDurationMs/);
 
+assert.throws(()=>sanitizeEvent({
+  eventId:randomUUID(),eventType:"test_attempt_completed",module:"speech",occurredAt:new Date().toISOString(),
+  payload:{testAttemptId:"TA-speech-pcm-test",moduleRunId:"MR-speech-pcm-test",attemptNo:1,measurementTarget:"speech",
+    speechResearch:{pcmProbe:{enabled:true,durationMs:999999}}}
+}),/speechPcmProbeDurationMs/);
+
 console.log("PASS: Speech P0 remote telemetry is bounded and sanitized");
+console.log("PASS: Android PCM probe telemetry is bounded derived timing only");
 console.log("PASS: transcript/raw audio/raw frames are excluded");
