@@ -192,6 +192,59 @@
       trace
     };
   }
+  function safeSpeechResearch(source) {
+    if (!source || typeof source!=="object" || Array.isArray(source)) return undefined;
+    const timingSources=new Set(["asr_mic_confirmed","asr_speech_start","mic_activity","legacy_energy_fallback","mic_last_active","asr_speech_end","current_activity_fallback"]);
+    const phraseStatuses=new Set(["no_alert","attention","unavailable"]);
+    const rateStatuses=new Set(["within_reference","below_reference","above_reference","unavailable"]);
+    const qualityStatuses=new Set(["acceptable","limited","invalid","unusable","not_assessed"]);
+    const safeToken=(value,max=80)=>typeof value==="string"&&value.length<=max&&/^[A-Za-z0-9_.:-]+$/.test(value)?value:undefined;
+    const bool=value=>typeof value==="boolean"?value:undefined;
+    return {
+      schemaVersion:safeToken(source.schemaVersion),
+      timing:{
+        durationMs:int(source.timing?.durationMs,0,30000),
+        policy:safeToken(source.timing?.policy),
+        startSource:timingSources.has(source.timing?.startSource)?source.timing.startSource:undefined,
+        endSource:timingSources.has(source.timing?.endSource)?source.timing.endSource:undefined
+      },
+      phrase:{
+        exactAcceptedVariant:bool(source.phrase?.exactAcceptedVariant),
+        similarity:safeFinite(source.phrase?.similarity,0,1,5),
+        transcriptCoverageRatio:safeFinite(source.phrase?.transcriptCoverageRatio,0,1,5),
+        reliable:bool(source.phrase?.reliable),
+        observationStatus:phraseStatuses.has(source.phrase?.observationStatus)?source.phrase.observationStatus:undefined,
+        alternativeSelectionPolicy:source.phrase?.alternativeSelectionPolicy==="target_phrase_similarity_best_alternative"
+          ?"target_phrase_similarity_best_alternative":undefined
+      },
+      rate:{
+        speechUnitsPerSec:safeFinite(source.rate?.speechUnitsPerSec,0,30,4),
+        reliable:bool(source.rate?.reliable),
+        referenceStatus:rateStatuses.has(source.rate?.referenceStatus)?source.rate.referenceStatus:undefined
+      },
+      asr:{
+        finalReceived:bool(source.asr?.finalReceived),
+        eventCount:int(source.asr?.eventCount,0,100),
+        startCount:int(source.asr?.startCount,0,20),
+        restartCount:int(source.asr?.restartCount,0,20),
+        resultCount:int(source.asr?.resultCount,0,50),
+        finalResultCount:int(source.asr?.finalResultCount,0,50),
+        errorCount:int(source.asr?.errorCount,0,20)
+      },
+      quality:{
+        status:qualityStatuses.has(source.quality?.status)?source.quality.status:undefined,
+        flags:safeFlags(source.quality?.flags),
+        acousticMetricsAvailable:bool(source.quality?.acousticMetricsAvailable)
+      },
+      platform:{
+        isIOS:bool(source.platform?.isIOS),
+        isAndroid:bool(source.platform?.isAndroid),
+        androidExclusiveAsr:bool(source.platform?.androidExclusiveAsr)
+      },
+      privacy:{rawAudioStored:false,transcriptIncluded:false,rawFramesIncluded:false}
+    };
+  }
+
   function runPayload(record) {
     return {
       moduleRunId:safeId(record.moduleRunId),
@@ -220,7 +273,8 @@
       qualityStatus:pick(record.qualityStatus,QUALITY),
       qualityFlags:safeFlags(record.qualityFlags),
       durationMs:record.startedAt&&record.completedAt?int(Date.parse(record.completedAt)-Date.parse(record.startedAt),0,3600000):undefined,
-      armResearch:record.module==="arm" ? safeArmResearch(record.armResearchTelemetry) : undefined
+      armResearch:record.module==="arm" ? safeArmResearch(record.armResearchTelemetry) : undefined,
+      speechResearch:record.module==="speech" ? safeSpeechResearch(record.speechResearchTelemetry) : undefined
     };
   }
   function eventFromRecord(kind,record) {
