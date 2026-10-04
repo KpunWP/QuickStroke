@@ -135,11 +135,25 @@ test('app version and policy versions are 1.0.21', () => {
 test('Face/Arm/Speech protected thresholds are unchanged from 1.0.20', () => {
   const newConfig = loadConfig(path.join(ROOT, 'config.js'));
   const comparableThresholds = structuredClone(newConfig.thresholds);
+  const comparableBaseline = structuredClone(BASELINE.thresholds);
+  for (const key of [
+    'version','algorithmVersion','resultSchemaVersion','researchPayloadVersion',
+    'decisionPolicy','rateReferencePolicy'
+  ]) {
+    delete comparableThresholds.speech[key];
+    delete comparableBaseline.speech[key];
+  }
   delete comparableThresholds.speech.androidPhrasePauseMs;
   delete comparableThresholds.speech.androidRecognitionSafetyMs;
-  assert.deepEqual(comparableThresholds, BASELINE.thresholds);
+  assert.deepEqual(comparableThresholds, comparableBaseline);
   assert.equal(newConfig.thresholds.speech.androidPhrasePauseMs, 1800);
   assert.equal(newConfig.thresholds.speech.androidRecognitionSafetyMs, 12000);
+  assert.equal(newConfig.thresholds.speech.version, 'speech-prepilot-1.9.0');
+  assert.equal(newConfig.thresholds.speech.algorithmVersion, 'speech-browser-asr-1.5.0');
+  assert.equal(newConfig.thresholds.speech.resultSchemaVersion, 'speech-result-1.4.2');
+  assert.equal(newConfig.thresholds.speech.researchPayloadVersion, 'speech-research-0.5.2');
+  assert.equal(newConfig.thresholds.speech.decisionPolicy, 'phrase_only_observation_rate_research_v1');
+  assert.equal(newConfig.thresholds.speech.rateReferencePolicy, 'research_only_not_used_for_decision');
   assert.deepEqual(newConfig.scoring, BASELINE.scoring);
 });
 
