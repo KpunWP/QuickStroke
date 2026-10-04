@@ -27,7 +27,7 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
-**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The engineering candidate consent version is `JSSF-REMOTE-2026-10-04-v2`. Production remains on the previously approved version until release; when v2 is released, the client config and server `JSSF_CONSENT_VERSION` must be changed together so enrollment fails closed rather than accepting mismatched consent.
+**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-04-v2`. For zero-downtime rollout, the Edge handler temporarily accepts both the currently configured `JSSF_CONSENT_VERSION` and v2, stores the version actually accepted by the participant, and strips `speechResearch` from any session not consented under v2. After the production environment secret is moved to v2, legacy enrollment acceptance closes automatically.
 
 ## Implemented staging work
 - Supabase Project: `quickstroke-jssf` (Singapore).
