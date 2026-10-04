@@ -29,7 +29,8 @@ assert.match(sw,/\/jssf-consent\.html/);
 assert.match(sw,/\/config\.js/);
 console.log("PASS: service worker cache generation is bumped for coordinated consent/config refresh");
 
-assert.match(edge,/const SPEECH_TELEMETRY_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v2"/);
+assert.match(edge,/const RELEASE_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v2"/);
+assert.match(edge,/const SPEECH_TELEMETRY_CONSENT_VERSION = RELEASE_CONSENT_VERSION/);
 assert.match(edge,/const RELEASE_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v2"/);
 assert.match(edge,/return value === RELEASE_CONSENT_VERSION/);
 assert.match(edge,/consentVersionAccepted\(body\.consentVersion\)/);
