@@ -178,6 +178,19 @@ function sanitizeSpeechResearch(source) {
       startSource:optionalEnum(source.timing?.startSource,timingSources,"speechTimingStartSource"),
       endSource:optionalEnum(source.timing?.endSource,timingSources,"speechTimingEndSource")
     },
+    pcmProbe:source.pcmProbe==null?undefined:(()=>{
+      if (!object(source.pcmProbe)) throw new TypeError("Invalid speechPcmProbe");
+      return {
+        enabled:bool(source.pcmProbe.enabled,"speechPcmProbeEnabled"),
+        available:bool(source.pcmProbe.available,"speechPcmProbeAvailable"),
+        policy:optionalString(source.pcmProbe.policy,80,"speechPcmProbePolicy"),
+        startOffsetMs:source.pcmProbe.startOffsetMs==null?undefined:intInRange(source.pcmProbe.startOffsetMs,0,30000,"speechPcmProbeStartOffsetMs"),
+        endOffsetMs:source.pcmProbe.endOffsetMs==null?undefined:intInRange(source.pcmProbe.endOffsetMs,0,30000,"speechPcmProbeEndOffsetMs"),
+        durationMs:source.pcmProbe.durationMs==null?undefined:intInRange(source.pcmProbe.durationMs,0,30000,"speechPcmProbeDurationMs"),
+        voiceFrameCount:source.pcmProbe.voiceFrameCount==null?undefined:intInRange(source.pcmProbe.voiceFrameCount,0,100000,"speechPcmProbeVoiceFrameCount"),
+        audioContextSampleRate:source.pcmProbe.audioContextSampleRate==null?undefined:intInRange(source.pcmProbe.audioContextSampleRate,8000,192000,"speechPcmProbeSampleRate")
+      };
+    })(),
     phrase:{
       exactAcceptedVariant:bool(source.phrase?.exactAcceptedVariant,"speechExactAcceptedVariant"),
       similarity:optionalNumber(source.phrase?.similarity,0,1,"speechPhraseSimilarity",5),
