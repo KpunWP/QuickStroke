@@ -193,11 +193,13 @@ try{
     studyId:"QS-AAAA-BBBB-CCCC-DDDD-EEEE-FFFF",
     uploadToken:"b".repeat(64),
     platformFamily:"desktop",browserFamily:"chrome",locale:"th",
-    appVersion:"1.0.21",appBuildId:"SYNTHETIC_TEST"
+    appVersion:"1.0.21",appBuildId:"SYNTHETIC_TEST",dataCollectionPhase:"engineering_preflight"
   };
   res=await request("enroll",enrollment);
   assert.equal(res.status,503);
   assert.equal(sessions.size,0);
+  assert.equal(enrollment.dataCollectionPhase,"engineering_preflight");
+  console.log("PASS: enrollment contract carries explicit collection phase");
   console.log("PASS: production-style disabled gate rejects all enrollment");
 
   handler=makeHandler(true); // In-memory ONLY; deployed environment stays disabled.
