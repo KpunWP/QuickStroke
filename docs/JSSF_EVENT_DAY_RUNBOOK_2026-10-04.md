@@ -3,7 +3,7 @@
 ## Release
 
 - Participant entry URL: https://quickstroke.vercel.app/jssf-consent.html
-- Build: `20261004-jssf-pilot-freeze-v3`
+- Build: `20261004-jssf-pilot-freeze-v4`
 - Collection phase: `jssf_pilot`
 - Consent: `JSSF-REMOTE-2026-10-04-v3`
 - Intended population: adults 18+ in a nonclinical community usability/reliability pilot.
@@ -64,7 +64,7 @@ If an observer notices the participant using the wrong hand, record the occurren
 
 Confirm:
 - production URL returns successfully,
-- config build ID is `20261004-jssf-pilot-freeze-v3`,
+- config build ID is `20261004-jssf-pilot-freeze-v4`,
 - `dataCollectionPhase = jssf_pilot`,
 - consent version is v3,
 - remote collection is enabled,
