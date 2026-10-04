@@ -256,6 +256,13 @@
   }
 
   function runPayload(record) {
+    const understanding=record.module==="arm" && record.protocolUnderstanding && typeof record.protocolUnderstanding==="object"
+      ? {
+          answer:["understood","not_understood"].includes(record.protocolUnderstanding.answer)?record.protocolUnderstanding.answer:undefined,
+          questionVersion:typeof record.protocolUnderstanding.questionVersion==="string"&&/^[\w.:-]{1,80}$/.test(record.protocolUnderstanding.questionVersion)?record.protocolUnderstanding.questionVersion:undefined,
+          timing:record.protocolUnderstanding.timing==="post_task"?"post_task":undefined
+        }
+      : undefined;
     return {
       moduleRunId:safeId(record.moduleRunId),
       sequenceNo:int(record.moduleRunSequenceNo,1,100),
@@ -268,7 +275,8 @@
       attemptCount:int(record.attemptCount,0,100),
       retryCount:Number.isInteger(record.attemptCount)
         ? int(Math.max(0,record.attemptCount-(record.module==="arm"?2:1)),0,100)
-        : undefined
+        : undefined,
+      protocolUnderstanding:understanding
     };
   }
   function attemptPayload(record) {
