@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.2.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.3.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -158,6 +158,65 @@ function sanitizeArmResearch(source) {
     trace
   };
 }
+function sanitizeSpeechResearch(source) {
+  if (source == null) return undefined;
+  if (!object(source)) throw new TypeError("Invalid speechResearch");
+  const timingSources=new Set(["asr_mic_confirmed","asr_speech_start","mic_activity","legacy_energy_fallback","mic_last_active","asr_speech_end","current_activity_fallback"]);
+  const phraseStatuses=new Set(["no_alert","attention","unavailable"]);
+  const rateStatuses=new Set(["within_reference","below_reference","above_reference","unavailable"]);
+  const qualityStatuses=new Set(["acceptable","limited","invalid","unusable","not_assessed"]);
+  const bool=(value,key)=>{
+    if (value == null) return undefined;
+    if (typeof value!=="boolean") throw new TypeError("Invalid "+key);
+    return value;
+  };
+  return {
+    schemaVersion:optionalString(source.schemaVersion,80,"speechResearchSchemaVersion"),
+    timing:{
+      durationMs:source.timing?.durationMs==null?undefined:intInRange(source.timing.durationMs,0,30000,"speechDurationMs"),
+      policy:optionalString(source.timing?.policy,80,"speechTimingPolicy"),
+      startSource:optionalEnum(source.timing?.startSource,timingSources,"speechTimingStartSource"),
+      endSource:optionalEnum(source.timing?.endSource,timingSources,"speechTimingEndSource")
+    },
+    phrase:{
+      exactAcceptedVariant:bool(source.phrase?.exactAcceptedVariant,"speechExactAcceptedVariant"),
+      similarity:optionalNumber(source.phrase?.similarity,0,1,"speechPhraseSimilarity",5),
+      transcriptCoverageRatio:optionalNumber(source.phrase?.transcriptCoverageRatio,0,1,"speechTranscriptCoverage",5),
+      reliable:bool(source.phrase?.reliable,"speechPhraseReliable"),
+      observationStatus:optionalEnum(source.phrase?.observationStatus,phraseStatuses,"speechPhraseObservationStatus"),
+      alternativeSelectionPolicy:source.phrase?.alternativeSelectionPolicy==null?undefined:
+        source.phrase.alternativeSelectionPolicy==="target_phrase_similarity_best_alternative"
+          ?"target_phrase_similarity_best_alternative"
+          :(()=>{throw new TypeError("Invalid speech alternative selection policy")})()
+    },
+    rate:{
+      speechUnitsPerSec:optionalNumber(source.rate?.speechUnitsPerSec,0,30,"speechUnitsPerSec",4),
+      reliable:bool(source.rate?.reliable,"speechRateReliable"),
+      referenceStatus:optionalEnum(source.rate?.referenceStatus,rateStatuses,"speechRateReferenceStatus")
+    },
+    asr:{
+      finalReceived:bool(source.asr?.finalReceived,"speechAsrFinalReceived"),
+      eventCount:source.asr?.eventCount==null?undefined:intInRange(source.asr.eventCount,0,100,"speechAsrEventCount"),
+      startCount:source.asr?.startCount==null?undefined:intInRange(source.asr.startCount,0,20,"speechAsrStartCount"),
+      restartCount:source.asr?.restartCount==null?undefined:intInRange(source.asr.restartCount,0,20,"speechAsrRestartCount"),
+      resultCount:source.asr?.resultCount==null?undefined:intInRange(source.asr.resultCount,0,50,"speechAsrResultCount"),
+      finalResultCount:source.asr?.finalResultCount==null?undefined:intInRange(source.asr.finalResultCount,0,50,"speechAsrFinalResultCount"),
+      errorCount:source.asr?.errorCount==null?undefined:intInRange(source.asr.errorCount,0,20,"speechAsrErrorCount")
+    },
+    quality:{
+      status:optionalEnum(source.quality?.status,qualityStatuses,"speechQualityStatus"),
+      flags:flags(source.quality?.flags),
+      acousticMetricsAvailable:bool(source.quality?.acousticMetricsAvailable,"speechAcousticMetricsAvailable")
+    },
+    platform:{
+      isIOS:bool(source.platform?.isIOS,"speechIsIOS"),
+      isAndroid:bool(source.platform?.isAndroid,"speechIsAndroid"),
+      androidExclusiveAsr:bool(source.platform?.androidExclusiveAsr,"speechAndroidExclusiveAsr")
+    },
+    privacy:{rawAudioStored:false,transcriptIncluded:false,rawFramesIncluded:false}
+  };
+}
+
 function payloadFor(type, source, module = null) {
   if (!object(source)) throw new TypeError("Invalid event payload");
   if (type === "module_run_completed") {
@@ -189,7 +248,8 @@ function payloadFor(type, source, module = null) {
       qualityStatus: optionalEnum(source.qualityStatus, QUALITY, "qualityStatus"),
       qualityFlags: flags(source.qualityFlags),
       durationMs: optionalDuration(source.durationMs),
-      armResearch: module === "arm" ? sanitizeArmResearch(source.armResearch) : undefined
+      armResearch: module === "arm" ? sanitizeArmResearch(source.armResearch) : undefined,
+      speechResearch: module === "speech" ? sanitizeSpeechResearch(source.speechResearch) : undefined
     };
   }
   if (type === "technical_event") {
