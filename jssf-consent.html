@@ -20,6 +20,13 @@
     #resume-testing{margin-top:10px;background:#236c96;color:#fff;cursor:pointer}
     #browser-guidance{background:#eef7ff;border-color:#b9d9f4}
     #browser-guidance strong{display:block;margin-bottom:4px}
+    #mobile-only-gate{background:#fff1ed;border:2px solid #e58b73;color:#7c2c1f}
+    #mobile-only-gate[hidden]{display:none}
+    #mobile-only-gate strong{display:block;font-size:18px;margin-bottom:6px}
+    #mobile-only-gate p{margin:6px 0}
+    body.mobile-blocked #browser-guidance{display:none}
+    body.mobile-blocked #consent-content{opacity:.42;filter:grayscale(.15)}
+    body.mobile-blocked #consent-content::before{content:"";display:block}
     #external-browser-gate{background:#eef7ff;border:2px solid #79b8ea}
     #external-browser-gate[hidden]{display:none}
     #open-external-browser{display:block;width:100%;margin-top:12px;padding:14px 18px;border-radius:12px;background:#236c96;color:#fff;text-align:center;text-decoration:none;font-size:16px;font-weight:800}
@@ -47,6 +54,12 @@
     <strong>หน้านี้เป็นหนังสือให้ความยินยอมฉบับร่างสำหรับตรวจข้อความและทดสอบระบบเท่านั้น</strong>
     <p>ยังไม่เปิดรับสมัครหรือเก็บข้อมูลจากบุคคลทั่วไป</p>
   </div>
+  <div class="box" id="mobile-only-gate" role="alert" aria-live="assertive" hidden>
+    <strong>อุปกรณ์นี้ไม่รองรับการทดสอบ</strong>
+    <p>QuickStroke สำหรับ JSSF รอบนี้ต้องทำผ่าน <strong>โทรศัพท์มือถือ</strong> เท่านั้น</p>
+    <p class="small">กรุณาเปิดลิงก์นี้บน iPhone หรือโทรศัพท์ Android แล้วเริ่มใหม่ ไม่รองรับ notebook, desktop หรือ tablet สำหรับการเก็บข้อมูลรอบนี้</p>
+  </div>
+  <div id="consent-content">
   <div class="box" id="resume-box" hidden>
     <strong>พบการทดสอบที่ยังไม่เสร็จในอุปกรณ์นี้</strong>
     <p id="resume-meta" class="small"></p>
@@ -116,6 +129,7 @@
   <button id="start-testing" type="button" disabled aria-disabled="true">เริ่มการทดสอบ — ยังไม่เปิดใช้งาน</button>
   <p class="small" id="collection-state">กำลังตรวจสอบสถานะระบบรับข้อมูล…</p>
   <footer><a href="./jssf-withdraw.html">ดูตัวอย่างหน้าถอนความยินยอมและลบข้อมูล →</a><br><br><a href="./index.html">← กลับหน้าหลัก QuickStroke</a></footer>
+  </div>
 </main>
 <script>
 (function(){
@@ -138,6 +152,7 @@
   const browserGuidanceText=document.getElementById("browser-guidance-text");
   const externalBrowserGate=document.getElementById("external-browser-gate");
   const externalBrowserLink=document.getElementById("open-external-browser");
+  const mobileOnlyGate=document.getElementById("mobile-only-gate");
   const draftOnly=[...document.querySelectorAll(".draft-only")];
   let resumeCandidate=null;
   let requiresExternalBrowser=false;
@@ -166,6 +181,8 @@
     const eligibility=mobilePhoneEligibility();
     requiresMobilePhone=!eligibility.isPhone;
     requiresExternalBrowser=eligibility.isPhone && ios && line;
+    mobileOnlyGate.hidden=!requiresMobilePhone;
+    document.body.classList.toggle("mobile-blocked",requiresMobilePhone);
     externalBrowserGate.hidden=!requiresExternalBrowser;
     if(requiresMobilePhone){
       externalBrowserGate.hidden=true;
