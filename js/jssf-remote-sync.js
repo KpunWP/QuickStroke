@@ -1,11 +1,11 @@
-/* QuickStroke JSSF remote usability sync v0.1 — opt-in and disabled until consent approval.
+/* QuickStroke JSSF remote usability sync v0.2 — opt-in and disabled until consent approval.
  * No server transfer in Public, Dev or clinical Research sessions.
  * Persistent, per-session outbox is retained across navigation; never stores raw media.
  */
 (function initQuickStrokeJssfRemote(global) {
   "use strict";
   if (global.QuickStrokeJssfRemote) return;
-  const VERSION = "jssf-remote-client-0.1.0";
+  const VERSION = "jssf-remote-client-0.2.0";
   const DB_NAME = "quickstroke_jssf_remote_outbox";
   const DB_VERSION = 1;
   const RETENTION_DAYS = 90; // Matches the deployed primary-database retention migration.
