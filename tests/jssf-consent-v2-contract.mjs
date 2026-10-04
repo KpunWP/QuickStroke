@@ -23,8 +23,8 @@ assert.match(consent,/ไม่ส่งไฟล์เสียงดิบ/);
 assert.match(consent,/ไม่ส่งข้อมูลเสียงดิบแบบต่อเนื่อง/);
 console.log("PASS: consent v2 explicitly discloses bounded derived Speech telemetry and exclusions");
 
-assert.match(sw,/Offline-Ready Face \+ Speech Edition \(v61\)/);
-assert.match(sw,/const CACHE_NAME = "quickstroke-pwa-v61"/);
+assert.match(sw,/Offline-Ready Face \+ Speech Edition \(v62\)/);
+assert.match(sw,/const CACHE_NAME = "quickstroke-pwa-v62"/);
 assert.match(sw,/\/jssf-consent\.html/);
 assert.match(sw,/\/config\.js/);
 console.log("PASS: service worker cache generation is bumped for coordinated consent/config refresh");
