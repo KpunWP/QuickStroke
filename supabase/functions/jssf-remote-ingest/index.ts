@@ -184,11 +184,13 @@ function parseEnrollment(body: JsonObject) {
   const locale = typeof body.locale === "string" ? body.locale : "";
   const platform = typeof body.platformFamily === "string" ? body.platformFamily : "";
   const browser = typeof body.browserFamily === "string" ? body.browserFamily : "";
+  const dataCollectionPhase = typeof body.dataCollectionPhase === "string" ? body.dataCollectionPhase : "";
   if (!SESSION.test(clientSessionId)) throw new TypeError("Invalid clientSessionId");
   if (optionalStudyId != null && (typeof optionalStudyId !== "string" || !/^QS-([A-F0-9]{4}-){5}[A-F0-9]{4}$/.test(optionalStudyId))) throw new TypeError("Invalid studyId");
   if (!/^[0-9a-f]{64}$/.test(uploadToken)) throw new TypeError("Invalid uploadToken");
   if (!LOCALES.has(locale)) throw new TypeError("Invalid locale");
   if (!COARSE_PLATFORM.has(platform) || !COARSE_BROWSER.has(browser)) throw new TypeError("Invalid device category");
+  if (!["engineering_preflight","jssf_pilot"].includes(dataCollectionPhase)) throw new TypeError("Invalid dataCollectionPhase");
   return {
     uploadToken,
     row: {
@@ -202,6 +204,7 @@ function parseEnrollment(body: JsonObject) {
       browser_family:browser,
       app_version:requiredText(body.appVersion, 40, "appVersion"),
       app_build_id:requiredText(body.appBuildId, 120, "appBuildId"),
+      data_collection_phase:dataCollectionPhase,
       participation_scope:"usability_nonclinical",
       research_profile:"community_remote_qr"
     }
