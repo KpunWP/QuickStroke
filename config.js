@@ -244,10 +244,10 @@ window.QS_CONFIG = {
 
     speech: {
       // Version identifiers stored with every Speech result.
-      version: "speech-prepilot-1.8.0",
-      algorithmVersion: "speech-browser-asr-1.4.0",
-      resultSchemaVersion: "speech-result-1.4.1",
-      researchPayloadVersion: "speech-research-0.5.1",
+      version: "speech-prepilot-1.9.0",
+      algorithmVersion: "speech-browser-asr-1.5.0",
+      resultSchemaVersion: "speech-result-1.4.2",
+      researchPayloadVersion: "speech-research-0.5.2",
 
       // Speech phrase scoring v1.1:
       // - browser ASR confidence is stored as a raw observation only
@@ -256,14 +256,14 @@ window.QS_CONFIG = {
       phraseScoringPolicy: "normalized_levenshtein_similarity",
       asrConfidencePolicy: "raw_observation_only",
 
-      // Pre-pilot result policy v1.3.1:
-      // - no combined numeric score is shown or used as the primary decision
-      // - phrase, rate, and technical quality are surfaced independently
-      // - all numeric scores remain research variables for patient-data analysis
+      // Pre-pilot result policy v1.4:
+      // - phrase observation is the only Speech-domain input to the screening decision
+      // - speech rate remains an exploratory research variable and is not user-scored
+      // - technical quality is surfaced separately and does not become a rate alert
       // - interim-only ASR with coverage below 0.60 is indeterminate, not a phrase alert
-      decisionPolicy: "unvalidated_domain_observation_v1_2",
+      decisionPolicy: "phrase_only_observation_rate_research_v1",
       phraseAlertPolicy: "exact_variant_no_alert_else_attention",
-      rateReferencePolicy: "outside_exploratory_range_attention",
+      rateReferencePolicy: "research_only_not_used_for_decision",
       rateMinTranscriptCoverage: 0.60,
       combinedScorePolicy: "research_only_not_displayed",
       stabilityPolicy: "research_only",
