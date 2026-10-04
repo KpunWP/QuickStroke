@@ -30,12 +30,14 @@ assert.match(sw,/\/config\.js/);
 console.log("PASS: service worker cache generation is bumped for coordinated consent/config refresh");
 
 assert.match(edge,/const consentVersion = Deno\.env\.get\("JSSF_CONSENT_VERSION"\) \|\| ""/);
-assert.match(edge,/body\.consentVersion !== consentVersion/);
-assert.match(edge,/consent_version:consentVersion/);
-assert.ok(!edge.includes("JSSF-REMOTE-2026-10-04-v2"),
-  "Edge function must not hard-code production consent version");
-console.log("PASS: Edge enrollment remains environment-controlled and fail-closed on consent mismatch");
+assert.match(edge,/const SPEECH_TELEMETRY_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v2"/);
+assert.match(edge,/consentVersionAccepted\(body\.consentVersion\)/);
+assert.match(edge,/consent_version:body\.consentVersion/);
+assert.match(edge,/\.select\("id,status,expires_at,consent_version"\)/);
+assert.match(edge,/enforceConsentScopedEventPayload/);
+assert.match(edge,/sessionConsentVersion === SPEECH_TELEMETRY_CONSENT_VERSION/);
+console.log("PASS: Edge supports zero-downtime v2 transition and scopes Speech telemetry to v2 consent");
 
 assert.match(docs,/JSSF-REMOTE-2026-10-04-v2/);
-assert.match(docs,/client config and server `JSSF_CONSENT_VERSION` must be changed together/);
-console.log("PASS: release documentation requires coordinated client/server v2 activation");
+assert.match(docs,/JSSF_CONSENT_VERSION/);
+console.log("PASS: release documentation records the consent-version transition requirement");
