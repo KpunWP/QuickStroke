@@ -89,3 +89,15 @@ Freeze provenance:
 All sessions created before this phase switch are marked `engineering_preflight` and must be excluded from JSSF participant outcome analysis. Sessions created after the freeze with `data_collection_phase='jssf_pilot'` are the intended pilot cohort.
 
 After freeze, Face/Arm/Speech decision logic and thresholds should not change unless a release-blocking defect is documented, regression-tested, and versioned.
+
+
+## Threshold evidence and Arm laterality review (2026-10-04)
+
+The pre-pilot threshold review found no evidence strong enough to justify changing current Face/Arm/Speech numeric thresholds before JSSF. The review separates clinical proxies from measurement thresholds, quality gates, engineering heuristics, and research-only metrics.
+
+See:
+- `docs/THRESHOLD_EVIDENCE_MATRIX_2026-10-04.md`
+- `docs/ARM_LATERALITY_VALIDATION_2026-10-04.md`
+- `docs/SPEECH_RATE_MEASUREMENT_DECISION_2026-10-04.md`
+
+Arm laterality remains participant-confirmed rather than sensor-verified. A controlled wrong-hand engineering test showed that deliberate drift could still be classified as `possible_arm_drift` when the phone was held in the opposite hand, but the stored left/right label can still be wrong. Camera/gyroscope verification is deferred until pilot usability evidence justifies the added interaction or permission burden.
