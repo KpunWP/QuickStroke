@@ -172,7 +172,7 @@ test('Arm P0-A/B research instrumentation is non-gating and threshold-neutral', 
   assert.match(arm, /appMode === 'research'/);
   assert.match(remote, /slice\(0,21\)/);
   assert.match(ingest, /rawTrace\.length>21|rawTrace\.length > 21/);
-  assert.match(ingest, /jssf-remote-ingest-0\.2\.0/);
+  assert.match(ingest, /jssf-remote-ingest-0\.3\.0/);
 });
 
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {
