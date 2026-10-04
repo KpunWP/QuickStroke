@@ -11,6 +11,11 @@ type JsonObject = Record<string, unknown>;
 const MAX_BODY = 64000;
 const origins = new Set((Deno.env.get("JSSF_ALLOWED_ORIGINS") || "").split(",").map(x => x.trim()).filter(Boolean));
 const consentVersion = Deno.env.get("JSSF_CONSENT_VERSION") || "";
+const SPEECH_TELEMETRY_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v2";
+function consentVersionAccepted(value: unknown): value is string {
+  return typeof value === "string" &&
+    (value === consentVersion || value === SPEECH_TELEMETRY_CONSENT_VERSION);
+}
 const rateLimitSecret = Deno.env.get("JSSF_RATE_LIMIT_SECRET") || "";
 const testGateEnabled = Deno.env.get("JSSF_TEST_GATE_ENABLED") === "true";
 const testCredential = Deno.env.get("JSSF_TEST_CREDENTIAL") || "";
@@ -168,8 +173,10 @@ function requiredText(value: unknown, max: number, field: string): string {
   return value;
 }
 function parseEnrollment(body: JsonObject) {
-  if (body.consentAccepted !== true || body.age18plus !== true || body.participationScope !== "usability_nonclinical" || body.consentVersion !== consentVersion) {
-    throw new TypeError("Explicit adult nonclinical consent with current version is required");
+  if (body.consentAccepted !== true || body.age18plus !== true ||
+      body.participationScope !== "usability_nonclinical" ||
+      !consentVersionAccepted(body.consentVersion)) {
+    throw new TypeError("Explicit adult nonclinical consent with an accepted version is required");
   }
   const clientSessionId = typeof body.clientSessionId === "string" ? body.clientSessionId : "";
   const optionalStudyId = body.studyId;
@@ -187,7 +194,7 @@ function parseEnrollment(body: JsonObject) {
     row: {
       client_session_id:clientSessionId,
       study_id:typeof optionalStudyId === "string" ? optionalStudyId : studyId(),
-      consent_version:consentVersion,
+      consent_version:body.consentVersion,
       consented_at:new Date().toISOString(),
       age_18_or_older:true,
       locale,
@@ -200,6 +207,18 @@ function parseEnrollment(body: JsonObject) {
     }
   };
 }
+function enforceConsentScopedEventPayload(events: ReturnType<typeof sanitizeBatch>, sessionConsentVersion: string) {
+  if (sessionConsentVersion === SPEECH_TELEMETRY_CONSENT_VERSION) return events;
+  return events.map(event => {
+    if (event.module !== "speech" || event.event_type !== "test_attempt_completed" ||
+        !event.payload || typeof event.payload !== "object" || !("speechResearch" in event.payload)) {
+      return event;
+    }
+    const { speechResearch: _discardedSpeechResearch, ...payload } = event.payload as Record<string, unknown>;
+    return { ...event, payload };
+  });
+}
+
 async function authorizedSession(req: Request, body: JsonObject, { allowExpired = false }: { allowExpired?: boolean } = {}) {
   if (!db) return null;
   const sessionId = body.sessionId;
@@ -207,7 +226,7 @@ async function authorizedSession(req: Request, body: JsonObject, { allowExpired 
   if (typeof sessionId !== "string" || !UUID.test(sessionId) || !/^[0-9a-f]{64}$/.test(bearer)) return null;
   const digest = await sha256(bearer);
   const { data, error } = await db.from("jssf_remote_sessions")
-    .select("id,status,expires_at").eq("id",sessionId).eq("upload_token_sha256",digest).maybeSingle();
+    .select("id,status,expires_at,consent_version").eq("id",sessionId).eq("upload_token_sha256",digest).maybeSingle();
   if (error) throw error;
   // Users retain the ability to withdraw during the full 90-day retention window,
   // even after their 30-day upload capability expires.
@@ -349,7 +368,10 @@ Deno.serve(async (req: Request) => {
       return response(200,{withdrawn:true,remoteDataDeleted:true},origin);
     }
     if (session.status === "withdrawn") return response(410,{error:"Session withdrawn"},origin);
-    const events = sanitizeBatch(body.events);
+    const events = enforceConsentScopedEventPayload(
+      sanitizeBatch(body.events),
+      String(session.consent_version || "")
+    );
     const ids = events.map(x => x.client_event_id);
     if (session.status === "completed") {
       const { data:existing, error:lookupError } = await db.from("jssf_remote_events")
