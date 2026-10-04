@@ -255,6 +255,10 @@ try{
   assert.equal(typeof receipt.createdAt,"string");
   assert.equal(receipt.uploadToken,enrollment.uploadToken);
   assert.equal(sessions.get(receipt.sessionId)?.upload_token_sha256,digest(receipt.uploadToken));
+  assert.equal(sessions.get(receipt.sessionId)?.runtime_provenance_version,"jssf-runtime-provenance-1.0.0");
+  assert.equal(sessions.get(receipt.sessionId)?.browser_major_version,154);
+  assert.equal(sessions.get(receipt.sessionId)?.device_class,"desktop");
+  assert.equal(sessions.get(receipt.sessionId)?.device_model,null);
   assert.ok(!JSON.stringify([...sessions.values()]).includes(receipt.uploadToken),
     "Server persisted raw capability token");
 
