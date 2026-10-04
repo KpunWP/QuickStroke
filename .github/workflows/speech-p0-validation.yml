@@ -1,0 +1,30 @@
+name: Speech P0 branch validation
+
+on:
+  push:
+    branches:
+      - research/speech-p0-20261004
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  speech-p0:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Core regression suite
+        run: node tests/run-tests.mjs
+      - name: Remote client contract
+        run: node tests/jssf-remote-client.mjs
+      - name: Speech remote sanitizer contract
+        run: node tests/speech-p0-remote-contract.mjs
+      - name: Android compatibility
+        run: node tests/android-compat.mjs
+      - name: Inline script syntax
+        run: python3 tests/check-inline-scripts.py
