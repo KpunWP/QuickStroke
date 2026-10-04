@@ -1,7 +1,7 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20261004-jssf-pilot-freeze-v1",
+  buildId: "20261004-jssf-pilot-freeze-v2",
   configVersion: "quickstroke-config-1.0.21",
 
   // Approved pilot policy: 18+ with 90-day primary DB retention and named
@@ -13,7 +13,7 @@ window.QS_CONFIG = {
     agePolicyApproved: true,
     retentionPolicyApproved: true,
     minimumAge18Enforced: true,
-    consentVersion: "JSSF-REMOTE-2026-10-04-v2",
+    consentVersion: "JSSF-REMOTE-2026-10-04-v3",
     dataCollectionPhase: "jssf_pilot",
     retentionDays: 90,
     privacyContact: "kpunkfang@gmail.com",
