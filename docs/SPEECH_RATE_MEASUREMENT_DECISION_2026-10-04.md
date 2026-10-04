@@ -56,6 +56,8 @@ Across all four runs:
 
 Interpretation: concurrent WebAudio capture and browser SpeechRecognition caused unacceptable microphone/ASR contention on this Android device and did not provide a reliable timing substitute. The probe was therefore removed from the production path.
 
+Data-handling marker: any stored Speech event with `speechResearch.pcmProbe.enabled=true` belongs to this engineering experiment and must be excluded from JSSF participant-outcome analysis. It may be retained only as engineering evidence for browser/device compatibility.
+
 ## Current architecture
 
 ### iOS / Safari
