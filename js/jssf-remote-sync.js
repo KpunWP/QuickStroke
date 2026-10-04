@@ -208,6 +208,16 @@
         startSource:timingSources.has(source.timing?.startSource)?source.timing.startSource:undefined,
         endSource:timingSources.has(source.timing?.endSource)?source.timing.endSource:undefined
       },
+      pcmProbe:source.pcmProbe&&typeof source.pcmProbe==="object"&&!Array.isArray(source.pcmProbe)?{
+        enabled:bool(source.pcmProbe.enabled),
+        available:bool(source.pcmProbe.available),
+        policy:safeToken(source.pcmProbe.policy),
+        startOffsetMs:int(source.pcmProbe.startOffsetMs,0,30000),
+        endOffsetMs:int(source.pcmProbe.endOffsetMs,0,30000),
+        durationMs:int(source.pcmProbe.durationMs,0,30000),
+        voiceFrameCount:int(source.pcmProbe.voiceFrameCount,0,100000),
+        audioContextSampleRate:int(source.pcmProbe.audioContextSampleRate,8000,192000)
+      }:undefined,
       phrase:{
         exactAcceptedVariant:bool(source.phrase?.exactAcceptedVariant),
         similarity:safeFinite(source.phrase?.similarity,0,1,5),
