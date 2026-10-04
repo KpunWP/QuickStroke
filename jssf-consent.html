@@ -141,13 +141,39 @@
   const draftOnly=[...document.querySelectorAll(".draft-only")];
   let resumeCandidate=null;
   let requiresExternalBrowser=false;
+  let requiresMobilePhone=false;
+
+  function mobilePhoneEligibility(){
+    const ua=navigator.userAgent||"";
+    const uaDataMobile=navigator.userAgentData?.mobile;
+    const isIPhone=/iPhone|iPod/i.test(ua);
+    const isIPad=/iPad/i.test(ua)
+      || (/Macintosh/i.test(ua) && Number(navigator.maxTouchPoints||0)>1);
+    const isAndroid=/Android/i.test(ua);
+    const isAndroidPhone=isAndroid && /Mobile/i.test(ua);
+    const isPhone=uaDataMobile===true || isIPhone || isAndroidPhone;
+    return {
+      isPhone:isPhone && !isIPad,
+      isTablet:isIPad || (isAndroid && !isAndroidPhone),
+      isDesktop:!isPhone && !isIPad && !isAndroid
+    };
+  }
 
   function renderBrowserGuidance(){
     const ua=navigator.userAgent||"";
     const ios=/iPhone|iPad|iPod/i.test(ua);
     const line=/\bLine\//i.test(ua);
-    requiresExternalBrowser=ios && line;
+    const eligibility=mobilePhoneEligibility();
+    requiresMobilePhone=!eligibility.isPhone;
+    requiresExternalBrowser=eligibility.isPhone && ios && line;
     externalBrowserGate.hidden=!requiresExternalBrowser;
+    if(requiresMobilePhone){
+      externalBrowserGate.hidden=true;
+      browserGuidanceText.textContent=eligibility.isTablet
+        ? "การทดสอบนี้รองรับโทรศัพท์มือถือเท่านั้น กรุณาเปิดลิงก์นี้บน iPhone หรือโทรศัพท์ Android ไม่รองรับแท็บเล็ตสำหรับรอบวิจัยนี้"
+        : "การทดสอบนี้ต้องทำผ่านโทรศัพท์มือถือ กรุณาเปิดลิงก์นี้บน iPhone หรือโทรศัพท์ Android แล้วเริ่มใหม่";
+      return;
+    }
     if(requiresExternalBrowser){
       const url=new URL(window.location.href);
       url.searchParams.set("openExternalBrowser","1");
@@ -181,15 +207,15 @@
 
   function updateStartState(){
     const ready=releaseReady();
-    const canStart=ready && !requiresExternalBrowser && age.checked && consent.checked;
+    const canStart=ready && !requiresExternalBrowser && !requiresMobilePhone && age.checked && consent.checked;
     start.disabled=!canStart;
     start.setAttribute("aria-disabled",String(!canStart));
   }
 
   function applyReleaseState(){
     const ready=releaseReady();
-    age.disabled=!ready || requiresExternalBrowser;
-    consent.disabled=!ready || requiresExternalBrowser;
+    age.disabled=!ready || requiresExternalBrowser || requiresMobilePhone;
+    consent.disabled=!ready || requiresExternalBrowser || requiresMobilePhone;
     draftOnly.forEach(node=>{node.hidden=ready;});
     if(ready){
       badge.textContent="เปิดรับอาสาสมัคร · 18 ปีขึ้นไป";
@@ -197,9 +223,11 @@
       releaseHeading.textContent="สถานะการรับสมัคร";
       consentVersionState.classList.remove("pending");
       consentVersionState.textContent=cfg.consentVersion;
-      state.textContent=requiresExternalBrowser
-        ? "กรุณากด “เปิดด้วย Safari” ก่อนเริ่มการทดสอบ"
-        : "ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
+      state.textContent=requiresMobilePhone
+        ? "อุปกรณ์นี้ไม่รองรับการทดสอบ JSSF กรุณาใช้ iPhone หรือโทรศัพท์ Android"
+        : requiresExternalBrowser
+          ? "กรุณากด “เปิดด้วย Safari” ก่อนเริ่มการทดสอบ"
+          : "ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
       start.textContent=resumeCandidate?"เริ่มรอบใหม่":"เริ่มการทดสอบ";
     }else{
       releaseHeading.textContent="สถานะก่อนเปิดรับสมัคร";
