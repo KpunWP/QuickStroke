@@ -19,6 +19,8 @@ assert.equal(cfg.normalMax,6.0);
 assert.equal(cfg.rateMinTranscriptCoverage,0.60);
 assert.equal(cfg.rateSpeechUnitSource,"target_phrase_fixed");
 assert.equal(cfg.rateTimingPolicy,"asr_mic_hybrid_v1_1");
+assert.equal(cfg.rateReferencePolicy,"research_only_not_used_for_decision");
+assert.equal(cfg.decisionPolicy,"phrase_only_observation_rate_research_v1");
 
 function rateObservation({units,durationSec,coverage,startSource,endSource}){
   const value=units/Math.max(durationSec,0.2);
@@ -116,6 +118,11 @@ assert.match(speechSource,/const syllPerSec = rateSpeechUnitCount \/ Math\.max\(
 assert.match(speechSource,/transcriptCoverageRatio >= RATE_MIN_TRANSCRIPT_COVERAGE/);
 assert.match(speechSource,/RATE_TIMING_FALLBACK/);
 assert.match(speechSource,/timingUsesFallback/);
-console.log("PASS: timing/rate replay remains wired to current production policy");
+assert.match(speechSource,/usedForDecision:\s*false/);
+assert.match(speechSource,/reasonCode:\s*'RATE_RESEARCH_ONLY_NOT_USED'/);
+assert.doesNotMatch(speechSource,/observationReasonCodes\.push\('RATE_BELOW_EXPLORATORY_REFERENCE'\)/);
+assert.doesNotMatch(speechSource,/observationReasonCodes\.push\('RATE_ABOVE_EXPLORATORY_REFERENCE'\)/);
+assert.match(speechSource,/const displayStatus = asrTranscriptIncomplete[\s\S]*phraseObservationStatus === 'attention'/);
+console.log("PASS: rate remains measurable for research but cannot trigger the Speech screening observation");
 
-console.log("OBSERVATION: rate classification is timing-sensitive near reference boundaries; no threshold change made.");
+console.log("OBSERVATION: rate classification remains timing-sensitive; it is retained only as exploratory telemetry.");
