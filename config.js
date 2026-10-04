@@ -13,7 +13,7 @@ window.QS_CONFIG = {
     agePolicyApproved: true,
     retentionPolicyApproved: true,
     minimumAge18Enforced: true,
-    consentVersion: "JSSF-REMOTE-2026-10-02-v1",
+    consentVersion: "JSSF-REMOTE-2026-10-04-v2",
     retentionDays: 90,
     privacyContact: "kpunkfang@gmail.com",
     endpoint: "https://pzzjfnfwppdeketjdhfo.supabase.co/functions/v1/jssf-remote-ingest"
