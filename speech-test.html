@@ -1119,6 +1119,9 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
 const ANDROID_EXCLUSIVE_ASR = IS_ANDROID && (SPEECH_CFG.androidExclusiveAsr ?? true);
+const SPEECH_QUERY = new URLSearchParams(window.location.search);
+const ANDROID_CONCURRENT_PCM_PROBE = ANDROID_EXCLUSIVE_ASR
+  && SPEECH_QUERY.get('androidPcmProbe') === '1';
 const ANDROID_PHRASE_PAUSE_MS = SPEECH_CFG.androidPhrasePauseMs ?? 1800;
 const ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG.androidRecognitionSafetyMs ?? 12000;
 const SPEECH_DATA_CONTRACT = window.QuickStrokeDataContract || null;
@@ -1614,6 +1617,7 @@ function seedSpeechEnergyFromPreRoll(startMs) {
 
 function resolveSpeechTiming(nowMs = performance.now()) {
   const recordingFloor = recordingStartedMs || currentAttemptPerformanceStartedAt || nowMs;
+  const useAcousticTimingForScoring = !ANDROID_EXCLUSIVE_ASR;
   let start = null;
   let end = null;
   let startSource = null;
@@ -1621,29 +1625,29 @@ function resolveSpeechTiming(nowMs = performance.now()) {
 
   if (asrSpeechStartMs) {
     const asrStart = Math.max(recordingFloor, asrSpeechStartMs - ASR_START_PREROLL_MS);
-    start = micSpeechStartMs ? Math.max(asrStart, micSpeechStartMs) : asrStart;
-    startSource = micSpeechStartMs ? 'asr_mic_confirmed' : 'asr_speech_start';
-  } else if (micSpeechStartMs) {
+    start = useAcousticTimingForScoring && micSpeechStartMs ? Math.max(asrStart, micSpeechStartMs) : asrStart;
+    startSource = useAcousticTimingForScoring && micSpeechStartMs ? 'asr_mic_confirmed' : 'asr_speech_start';
+  } else if (useAcousticTimingForScoring && micSpeechStartMs) {
     start = micSpeechStartMs;
     startSource = 'mic_activity';
-  } else if (legacyEnergyStartMs) {
+  } else if (useAcousticTimingForScoring && legacyEnergyStartMs) {
     start = legacyEnergyStartMs;
     startSource = 'legacy_energy_fallback';
   }
 
-  if (lastMicVoiceMs && (!start || lastMicVoiceMs >= start)) {
+  if (useAcousticTimingForScoring && lastMicVoiceMs && (!start || lastMicVoiceMs >= start)) {
     end = Math.min(nowMs, lastMicVoiceMs + MIC_END_POSTROLL_MS);
     endSource = 'mic_last_active';
   } else if (asrSpeechEndMs && (!start || asrSpeechEndMs >= start)) {
     end = Math.min(nowMs, asrSpeechEndMs + MIC_END_POSTROLL_MS);
     endSource = 'asr_speech_end';
-  } else if (legacyEnergyEndMs && (!start || legacyEnergyEndMs >= start)) {
+  } else if (useAcousticTimingForScoring && legacyEnergyEndMs && (!start || legacyEnergyEndMs >= start)) {
     end = legacyEnergyEndMs;
     endSource = 'legacy_energy_fallback';
   }
 
   if (start && (!end || end < start)) {
-    const candidate = lastVoiceMs || nowMs;
+    const candidate = useAcousticTimingForScoring ? (lastVoiceMs || nowMs) : nowMs;
     if (candidate >= start) {
       end = candidate;
       endSource = endSource || 'current_activity_fallback';
@@ -1652,6 +1656,27 @@ function resolveSpeechTiming(nowMs = performance.now()) {
 
   resolvedTimingSource = { start: startSource, end: endSource, policy: RATE_TIMING_POLICY };
   return { start, end, startSource, endSource };
+}
+
+function buildAndroidPcmProbeTelemetry() {
+  if (!ANDROID_CONCURRENT_PCM_PROBE) return null;
+  const attemptStart = currentAttemptPerformanceStartedAt || recordingStartedMs || null;
+  const start = micSpeechStartMs;
+  const end = lastMicVoiceMs || micSpeechEndMs;
+  const durationMs = start && end && end >= start ? Math.round(end - start) : null;
+  const offset = value => Number.isFinite(value) && Number.isFinite(attemptStart)
+    ? Math.max(0, Math.round(value - attemptStart))
+    : null;
+  return {
+    enabled:true,
+    available:Number.isFinite(durationMs),
+    policy:'calibrated_time_domain_vad_probe_v1',
+    startOffsetMs:offset(start),
+    endOffsetMs:offset(end),
+    durationMs,
+    voiceFrameCount:Array.isArray(voiceHistory) ? voiceHistory.length : 0,
+    audioContextSampleRate:Number.isFinite(audioCtx?.sampleRate) ? Math.round(audioCtx.sampleRate) : null
+  };
 }
 
 
@@ -3589,7 +3614,7 @@ function runLoop() {
       try { navigator.vibrate?.([70,50,70]); } catch (error) {}
       // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
       window.MEASURED_NOISY = false;
-      if (ANDROID_EXCLUSIVE_ASR) {
+      if (ANDROID_EXCLUSIVE_ASR && !ANDROID_CONCURRENT_PCM_PROBE) {
         drawWave(freqArr, N);
         animationFrameId = null;
         void (async () => {
@@ -3598,6 +3623,9 @@ function runLoop() {
           void beginSpeechRecognition();
         })();
         return;
+      }
+      if (ANDROID_CONCURRENT_PCM_PROBE) {
+        DBG('ANDROID PCM PROBE', 'WebAudio remains active while browser ASR starts; scoring stays on the exclusive-ASR timing path');
       }
       void beginSpeechRecognition();
     }
@@ -3882,6 +3910,7 @@ function speechRuntimeInfo() {
     isAndroid: IS_ANDROID,
     keepMicAlive: KEEP_MIC_ALIVE,
     androidExclusiveAsr: ANDROID_EXCLUSIVE_ASR,
+    androidConcurrentPcmProbe: ANDROID_CONCURRENT_PCM_PROBE,
     androidPhrasePauseMs: ANDROID_EXCLUSIVE_ASR ? ANDROID_PHRASE_PAUSE_MS : null,
     coarseRuntime: SPEECH_DATA_CONTRACT?.getCoarseRuntimeSnapshot?.() || null,
     language: T?.langCode || document.documentElement.lang || null,
@@ -3915,6 +3944,7 @@ function buildSpeechJssfResearchTelemetry(payload, asrEvents = []) {
       startSource:derived.timingStartSource || null,
       endSource:derived.timingEndSource || null
     },
+    pcmProbe:buildAndroidPcmProbeTelemetry(),
     phrase:{
       exactAcceptedVariant:typeof derived.acceptedVariantMatched === 'boolean'
         ? derived.acceptedVariantMatched : null,
