@@ -356,6 +356,7 @@
       clientSessionId,sessionId:enrollment.sessionId,studyId:enrollment.studyId,
       uploadToken:enrollment.uploadToken,createdAt:enrollment.createdAt,
       expiresAt:enrollment.expiresAt,consentVersion:config().consentVersion,
+      dataCollectionPhase:config().dataCollectionPhase,
       enrollmentPending:false,withdrawalPending:false,remoteDeleted:false
     };
     await writeCredential(credential);
@@ -380,8 +381,10 @@
     if (ctx.researchMetadata?.consentVersion!==cfg.consentVersion) throw new Error("Consent version mismatch");
     const old=await readCredential(ctx.screeningSessionId);
     if (old?.withdrawalPending) throw new Error("Withdrawal pending: new enrollment is blocked for this session");
-    if (old && (old.studyId!==ctx.researchMetadata.studyId || old.consentVersion!==cfg.consentVersion))
-      throw new Error("Stored JSSF enrollment does not match the current consent context");
+    if (old && (old.studyId!==ctx.researchMetadata.studyId
+        || old.consentVersion!==cfg.consentVersion
+        || old.dataCollectionPhase!==cfg.dataCollectionPhase))
+      throw new Error("Stored JSSF enrollment does not match the current consent or collection phase");
     if (isActiveCredential(old)) return {sessionId:old.sessionId,studyId:old.studyId,reused:true};
     if (old && old.enrollmentPending!==true) throw new Error("Stored JSSF enrollment capability is invalid");
     const uploadToken=old?.enrollmentPending===true && /^[0-9a-f]{64}$/.test(old.uploadToken||"")
@@ -392,7 +395,7 @@
         clientSessionId:ctx.screeningSessionId,sessionId:null,
         studyId:ctx.researchMetadata.studyId,uploadToken,
         createdAt:new Date().toISOString(),expiresAt:null,
-        consentVersion:cfg.consentVersion,enrollmentPending:true,
+        consentVersion:cfg.consentVersion,dataCollectionPhase:cfg.dataCollectionPhase,enrollmentPending:true,
         withdrawalPending:false,remoteDeleted:false
       });
     }
@@ -405,6 +408,7 @@
         consentAccepted:true,
         age18plus:cfg.minimumAge18Enforced===true,
         consentVersion:cfg.consentVersion,
+        dataCollectionPhase:cfg.dataCollectionPhase,
         clientSessionId:ctx.screeningSessionId,
         studyId:ctx.researchMetadata.studyId,
         uploadToken,
