@@ -10,8 +10,8 @@ This is not a diagnostic-accuracy study.
 
 Primary analysis cohort:
 - `data_collection_phase = 'jssf_pilot'`
-- consent version `JSSF-REMOTE-2026-10-04-v2`
-- build `20261004-jssf-pilot-freeze-v1`
+- consent version `JSSF-REMOTE-2026-10-04-v3`
+- build `20261004-jssf-pilot-freeze-v2`
 
 Exclude from participant outcome analysis:
 - `engineering_preflight`
@@ -170,3 +170,18 @@ After the JSSF cohort is frozen:
 5. decide which thresholds merit modification or shadow evaluation,
 6. version any subsequent algorithm change,
 7. plan a separate governed clinical/reference validation phase if appropriate.
+
+
+## Device/runtime provenance
+
+The frozen pilot records coarse technical provenance needed to investigate device-specific reliability:
+- platform family,
+- OS major version when available,
+- browser family and browser major version,
+- device class,
+- browser-exposed device model when available,
+- runtime provenance contract version.
+
+Raw User-Agent strings and persistent hardware identifiers such as serial number/IMEI/advertising ID are not stored.
+
+Analyze Face/Arm/Speech reliability by these strata where sample size permits. Device model should be treated as optional because some browsers, especially iOS Safari, do not expose a specific model.
