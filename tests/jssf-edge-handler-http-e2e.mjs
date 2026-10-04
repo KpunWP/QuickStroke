@@ -188,7 +188,7 @@ try{
   assert.equal(res.body.collectionEnabled,false);
   const enrollment={
     consentAccepted:true,age18plus:true,participationScope:"usability_nonclinical",
-    consentVersion:"SYNTHETIC_TEST_ONLY",
+    consentVersion:"JSSF-REMOTE-2026-10-04-v2",
     clientSessionId:"S-"+randomUUID().replaceAll("-",""),
     studyId:"QS-AAAA-BBBB-CCCC-DDDD-EEEE-FFFF",
     uploadToken:"b".repeat(64),
@@ -220,6 +220,11 @@ try{
   res=await request("enroll",enrollment,null,"https://attacker.invalid");
   assert.equal(res.status,403);
   assert.equal(sessions.size,0);
+  res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-02-v1"});
+  assert.equal(res.status,422);
+  assert.equal(sessions.size,0);
+  console.log("PASS: new legacy-v1 enrollment is rejected");
+
   console.log("PASS: active local handler rejects invalid consent and origin");
   syntheticRateLimit={
     allowed:false,
@@ -261,8 +266,7 @@ try{
   assert.equal(sessions.size,1);
   console.log("PASS: enrollment retry recovers the same session only with the same capability");
 
-  // Transitional release: the configured legacy consent remains accepted while the
-  // new v2 disclosure is deployed. Only v2 sessions may persist Speech telemetry.
+  // Release enrollment is locked to v2; a second v2 session verifies bounded Speech telemetry.
   const v2Enrollment={
     ...enrollment,
     consentVersion:"JSSF-REMOTE-2026-10-04-v2",
@@ -348,6 +352,7 @@ try{
   console.log("PASS: 4 sanitized module/attempt events accepted; retry is idempotent");
 
   const legacySpeechId=randomUUID();
+  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-02-v1";
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:legacySpeechId,eventType:"test_attempt_completed",module:"speech",occurredAt:now(),
     payload:{
@@ -364,7 +369,8 @@ try{
   const legacyStored=[...events.values()].find(row=>row.client_event_id===legacySpeechId);
   assert.ok(!("speechResearch" in legacyStored.payload));
   assert.equal(events.size,5);
-  console.log("PASS: legacy-consent session remains usable but new Speech telemetry is stripped server-side");
+  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-04-v2";
+  console.log("PASS: existing legacy-consent session remains usable but new Speech telemetry is stripped server-side");
 
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:randomUUID(),eventType:"module_run_completed",module:"arm",
