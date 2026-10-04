@@ -360,7 +360,9 @@
     "qualityReasonAcousticUnavailable": "This device uses exclusive speech recognition, so SNR and voice-energy stability are unavailable",
     "detailsShow": "View details",
     "detailsHide": "Hide details",
-    "detailsResearchNote": "The values below are retained for pre-pilot development and analysis. They are not a diagnosis."
+    "detailsResearchNote": "The values below are retained for pre-pilot development and analysis. They are not a diagnosis.",
+    "statusRateDevelopment": "Under development",
+    "statusRateNotUsed": "Not currently used in the screening result"
   },
   "result": {
     "pageTitle": "QuickStroke · Screening Result",
