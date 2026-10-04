@@ -132,9 +132,14 @@ test('app version and policy versions are 1.0.21', () => {
   assert.equal(c.QuickStrokeResearchPolicy.selectionPolicyVersion, 'quickstroke-selection-policy-1.0.0');
 });
 
-test('Face/Arm/Speech thresholds are unchanged from 1.0.20', () => {
+test('Face/Arm/Speech protected thresholds are unchanged from 1.0.20', () => {
   const newConfig = loadConfig(path.join(ROOT, 'config.js'));
-  assert.deepEqual(newConfig.thresholds, BASELINE.thresholds);
+  const comparableThresholds = structuredClone(newConfig.thresholds);
+  delete comparableThresholds.speech.androidPhrasePauseMs;
+  delete comparableThresholds.speech.androidRecognitionSafetyMs;
+  assert.deepEqual(comparableThresholds, BASELINE.thresholds);
+  assert.equal(newConfig.thresholds.speech.androidPhrasePauseMs, 1800);
+  assert.equal(newConfig.thresholds.speech.androidRecognitionSafetyMs, 12000);
   assert.deepEqual(newConfig.scoring, BASELINE.scoring);
 });
 
