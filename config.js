@@ -335,6 +335,11 @@ window.QS_CONFIG = {
       deadMicEnergyMin: 0.00001,
       deadMicMaxAttempts: 4,
       recognitionSafetyMs: 8000,
+
+      // Android Chrome may split one phrase across multiple ASR sessions.
+      // Existing runtime values made explicit for reproducibility.
+      androidPhrasePauseMs: 1800,
+      androidRecognitionSafetyMs: 12000,
       trailingGapMs: 800,
       researchSampleIntervalMs: 100
     }
