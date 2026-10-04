@@ -27,8 +27,8 @@ assert.match(consent,/ชื่อรุ่นอุปกรณ์เฉพา�
 assert.match(consent,/raw User-Agent ทั้งข้อความ/);
 console.log("PASS: consent v3 explicitly discloses bounded derived Speech telemetry and exclusions");
 
-assert.match(sw,/Offline-Ready Face \+ Speech Edition \(v65\)/);
-assert.match(sw,/const CACHE_NAME = "quickstroke-pwa-v65"/);
+assert.match(sw,/Offline-Ready Face \+ Speech Edition \(v66\)/);
+assert.match(sw,/const CACHE_NAME = "quickstroke-pwa-v66"/);
 assert.match(sw,/\/jssf-consent\.html/);
 assert.match(sw,/\/config\.js/);
 console.log("PASS: service worker cache generation is bumped for coordinated consent/config refresh");
