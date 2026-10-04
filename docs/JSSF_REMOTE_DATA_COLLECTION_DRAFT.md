@@ -27,7 +27,7 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
-**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-04-v2`. For zero-downtime rollout, the Edge handler temporarily accepts both the currently configured `JSSF_CONSENT_VERSION` and v2, stores the version actually accepted by the participant, and strips `speechResearch` from any session not consented under v2. After the production environment secret is moved to v2, legacy enrollment acceptance closes automatically.
+**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-04-v2`. New enrollment is now server-locked to v2 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
 
 ## Implemented staging work
 - Supabase Project: `quickstroke-jssf` (Singapore).
@@ -69,3 +69,23 @@
 Speech rate is retained as exploratory research telemetry but is not used to trigger the current Speech screening observation. Cross-platform pilot testing found browser/platform-dependent timing bias, and an Android concurrent PCM + browser-ASR probe caused unacceptable ASR contention. The production Android path therefore remains exclusive-ASR, and the user-facing rate status is marked as under development.
 
 See `docs/SPEECH_RATE_MEASUREMENT_DECISION_2026-10-04.md` for the engineering evidence, event-day explanation, limitations, and revisit criteria.
+
+
+## JSSF pilot freeze (2026-10-04)
+
+Final engineering smoke tests passed on both iPhone Safari and Android Chrome using the production build immediately before freeze. Each flow completed Consent → Face → Arm → Speech → Result → Finalize and produced a `session_completed` event.
+
+Freeze provenance:
+- build ID: `20261004-jssf-pilot-freeze-v1`
+- collection phase: `jssf_pilot`
+- consent: `JSSF-REMOTE-2026-10-04-v2` (new enrollment v2-only)
+- service worker: `quickstroke-pwa-v62`
+- Face: `face-prepilot-1.4.0` / `face-asymmetry-1.2.0`
+- Arm: `arm-prepilot-1.1.0` / `arm-drift-1.0.0`
+- Speech: `speech-prepilot-1.9.0` / `speech-browser-asr-1.5.0`
+- Speech rate: exploratory telemetry only; not used in the screening observation.
+- Android Speech: exclusive browser-ASR path; concurrent PCM probe removed.
+
+All sessions created before this phase switch are marked `engineering_preflight` and must be excluded from JSSF participant outcome analysis. Sessions created after the freeze with `data_collection_phase='jssf_pilot'` are the intended pilot cohort.
+
+After freeze, Face/Arm/Speech decision logic and thresholds should not change unless a release-blocking defect is documented, regression-tested, and versioned.
