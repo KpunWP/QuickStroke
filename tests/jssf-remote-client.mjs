@@ -149,7 +149,7 @@ const withdrawal=read("jssf-withdraw.html");
 assert.match(withdrawal,/listWithdrawableEnrollments/);
 assert.match(withdrawal,/requestWithdrawal\(selected\.clientSessionId\)/);
 assert.match(client,/listWithdrawableEnrollments/);
-assert.match(read("service-worker.js"),/quickstroke-pwa-v59/);
+assert.match(read("service-worker.js"),/quickstroke-pwa-v60/);
 assert.match(read("service-worker.js"),/\/jssf-consent\.html/);
 assert.match(read("service-worker.js"),/\/jssf-withdraw\.html/);
 assert.match(read("result.html"),/CURRENT = calculate\(\);[\s\S]*void \(async \(\) =>/);
