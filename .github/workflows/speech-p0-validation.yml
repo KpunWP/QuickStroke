@@ -28,6 +28,8 @@ jobs:
         run: node tests/speech-asr-replay.mjs
       - name: Speech timing and rate replay
         run: node tests/speech-timing-rate-replay.mjs
+      - name: Speech device/browser hardening
+        run: node tests/speech-device-browser-hardening.mjs
       - name: Android compatibility
         run: node tests/android-compat.mjs
       - name: Inline script syntax
