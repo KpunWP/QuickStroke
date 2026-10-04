@@ -11,10 +11,12 @@ type JsonObject = Record<string, unknown>;
 const MAX_BODY = 64000;
 const origins = new Set((Deno.env.get("JSSF_ALLOWED_ORIGINS") || "").split(",").map(x => x.trim()).filter(Boolean));
 const consentVersion = Deno.env.get("JSSF_CONSENT_VERSION") || "";
-const SPEECH_TELEMETRY_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v2";
+const RELEASE_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v2";
+const SPEECH_TELEMETRY_CONSENT_VERSION = RELEASE_CONSENT_VERSION;
 function consentVersionAccepted(value: unknown): value is string {
-  return typeof value === "string" &&
-    (value === consentVersion || value === SPEECH_TELEMETRY_CONSENT_VERSION);
+  // Enrollment is release-locked to v2. The environment value remains an
+  // operational readiness gate, but it can no longer reopen legacy enrollment.
+  return value === RELEASE_CONSENT_VERSION;
 }
 const rateLimitSecret = Deno.env.get("JSSF_RATE_LIMIT_SECRET") || "";
 const testGateEnabled = Deno.env.get("JSSF_TEST_GATE_ENABLED") === "true";
