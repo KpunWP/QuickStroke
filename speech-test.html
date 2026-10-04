@@ -3888,6 +3888,70 @@ function speechRuntimeInfo() {
   };
 }
 
+function buildSpeechJssfResearchTelemetry(payload, asrEvents = []) {
+  const derived = payload?.derivedMetrics || {};
+  const domains = payload?.domains || {};
+  const runtime = payload?.runtime || {};
+  const quality = payload?.technicalQuality || {};
+  const events = Array.isArray(asrEvents) ? asrEvents : [];
+  const startCount = events.filter(event => event?.type === 'start').length;
+  const resultEvents = events.filter(event => event?.type === 'result');
+  const errorCount = events.filter(event => event?.type === 'error').length;
+
+  return {
+    schemaVersion:'speech-remote-research-0.1.0',
+    timing:{
+      durationMs:Number.isFinite(derived.durationSec)
+        ? Math.max(0, Math.min(30000, Math.round(derived.durationSec * 1000)))
+        : null,
+      policy:derived.timingPolicy || RATE_TIMING_POLICY,
+      startSource:derived.timingStartSource || null,
+      endSource:derived.timingEndSource || null
+    },
+    phrase:{
+      exactAcceptedVariant:typeof derived.acceptedVariantMatched === 'boolean'
+        ? derived.acceptedVariantMatched : null,
+      similarity:Number.isFinite(derived.phraseSimilarity)
+        ? roundSpeechMetric(derived.phraseSimilarity, 5) : null,
+      transcriptCoverageRatio:Number.isFinite(derived.transcriptCoverageRatio)
+        ? roundSpeechMetric(derived.transcriptCoverageRatio, 5) : null,
+      reliable:typeof derived.phraseReliable === 'boolean' ? derived.phraseReliable : null,
+      observationStatus:domains?.phrase?.status || derived.phraseObservationStatus || null,
+      alternativeSelectionPolicy:'target_phrase_similarity_best_alternative'
+    },
+    rate:{
+      speechUnitsPerSec:Number.isFinite(derived.speechUnitsPerSec)
+        ? roundSpeechMetric(derived.speechUnitsPerSec, 4) : null,
+      reliable:typeof derived.rateReliable === 'boolean' ? derived.rateReliable : null,
+      referenceStatus:derived.rateReferenceStatus || domains?.rate?.referenceStatus || null
+    },
+    asr:{
+      finalReceived:payload?.researchMetrics?.asrFinalReceived === true,
+      eventCount:Math.min(events.length, 100),
+      startCount:Math.min(startCount, 20),
+      restartCount:Math.min(Math.max(0, startCount - 1), 20),
+      resultCount:Math.min(resultEvents.length, 50),
+      finalResultCount:Math.min(resultEvents.filter(event => event?.hasFinal === true).length, 50),
+      errorCount:Math.min(errorCount, 20)
+    },
+    quality:{
+      status:quality.status || null,
+      flags:Array.isArray(payload?.qualityFlags) ? [...new Set(payload.qualityFlags)].slice(0,16) : [],
+      acousticMetricsAvailable:quality.acousticMetricsAvailable === true
+    },
+    platform:{
+      isIOS:runtime.isIOS === true,
+      isAndroid:runtime.isAndroid === true,
+      androidExclusiveAsr:runtime.androidExclusiveAsr === true
+    },
+    privacy:{
+      rawAudioStored:false,
+      transcriptIncluded:false,
+      rawFramesIncluded:false
+    }
+  };
+}
+
 function makeSpeechResultPayload({
   validityStatus,
   clinicalResult,
@@ -4049,6 +4113,7 @@ function persistCanonicalSpeechAttempt(finalizedAttempt, payloadSnapshot, frameS
   const payload = cloneSpeechResearchValue(payloadSnapshot);
   const frames = frameSnapshot.map(cloneSpeechResearchValue);
   const asrEvents = asrSnapshot.map(cloneSpeechResearchValue);
+  attempt.speechResearchTelemetry = buildSpeechJssfResearchTelemetry(payload, asrEvents);
   queueSpeechPersistence('finalize Speech attempt', async () => {
     await SPEECH_RESEARCH_STORE.finalizeTestAttempt(attempt.testAttemptId, attempt);
     if (SPEECH_DATA_CONTRACT) {
