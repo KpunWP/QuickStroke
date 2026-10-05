@@ -6,8 +6,8 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261005-speech-resume-audio-v12"/);
-assert.match(sw,/quickstroke-pwa-v78/);
+assert.match(config,/buildId:\s*"20261005-arm-six-assets-v13"/);
+assert.match(sw,/quickstroke-pwa-v79/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);
 assert.match(result,/ส่งผลและจบการทดสอบ/);
