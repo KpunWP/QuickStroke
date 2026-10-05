@@ -7,7 +7,7 @@ const edge=fs.readFileSync("supabase/functions/jssf-remote-ingest/index.ts","utf
 const migration=fs.readFileSync("supabase/migrations/20261004062000_jssf_data_collection_phase.sql","utf8");
 const contract=fs.readFileSync("js/data-contract.js","utf8");
 
-assert.match(config,/buildId:\s*"20261004-jssf-pilot-freeze-v5"/);
+assert.match(config,/buildId:\s*"20261005-speech-mic-gesture-v11"/);
 assert.match(config,/dataCollectionPhase:\s*"jssf_pilot"/);
 assert.match(client,/dataCollectionPhase:cfg\.dataCollectionPhase/);
 assert.match(client,/\["engineering_preflight","jssf_pilot"\]\.includes\(cfg\.dataCollectionPhase\)/);
