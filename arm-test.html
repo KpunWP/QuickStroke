@@ -1519,13 +1519,13 @@
     background-image:var(--arm-guide-image);
     background-repeat:no-repeat;
     background-size:300% auto;
-    background-position-y:bottom;
+    background-position-y:82%;
     background-color:#eef5ff;
     border:1px solid #dce9f6;
   }
-  #pose-guide .guide-step-visual.step-1{background-position-x:left;}
-  #pose-guide .guide-step-visual.step-2{background-position-x:center;}
-  #pose-guide .guide-step-visual.step-3{background-position-x:right;}
+  #pose-guide .guide-step-visual.step-1{background-position:left 76%;}
+  #pose-guide .guide-step-visual.step-2{background-position:center 80%;}
+  #pose-guide .guide-step-visual.step-3{background-position:right 84%;}
   #pose-guide .guide-step-copy{min-width:0;text-align:center;padding:0 5px 2px;}
   #pose-guide .guide-step-head{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:4px;}
   #pose-guide .guide-step-num{
@@ -1551,7 +1551,7 @@
     min-height:0!important;
     border-radius:18px!important;
     background-size:300% auto!important;
-    background-position:right bottom!important;
+    background-position:right 84%!important;
     box-shadow:0 10px 28px rgba(18,61,114,.14);
   }
   #test-screen.arm-guide-measuring #instr{margin-top:0!important;font-size:24px!important;}
@@ -5034,8 +5034,12 @@ function handleArmFastFlow() {
 
     const returningFromResultRetry = armModuleRunRecord?.moduleRunTrigger === 'result_retry'
       || Boolean(pendingArmModuleRetry());
-    if (mode === 'full' && !returningFromResultRetry) {
-      // Initial Full Flow: Arm is the second step, so continue to Speech.
+    const speechMissing = !sessionStorage.getItem('fast_speech');
+    if (mode === 'full' && (!returningFromResultRetry || speechMissing)) {
+      // Full Flow must always complete Speech before returning to Result.
+      // A Result-triggered Arm retry can happen while Speech is still missing;
+      // in that case returning to Result would strand the participant on an
+      // incomplete JSSF screen.
       btn.textContent = labels.navNext;
       btn.onclick = async () => {
         btn.disabled = true;
