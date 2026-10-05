@@ -11,11 +11,15 @@ function fn(name) {
   return source.slice(start, next === -1 ? source.length : next);
 }
 
-assert.match(source, /arm-left-guide\.webp\?v=20261005-arm-guide-v1/);
-assert.match(source, /arm-right-guide\.webp\?v=20261005-arm-guide-v1/);
-assert.match(source, /guide-step-visual\.step-1\{background-position:left 76%;\}/);
-assert.match(source, /guide-step-visual\.step-2\{background-position:center 80%;\}/);
-assert.match(source, /guide-step-visual\.step-3\{background-position:right 84%;\}/);
+for (const asset of [
+  'arm-left-step-1.webp','arm-left-step-2.webp','arm-left-step-3.webp',
+  'arm-right-step-1.webp','arm-right-step-2.webp','arm-right-step-3.webp'
+]) {
+  assert.match(source, new RegExp(asset.replace('.', '\\\.')), `dedicated guide asset missing: ${asset}`);
+}
+assert.doesNotMatch(source, /arm-left-guide\.webp|arm-right-guide\.webp/, 'combined poster assets must no longer be used');
+assert.doesNotMatch(source, /background-size:300%/, 'dedicated assets must not be poster-cropped');
+assert.match(source, /guide-step-visual[\s\S]*object-fit:contain/, 'guide images must remain fully visible without cropping');
 assert.match(source, /#pose-guide\[data-guide-step="1"\][\s\S]*step-1[\s\S]*data-guide-step="2"[\s\S]*step-2[\s\S]*data-guide-step="3"[\s\S]*step-3/, 'only the current progressive step should be shown');
 assert.match(source, /guide-step-copy\{[^}]*text-align:center/, 'instruction copy must remain HTML below the artwork');
 
@@ -41,7 +45,7 @@ assert.match(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'frozen meas
 assert.match(source, /#pose-guide\{display:block!important;/, 'guide presentation must override the legacy inline hide');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3[\s\S]*display:flex!important/, 'measurement must keep Step 3 visible');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-copy\{display:block!important;\}/, 'Step 3 HTML instruction must remain visible during measurement');
-assert.match(source, /background-position:right 84%!important/, 'measurement Step 3 must use the tuned illustration framing');
+assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-visual[\s\S]*object-fit:contain!important/, 'measurement Step 3 must show the full dedicated image');
 
 const retest = fn('showArmRetest');
 assert.match(retest, /setArmGuideStage\(arm, 1\);[\s\S]*showArmGuide\(\)/, 'retest screen must return to Step 1 before confirmation');
@@ -61,4 +65,13 @@ assert.match(flow, /const speechMissing = !sessionStorage\.getItem\('fast_speech
 assert.match(flow, /mode === 'full' && \(!returningFromResultRetry \|\| speechMissing\)/, 'full flow Arm retry must continue to missing Speech');
 assert.match(flow, /window\.location\.href\s*=\s*['"]speech-test\.html['"]/, 'completed full flow must still go to Speech');
 
+const th = fs.readFileSync(new URL('../locales/th-TH/ui.json', import.meta.url), 'utf8');
+const en = fs.readFileSync(new URL('../locales/en-US/ui.json', import.meta.url), 'utf8');
+const ja = fs.readFileSync(new URL('../locales/ja-JP/ui.json', import.meta.url), 'utf8');
+assert.match(th,/ค่อย ๆ ยกแขนซ้ายไปข้างหน้าจนถึงระดับไหล่/);
+assert.match(th,/เริ่มแล้ว หลับตา ค้างแขนให้นิ่ง/);
+assert.match(en,/Slowly raise your left arm forward to shoulder height/);
+assert.match(en,/Start\. Close your eyes and keep your arm still\./);
+assert.match(ja,/左腕をゆっくり前方へ肩の高さまで上げ/);
+assert.doesNotMatch(ja,/お疲れ様でした。左腕をまっすぐ前に伸ばし/);
 console.log('PASS arm progressive guide UX regression');
