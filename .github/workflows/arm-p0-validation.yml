@@ -12,6 +12,7 @@ on:
       - research/arm-guide-step3-tts-20261005
       - research/arm-lang-freeze-hotfix-20261005
       - research/arm-guide-segmented-20261005
+      - research/jssf-completion-tts-20261005
   workflow_dispatch:
 
 permissions:
