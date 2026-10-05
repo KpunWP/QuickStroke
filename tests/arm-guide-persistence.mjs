@@ -19,7 +19,7 @@ assert.match(fn('startWait'), /setArmGuideMeasurementMode\(false\);[\s\S]*showAr
 
 const measure = fn('startMeasure');
 assert.match(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'protected measurement function remains byte-compatible with the frozen baseline');
-assert.match(source, /#pose-guide\{display:block!important;\}/, 'presentation layer must override the legacy inline hide');
+assert.match(source, /#pose-guide\{[^}]*display:block!important;/, 'presentation layer must override the legacy inline hide');
 assert.match(fn('observeArmGuideMeasurementLayout'), /MutationObserver[\s\S]*attributeFilter:\['style'\]/, 'view-only observer must track countdown visibility');
 assert.match(fn('syncArmGuideMeasurementLayout'), /phase === 'MEASURE'[\s\S]*countdown\?\.style\.display === 'flex'[\s\S]*setArmGuideMeasurementMode\(measuring\)/, 'compact measurement layout must derive from existing view state');
 
