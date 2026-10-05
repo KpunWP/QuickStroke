@@ -4119,6 +4119,10 @@ let armGuideLayoutObserver = null;
 function syncArmGuideMeasurementLayout() {
   const countdown = $('cd-wrap');
   const measuring = phase === 'MEASURE' && countdown?.style.display === 'flex';
+  if (measuring) {
+    setArmGuideStage(arm, 3);
+    showArmGuide();
+  }
   setArmGuideMeasurementMode(measuring);
 }
 
@@ -4296,8 +4300,6 @@ function startMeasure() {
   devThresholdMarked = false;
   mElapsed = 0; voiced4 = false; voiced7 = false;
   addDevMarker(`MEASURE_${arm.toUpperCase()}_${currentDevProtocol().key.toUpperCase()}`);
-  setArmGuideStage(arm, 3);
-  showArmGuide();
   if ($('pose-guide')) $('pose-guide').style.display = 'none';
 
   $('instr').textContent     = T.instrMeasure;
