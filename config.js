@@ -1,7 +1,7 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
   version: "1.0.21",
-  buildId: "20261005-arm-css-image-v15",
+  buildId: "20261005-arm-thai-copy-v16",
   configVersion: "quickstroke-config-1.0.21",
 
   // Approved pilot policy: 18+ with 90-day primary DB retention and named
