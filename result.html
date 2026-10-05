@@ -828,6 +828,14 @@
    .jssf-participant-finalization .finalization-actions{display:block}
    .jssf-participant-finalization .finalize-button{width:100%;min-height:50px;font-size:15px}
    .jssf-participant-finalization .finalization-status{text-align:center;font-weight:800}
+   .jssf-terminal-card{display:none;margin-top:12px;padding:22px 16px;border:1px solid #cce7d7;border-radius:20px;background:#f4fbf7;text-align:center}
+   .jssf-terminal-card.show{display:block}
+   .jssf-terminal-icon{font-size:38px;line-height:1}
+   .jssf-terminal-title{margin-top:10px;font-size:24px;font-weight:900;color:#17663A}
+   .jssf-terminal-message{margin-top:6px;font-size:17px;font-weight:750;color:var(--ink);line-height:1.45}
+   .jssf-terminal-sub{margin-top:7px;font-size:14px;font-weight:650;color:var(--ink-soft)}
+   .jssf-participant-finalization.is-complete .finalization-actions,
+   .jssf-participant-finalization.is-complete .finalization-status{display:none!important}
    .export-button{border:1.5px solid var(--line);background:#fff;color:var(--ink);flex:1 1 150px}
    .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
   </style>
@@ -924,6 +932,12 @@
      <button class="export-button" id="export-research-session" type="button">ส่งออก session JSON</button>
     </div>
     <div class="finalization-status" id="finalization-status" aria-live="polite"></div>
+    <div class="jssf-terminal-card" id="jssf-terminal-card" role="status" aria-live="polite" aria-atomic="true">
+     <div class="jssf-terminal-icon" aria-hidden="true">✓</div>
+     <div class="jssf-terminal-title">จบการทดสอบแล้ว</div>
+     <div class="jssf-terminal-message">ขอบคุณสำหรับการเข้าร่วมการทดสอบค่ะ</div>
+     <div class="jssf-terminal-sub">สามารถปิดหน้านี้ได้</div>
+    </div>
    </section>
    <div class="jssf-submit-bar" id="jssf-submit-bar" hidden>
     <div class="jssf-submit-inner">
@@ -2512,6 +2526,36 @@
      return sessionStatus !== 'finalized';
    }
 
+   function hideParticipantResultActions() {
+     action(document.getElementById('primary-action'), '', null, true);
+     action(document.getElementById('secondary-action'), '', null, true);
+     action(document.getElementById('retry-all'), '', null, true);
+   }
+
+   function showJssfTerminalState() {
+     const panel = document.getElementById('finalization-panel');
+     const card = document.getElementById('jssf-terminal-card');
+     if (panel) panel.classList.add('is-complete');
+     if (card) card.classList.add('show');
+     hideParticipantResultActions();
+   }
+
+   function speakJssfCompletionOnce(sessionId) {
+     if (!sessionId || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
+     const key = `quickstroke_jssf_completion_spoken_${sessionId}`;
+     if (sessionStorage.getItem(key) === '1') return;
+     try {
+       const utterance = new SpeechSynthesisUtterance('จบการทดสอบแล้ว ขอบคุณสำหรับการเข้าร่วมการทดสอบค่ะ');
+       utterance.lang = 'th-TH';
+       utterance.rate = 0.95;
+       window.speechSynthesis.cancel();
+       window.speechSynthesis.speak(utterance);
+       sessionStorage.setItem(key, '1');
+     } catch (error) {
+       console.warn('Unable to speak JSSF completion message.', error);
+     }
+   }
+
    function renderActions(r) {
      const primary = document.getElementById('primary-action');
      const secondary = document.getElementById('secondary-action');
@@ -2573,8 +2617,8 @@
        action(retry, '', null, true);
        if (isRemoteJssfResultSession()) {
          if (sessionStatus === 'finalized') {
-           action(primary, T.home || 'กลับหน้าหลัก', goHome);
-           action(secondary, '', null, true);
+           hideParticipantResultActions();
+           showJssfTerminalState();
          } else {
            action(primary, '', null, true);
            action(secondary, '', null, true);
@@ -2669,7 +2713,11 @@
        RESULT_DATA_CONTEXT = null;
        await ensureResultDataContext({ force:true });
        await buildResult();
-       if (status) status.textContent = isRemoteJssf ? '✓ ส่งผลเรียบร้อยแล้ว คุณสามารถปิดหน้านี้ได้' : 'Finalize สำเร็จ ข้อมูล session ถูกล็อกแล้ว';
+       if (isRemoteJssf) {
+         showJssfTerminalState();
+         speakJssfCompletionOnce(session.screeningSessionId);
+       }
+       if (status) status.textContent = isRemoteJssf ? '✓ ส่งผลเรียบร้อยแล้ว' : 'Finalize สำเร็จ ข้อมูล session ถูกล็อกแล้ว';
      } catch (error) {
        console.error('Research finalization failed.', error);
        if (status) status.textContent = `${isRemoteJssf ? 'ยังส่งผลไม่สำเร็จ' : 'Finalize ไม่สำเร็จ'}: ${error.message || error}`;
@@ -2727,7 +2775,8 @@
        if (isRemoteJssf) {
          if (submitBar) submitBar.hidden = true;
          document.body.classList.remove('jssf-submit-visible');
-         if (status) status.textContent = '✓ ส่งผลเรียบร้อยแล้ว คุณสามารถปิดหน้านี้ได้';
+         showJssfTerminalState();
+         if (status) status.textContent = '✓ ส่งผลเรียบร้อยแล้ว';
        } else if (status) status.textContent = '';
        return;
      }
