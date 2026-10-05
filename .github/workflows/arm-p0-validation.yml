@@ -14,6 +14,7 @@ on:
       - research/arm-guide-segmented-20261005
       - research/jssf-completion-tts-20261005
       - research/arm-progressive-guide-20261005
+      - research/arm-clean-assets-tts-20261005
   workflow_dispatch:
 
 permissions:
