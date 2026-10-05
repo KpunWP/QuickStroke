@@ -1488,92 +1488,91 @@
     #action-dock #fast-nav-btn{font-size:18px!important;padding-inline:8px!important;}
   }
 
-  /* JSSF pilot UX: persistent side-specific arm guide.
-     The uploaded guide is segmented in the UI into three visual steps per side.
-     Text is real HTML so it remains readable on small phones. */
+  /* JSSF pilot UX: progressive side-specific Arm guide.
+     Only the current step is shown. The source artwork is cropped to the
+     illustration area; instructional copy remains real HTML below the image. */
   #pose-guide{display:block!important;width:min(350px,94vw)!important;margin:2px auto 0!important;}
   #pose-guide .image-guide-card{padding:8px!important;}
   #pose-guide .pose-side{display:none;}
   #pose-guide .pose-side.active{display:block;}
-  #pose-guide .guide-step-list{display:grid;gap:7px;}
+  #pose-guide .guide-step-list{display:block;}
   #pose-guide .guide-step{
-    display:grid;
-    grid-template-columns:92px 1fr;
-    gap:10px;
-    align-items:center;
-    min-height:98px;
-    padding:7px;
+    display:none;
+    flex-direction:column;
+    align-items:stretch;
+    gap:9px;
+    padding:8px;
     border:1px solid #d8e7f8;
-    border-radius:14px;
+    border-radius:16px;
     background:#f7fbff;
     color:#24415f;
     text-align:left;
   }
+  #pose-guide[data-guide-step="1"] .guide-step.step-1,
+  #pose-guide[data-guide-step="2"] .guide-step.step-2,
+  #pose-guide[data-guide-step="3"] .guide-step.step-3{display:flex;}
   #pose-guide .guide-step-visual{
-    width:92px;
-    height:92px;
-    border-radius:11px;
+    width:min(68vw,238px);
+    height:min(68vw,238px);
+    margin:0 auto;
+    border-radius:14px;
     background-image:var(--arm-guide-image);
     background-repeat:no-repeat;
     background-size:300% auto;
-    background-position-y:bottom;
+    background-position-y:top;
     background-color:#eef5ff;
     border:1px solid #dce9f6;
   }
   #pose-guide .guide-step-visual.step-1{background-position-x:left;}
   #pose-guide .guide-step-visual.step-2{background-position-x:center;}
   #pose-guide .guide-step-visual.step-3{background-position-x:right;}
-  #pose-guide .guide-step-copy{min-width:0;}
-  #pose-guide .guide-step-head{display:flex;align-items:center;gap:7px;margin-bottom:2px;}
+  #pose-guide .guide-step-copy{min-width:0;text-align:center;padding:0 5px 2px;}
+  #pose-guide .guide-step-head{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:4px;}
   #pose-guide .guide-step-num{
     width:25px;height:25px;border-radius:50%;display:grid;place-items:center;
     background:#2b7de9;color:#fff;font-size:13px;font-weight:900;flex:0 0 auto;
   }
-  #pose-guide .guide-step-title{font-size:16px;font-weight:900;line-height:1.25;color:#123d72;}
-  #pose-guide .guide-step-text{font-size:14px;line-height:1.35;font-weight:650;color:#365675;}
-  #arm-hold-cue{
-    display:none;margin:7px auto 0;padding:8px 12px;border-radius:13px;background:#eaf3ff;
-    color:#1457a6;font-size:18px;font-weight:850;line-height:1.25;text-align:center;max-width:320px;
-  }
+  #pose-guide .guide-step-title{font-size:18px;font-weight:900;line-height:1.25;color:#123d72;}
+  #pose-guide .guide-step-text{font-size:15px;line-height:1.4;font-weight:650;color:#365675;}
+  #arm-hold-cue{display:none!important;}
 
   #test-screen.arm-guide-measuring .arm-wrap{display:none!important;}
   #test-screen.arm-guide-measuring #mid{gap:6px!important;}
   #test-screen.arm-guide-measuring #pose-guide .guide-step{display:none!important;}
   #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3{
-    display:flex!important;align-items:center;justify-content:center;
-    padding:0!important;border:0!important;background:transparent!important;min-height:0!important;
+    display:flex!important;
+    padding:7px!important;
+    min-height:0!important;
   }
-  #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-copy{display:none!important;}
+  #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-copy{display:block!important;}
   #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{
-    width:min(56vw,210px)!important;
-    height:min(62vw,232px)!important;
-    min-height:190px!important;
+    width:min(72vw,255px)!important;
+    height:min(72vw,255px)!important;
+    min-height:0!important;
     border-radius:18px!important;
     background-size:300% auto!important;
-    background-position:right bottom!important;
+    background-position:right top!important;
     box-shadow:0 10px 28px rgba(18,61,114,.14);
   }
-  #test-screen.arm-guide-measuring #arm-hold-cue{display:block!important;}
   #test-screen.arm-guide-measuring #instr{margin-top:0!important;font-size:24px!important;}
   #test-screen.arm-guide-measuring #sub-instr{margin-bottom:0!important;font-size:15px!important;line-height:1.25!important;}
 
   @media (max-width:360px){
-    #pose-guide .guide-step{grid-template-columns:82px 1fr;gap:8px;min-height:88px;padding:6px;}
-    #pose-guide .guide-step-visual{width:82px;height:82px;}
-    #pose-guide .guide-step-title{font-size:15px;}
-    #pose-guide .guide-step-text{font-size:13px;}
+    #pose-guide .guide-step{gap:7px;padding:6px;}
+    #pose-guide .guide-step-visual{width:min(64vw,220px);height:min(64vw,220px);}
+    #pose-guide .guide-step-title{font-size:17px;}
+    #pose-guide .guide-step-text{font-size:14px;}
   }
   @media (max-height:760px){
-    #pose-guide .guide-step{grid-template-columns:78px 1fr;min-height:82px;padding:5px;gap:8px;}
-    #pose-guide .guide-step-visual{width:78px;height:78px;}
-    #pose-guide .guide-step-title{font-size:14px;}
-    #pose-guide .guide-step-text{font-size:12.5px;line-height:1.28;}
+    #pose-guide .guide-step{gap:6px;padding:5px;}
+    #pose-guide .guide-step-visual{width:min(54vw,190px);height:min(54vw,190px);}
+    #pose-guide .guide-step-title{font-size:16px;}
+    #pose-guide .guide-step-text{font-size:13.5px;line-height:1.32;}
     #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{
-      width:min(50vw,185px)!important;height:min(56vw,208px)!important;min-height:176px!important;
+      width:min(58vw,205px)!important;height:min(58vw,205px)!important;
     }
     #test-screen.arm-guide-measuring #instr{font-size:22px!important;}
     #test-screen.arm-guide-measuring #sub-instr{font-size:14px!important;}
-    #test-screen.arm-guide-measuring #arm-hold-cue{font-size:17px!important;padding:7px 10px!important;}
   }
 </style>
 <script src="config.js?v=20260731-arm-side-v1"></script>
@@ -4076,27 +4075,32 @@ function updateArmGuideInstructionCopy() {
       if (title) title.textContent = copy.titles[index];
     });
   });
-  const cue = $('arm-hold-cue');
-  if (cue) cue.textContent = armGuideInstructionCopy(arm).hold;
+}
+
+function setArmGuideStage(side, step) {
+  const guide = $('pose-guide');
+  if (!guide) return;
+  const safeSide = side === 'right' ? 'right' : 'left';
+  const safeStep = [1,2,3].includes(Number(step)) ? Number(step) : 1;
+  guide.dataset.guideSide = safeSide;
+  guide.dataset.guideStep = String(safeStep);
+  updatePoseGuide();
+}
+
+function currentArmGuideSide() {
+  const side = $('pose-guide')?.dataset?.guideSide;
+  return side === 'right' ? 'right' : side === 'left' ? 'left' : arm;
 }
 
 function updatePoseGuide() {
   const guide = $('pose-guide');
   if (!guide) return;
+  const side = currentArmGuideSide();
   const left = $('pose-left');
   const right = $('pose-right');
-  if (left) left.classList.toggle('active', arm === 'left');
-  if (right) right.classList.toggle('active', arm === 'right');
+  if (left) left.classList.toggle('active', side === 'left');
+  if (right) right.classList.toggle('active', side === 'right');
   updateArmGuideInstructionCopy();
-  const dirLeft = $('guide-dir-left');
-  const dirRight = $('guide-dir-right');
-  const noteLeft = $('guide-note-left');
-  const noteRight = $('guide-note-right');
-  if (dirLeft) dirLeft.innerHTML = T.subWait_left.split('·')[0].trim().replace('Screen facing','Screen<br>facing').replace('หน้าจอหัน','หน้าจอ<br>หัน').replace('画面を','画面<br>');
-  if (dirRight) dirRight.innerHTML = T.subWait_right.split('·')[0].trim().replace('Screen facing','Screen<br>facing').replace('หน้าจอหัน','หน้าจอ<br>หัน').replace('画面を','画面<br>');
-  const noteText = T.guideNote || 'Arm straight · elbow straight · keep still';
-  if (noteLeft) noteLeft.textContent = noteText;
-  if (noteRight) noteRight.textContent = noteText;
 }
 
 function showArmGuide() {
@@ -4180,6 +4184,7 @@ function startWait() {
   $('action-btn').disabled   = true;
   $('action-btn').className  = '';
   setArmGuideMeasurementMode(false);
+  setArmGuideStage(arm, 2);
   showArmGuide();
   startReadinessWatchdog();
 
@@ -4291,6 +4296,8 @@ function startMeasure() {
   devThresholdMarked = false;
   mElapsed = 0; voiced4 = false; voiced7 = false;
   addDevMarker(`MEASURE_${arm.toUpperCase()}_${currentDevProtocol().key.toUpperCase()}`);
+  setArmGuideStage(arm, 3);
+  showArmGuide();
   if ($('pose-guide')) $('pose-guide').style.display = 'none';
 
   $('instr').textContent     = T.instrMeasure;
@@ -4329,6 +4336,9 @@ function armAnalysisLabel(a) {
 
 function showArmRetest(a) {
   stopReadinessWatchdog();
+  setArmGuideMeasurementMode(false);
+  setArmGuideStage(arm, 1);
+  showArmGuide();
   phase = 'RETRY_ARM';
   results[arm] = null;
   driftValues[arm] = null;
@@ -4408,10 +4418,14 @@ function finishArm() {
   $('arm-ring').className   = 'arm-ring-outer';
 
   if (arm==='left') {
+    setArmGuideStage('right', 1);
+    showArmGuide();
     $('action-btn').textContent = armStartButtonText('right');
     $('action-btn').className   = '';
     $('action-btn').disabled    = false;
   } else {
+    setArmGuideStage('right', 3);
+    showArmGuide();
     setTimeout(showFinal, 600);
   }
 }
@@ -4586,6 +4600,8 @@ function handleBtn() {
 
   if (phase === 'IDLE') {
     arm = 'left';
+    setArmGuideStage('left', 2);
+    showArmGuide();
     confirmCurrentArmSide('explicit_start_button');
     // Prime TTS immediately inside the original user gesture. On iOS, doing this
     // only after awaiting sensor permission can cause the first spoken prompt to
@@ -4624,12 +4640,16 @@ function handleBtn() {
 
   } else if (phase === 'BETWEEN' && arm === 'left') {
     arm = 'right';
+    setArmGuideStage('right', 2);
+    showArmGuide();
     clearArmSideConfirmation();
     confirmCurrentArmSide('explicit_next_arm_button');
     $('action-btn').disabled = true;
     startWait();
 
   } else if (phase === 'RETRY_ARM') {
+    setArmGuideStage(arm, 2);
+    showArmGuide();
     clearArmSideConfirmation();
     confirmCurrentArmSide('explicit_retry_button');
     $('action-btn').disabled = true;
@@ -4679,6 +4699,7 @@ function resetAll() {
   selectedArmAttemptIds = { left:null, right:null };
   removeFastNavButton();
   phase='IDLE'; arm='left'; clearArmSideConfirmation(); armProtocolUnderstanding=null; results={right:null,left:null};
+  setArmGuideMeasurementMode(false); setArmGuideStage('left', 1); showArmGuide();
   gravityBase=null;
   baselineMeta=null;
   screenOrientationAtBaseline=null;
@@ -4982,6 +5003,7 @@ async function selectLang(code) {
   arm = 'left';
   refreshArmLanguageUI();
   setArmGuideMeasurementMode(false);
+  setArmGuideStage('left', 1);
   showArmGuide();
   observeArmGuideMeasurementLayout();
   actionBtn.textContent = armStartButtonText('left');
