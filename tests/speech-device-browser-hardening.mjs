@@ -101,3 +101,10 @@ assert.match(speech,/async function startRecording\(forceDirectMic = false, prea
 assert.match(speech,/preauthorizedStream && hasLiveAudioTrack\(preauthorizedStream\)[\s\S]*streamRef = preauthorizedStream/);
 assert.match(speech,/const firstUseStream = await ensureMicDisclosureBeforeFirstUse\(\);[\s\S]*await startRecording\(false, firstUseStream\)/);
 console.log("PASS: first microphone permission request stays inside the QuickStroke disclosure user gesture");
+
+
+assert.match(speech,/function prepareSpeechCaptureAudioSession\(\)[\s\S]*navigator\.audioSession\.type = 'play-and-record'/);
+assert.match(speech,/prepareSpeechCaptureAudioSession\(\);[\s\S]*navigator\.mediaDevices\.getUserMedia\(/);
+assert.match(speech,/await flushSpeechResearchPersistence\(\);[\s\S]*window\.location\.href = 'result\.html'/);
+assert.doesNotMatch(speech,/Promise\.race\(\[[\s\S]*flushSpeechResearchPersistence\(\)[\s\S]*1500/);
+console.log("PASS: Speech restores capture audio category and Result waits for canonical persistence");
