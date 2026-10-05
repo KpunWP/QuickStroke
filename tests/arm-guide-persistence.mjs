@@ -58,6 +58,6 @@ assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.gui
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-visual[\s\S]*background-position:right bottom!important/, 'measurement must focus the side-specific step 3 crop');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\{display:none!important;\}/, 'measurement view must hide non-active guide steps');
 assert.match(source, /arm-guide-measuring #arm-hold-cue\{display:block!important;\}/, 'measurement view must show a large hold-still cue');
-assert.match(source, /@media \(max-height:760px\)[\s\S]*arm-guide-measuring[\s\S]*min-height:178px!important/, 'short phones need compact Step 3 sizing');
+assert.match(source, /@media \(max-height:760px\)[\s\S]*arm-guide-measuring[\s\S]*min-height:176px!important/, 'short phones need compact Step 3 sizing');
 
 console.log('PASS arm guide persistence UX regression');
