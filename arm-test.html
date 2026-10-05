@@ -1489,7 +1489,7 @@
   }
 
   /* JSSF pilot UX: persistent side-specific arm guide. */
-  #pose-guide{display:block;}
+  #pose-guide{display:block!important;}
   #pose-guide .image-guide-card{padding:8px!important;}
   #pose-guide .guide-image-wrap{height:214px!important;border-radius:16px!important;background:#EEF5FF!important;}
   #pose-guide .guide-photo{inset:0!important;width:100%!important;height:100%!important;padding:0!important;object-fit:contain!important;object-position:center center!important;background:#EEF5FF!important;border-radius:14px!important;}
@@ -3966,6 +3966,22 @@ function setArmGuideMeasurementMode(active) {
   if (screen) screen.classList.toggle('arm-guide-measuring', Boolean(active));
 }
 
+let armGuideLayoutObserver = null;
+
+function syncArmGuideMeasurementLayout() {
+  const countdown = $('cd-wrap');
+  const measuring = phase === 'MEASURE' && countdown?.style.display === 'flex';
+  setArmGuideMeasurementMode(measuring);
+}
+
+function observeArmGuideMeasurementLayout() {
+  const countdown = $('cd-wrap');
+  if (!countdown || armGuideLayoutObserver || typeof MutationObserver === 'undefined') return;
+  armGuideLayoutObserver = new MutationObserver(syncArmGuideMeasurementLayout);
+  armGuideLayoutObserver.observe(countdown, { attributes:true, attributeFilter:['style'] });
+  syncArmGuideMeasurementLayout();
+}
+
 function removeArmNavOverlays() {
   ['fast-nav-btn','arm-nav-btn','back-home-btn'].forEach(id => {
     const el = document.getElementById(id);
@@ -4131,8 +4147,7 @@ function startMeasure() {
   devThresholdMarked = false;
   mElapsed = 0; voiced4 = false; voiced7 = false;
   addDevMarker(`MEASURE_${arm.toUpperCase()}_${currentDevProtocol().key.toUpperCase()}`);
-  setArmGuideMeasurementMode(true);
-  showArmGuide();
+  if ($('pose-guide')) $('pose-guide').style.display = 'none';
 
   $('instr').textContent     = T.instrMeasure;
   $('sub-instr').textContent = T.subMeasure;
@@ -4824,6 +4839,7 @@ async function selectLang(code) {
   refreshArmLanguageUI();
   setArmGuideMeasurementMode(false);
   showArmGuide();
+  observeArmGuideMeasurementLayout();
   actionBtn.textContent = armStartButtonText('left');
   actionBtn.disabled = false;
   $('arm-understanding-card')?.classList.remove('show');
