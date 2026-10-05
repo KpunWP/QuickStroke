@@ -2615,20 +2615,60 @@
      hideParticipantResultActions();
    }
 
+   let JSSF_SPEECH_PRIMED = false;
+
+   function jssfSpeechLocale() {
+     if (LANG === 'en') return { lang:'en-US', sending:'Sending your result. Please wait.', done:'The test is complete. Thank you for participating.' };
+     if (LANG === 'ja') return { lang:'ja-JP', sending:'結果を送信しています。しばらくお待ちください。', done:'検査は終了しました。ご参加ありがとうございました。' };
+     return { lang:'th-TH', sending:'กำลังส่งผล กรุณารอสักครู่ค่ะ', done:'จบการทดสอบแล้ว ขอบคุณสำหรับการเข้าร่วมการทดสอบค่ะ' };
+   }
+
+   function primeJssfCompletionSpeech() {
+     if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
+     try {
+       const copy = jssfSpeechLocale();
+       const utterance = new SpeechSynthesisUtterance(copy.sending);
+       utterance.lang = copy.lang;
+       utterance.rate = 0.95;
+       utterance.onstart = () => { JSSF_SPEECH_PRIMED = true; };
+       utterance.onerror = (event) => {
+         JSSF_SPEECH_PRIMED = false;
+         console.warn('Unable to prime JSSF completion speech.', event?.error || event);
+       };
+       window.speechSynthesis.cancel();
+       window.speechSynthesis.speak(utterance);
+     } catch (error) {
+       JSSF_SPEECH_PRIMED = false;
+       console.warn('Unable to prime JSSF completion speech.', error);
+     }
+   }
+
    function speakJssfCompletionOnce(sessionId) {
      if (!sessionId || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
      const key = `quickstroke_jssf_completion_spoken_${sessionId}`;
      if (sessionStorage.getItem(key) === '1') return;
      try {
-       const utterance = new SpeechSynthesisUtterance('จบการทดสอบแล้ว ขอบคุณสำหรับการเข้าร่วมการทดสอบค่ะ');
-       utterance.lang = 'th-TH';
+       const copy = jssfSpeechLocale();
+       const utterance = new SpeechSynthesisUtterance(copy.done);
+       utterance.lang = copy.lang;
        utterance.rate = 0.95;
-       window.speechSynthesis.cancel();
+       utterance.onstart = () => {
+         sessionStorage.setItem(key, '1');
+         JSSF_SPEECH_PRIMED = true;
+       };
+       utterance.onerror = (event) => {
+         console.warn('Unable to speak JSSF completion message.', event?.error || event);
+       };
+       if (JSSF_SPEECH_PRIMED) window.speechSynthesis.cancel();
        window.speechSynthesis.speak(utterance);
-       sessionStorage.setItem(key, '1');
      } catch (error) {
        console.warn('Unable to speak JSSF completion message.', error);
      }
+   }
+
+   async function submitAndFinalizeJssf() {
+     primeJssfCompletionSpeech();
+     await finalizeCurrentResearchSession();
    }
 
    function renderActions(r) {
@@ -2817,7 +2857,7 @@
      const submitHint = document.getElementById('jssf-submit-hint');
      exportButton.onclick = exportCurrentResearchSession;
      finalizeButton.onclick = finalizeCurrentResearchSession;
-     if (submitButton) submitButton.onclick = finalizeCurrentResearchSession;
+     if (submitButton) submitButton.onclick = submitAndFinalizeJssf;
      if (!session) {
        badge.textContent = 'NO SESSION';
        box.className = 'integrity-box error';
