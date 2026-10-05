@@ -1489,8 +1489,7 @@
   }
 
   /* JSSF pilot UX: progressive side-specific Arm guide.
-     Only the current step is shown. The source artwork is cropped to the
-     illustration area; instructional copy remains real HTML below the image. */
+     Each state uses its own dedicated image asset. No poster cropping. */
   #pose-guide{display:block!important;width:min(350px,94vw)!important;margin:2px auto 0!important;}
   #pose-guide .image-guide-card{padding:8px!important;}
   #pose-guide .pose-side{display:none;}
@@ -1512,20 +1511,16 @@
   #pose-guide[data-guide-step="2"] .guide-step.step-2,
   #pose-guide[data-guide-step="3"] .guide-step.step-3{display:flex;}
   #pose-guide .guide-step-visual{
-    width:min(72vw,252px);
-    height:min(58vw,210px);
+    display:block;
+    width:auto;
+    height:min(27vh,220px);
+    max-width:100%;
     margin:0 auto;
     border-radius:14px;
-    background-image:var(--arm-guide-image);
-    background-repeat:no-repeat;
-    background-size:300% auto;
-    background-position-y:82%;
-    background-color:#eef5ff;
+    object-fit:contain;
+    background:#eef5ff;
     border:1px solid #dce9f6;
   }
-  #pose-guide .guide-step-visual.step-1{background-position:left 76%;}
-  #pose-guide .guide-step-visual.step-2{background-position:center 80%;}
-  #pose-guide .guide-step-visual.step-3{background-position:right 84%;}
   #pose-guide .guide-step-copy{min-width:0;text-align:center;padding:0 5px 2px;}
   #pose-guide .guide-step-head{display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:4px;}
   #pose-guide .guide-step-num{
@@ -1546,12 +1541,13 @@
   }
   #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-copy{display:block!important;}
   #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{
-    width:min(76vw,270px)!important;
-    height:min(58vw,210px)!important;
+    display:block!important;
+    width:auto!important;
+    height:min(26vh,220px)!important;
+    max-width:100%!important;
     min-height:0!important;
+    object-fit:contain!important;
     border-radius:18px!important;
-    background-size:300% auto!important;
-    background-position:right 84%!important;
     box-shadow:0 10px 28px rgba(18,61,114,.14);
   }
   #test-screen.arm-guide-measuring #instr{margin-top:0!important;font-size:24px!important;}
@@ -1559,17 +1555,17 @@
 
   @media (max-width:360px){
     #pose-guide .guide-step{gap:7px;padding:6px;}
-    #pose-guide .guide-step-visual{width:min(68vw,235px);height:min(55vw,195px);}
+    #pose-guide .guide-step-visual{height:min(24vh,190px);}
     #pose-guide .guide-step-title{font-size:17px;}
     #pose-guide .guide-step-text{font-size:14px;}
   }
   @media (max-height:760px){
     #pose-guide .guide-step{gap:6px;padding:5px;}
-    #pose-guide .guide-step-visual{width:min(58vw,205px);height:min(46vw,165px);}
+    #pose-guide .guide-step-visual{height:min(23vh,170px);}
     #pose-guide .guide-step-title{font-size:16px;}
     #pose-guide .guide-step-text{font-size:13.5px;line-height:1.32;}
     #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{
-      width:min(62vw,220px)!important;height:min(46vw,165px)!important;
+      height:min(23vh,170px)!important;
     }
     #test-screen.arm-guide-measuring #instr{font-size:22px!important;}
     #test-screen.arm-guide-measuring #sub-instr{font-size:14px!important;}
@@ -1676,36 +1672,36 @@
 <div class="arm-ring-outer" id="arm-ring"></div>
 <div class="arm-circle" id="arm-circle"><span class="arm-icon" id="arm-icon">🤚</span></div>
 </div>
-<div id="pose-guide">
+<div id="pose-guide" data-guide-side="left" data-guide-step="1">
 <div class="pose-card image-guide-card">
-<div class="pose-side active" id="pose-left" style="--arm-guide-image:url('./assets/arm/arm-left-guide.webp?v=20261005-arm-guide-v1')" aria-label="ตัวอย่างทดสอบแขนซ้าย">
+<div class="pose-side active" id="pose-left" aria-label="ตัวอย่างทดสอบแขนซ้าย">
 <div class="guide-step-list">
 <div class="guide-step step-1">
-<div class="guide-step-visual step-1" role="img" aria-label="ตัวอย่างทดสอบแขนซ้าย ขั้นตอนที่ 1"></div>
+<img class="guide-step-visual step-1" src="./assets/arm/arm-left-step-1.webp?v=20261005-arm-six-assets-v1" alt="ท่าเริ่มต้นสำหรับทดสอบแขนซ้าย">
 <div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">1</span><span class="guide-step-title" id="guide-title-left-1"></span></div><div class="guide-step-text" id="guide-step-left-1"></div></div>
 </div>
 <div class="guide-step step-2">
-<div class="guide-step-visual step-2" role="img" aria-label="ตัวอย่างทดสอบแขนซ้าย ขั้นตอนที่ 2"></div>
+<img class="guide-step-visual step-2" src="./assets/arm/arm-left-step-2.webp?v=20261005-arm-six-assets-v1" alt="ยกแขนซ้ายไปข้างหน้าระดับไหล่">
 <div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">2</span><span class="guide-step-title" id="guide-title-left-2"></span></div><div class="guide-step-text" id="guide-step-left-2"></div></div>
 </div>
 <div class="guide-step step-3">
-<div class="guide-step-visual step-3" role="img" aria-label="ตัวอย่างทดสอบแขนซ้าย ขั้นตอนที่ 3"></div>
+<img class="guide-step-visual step-3" src="./assets/arm/arm-left-step-3.webp?v=20261005-arm-six-assets-v1" alt="ค้างแขนซ้ายตรงนิ่งเป็นเวลา 10 วินาที">
 <div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">3</span><span class="guide-step-title" id="guide-title-left-3"></span></div><div class="guide-step-text" id="guide-step-left-3"></div></div>
 </div>
 </div>
 </div>
-<div class="pose-side" id="pose-right" style="--arm-guide-image:url('./assets/arm/arm-right-guide.webp?v=20261005-arm-guide-v1')" aria-label="ตัวอย่างทดสอบแขนขวา">
+<div class="pose-side" id="pose-right" aria-label="ตัวอย่างทดสอบแขนขวา">
 <div class="guide-step-list">
 <div class="guide-step step-1">
-<div class="guide-step-visual step-1" role="img" aria-label="ตัวอย่างทดสอบแขนขวา ขั้นตอนที่ 1"></div>
+<img class="guide-step-visual step-1" src="./assets/arm/arm-right-step-1.webp?v=20261005-arm-six-assets-v1" alt="ท่าเริ่มต้นสำหรับทดสอบแขนขวา">
 <div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">1</span><span class="guide-step-title" id="guide-title-right-1"></span></div><div class="guide-step-text" id="guide-step-right-1"></div></div>
 </div>
 <div class="guide-step step-2">
-<div class="guide-step-visual step-2" role="img" aria-label="ตัวอย่างทดสอบแขนขวา ขั้นตอนที่ 2"></div>
+<img class="guide-step-visual step-2" src="./assets/arm/arm-right-step-2.webp?v=20261005-arm-six-assets-v1" alt="ยกแขนขวาไปข้างหน้าระดับไหล่">
 <div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">2</span><span class="guide-step-title" id="guide-title-right-2"></span></div><div class="guide-step-text" id="guide-step-right-2"></div></div>
 </div>
 <div class="guide-step step-3">
-<div class="guide-step-visual step-3" role="img" aria-label="ตัวอย่างทดสอบแขนขวา ขั้นตอนที่ 3"></div>
+<img class="guide-step-visual step-3" src="./assets/arm/arm-right-step-3.webp?v=20261005-arm-six-assets-v1" alt="ค้างแขนขวาตรงนิ่งเป็นเวลา 10 วินาที">
 <div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">3</span><span class="guide-step-title" id="guide-title-right-3"></span></div><div class="guide-step-text" id="guide-step-right-3"></div></div>
 </div>
 </div>
@@ -4039,9 +4035,9 @@ function armGuideInstructionCopy(side) {
   if (lang === 'en') return {
     titles:['Start','Raise','Hold 10 sec'],
     steps:[
-      `Hold the phone in your ${sideName} hand with the arm near your body`,
-      'Slowly raise the arm forward to shoulder height',
-      'Keep the arm straight and still for 10 seconds'
+      `Hold the phone in your ${sideName} hand with your arm close to your body, as shown`,
+      `Slowly raise your ${sideName} arm forward to shoulder height`,
+      `Keep your ${sideName} arm and wrist straight and still for 10 seconds`
     ],
     hold:'Keep your arm straight and still'
   };
@@ -4049,17 +4045,17 @@ function armGuideInstructionCopy(side) {
     titles:['開始','上げる','10秒キープ'],
     steps:[
       `${sideName}手でスマートフォンを持ち、腕を体の近くに置く`,
-      '腕をゆっくり前方へ肩の高さまで上げる',
-      '腕をまっすぐ伸ばし、10秒間動かさない'
+      `${sideName}腕をゆっくり前方へ肩の高さまで上げる`,
+      `${sideName}腕と手首をまっすぐ伸ばし、10秒間動かさない`
     ],
     hold:'腕をまっすぐ伸ばしたまま動かさないでください'
   };
   return {
     titles:['เริ่ม','ยกขึ้น','ค้างไว้ 10 วินาที'],
     steps:[
-      `ถือโทรศัพท์ในมือ${sideName} โดยวางแขนไว้ใกล้ตัว`,
-      `ค่อย ๆ ยกแขน${sideName}ขึ้นไปข้างหน้าจนถึงระดับไหล่`,
-      `เหยียดแขน${sideName}ตรงและค้างไว้นิ่ง ๆ 10 วินาที`
+      `ถือโทรศัพท์ด้วยมือ${sideName} วางแขนไว้ใกล้ตัวตามภาพ`,
+      `ค่อย ๆ ยกแขน${sideName}ไปข้างหน้าจนถึงระดับไหล่`,
+      `เหยียดแขน${sideName}และข้อมือให้ตรง ค้างไว้นิ่ง ๆ 10 วินาที`
     ],
     hold:'ค้างแขนตรงให้นิ่ง'
   };
