@@ -5004,7 +5004,16 @@ function handleFastFlow(riskLevel) {
 
   btn.onclick = async () => {
     btn.disabled = true;
-    stopAll(true);
+    // Fully release microphone / AudioContext before leaving Speech. On iOS,
+    // navigating while capture cleanup is still pending can leave the next page
+    // in a quiet play-and-record route, making completion TTS much softer.
+    await stopAll(true);
+    try {
+      if (navigator.audioSession && 'type' in navigator.audioSession) {
+        navigator.audioSession.type = 'playback';
+      }
+    } catch (_) {}
+    await sleep(350);
     await Promise.race([
       flushSpeechResearchPersistence(),
       new Promise(resolve => setTimeout(resolve, 1500))

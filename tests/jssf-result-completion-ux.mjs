@@ -2,11 +2,12 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 
 const result=fs.readFileSync("result.html","utf8");
+const speech=fs.readFileSync("speech-test.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261005-arm-progressive-guide-v8"/);
-assert.match(sw,/quickstroke-pwa-v74/);
+assert.match(config,/buildId:\s*"20261005-arm-clean-audio-route-v9"/);
+assert.match(sw,/quickstroke-pwa-v75/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);
 assert.match(result,/ส่งผลและจบการทดสอบ/);
@@ -25,8 +26,12 @@ assert.match(result,/utterance\.onstart = \(\) => \{[\s\S]*sessionStorage\.setIt
 assert.match(result,/submitButton\) submitButton\.onclick = submitAndFinalizeJssf/);
 assert.match(result,/SpeechSynthesisUtterance/);
 assert.match(result,/utterance\.volume = 1/);
-assert.match(result,/window\.speechSynthesis\.resume\(\)/);
+assert.match(result,/window\.speechSynthesis\?\.resume\?\.\(\)/);
 assert.match(result,/jssfMatchingSpeechVoice/);
+assert.match(result,/prepareJssfPlaybackAudioSession/);
+assert.match(result,/navigator\.audioSession\.type = 'playback'/);
+assert.match(result,/setTimeout\(\(\) => \{[\s\S]*window\.speechSynthesis\.speak\(utterance\)[\s\S]*\}, 240\)/);
+assert.match(speech,/btn\.onclick = async \(\) => \{[\s\S]*await stopAll\(true\)[\s\S]*navigator\.audioSession\.type = 'playback'[\s\S]*await sleep\(350\)[\s\S]*window\.location\.href = 'result\.html'/);
 assert.match(result,/showJssfTerminalState/);
 assert.match(result,/hideParticipantResultActions/);
 assert.match(result,/jssf-participant-result/);
