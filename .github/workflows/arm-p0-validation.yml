@@ -39,5 +39,7 @@ jobs:
         run: node tests/arm-research-e2e-audit.mjs
       - name: Arm guide persistence UX regression
         run: node tests/arm-guide-persistence.mjs
+      - name: JSSF terminal result UX regression
+        run: node tests/jssf-result-completion-ux.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
