@@ -6,8 +6,8 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261005-speech-mic-gesture-v11"/);
-assert.match(sw,/quickstroke-pwa-v77/);
+assert.match(config,/buildId:\s*"20261005-speech-resume-audio-v12"/);
+assert.match(sw,/quickstroke-pwa-v78/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);
 assert.match(result,/ส่งผลและจบการทดสอบ/);
@@ -53,3 +53,9 @@ assert.match(result,/if \(isRemoteJssfResultSession\(\)\) \{[\s\S]*panel\.hidden
 assert.match(result,/if \(isRemoteJssfResultSession\(\)\) \{[\s\S]*sessionStatus === 'finalized'[\s\S]*hideParticipantResultActions\(\);[\s\S]*showJssfTerminalState\(\);/);
 assert.match(result,/if \(!isRemoteJssf\) \{[\s\S]*confirm\(/);
 console.log("PASS: JSSF result page has participant-first fixed submit flow and hides research-only controls");
+
+
+assert.match(result,/const hasFreshLegacyRetry = legacyRetry\?\.moduleRunId[\s\S]*legacyRetry\.moduleRunId !== pendingRetry\.previousModuleRunId/);
+assert.match(result,/resultDataSource:'legacy_retry_catchup'/);
+assert.match(result,/CANONICAL_RETRY_CATCHUP/);
+console.log("PASS: Result keeps a freshly completed retry visible while canonical persistence catches up");

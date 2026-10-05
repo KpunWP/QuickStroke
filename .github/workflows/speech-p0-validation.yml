@@ -5,6 +5,7 @@ on:
     branches:
       - research/speech-p0-20261004
       - research/speech-mic-user-gesture-20261005
+      - research/speech-resume-persistence-audio-20261005
   workflow_dispatch:
 
 permissions:
