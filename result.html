@@ -836,6 +836,28 @@
    .jssf-terminal-sub{margin-top:7px;font-size:14px;font-weight:650;color:var(--ink-soft)}
    .jssf-participant-finalization.is-complete .finalization-actions,
    .jssf-participant-finalization.is-complete .finalization-status{display:none!important}
+
+   /* JSSF participant Result view: one glance, three module summaries, one final action. */
+   body.jssf-participant-result .summary-card{margin-top:8px}
+   body.jssf-participant-result .summary-card .metric{display:none!important}
+   body.jssf-participant-result .summary-main{grid-template-columns:1fr!important}
+   body.jssf-participant-result .summary-kicker{font-size:14px!important;font-weight:850!important}
+   body.jssf-participant-result .summary-title{font-size:26px!important;line-height:1.2!important}
+   body.jssf-participant-result .summary-desc{font-size:16px!important;line-height:1.45!important}
+   body.jssf-participant-result .module-grid{display:grid!important;grid-template-columns:1fr!important;gap:8px!important;margin-top:10px!important}
+   body.jssf-participant-result .module-tile{min-height:0!important;padding:12px 14px!important;display:grid!important;grid-template-columns:42px 1fr!important;grid-template-areas:"icon name" "icon status"!important;column-gap:12px!important;row-gap:2px!important;align-items:center!important;cursor:default!important}
+   body.jssf-participant-result .module-icon{grid-area:icon!important;margin:0!important}
+   body.jssf-participant-result .module-name{grid-area:name!important;margin:0!important;font-size:16px!important}
+   body.jssf-participant-result .module-status{grid-area:status!important;margin:0!important;font-size:14px!important}
+   body.jssf-participant-result .module-action{display:none!important}
+   body.jssf-participant-result #next-step,
+   body.jssf-participant-result #research-panel,
+   body.jssf-participant-result .actions{display:none!important}
+   body.jssf-participant-result .jssf-participant-finalization .finalization-actions{display:none!important}
+   body.jssf-participant-result .jssf-participant-finalization:not(.is-complete){padding:12px 14px!important;background:#f7fcf9!important}
+   body.jssf-participant-result .jssf-participant-finalization:not(.is-complete) .finalization-status{margin:0!important;font-size:14px!important}
+   body.jssf-participant-result #legal-note{margin-top:14px!important}
+   body.jssf-participant-result.jssf-submit-visible main{padding-bottom:112px!important}
    .export-button{border:1.5px solid var(--line);background:#fff;color:var(--ink);flex:1 1 150px}
    .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
   </style>
@@ -1859,6 +1881,55 @@
      };
    }
 
+   function jssfParticipantCopy() {
+     if (LANG === 'en') return {
+       heading:'Preliminary screening result',
+       moduleDone:'Test completed',
+       finalStep:'Final step: send the result to finish the test'
+     };
+     if (LANG === 'ja') return {
+       heading:'予備スクリーニング結果',
+       moduleDone:'検査完了',
+       finalStep:'最後のステップ：結果を送信して検査を終了してください'
+     };
+     return {
+       heading:'ผลการทดสอบเบื้องต้น',
+       moduleDone:'ทดสอบเสร็จแล้ว',
+       finalStep:'ขั้นตอนสุดท้าย: ส่งผลเพื่อจบการทดสอบ'
+     };
+   }
+
+   function applyJssfParticipantResultView(r) {
+     const enabled = isRemoteJssfResultSession();
+     document.body.classList.toggle('jssf-participant-result', enabled);
+     if (!enabled) return;
+
+     const copy = jssfParticipantCopy();
+     const kicker = document.getElementById('summary-kicker');
+     if (kicker) kicker.textContent = copy.heading;
+
+     document.getElementById('research-panel')?.setAttribute('hidden', '');
+     hideParticipantResultActions();
+
+     const submitHint = document.getElementById('jssf-submit-hint');
+     if (submitHint && RESULT_DATA_CONTEXT?.session?.sessionStatus === 'protocol_completed') {
+       submitHint.textContent = copy.finalStep;
+     }
+
+     const grid = document.getElementById('module-grid');
+     grid?.querySelectorAll('.module-tile').forEach((tile) => {
+       tile.removeAttribute('role');
+       tile.removeAttribute('tabindex');
+       tile.removeAttribute('aria-label');
+       tile.onclick = null;
+       tile.onkeydown = null;
+       const actionEl = tile.querySelector('.module-action');
+       if (actionEl) actionEl.textContent = '';
+       const statusEl = tile.querySelector('.module-status');
+       if (statusEl && statusEl.textContent === T.moduleOk) statusEl.textContent = copy.moduleDone;
+     });
+   }
+
    function renderSummary(r) {
      const card = document.getElementById('summary-card');
      const historicalModules = MODULES.filter(name => r.data[name]?.historicalAbnormalRetained === true);
@@ -2078,6 +2149,10 @@
 
    function renderResearch(r) {
      const panel = document.getElementById('research-panel');
+     if (isRemoteJssfResultSession()) {
+       panel.hidden = true;
+       return;
+     }
      panel.hidden = !isDetailResultSession();
      if (!isDetailResultSession()) return;
      document.getElementById('technical-title').textContent = T.technicalTitle;
@@ -2854,6 +2929,7 @@
      await renderResearchFinalization(CURRENT);
      renderDevDiagnostics(CURRENT);
      renderActions(CURRENT);
+     applyJssfParticipantResultView(CURRENT);
      void persistResultDecisionTrace(CURRENT);
 
      // Render the participant result first. Remote recovery/upload is durable
