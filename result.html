@@ -2618,24 +2618,39 @@
    let JSSF_SPEECH_PRIMED = false;
 
    function jssfSpeechLocale() {
-     if (LANG === 'en') return { lang:'en-US', sending:'Sending your result. Please wait.', done:'The test is complete. Thank you for participating.' };
-     if (LANG === 'ja') return { lang:'ja-JP', sending:'結果を送信しています。しばらくお待ちください。', done:'検査は終了しました。ご参加ありがとうございました。' };
-     return { lang:'th-TH', sending:'กำลังส่งผล กรุณารอสักครู่ค่ะ', done:'จบการทดสอบแล้ว ขอบคุณสำหรับการเข้าร่วมการทดสอบค่ะ' };
+     if (LANG === 'en') return { lang:'en-US', done:'Test complete. Thank you.' };
+     if (LANG === 'ja') return { lang:'ja-JP', done:'検査終了です。ありがとうございました。' };
+     return { lang:'th-TH', done:'จบการทดสอบ ขอบคุณค่ะ' };
+   }
+
+   function jssfMatchingSpeechVoice(lang) {
+     if (!window.speechSynthesis) return null;
+     const wanted = String(lang || '').toLowerCase();
+     const short = wanted.split('-')[0];
+     const voices = window.speechSynthesis.getVoices?.() || [];
+     return voices.find(v => String(v.lang || '').toLowerCase() === wanted) ||
+       voices.find(v => String(v.lang || '').toLowerCase().startsWith(short)) ||
+       null;
    }
 
    function primeJssfCompletionSpeech() {
      if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
      try {
        const copy = jssfSpeechLocale();
-       const utterance = new SpeechSynthesisUtterance(copy.sending);
+       const seed = LANG === 'ja' ? '終了' : LANG === 'en' ? 'done' : 'จบ';
+       const utterance = new SpeechSynthesisUtterance(seed);
        utterance.lang = copy.lang;
-       utterance.rate = 0.95;
+       utterance.rate = 1;
+       utterance.volume = 0.01;
+       const voice = jssfMatchingSpeechVoice(copy.lang);
+       if (voice) utterance.voice = voice;
        utterance.onstart = () => { JSSF_SPEECH_PRIMED = true; };
        utterance.onerror = (event) => {
          JSSF_SPEECH_PRIMED = false;
          console.warn('Unable to prime JSSF completion speech.', event?.error || event);
        };
        window.speechSynthesis.cancel();
+       window.speechSynthesis.resume();
        window.speechSynthesis.speak(utterance);
      } catch (error) {
        JSSF_SPEECH_PRIMED = false;
@@ -2651,7 +2666,10 @@
        const copy = jssfSpeechLocale();
        const utterance = new SpeechSynthesisUtterance(copy.done);
        utterance.lang = copy.lang;
-       utterance.rate = 0.95;
+       utterance.rate = 0.93;
+       utterance.volume = 1;
+       const voice = jssfMatchingSpeechVoice(copy.lang);
+       if (voice) utterance.voice = voice;
        utterance.onstart = () => {
          sessionStorage.setItem(key, '1');
          JSSF_SPEECH_PRIMED = true;
@@ -2660,6 +2678,7 @@
          console.warn('Unable to speak JSSF completion message.', event?.error || event);
        };
        if (JSSF_SPEECH_PRIMED) window.speechSynthesis.cancel();
+       window.speechSynthesis.resume();
        window.speechSynthesis.speak(utterance);
      } catch (error) {
        console.warn('Unable to speak JSSF completion message.', error);
