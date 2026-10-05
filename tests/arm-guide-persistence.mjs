@@ -38,6 +38,14 @@ assert.match(flow, /window\.location\.href\s*=\s*['"]speech-test\.html['"]/, 'co
 assert.doesNotMatch(flow, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'guide must disappear by page transition, not early hide');
 
 assert.match(source, /#test-screen\.arm-guide-measuring \.arm-wrap\{display:none!important;\}/, 'measurement layout must free vertical space');
-assert.match(source, /@media \(max-height:760px\)[\s\S]*arm-guide-measuring[\s\S]*height:146px!important/, 'short phones need compact guide sizing');
+assert.match(source, /guide-step-left-1/);
+assert.match(source, /guide-step-right-3/);
+assert.match(source, /ยกแขนไปข้างหน้าจนถึงระดับไหล่/);
+assert.match(source, /ค้างแขนตรงให้นิ่ง/);
+assert.match(source, /background-size:300% auto!important;/, 'measurement view must crop the existing guide to Step 3');
+assert.match(source, /background-position:right bottom!important;/, 'measurement view must focus the Step 3 panel');
+assert.match(source, /arm-guide-measuring #pose-guide \.guide-steps\{display:none!important;\}/, 'measurement view must hide the overview text list');
+assert.match(source, /arm-guide-measuring #arm-hold-cue\{display:block!important;\}/, 'measurement view must show a large hold-still cue');
+assert.match(source, /@media \(max-height:760px\)[\s\S]*arm-guide-measuring[\s\S]*min-height:178px!important/, 'short phones need compact Step 3 sizing');
 
 console.log('PASS arm guide persistence UX regression');
