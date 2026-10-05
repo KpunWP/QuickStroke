@@ -8,6 +8,7 @@ on:
       - research/arm-p0-d-dynamics-20261003
       - research/arm-p0-e-device-browser-20261003
       - research/arm-p0-f-e2e-audit-20261003
+      - research/arm-persistent-guide-20261005
   workflow_dispatch:
 
 permissions:
@@ -36,5 +37,9 @@ jobs:
         run: node tests/arm-device-browser-hardening.mjs
       - name: Arm research E2E audit
         run: node tests/arm-research-e2e-audit.mjs
+      - name: Arm guide persistence UX regression
+        run: node tests/arm-guide-persistence.mjs
+      - name: JSSF terminal result UX regression
+        run: node tests/jssf-result-completion-ux.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
