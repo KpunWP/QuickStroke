@@ -26,7 +26,7 @@ assert.match(result,/utterance\.onstart = \(\) => \{[\s\S]*sessionStorage\.setIt
 assert.match(result,/submitButton\) submitButton\.onclick = submitAndFinalizeJssf/);
 assert.match(result,/SpeechSynthesisUtterance/);
 assert.match(result,/utterance\.volume = 1/);
-assert.match(result,/window\.speechSynthesis\.resume\(\)/);
+assert.match(result,/window\.speechSynthesis\?\.resume\?\.\(\)/);
 assert.match(result,/jssfMatchingSpeechVoice/);
 assert.match(result,/prepareJssfPlaybackAudioSession/);
 assert.match(result,/navigator\.audioSession\.type = 'playback'/);
