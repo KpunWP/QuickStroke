@@ -25,7 +25,9 @@ assert.match(fn('syncArmGuideMeasurementLayout'), /phase === 'MEASURE'[\s\S]*cou
 
 assert.match(fn('finishArm'), /setArmGuideMeasurementMode\(false\);[\s\S]*showArmGuide\(\)/, 'post-measure must retain guide');
 assert.match(fn('handleBtn'), /phase === 'BETWEEN' && arm === 'left'[\s\S]*arm = 'right';[\s\S]*startWait\(\)/, 'explicit next-arm action must switch to right flow');
-assert.match(fn('updatePoseGuide'), /pose-left[\s\S]*arm === 'left'[\s\S]*pose-right[\s\S]*arm === 'right'/, 'guide activation must track arm side');
+const updateGuide = fn('updatePoseGuide');
+assert.match(updateGuide, /pose-left[\s\S]*classList\.toggle\('active', arm === 'left'\)/, 'left guide activation must track left arm state');
+assert.match(updateGuide, /pose-right[\s\S]*classList\.toggle\('active', arm === 'right'\)/, 'right guide activation must track right arm state');
 
 const reset = fn('resetAll');
 assert.match(reset, /arm='left';[\s\S]*showArmGuide\(\)/, 'reset must restore left guide');
