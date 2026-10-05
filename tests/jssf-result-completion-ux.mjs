@@ -6,8 +6,8 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261005-arm-clean-audio-route-v9"/);
-assert.match(sw,/quickstroke-pwa-v75/);
+assert.match(config,/buildId:\s*"20261005-arm-retry-flow-v10"/);
+assert.match(sw,/quickstroke-pwa-v76/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);
 assert.match(result,/ส่งผลและจบการทดสอบ/);
@@ -43,8 +43,12 @@ assert.ok(result.includes('body.jssf-participant-result .jssf-participant-finali
 assert.match(result,/ผลการทดสอบเบื้องต้น/);
 assert.match(result,/ทดสอบเสร็จแล้ว/);
 assert.match(result,/applyJssfParticipantResultView/);
-assert.match(result,/tile\.onclick = null/);
-assert.match(result,/tile\.onkeydown = null/);
+assert.match(result,/const finalized = sessionStatus === 'finalized'/);
+assert.match(result,/classList\.toggle\('jssf-session-editable', !finalized\)/);
+assert.match(result,/if \(!finalized\) return;[\s\S]*tile\.onclick = null[\s\S]*tile\.onkeydown = null/);
+assert.ok(result.includes('body.jssf-participant-result.jssf-session-editable .module-action'));
+assert.ok(result.includes('body.jssf-participant-result.jssf-session-editable .module-tile'));
+assert.match(result,/Before finalization participants may start a missing module or repeat/);
 assert.match(result,/if \(isRemoteJssfResultSession\(\)\) \{[\s\S]*panel\.hidden = true;[\s\S]*return;/);
 assert.match(result,/if \(isRemoteJssfResultSession\(\)\) \{[\s\S]*sessionStatus === 'finalized'[\s\S]*hideParticipantResultActions\(\);[\s\S]*showJssfTerminalState\(\);/);
 assert.match(result,/if \(!isRemoteJssf\) \{[\s\S]*confirm\(/);
