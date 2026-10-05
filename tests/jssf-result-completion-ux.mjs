@@ -53,3 +53,9 @@ assert.match(result,/if \(isRemoteJssfResultSession\(\)\) \{[\s\S]*panel\.hidden
 assert.match(result,/if \(isRemoteJssfResultSession\(\)\) \{[\s\S]*sessionStatus === 'finalized'[\s\S]*hideParticipantResultActions\(\);[\s\S]*showJssfTerminalState\(\);/);
 assert.match(result,/if \(!isRemoteJssf\) \{[\s\S]*confirm\(/);
 console.log("PASS: JSSF result page has participant-first fixed submit flow and hides research-only controls");
+
+
+assert.match(result,/const hasFreshLegacyRetry = legacyRetry\?\.moduleRunId[\s\S]*legacyRetry\.moduleRunId !== pendingRetry\.previousModuleRunId/);
+assert.match(result,/resultDataSource:'legacy_retry_catchup'/);
+assert.match(result,/CANONICAL_RETRY_CATCHUP/);
+console.log("PASS: Result keeps a freshly completed retry visible while canonical persistence catches up");
