@@ -13,51 +13,48 @@ function fn(name) {
 
 assert.match(source, /arm-left-guide\.webp\?v=20261005-arm-guide-v1/);
 assert.match(source, /arm-right-guide\.webp\?v=20261005-arm-guide-v1/);
+assert.match(source, /background-position-y:top;/, 'visible guide must crop to illustration area, not embedded source text');
+assert.match(source, /#pose-guide\[data-guide-step="1"\][\s\S]*step-1[\s\S]*data-guide-step="2"[\s\S]*step-2[\s\S]*data-guide-step="3"[\s\S]*step-3/, 'only the current progressive step should be shown');
+assert.match(source, /guide-step-copy\{[^}]*text-align:center/, 'instruction copy must remain HTML below the artwork');
 
-assert.match(fn('selectLang'), /arm = 'left';[\s\S]*showArmGuide\(\)/, 'default page state must show left guide');
-assert.match(fn('startWait'), /setArmGuideMeasurementMode\(false\);[\s\S]*showArmGuide\(\)/, 'readiness must retain guide');
+const setStage = fn('setArmGuideStage');
+assert.match(setStage, /guide\.dataset\.guideSide = safeSide/);
+assert.match(setStage, /guide\.dataset\.guideStep = String\(safeStep\)/);
+
+const selectLang = fn('selectLang');
+assert.match(selectLang, /arm = 'left';[\s\S]*setArmGuideStage\('left', 1\)[\s\S]*showArmGuide\(\)/, 'Arm page must start on left Step 1');
+
+const handle = fn('handleBtn');
+assert.match(handle, /phase === 'IDLE'[\s\S]*setArmGuideStage\('left', 2\)[\s\S]*confirmCurrentArmSide/, 'left confirmation tap must advance immediately to Step 2');
+assert.match(handle, /phase === 'BETWEEN' && arm === 'left'[\s\S]*arm = 'right';[\s\S]*setArmGuideStage\('right', 2\)/, 'right confirmation tap must advance immediately to right Step 2');
+assert.match(handle, /phase === 'RETRY_ARM'[\s\S]*setArmGuideStage\(arm, 2\)/, 'retry confirmation must return to Step 2');
+
+const wait = fn('startWait');
+assert.match(wait, /setArmGuideStage\(arm, 2\);[\s\S]*showArmGuide\(\)/, 'instruction/readiness must keep current side on Step 2');
 
 const measure = fn('startMeasure');
-assert.match(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'protected measurement function remains byte-compatible with the frozen baseline');
-assert.match(source, /#pose-guide\{[^}]*display:block!important;/, 'presentation layer must override the legacy inline hide');
-assert.match(fn('observeArmGuideMeasurementLayout'), /MutationObserver[\s\S]*attributeFilter:\['style'\]/, 'view-only observer must track countdown visibility');
-assert.match(fn('syncArmGuideMeasurementLayout'), /phase === 'MEASURE'[\s\S]*countdown\?\.style\.display === 'flex'[\s\S]*setArmGuideMeasurementMode\(measuring\)/, 'compact measurement layout must derive from existing view state');
+const syncLayout = fn('syncArmGuideMeasurementLayout');
+assert.match(syncLayout, /phase === 'MEASURE'[\s\S]*countdown\?\.style\.display === 'flex'[\s\S]*setArmGuideStage\(arm, 3\);[\s\S]*showArmGuide\(\)/, 'countdown presentation must switch to Step 3 without touching measurement logic');
+assert.match(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'frozen measurement line remains present while presentation CSS overrides it');
+assert.match(source, /#pose-guide\{display:block!important;/, 'guide presentation must override the legacy inline hide');
+assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3[\s\S]*display:flex!important/, 'measurement must keep Step 3 visible');
+assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-copy\{display:block!important;\}/, 'Step 3 HTML instruction must remain visible during measurement');
+assert.match(source, /background-position:right top!important/, 'measurement Step 3 must crop the illustration only');
 
-assert.match(fn('finishArm'), /setArmGuideMeasurementMode\(false\);[\s\S]*showArmGuide\(\)/, 'post-measure must retain guide');
-assert.match(fn('handleBtn'), /phase === 'BETWEEN' && arm === 'left'[\s\S]*arm = 'right';[\s\S]*startWait\(\)/, 'explicit next-arm action must switch to right flow');
-const updateGuide = fn('updatePoseGuide');
-assert.match(updateGuide, /pose-left[\s\S]*classList\.toggle\('active', arm === 'left'\)/, 'left guide activation must track left arm state');
-assert.match(updateGuide, /pose-right[\s\S]*classList\.toggle\('active', arm === 'right'\)/, 'right guide activation must track right arm state');
+const retest = fn('showArmRetest');
+assert.match(retest, /setArmGuideStage\(arm, 1\);[\s\S]*showArmGuide\(\)/, 'retest screen must return to Step 1 before confirmation');
+
+const finish = fn('finishArm');
+assert.match(finish, /arm==='left'[\s\S]*setArmGuideStage\('right', 1\)[\s\S]*armStartButtonText\('right'\)/, 'after left measurement, next-arm prompt must show right Step 1');
+assert.match(finish, /setArmGuideStage\('right', 3\)[\s\S]*setTimeout\(showFinal, 600\)/, 'after right measurement, right Step 3 must persist into final transition');
 
 const reset = fn('resetAll');
-assert.match(reset, /arm='left';[\s\S]*showArmGuide\(\)/, 'reset must restore left guide');
-assert.doesNotMatch(reset, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'reset must not hide guide');
+assert.match(reset, /phase='IDLE'; arm='left';[\s\S]*setArmGuideStage\('left', 1\)/, 'reset must restore left Step 1');
+
+const updateGuide = fn('updatePoseGuide');
+assert.match(updateGuide, /currentArmGuideSide\(\)/, 'guide side must be independent from measurement side during between-arm prompt');
 
 const flow = fn('handleArmFastFlow');
 assert.match(flow, /window\.location\.href\s*=\s*['"]speech-test\.html['"]/, 'completed full flow must still go to Speech');
-assert.doesNotMatch(flow, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'guide must disappear by page transition, not early hide');
 
-assert.match(source, /#test-screen\.arm-guide-measuring \.arm-wrap\{display:none!important;\}/, 'measurement layout must free vertical space');
-assert.match(source, /guide-step-left-1/);
-assert.match(source, /guide-step-right-3/);
-assert.match(source, /ค่อย ๆ ยกแขน\$\{sideName\}ขึ้นไปข้างหน้าจนถึงระดับไหล่/);
-assert.match(source, /ค้างแขนตรงให้นิ่ง/);
-const guideCopy = fn('armGuideInstructionCopy');
-assert.match(guideCopy, /const lang = currentLangCode\(\)/, 'guide copy must use the Arm locale state');
-assert.doesNotMatch(guideCopy, /\bLANG\b/, 'guide copy must not reference an undeclared global LANG');
-assert.match(source, /class="guide-step-visual step-1"/, 'step 1 must have its own visual crop');
-assert.match(source, /class="guide-step-visual step-2"/, 'step 2 must have its own visual crop');
-assert.match(source, /class="guide-step-visual step-3"/, 'step 3 must have its own visual crop');
-assert.match(source, /guide-title-left-1/);
-assert.match(source, /guide-title-right-3/);
-assert.match(source, /guide-step-visual\.step-1\{background-position-x:left;\}/);
-assert.match(source, /guide-step-visual\.step-2\{background-position-x:center;\}/);
-assert.match(source, /guide-step-visual\.step-3\{background-position-x:right;\}/);
-assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3[\s\S]*display:flex!important/, 'measurement must keep only step 3 visible');
-assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-copy\{display:none!important;\}/, 'measurement must hide overview copy and enlarge the visual');
-assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-visual[\s\S]*background-position:right bottom!important/, 'measurement must focus the side-specific step 3 crop');
-assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\{display:none!important;\}/, 'measurement view must hide non-active guide steps');
-assert.match(source, /arm-guide-measuring #arm-hold-cue\{display:block!important;\}/, 'measurement view must show a large hold-still cue');
-assert.match(source, /@media \(max-height:760px\)[\s\S]*arm-guide-measuring[\s\S]*min-height:176px!important/, 'short phones need compact Step 3 sizing');
-
-console.log('PASS arm guide persistence UX regression');
+console.log('PASS arm progressive guide UX regression');
