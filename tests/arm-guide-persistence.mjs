@@ -56,7 +56,7 @@ assert.match(source, /guide-step-visual\.step-3\{background-position-x:right;\}/
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3[\s\S]*display:flex!important/, 'measurement must keep only step 3 visible');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-copy\{display:none!important;\}/, 'measurement must hide overview copy and enlarge the visual');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-visual[\s\S]*background-position:right bottom!important/, 'measurement must focus the side-specific step 3 crop');
-assert.match(source, /arm-guide-measuring #pose-guide \.guide-steps\{display:none!important;\}/, 'measurement view must hide the overview text list');
+assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\{display:none!important;\}/, 'measurement view must hide non-active guide steps');
 assert.match(source, /arm-guide-measuring #arm-hold-cue\{display:block!important;\}/, 'measurement view must show a large hold-still cue');
 assert.match(source, /@media \(max-height:760px\)[\s\S]*arm-guide-measuring[\s\S]*min-height:178px!important/, 'short phones need compact Step 3 sizing');
 
