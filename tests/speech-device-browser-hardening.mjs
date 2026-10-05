@@ -94,3 +94,10 @@ for(const code of [
   assert.ok(speech.includes("'"+code+"'"),"Missing immediate-release code "+code);
 }
 console.log("PASS: terminal microphone/page failures force full resource release");
+
+
+assert.match(speech,/function ensureMicDisclosureBeforeFirstUse\(\)[\s\S]*allowBtn\.onclick = \(\) => \{[\s\S]*navigator\.mediaDevices\.getUserMedia\(/);
+assert.match(speech,/async function startRecording\(forceDirectMic = false, preauthorizedStream = null\)/);
+assert.match(speech,/preauthorizedStream && hasLiveAudioTrack\(preauthorizedStream\)[\s\S]*streamRef = preauthorizedStream/);
+assert.match(speech,/const firstUseStream = await ensureMicDisclosureBeforeFirstUse\(\);[\s\S]*await startRecording\(false, firstUseStream\)/);
+console.log("PASS: first microphone permission request stays inside the QuickStroke disclosure user gesture");
