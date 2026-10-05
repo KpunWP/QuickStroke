@@ -13,7 +13,9 @@ function fn(name) {
 
 assert.match(source, /arm-left-guide\.webp\?v=20261005-arm-guide-v1/);
 assert.match(source, /arm-right-guide\.webp\?v=20261005-arm-guide-v1/);
-assert.match(source, /background-position-y:bottom;/, 'visible guide must crop to illustration area, not embedded source text');
+assert.match(source, /guide-step-visual\.step-1\{background-position:left 76%;\}/);
+assert.match(source, /guide-step-visual\.step-2\{background-position:center 80%;\}/);
+assert.match(source, /guide-step-visual\.step-3\{background-position:right 84%;\}/);
 assert.match(source, /#pose-guide\[data-guide-step="1"\][\s\S]*step-1[\s\S]*data-guide-step="2"[\s\S]*step-2[\s\S]*data-guide-step="3"[\s\S]*step-3/, 'only the current progressive step should be shown');
 assert.match(source, /guide-step-copy\{[^}]*text-align:center/, 'instruction copy must remain HTML below the artwork');
 
@@ -39,7 +41,7 @@ assert.match(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'frozen meas
 assert.match(source, /#pose-guide\{display:block!important;/, 'guide presentation must override the legacy inline hide');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3[\s\S]*display:flex!important/, 'measurement must keep Step 3 visible');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-copy\{display:block!important;\}/, 'Step 3 HTML instruction must remain visible during measurement');
-assert.match(source, /background-position:right bottom!important/, 'measurement Step 3 must crop the illustration only');
+assert.match(source, /background-position:right 84%!important/, 'measurement Step 3 must use the tuned illustration framing');
 
 const retest = fn('showArmRetest');
 assert.match(retest, /setArmGuideStage\(arm, 1\);[\s\S]*showArmGuide\(\)/, 'retest screen must return to Step 1 before confirmation');
@@ -55,6 +57,8 @@ const updateGuide = fn('updatePoseGuide');
 assert.match(updateGuide, /currentArmGuideSide\(\)/, 'guide side must be independent from measurement side during between-arm prompt');
 
 const flow = fn('handleArmFastFlow');
+assert.match(flow, /const speechMissing = !sessionStorage\.getItem\('fast_speech'\)/, 'Arm flow must detect an untested Speech module');
+assert.match(flow, /mode === 'full' && \(!returningFromResultRetry \|\| speechMissing\)/, 'full flow Arm retry must continue to missing Speech');
 assert.match(flow, /window\.location\.href\s*=\s*['"]speech-test\.html['"]/, 'completed full flow must still go to Speech');
 
 console.log('PASS arm progressive guide UX regression');

@@ -850,6 +850,17 @@
    body.jssf-participant-result .module-name{grid-area:name!important;margin:0!important;font-size:16px!important}
    body.jssf-participant-result .module-status{grid-area:status!important;margin:0!important;font-size:14px!important}
    body.jssf-participant-result .module-action{display:none!important}
+   body.jssf-participant-result.jssf-session-editable .module-tile{
+     cursor:pointer!important;
+     grid-template-areas:"icon name" "icon status" "icon action"!important;
+   }
+   body.jssf-participant-result.jssf-session-editable .module-action{
+     display:block!important;
+     grid-area:action!important;
+     margin-top:2px!important;
+     font-size:13px!important;
+     color:var(--blue)!important;
+   }
    body.jssf-participant-result #next-step,
    body.jssf-participant-result #research-panel,
    body.jssf-participant-result .actions{display:none!important}
@@ -1904,6 +1915,11 @@
      document.body.classList.toggle('jssf-participant-result', enabled);
      if (!enabled) return;
 
+     const sessionStatus = RESULT_DATA_CONTEXT?.session?.sessionStatus
+       || RESULT_CONTRACT?.getSessionContext?.()?.sessionStatus;
+     const finalized = sessionStatus === 'finalized';
+     document.body.classList.toggle('jssf-session-editable', !finalized);
+
      const copy = jssfParticipantCopy();
      const kicker = document.getElementById('summary-kicker');
      if (kicker) kicker.textContent = copy.heading;
@@ -1912,12 +1928,21 @@
      hideParticipantResultActions();
 
      const submitHint = document.getElementById('jssf-submit-hint');
-     if (submitHint && RESULT_DATA_CONTEXT?.session?.sessionStatus === 'protocol_completed') {
+     if (submitHint && sessionStatus === 'protocol_completed') {
        submitHint.textContent = copy.finalStep;
      }
 
      const grid = document.getElementById('module-grid');
      grid?.querySelectorAll('.module-tile').forEach((tile) => {
+       const statusEl = tile.querySelector('.module-status');
+       if (statusEl && statusEl.textContent === T.moduleOk) statusEl.textContent = copy.moduleDone;
+
+       // Before finalization participants may start a missing module or repeat
+       // any module. renderModules() already attached the correct retry/start
+       // handler; do not strip it here. Only the finalized terminal state locks
+       // the module cards.
+       if (!finalized) return;
+
        tile.removeAttribute('role');
        tile.removeAttribute('tabindex');
        tile.removeAttribute('aria-label');
@@ -1925,8 +1950,6 @@
        tile.onkeydown = null;
        const actionEl = tile.querySelector('.module-action');
        if (actionEl) actionEl.textContent = '';
-       const statusEl = tile.querySelector('.module-status');
-       if (statusEl && statusEl.textContent === T.moduleOk) statusEl.textContent = copy.moduleDone;
      });
    }
 
