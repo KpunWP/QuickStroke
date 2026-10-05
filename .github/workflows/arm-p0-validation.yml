@@ -17,6 +17,7 @@ on:
       - research/arm-clean-assets-tts-20261005
       - research/arm-retry-flow-framing-20261005
       - research/arm-six-assets-flow-copy-20261005
+      - research/arm-image-integrity-short-copy-20261005
   workflow_dispatch:
 
 permissions:

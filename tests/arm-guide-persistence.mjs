@@ -68,10 +68,14 @@ assert.match(flow, /window\.location\.href\s*=\s*['"]speech-test\.html['"]/, 'co
 const th = fs.readFileSync(new URL('../locales/th-TH/ui.json', import.meta.url), 'utf8');
 const en = fs.readFileSync(new URL('../locales/en-US/ui.json', import.meta.url), 'utf8');
 const ja = fs.readFileSync(new URL('../locales/ja-JP/ui.json', import.meta.url), 'utf8');
-assert.match(th,/ค่อย ๆ ยกแขนซ้ายไปข้างหน้าจนถึงระดับไหล่/);
+assert.match(th,/เหยียดแขนซ้ายไปข้างหน้าตามภาพ/);
+assert.match(th,/เหยียดแขนขวาไปข้างหน้าตามภาพ/);
+assert.doesNotMatch(th,/ค่อย ๆ ยกแขนซ้ายไปข้างหน้าจนถึงระดับไหล่/);
 assert.match(th,/เริ่มแล้ว หลับตา ค้างแขนให้นิ่ง/);
 assert.match(en,/Slowly raise your left arm forward to shoulder height/);
 assert.match(en,/Start\. Close your eyes and keep your arm still\./);
 assert.match(ja,/左腕をゆっくり前方へ肩の高さまで上げ/);
 assert.doesNotMatch(ja,/お疲れ様でした。左腕をまっすぐ前に伸ばし/);
+assert.match(source,/arm-left-step-1\.webp\?v=20261005-arm-image-hotfix-v2/);
+assert.match(source,/arm-right-step-3\.webp\?v=20261005-arm-image-hotfix-v2/);
 console.log('PASS arm progressive guide UX regression');
