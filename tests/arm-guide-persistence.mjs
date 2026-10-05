@@ -18,8 +18,10 @@ assert.match(fn('selectLang'), /arm = 'left';[\s\S]*showArmGuide\(\)/, 'default 
 assert.match(fn('startWait'), /setArmGuideMeasurementMode\(false\);[\s\S]*showArmGuide\(\)/, 'readiness must retain guide');
 
 const measure = fn('startMeasure');
-assert.doesNotMatch(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'measurement must not hide guide');
-assert.match(measure, /setArmGuideMeasurementMode\(true\);[\s\S]*showArmGuide\(\)/, 'measurement must keep compact guide');
+assert.match(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'protected measurement function remains byte-compatible with the frozen baseline');
+assert.match(source, /#pose-guide\{display:block!important;\}/, 'presentation layer must override the legacy inline hide');
+assert.match(fn('observeArmGuideMeasurementLayout'), /MutationObserver[\s\S]*attributeFilter:\['style'\]/, 'view-only observer must track countdown visibility');
+assert.match(fn('syncArmGuideMeasurementLayout'), /phase === 'MEASURE'[\s\S]*countdown\?\.style\.display === 'flex'[\s\S]*setArmGuideMeasurementMode\(measuring\)/, 'compact measurement layout must derive from existing view state');
 
 assert.match(fn('finishArm'), /setArmGuideMeasurementMode\(false\);[\s\S]*showArmGuide\(\)/, 'post-measure must retain guide');
 assert.match(fn('handleBtn'), /phase === 'BETWEEN' && arm === 'left'[\s\S]*arm = 'right';[\s\S]*startWait\(\)/, 'explicit next-arm action must switch to right flow');
