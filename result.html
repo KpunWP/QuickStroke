@@ -1671,7 +1671,21 @@
      })();
      if (pendingRetry?.module && MODULES.includes(pendingRetry.module)) {
        const current = modules[pendingRetry.module];
-       if (current?.moduleRunId === pendingRetry.previousModuleRunId) {
+       const legacyRetry = legacyModules[pendingRetry.module];
+       const hasFreshLegacyRetry = legacyRetry?.moduleRunId
+         && legacyRetry.moduleRunId !== pendingRetry.previousModuleRunId;
+
+       if (current?.moduleRunId === pendingRetry.previousModuleRunId && hasFreshLegacyRetry) {
+         // A newer retry result already exists in sessionStorage, but canonical
+         // IndexedDB may still be catching up after a resumed research session.
+         modules[pendingRetry.module] = {
+           ...legacyRetry,
+           resultDataSource:'legacy_retry_catchup'
+         };
+         integrity.warnings.push(`${pendingRetry.module.toUpperCase()}_CANONICAL_RETRY_CATCHUP`);
+         integrity.moduleSources[pendingRetry.module] = 'legacy_retry_catchup';
+         sessionStorage.removeItem('fast_pending_module_retry');
+       } else if (current?.moduleRunId === pendingRetry.previousModuleRunId) {
          modules[pendingRetry.module] = null;
          integrity.warnings.push(`${pendingRetry.module.toUpperCase()}_RETRY_PENDING`);
          integrity.moduleSources[pendingRetry.module] = 'pending_retry'
