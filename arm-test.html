@@ -3970,11 +3970,12 @@ function removeFastNavButton() {
 }
 
 function armGuideInstructionCopy(side) {
+  const lang = currentLangCode();
   const sideName = side === 'left'
-    ? (LANG === 'en' ? 'left' : LANG === 'ja' ? '左' : 'ซ้าย')
-    : (LANG === 'en' ? 'right' : LANG === 'ja' ? '右' : 'ขวา');
+    ? (lang === 'en' ? 'left' : lang === 'ja' ? '左' : 'ซ้าย')
+    : (lang === 'en' ? 'right' : lang === 'ja' ? '右' : 'ขวา');
 
-  if (LANG === 'en') return {
+  if (lang === 'en') return {
     steps:[
       `Hold the phone in your ${sideName} hand with your arm near your body`,
       'Raise the arm forward to shoulder height',
@@ -3982,7 +3983,7 @@ function armGuideInstructionCopy(side) {
     ],
     hold:'Keep your arm straight and still'
   };
-  if (LANG === 'ja') return {
+  if (lang === 'ja') return {
     steps:[
       `${sideName}手でスマートフォンを持ち、腕を体の近くに置く`,
       '腕を前方へ肩の高さまで上げる',
