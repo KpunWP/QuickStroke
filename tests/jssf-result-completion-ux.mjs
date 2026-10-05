@@ -22,6 +22,6 @@ assert.match(result,/speakJssfCompletionOnce/);
 assert.match(result,/SpeechSynthesisUtterance/);
 assert.match(result,/showJssfTerminalState/);
 assert.match(result,/hideParticipantResultActions/);
-assert.doesNotMatch(result,/sessionStatus === 'finalized'\) \{\s*action\(primary, T\.home \|\| 'กลับหน้าหลัก', goHome\)/);
+assert.match(result,/if \(isRemoteJssfResultSession\(\)\) \{[\s\S]*sessionStatus === 'finalized'[\s\S]*hideParticipantResultActions\(\);[\s\S]*showJssfTerminalState\(\);/);
 assert.match(result,/if \(!isRemoteJssf\) \{[\s\S]*confirm\(/);
 console.log("PASS: JSSF result page has participant-first fixed submit flow and hides research-only controls");
