@@ -40,7 +40,7 @@ assert.doesNotMatch(flow, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'guide m
 assert.match(source, /#test-screen\.arm-guide-measuring \.arm-wrap\{display:none!important;\}/, 'measurement layout must free vertical space');
 assert.match(source, /guide-step-left-1/);
 assert.match(source, /guide-step-right-3/);
-assert.match(source, /ยกแขนไปข้างหน้าจนถึงระดับไหล่/);
+assert.match(source, /ค่อย ๆ ยกแขน\$\{sideName\}ขึ้นไปข้างหน้าจนถึงระดับไหล่/);
 assert.match(source, /ค้างแขนตรงให้นิ่ง/);
 const guideCopy = fn('armGuideInstructionCopy');
 assert.match(guideCopy, /const lang = currentLangCode\(\)/, 'guide copy must use the Arm locale state');
