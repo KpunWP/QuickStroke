@@ -2633,9 +2633,19 @@
        null;
    }
 
+   function prepareJssfPlaybackAudioSession() {
+     try {
+       if (navigator.audioSession && 'type' in navigator.audioSession) {
+         navigator.audioSession.type = 'playback';
+       }
+     } catch (_) {}
+     try { window.speechSynthesis?.resume?.(); } catch (_) {}
+   }
+
    function primeJssfCompletionSpeech() {
      if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
      try {
+       prepareJssfPlaybackAudioSession();
        const copy = jssfSpeechLocale();
        const seed = LANG === 'ja' ? '終了' : LANG === 'en' ? 'done' : 'จบ';
        const utterance = new SpeechSynthesisUtterance(seed);
@@ -2650,7 +2660,7 @@
          console.warn('Unable to prime JSSF completion speech.', event?.error || event);
        };
        window.speechSynthesis.cancel();
-       window.speechSynthesis.resume();
+       prepareJssfPlaybackAudioSession();
        window.speechSynthesis.speak(utterance);
      } catch (error) {
        JSSF_SPEECH_PRIMED = false;
@@ -2678,8 +2688,17 @@
          console.warn('Unable to speak JSSF completion message.', event?.error || event);
        };
        if (JSSF_SPEECH_PRIMED) window.speechSynthesis.cancel();
-       window.speechSynthesis.resume();
-       window.speechSynthesis.speak(utterance);
+       prepareJssfPlaybackAudioSession();
+       // Match the Arm TTS launch pattern: let iOS finish switching back from
+       // capture/record routing before starting the audible completion prompt.
+       setTimeout(() => {
+         try {
+           prepareJssfPlaybackAudioSession();
+           window.speechSynthesis.speak(utterance);
+         } catch (error) {
+           console.warn('Unable to start JSSF completion speech.', error);
+         }
+       }, 240);
      } catch (error) {
        console.warn('Unable to speak JSSF completion message.', error);
      }
