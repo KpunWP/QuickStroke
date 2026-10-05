@@ -2396,6 +2396,7 @@ async function ensureMicDisclosureBeforeFirstUse() {
       allowBtn.disabled = true;
       allowBtn.textContent = S.checking;
       const requestedAt = new Date().toISOString();
+      prepareSpeechCaptureAudioSession();
       const request = navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -2714,8 +2715,19 @@ function mapMicErrorReason(error) {
   return 'MICROPHONE_START_FAILED';
 }
 
+function prepareSpeechCaptureAudioSession() {
+  try {
+    if (navigator.audioSession && 'type' in navigator.audioSession) {
+      navigator.audioSession.type = 'play-and-record';
+    }
+  } catch (error) {
+    console.warn('Unable to prepare capture audio session.', error);
+  }
+}
+
 async function acquireFreshMicStream(permLang) {
   let permissionResult = null;
+  prepareSpeechCaptureAudioSession();
 
   // Use the shared helper for the browser permission request. The separate
   // privacy disclosure has already been shown before the first microphone use.
@@ -2737,6 +2749,7 @@ async function acquireFreshMicStream(permLang) {
   // fresh browser stream while retaining the helper failure metadata.
   if (navigator.mediaDevices?.getUserMedia) {
     try {
+      prepareSpeechCaptureAudioSession();
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -2877,6 +2890,8 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
       }
 
       // รอบ Retry ขอ stream ใหม่จาก browser โดยตรง ไม่ใช้ stream cache ของ helper
+      prepareSpeechCaptureAudioSession();
+      prepareSpeechCaptureAudioSession();
       streamRef = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -2913,6 +2928,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 
       await sleep(600); // เว้นจังหวะให้ OS ปล่อย mic ก่อนขอใหม่
 
+      prepareSpeechCaptureAudioSession();
       streamRef = await navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -5067,10 +5083,10 @@ function handleFastFlow(riskLevel) {
       }
     } catch (_) {}
     await sleep(350);
-    await Promise.race([
-      flushSpeechResearchPersistence(),
-      new Promise(resolve => setTimeout(resolve, 1500))
-    ]);
+    // Result must not outrun the canonical local store. A resumed JSSF
+    // session can have a longer persistence queue; navigating after a fixed
+    // timeout can make Result read the previous Speech run and report "not tested".
+    await flushSpeechResearchPersistence();
     window.location.href = 'result.html';
   };
 
