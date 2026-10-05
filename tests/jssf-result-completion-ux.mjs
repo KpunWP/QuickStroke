@@ -5,8 +5,8 @@ const result=fs.readFileSync("result.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261005-arm-step3-tts-v4"/);
-assert.match(sw,/quickstroke-pwa-v70/);
+assert.match(config,/buildId:\s*"20261005-arm-lang-freeze-hotfix-v5"/);
+assert.match(sw,/quickstroke-pwa-v71/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);
 assert.match(result,/ส่งผลและจบการทดสอบ/);
