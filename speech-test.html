@@ -2357,7 +2357,7 @@ window.downloadSpeechResearchJson = downloadSpeechResearchJson;
 window.copySpeechResearchJson = copySpeechResearchJson;
 
 async function ensureMicDisclosureBeforeFirstUse() {
-  if (micDisclosureAcknowledged) return true;
+  if (micDisclosureAcknowledged) return null;
   if (!window.FastPermissions?.getStrings) {
     throw new Error('Microphone privacy disclosure resources are unavailable');
   }
@@ -2365,7 +2365,7 @@ async function ensureMicDisclosureBeforeFirstUse() {
   const S = await FastPermissions.getStrings(permLang);
   micDisclosureShownAt = new Date().toISOString();
 
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     document.getElementById('speech-mic-disclosure-overlay')?.remove();
     const overlay = document.createElement('div');
     overlay.id = 'speech-mic-disclosure-overlay';
@@ -2378,12 +2378,59 @@ async function ensureMicDisclosureBeforeFirstUse() {
         <p style="font-size:15px;line-height:1.65;margin:0;color:#475569">${S.needMic}</p>
         <p style="font-size:12px;line-height:1.55;margin:10px auto 20px;color:#64748B">${privacyNote}</p>
         <button type="button" style="width:100%;background:linear-gradient(180deg,#2B7DE9,#155FC3);color:#fff;border:none;border-radius:18px;padding:15px 22px;font-size:16px;font-weight:800;font-family:inherit;cursor:pointer">${S.allowBtn}</button>
+        <div id="speech-mic-disclosure-error" style="display:none;margin-top:14px;font-size:13px;line-height:1.5;color:#B42318"></div>
       </div>`;
-    overlay.querySelector('button').onclick = () => {
-      micDisclosureAcknowledged = true;
-      micDisclosureAcknowledgedAt = new Date().toISOString();
-      overlay.remove();
-      resolve(true);
+
+    const allowBtn = overlay.querySelector('button');
+    const errorBox = overlay.querySelector('#speech-mic-disclosure-error');
+    allowBtn.onclick = () => {
+      // IMPORTANT: invoke getUserMedia immediately from this user gesture.
+      // iOS/Safari may suppress the native permission sheet if async cleanup,
+      // locale work or AudioContext setup runs before the request.
+      if (!navigator.mediaDevices?.getUserMedia) {
+        reject(new Error('Microphone API is not available'));
+        overlay.remove();
+        return;
+      }
+
+      allowBtn.disabled = true;
+      allowBtn.textContent = S.checking;
+      const requestedAt = new Date().toISOString();
+      const request = navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false,
+          autoGainControl: false
+        },
+        video: false
+      });
+
+      request.then(stream => {
+        micDisclosureAcknowledged = true;
+        micDisclosureAcknowledgedAt = new Date().toISOString();
+        permissionRuntime = {
+          ...permissionRuntime,
+          helperVersion: window.FastPermissions?.version || null,
+          kind: 'mic',
+          source: 'speech_disclosure_user_gesture',
+          requestedAt,
+          completedAt: micDisclosureAcknowledgedAt,
+          effectiveOutcome: 'stream_acquired_from_disclosure_gesture'
+        };
+        captureSpeechMicrophoneRuntime(stream, 'speech_disclosure_user_gesture');
+        overlay.remove();
+        resolve(stream);
+      }).catch(error => {
+        allowBtn.disabled = false;
+        allowBtn.textContent = S.allowBtn;
+        if (errorBox) {
+          errorBox.style.display = 'block';
+          errorBox.textContent = error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
+            ? S.blockedMic
+            : (error?.message || S.generic);
+        }
+        reject(error);
+      });
     };
     document.body.appendChild(overlay);
   });
@@ -2496,8 +2543,8 @@ async function handleAction() {
     actionBtn.disabled = true;
     beginSpeechModuleRun('initial_start');
     try {
-      await ensureMicDisclosureBeforeFirstUse();
-      await startRecording(false);
+      const firstUseStream = await ensureMicDisclosureBeforeFirstUse();
+      await startRecording(false, firstUseStream);
     } catch (error) {
       if (phase !== 'DONE') {
         finishSpeechInvalid('I18N_LOAD_FAILED', {
@@ -2715,7 +2762,7 @@ async function acquireFreshMicStream(permLang) {
   throw err;
 }
 
-async function startRecording(forceDirectMic = false) {
+async function startRecording(forceDirectMic = false, preauthorizedStream = null) {
   const startToken = ++audioStartToken;
   clearResultReleaseTimer();
   DBG_T0 = performance.now();
@@ -2818,7 +2865,13 @@ async function startRecording(forceDirectMic = false) {
       DBG('AUDIOCTX after resume', `state=${audioCtx.state}`);
     }
 
-    if (forceDirectMic) {
+    if (preauthorizedStream && hasLiveAudioTrack(preauthorizedStream)) {
+      // First-use permission stream was created directly by the QuickStroke
+      // disclosure button click, preserving the iOS/Safari user gesture.
+      streamRef = preauthorizedStream;
+      preauthorizedStream = null;
+      captureSpeechMicrophoneRuntime(streamRef, 'preauthorized_disclosure_stream');
+    } else if (forceDirectMic) {
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error('Microphone API is not available');
       }
