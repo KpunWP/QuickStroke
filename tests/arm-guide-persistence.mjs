@@ -33,7 +33,8 @@ const wait = fn('startWait');
 assert.match(wait, /setArmGuideStage\(arm, 2\);[\s\S]*showArmGuide\(\)/, 'instruction/readiness must keep current side on Step 2');
 
 const measure = fn('startMeasure');
-assert.match(measure, /phase = 'MEASURE';[\s\S]*setArmGuideStage\(arm, 3\);[\s\S]*showArmGuide\(\)/, '10-second measurement must use Step 3');
+const syncLayout = fn('syncArmGuideMeasurementLayout');
+assert.match(syncLayout, /phase === 'MEASURE'[\s\S]*countdown\?\.style\.display === 'flex'[\s\S]*setArmGuideStage\(arm, 3\);[\s\S]*showArmGuide\(\)/, 'countdown presentation must switch to Step 3 without touching measurement logic');
 assert.match(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'frozen measurement line remains present while presentation CSS overrides it');
 assert.match(source, /#pose-guide\{display:block!important;/, 'guide presentation must override the legacy inline hide');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3[\s\S]*display:flex!important/, 'measurement must keep Step 3 visible');
