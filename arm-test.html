@@ -1487,6 +1487,23 @@
     #action-dock #action-btn,
     #action-dock #fast-nav-btn{font-size:18px!important;padding-inline:8px!important;}
   }
+
+  /* JSSF pilot UX: persistent side-specific arm guide. */
+  #pose-guide{display:block;}
+  #pose-guide .image-guide-card{padding:8px!important;}
+  #pose-guide .guide-image-wrap{height:214px!important;border-radius:16px!important;background:#EEF5FF!important;}
+  #pose-guide .guide-photo{inset:0!important;width:100%!important;height:100%!important;padding:0!important;object-fit:contain!important;object-position:center center!important;background:#EEF5FF!important;border-radius:14px!important;}
+  #test-screen.arm-guide-measuring .arm-wrap{display:none!important;}
+  #test-screen.arm-guide-measuring #mid{gap:8px!important;}
+  #test-screen.arm-guide-measuring #pose-guide .guide-image-wrap{height:170px!important;}
+  #test-screen.arm-guide-measuring #instr{margin-top:0!important;font-size:26px!important;}
+  #test-screen.arm-guide-measuring #sub-instr{margin-bottom:0!important;font-size:16px!important;line-height:1.3!important;}
+  @media (max-height:760px){
+    #pose-guide .guide-image-wrap{height:188px!important;}
+    #test-screen.arm-guide-measuring #pose-guide .guide-image-wrap{height:146px!important;}
+    #test-screen.arm-guide-measuring #instr{font-size:24px!important;}
+    #test-screen.arm-guide-measuring #sub-instr{font-size:15px!important;}
+  }
 </style>
 <script src="config.js?v=20260731-arm-side-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
@@ -1593,17 +1610,13 @@
 <div class="pose-card image-guide-card">
 <div class="pose-side active" id="pose-left">
 <div class="guide-image-wrap">
-<img class="guide-photo" alt="Left arm guide: palm and phone screen visible" src="./assets/arm/arm-left-guide.webp"/>
-<div class="screen-direction right-dir"><span id="guide-dir-left">หน้าจอ<br/>หันขวา</span><b>➜</b></div>
+<img class="guide-photo" alt="ตัวอย่างทดสอบแขนซ้ายแบบ 3 ขั้นตอน" src="./assets/arm/arm-left-guide.webp?v=20261005-arm-guide-v1"/>
 </div>
-<div class="guide-note"><span class="guide-info">i</span><span id="guide-note-left">กางไหล่ เหยียดแขนตรง ไม่งอข้อศอก ไม่แกว่งแขน</span></div>
 </div>
 <div class="pose-side" id="pose-right">
 <div class="guide-image-wrap">
-<img class="guide-photo" alt="Right arm guide: back of hand and phone visible" src="./assets/arm/arm-right-guide.webp"/>
-<div class="screen-direction left-dir"><span id="guide-dir-right">หน้าจอ<br/>หันซ้าย</span><b>➜</b></div>
+<img class="guide-photo" alt="ตัวอย่างทดสอบแขนขวาแบบ 3 ขั้นตอน" src="./assets/arm/arm-right-guide.webp?v=20261005-arm-guide-v1"/>
 </div>
-<div class="guide-note"><span class="guide-info">i</span><span id="guide-note-right">กางไหล่ เหยียดแขนตรง ไม่งอข้อศอก ไม่แกว่งแขน</span></div>
 </div>
 </div>
 </div>
@@ -3942,6 +3955,16 @@ function updatePoseGuide() {
   if (noteRight) noteRight.textContent = noteText;
 }
 
+function showArmGuide() {
+  updatePoseGuide();
+  const guide = $('pose-guide');
+  if (guide) guide.style.display = 'block';
+}
+
+function setArmGuideMeasurementMode(active) {
+  const screen = $('test-screen');
+  if (screen) screen.classList.toggle('arm-guide-measuring', Boolean(active));
+}
 
 function removeArmNavOverlays() {
   ['fast-nav-btn','arm-nav-btn','back-home-btn'].forEach(id => {
@@ -3996,8 +4019,8 @@ function startWait() {
   $('sub-instr').textContent = T['subWait_'+arm];
   $('action-btn').disabled   = true;
   $('action-btn').className  = '';
-  updatePoseGuide();
-  if ($('pose-guide')) $('pose-guide').style.display = 'block';
+  setArmGuideMeasurementMode(false);
+  showArmGuide();
   startReadinessWatchdog();
 
   speakNow(T['vWait_'+arm], () => {
@@ -4108,7 +4131,8 @@ function startMeasure() {
   devThresholdMarked = false;
   mElapsed = 0; voiced4 = false; voiced7 = false;
   addDevMarker(`MEASURE_${arm.toUpperCase()}_${currentDevProtocol().key.toUpperCase()}`);
-  if ($('pose-guide')) $('pose-guide').style.display = 'none';
+  setArmGuideMeasurementMode(true);
+  showArmGuide();
 
   $('instr').textContent     = T.instrMeasure;
   $('sub-instr').textContent = T.subMeasure;
@@ -4175,6 +4199,8 @@ function showArmRetest(a) {
 }
 
 function finishArm() {
+  setArmGuideMeasurementMode(false);
+  showArmGuide();
   const analysis = classifyArmMotion();
   motionClass = analysis.key;
   armAnalysis[arm] = { ...analysis, peakDelta:{ ...peakDelta } };
@@ -4525,7 +4551,8 @@ function resetAll() {
   ['right','left'].forEach(s=>cardState(s,'','—',T.pending));
   $('final-banner').style.display='none'; $('cd-wrap').style.display='none';
   $('drift-wrap').style.display='none';   $('pre-cd').style.display='none';
-  if ($('pose-guide')) $('pose-guide').style.display='none';
+  setArmGuideMeasurementMode(false);
+  showArmGuide();
   $('cd-num').textContent=MEASURE_SEC;    $('cd-prog').style.strokeDashoffset=0;
   $('drift-fill').style.width='0%';       $('drift-num').textContent='0.0°';
   $('arm-circle').className='arm-circle'; $('arm-ring').className='arm-ring-outer';
@@ -4795,6 +4822,8 @@ async function selectLang(code) {
   // เริ่มต้นที่แขนซ้ายเสมอ และ render UI หลัง locale พร้อม
   arm = 'left';
   refreshArmLanguageUI();
+  setArmGuideMeasurementMode(false);
+  showArmGuide();
   actionBtn.textContent = armStartButtonText('left');
   actionBtn.disabled = false;
   $('arm-understanding-card')?.classList.remove('show');
