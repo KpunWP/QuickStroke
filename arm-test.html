@@ -1488,39 +1488,89 @@
     #action-dock #fast-nav-btn{font-size:18px!important;padding-inline:8px!important;}
   }
 
-  /* JSSF pilot UX: persistent side-specific arm guide. */
-  #pose-guide{display:block!important;}
+  /* JSSF pilot UX: persistent side-specific arm guide.
+     The uploaded guide is segmented in the UI into three visual steps per side.
+     Text is real HTML so it remains readable on small phones. */
+  #pose-guide{display:block!important;width:min(350px,94vw)!important;margin:2px auto 0!important;}
   #pose-guide .image-guide-card{padding:8px!important;}
-  #pose-guide .guide-image-wrap{height:214px!important;border-radius:16px!important;background:#EEF5FF!important;overflow:hidden!important;}
-  #pose-guide .guide-photo{inset:0!important;width:100%!important;height:100%!important;padding:0!important;object-fit:contain!important;object-position:center center!important;background:#EEF5FF!important;border-radius:14px!important;}
-  #pose-guide .guide-steps{display:grid;gap:6px;margin-top:8px;padding:0 4px 2px;}
-  #pose-guide .guide-step{display:grid;grid-template-columns:26px 1fr;gap:8px;align-items:start;font-size:15px;line-height:1.35;font-weight:700;color:#24415f;text-align:left;}
-  #pose-guide .guide-step-num{width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:#2b7de9;color:#fff;font-size:14px;font-weight:900;}
-  #arm-hold-cue{display:none;margin:6px auto 0;padding:8px 12px;border-radius:13px;background:#eaf3ff;color:#1457a6;font-size:18px;font-weight:850;line-height:1.25;text-align:center;max-width:320px;}
+  #pose-guide .pose-side{display:none;}
+  #pose-guide .pose-side.active{display:block;}
+  #pose-guide .guide-step-list{display:grid;gap:7px;}
+  #pose-guide .guide-step{
+    display:grid;
+    grid-template-columns:92px 1fr;
+    gap:10px;
+    align-items:center;
+    min-height:98px;
+    padding:7px;
+    border:1px solid #d8e7f8;
+    border-radius:14px;
+    background:#f7fbff;
+    color:#24415f;
+    text-align:left;
+  }
+  #pose-guide .guide-step-visual{
+    width:92px;
+    height:92px;
+    border-radius:11px;
+    background-image:var(--arm-guide-image);
+    background-repeat:no-repeat;
+    background-size:300% auto;
+    background-position-y:bottom;
+    background-color:#eef5ff;
+    border:1px solid #dce9f6;
+  }
+  #pose-guide .guide-step-visual.step-1{background-position-x:left;}
+  #pose-guide .guide-step-visual.step-2{background-position-x:center;}
+  #pose-guide .guide-step-visual.step-3{background-position-x:right;}
+  #pose-guide .guide-step-copy{min-width:0;}
+  #pose-guide .guide-step-head{display:flex;align-items:center;gap:7px;margin-bottom:2px;}
+  #pose-guide .guide-step-num{
+    width:25px;height:25px;border-radius:50%;display:grid;place-items:center;
+    background:#2b7de9;color:#fff;font-size:13px;font-weight:900;flex:0 0 auto;
+  }
+  #pose-guide .guide-step-title{font-size:16px;font-weight:900;line-height:1.25;color:#123d72;}
+  #pose-guide .guide-step-text{font-size:14px;line-height:1.35;font-weight:650;color:#365675;}
+  #arm-hold-cue{
+    display:none;margin:7px auto 0;padding:8px 12px;border-radius:13px;background:#eaf3ff;
+    color:#1457a6;font-size:18px;font-weight:850;line-height:1.25;text-align:center;max-width:320px;
+  }
+
   #test-screen.arm-guide-measuring .arm-wrap{display:none!important;}
   #test-screen.arm-guide-measuring #mid{gap:6px!important;}
-  #test-screen.arm-guide-measuring #pose-guide .guide-steps{display:none!important;}
-  #test-screen.arm-guide-measuring #pose-guide .pose-card{background:transparent!important;box-shadow:none!important;border:0!important;padding:0!important;}
-  #test-screen.arm-guide-measuring #pose-guide .pose-side.active{display:flex!important;flex-direction:column;align-items:center;}
-  #test-screen.arm-guide-measuring #pose-guide .guide-image-wrap{
-    width:min(44vw,170px)!important;
-    height:min(60vw,228px)!important;
-    min-height:196px!important;
-    background-image:var(--arm-guide-image)!important;
-    background-repeat:no-repeat!important;
+  #test-screen.arm-guide-measuring #pose-guide .guide-step{display:none!important;}
+  #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3{
+    display:flex!important;align-items:center;justify-content:center;
+    padding:0!important;border:0!important;background:transparent!important;min-height:0!important;
+  }
+  #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-copy{display:none!important;}
+  #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{
+    width:min(56vw,210px)!important;
+    height:min(62vw,232px)!important;
+    min-height:190px!important;
+    border-radius:18px!important;
     background-size:300% auto!important;
     background-position:right bottom!important;
-    border:1px solid #d8e7f8!important;
-    border-radius:18px!important;
+    box-shadow:0 10px 28px rgba(18,61,114,.14);
   }
-  #test-screen.arm-guide-measuring #pose-guide .guide-photo{visibility:hidden!important;}
   #test-screen.arm-guide-measuring #arm-hold-cue{display:block!important;}
   #test-screen.arm-guide-measuring #instr{margin-top:0!important;font-size:24px!important;}
   #test-screen.arm-guide-measuring #sub-instr{margin-bottom:0!important;font-size:15px!important;line-height:1.25!important;}
+
+  @media (max-width:360px){
+    #pose-guide .guide-step{grid-template-columns:82px 1fr;gap:8px;min-height:88px;padding:6px;}
+    #pose-guide .guide-step-visual{width:82px;height:82px;}
+    #pose-guide .guide-step-title{font-size:15px;}
+    #pose-guide .guide-step-text{font-size:13px;}
+  }
   @media (max-height:760px){
-    #pose-guide .guide-image-wrap{height:184px!important;}
-    #pose-guide .guide-step{font-size:14px;}
-    #test-screen.arm-guide-measuring #pose-guide .guide-image-wrap{width:min(39vw,150px)!important;height:min(52vw,202px)!important;min-height:178px!important;}
+    #pose-guide .guide-step{grid-template-columns:78px 1fr;min-height:82px;padding:5px;gap:8px;}
+    #pose-guide .guide-step-visual{width:78px;height:78px;}
+    #pose-guide .guide-step-title{font-size:14px;}
+    #pose-guide .guide-step-text{font-size:12.5px;line-height:1.28;}
+    #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{
+      width:min(50vw,185px)!important;height:min(56vw,208px)!important;min-height:176px!important;
+    }
     #test-screen.arm-guide-measuring #instr{font-size:22px!important;}
     #test-screen.arm-guide-measuring #sub-instr{font-size:14px!important;}
     #test-screen.arm-guide-measuring #arm-hold-cue{font-size:17px!important;padding:7px 10px!important;}
@@ -1629,24 +1679,36 @@
 </div>
 <div id="pose-guide">
 <div class="pose-card image-guide-card">
-<div class="pose-side active" id="pose-left" style="--arm-guide-image:url('./assets/arm/arm-left-guide.webp?v=20261005-arm-guide-v1')">
-<div class="guide-image-wrap">
-<img class="guide-photo" alt="ตัวอย่างทดสอบแขนซ้ายแบบ 3 ขั้นตอน" src="./assets/arm/arm-left-guide.webp?v=20261005-arm-guide-v1"/>
+<div class="pose-side active" id="pose-left" style="--arm-guide-image:url('./assets/arm/arm-left-guide.webp?v=20261005-arm-guide-v1')" aria-label="ตัวอย่างทดสอบแขนซ้าย">
+<div class="guide-step-list">
+<div class="guide-step step-1">
+<div class="guide-step-visual step-1" role="img" aria-label="ตัวอย่างทดสอบแขนซ้าย ขั้นตอนที่ 1"></div>
+<div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">1</span><span class="guide-step-title" id="guide-title-left-1"></span></div><div class="guide-step-text" id="guide-step-left-1"></div></div>
 </div>
-<div class="guide-steps" aria-label="ขั้นตอนทดสอบแขนซ้าย">
-<div class="guide-step"><span class="guide-step-num">1</span><span id="guide-step-left-1"></span></div>
-<div class="guide-step"><span class="guide-step-num">2</span><span id="guide-step-left-2"></span></div>
-<div class="guide-step"><span class="guide-step-num">3</span><span id="guide-step-left-3"></span></div>
+<div class="guide-step step-2">
+<div class="guide-step-visual step-2" role="img" aria-label="ตัวอย่างทดสอบแขนซ้าย ขั้นตอนที่ 2"></div>
+<div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">2</span><span class="guide-step-title" id="guide-title-left-2"></span></div><div class="guide-step-text" id="guide-step-left-2"></div></div>
+</div>
+<div class="guide-step step-3">
+<div class="guide-step-visual step-3" role="img" aria-label="ตัวอย่างทดสอบแขนซ้าย ขั้นตอนที่ 3"></div>
+<div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">3</span><span class="guide-step-title" id="guide-title-left-3"></span></div><div class="guide-step-text" id="guide-step-left-3"></div></div>
 </div>
 </div>
-<div class="pose-side" id="pose-right" style="--arm-guide-image:url('./assets/arm/arm-right-guide.webp?v=20261005-arm-guide-v1')">
-<div class="guide-image-wrap">
-<img class="guide-photo" alt="ตัวอย่างทดสอบแขนขวาแบบ 3 ขั้นตอน" src="./assets/arm/arm-right-guide.webp?v=20261005-arm-guide-v1"/>
 </div>
-<div class="guide-steps" aria-label="ขั้นตอนทดสอบแขนขวา">
-<div class="guide-step"><span class="guide-step-num">1</span><span id="guide-step-right-1"></span></div>
-<div class="guide-step"><span class="guide-step-num">2</span><span id="guide-step-right-2"></span></div>
-<div class="guide-step"><span class="guide-step-num">3</span><span id="guide-step-right-3"></span></div>
+<div class="pose-side" id="pose-right" style="--arm-guide-image:url('./assets/arm/arm-right-guide.webp?v=20261005-arm-guide-v1')" aria-label="ตัวอย่างทดสอบแขนขวา">
+<div class="guide-step-list">
+<div class="guide-step step-1">
+<div class="guide-step-visual step-1" role="img" aria-label="ตัวอย่างทดสอบแขนขวา ขั้นตอนที่ 1"></div>
+<div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">1</span><span class="guide-step-title" id="guide-title-right-1"></span></div><div class="guide-step-text" id="guide-step-right-1"></div></div>
+</div>
+<div class="guide-step step-2">
+<div class="guide-step-visual step-2" role="img" aria-label="ตัวอย่างทดสอบแขนขวา ขั้นตอนที่ 2"></div>
+<div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">2</span><span class="guide-step-title" id="guide-title-right-2"></span></div><div class="guide-step-text" id="guide-step-right-2"></div></div>
+</div>
+<div class="guide-step step-3">
+<div class="guide-step-visual step-3" role="img" aria-label="ตัวอย่างทดสอบแขนขวา ขั้นตอนที่ 3"></div>
+<div class="guide-step-copy"><div class="guide-step-head"><span class="guide-step-num">3</span><span class="guide-step-title" id="guide-title-right-3"></span></div><div class="guide-step-text" id="guide-step-right-3"></div></div>
+</div>
 </div>
 </div>
 </div>
@@ -3970,31 +4032,35 @@ function removeFastNavButton() {
 }
 
 function armGuideInstructionCopy(side) {
+  const lang = currentLangCode();
   const sideName = side === 'left'
-    ? (LANG === 'en' ? 'left' : LANG === 'ja' ? '左' : 'ซ้าย')
-    : (LANG === 'en' ? 'right' : LANG === 'ja' ? '右' : 'ขวา');
+    ? (lang === 'en' ? 'left' : lang === 'ja' ? '左' : 'ซ้าย')
+    : (lang === 'en' ? 'right' : lang === 'ja' ? '右' : 'ขวา');
 
-  if (LANG === 'en') return {
+  if (lang === 'en') return {
+    titles:['Start','Raise','Hold 10 sec'],
     steps:[
-      `Hold the phone in your ${sideName} hand with your arm near your body`,
-      'Raise the arm forward to shoulder height',
+      `Hold the phone in your ${sideName} hand with the arm near your body`,
+      'Slowly raise the arm forward to shoulder height',
       'Keep the arm straight and still for 10 seconds'
     ],
     hold:'Keep your arm straight and still'
   };
-  if (LANG === 'ja') return {
+  if (lang === 'ja') return {
+    titles:['開始','上げる','10秒キープ'],
     steps:[
       `${sideName}手でスマートフォンを持ち、腕を体の近くに置く`,
-      '腕を前方へ肩の高さまで上げる',
+      '腕をゆっくり前方へ肩の高さまで上げる',
       '腕をまっすぐ伸ばし、10秒間動かさない'
     ],
     hold:'腕をまっすぐ伸ばしたまま動かさないでください'
   };
   return {
+    titles:['เริ่ม','ยกขึ้น','ค้างไว้ 10 วินาที'],
     steps:[
-      `ถือโทรศัพท์ด้วยมือ${sideName} วางแขนไว้ใกล้ตัว`,
-      'ยกแขนไปข้างหน้าจนถึงระดับไหล่',
-      'เหยียดแขนตรงและค้างไว้ 10 วินาที'
+      `ถือโทรศัพท์ในมือ${sideName} โดยวางแขนไว้ใกล้ตัว`,
+      `ค่อย ๆ ยกแขน${sideName}ขึ้นไปข้างหน้าจนถึงระดับไหล่`,
+      `เหยียดแขน${sideName}ตรงและค้างไว้นิ่ง ๆ 10 วินาที`
     ],
     hold:'ค้างแขนตรงให้นิ่ง'
   };
@@ -4005,7 +4071,9 @@ function updateArmGuideInstructionCopy() {
     const copy = armGuideInstructionCopy(side);
     copy.steps.forEach((text, index) => {
       const el = $(`guide-step-${side}-${index + 1}`);
+      const title = $(`guide-title-${side}-${index + 1}`);
       if (el) el.textContent = text;
+      if (title) title.textContent = copy.titles[index];
     });
   });
   const cue = $('arm-hold-cue');

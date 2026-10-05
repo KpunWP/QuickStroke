@@ -10,6 +10,8 @@ on:
       - research/arm-p0-f-e2e-audit-20261003
       - research/arm-persistent-guide-20261005
       - research/arm-guide-step3-tts-20261005
+      - research/arm-lang-freeze-hotfix-20261005
+      - research/arm-guide-segmented-20261005
   workflow_dispatch:
 
 permissions:
