@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
 
 const source = fs.readFileSync(new URL('../arm-test.html', import.meta.url), 'utf8');
@@ -76,6 +78,23 @@ assert.match(en,/Slowly raise your left arm forward to shoulder height/);
 assert.match(en,/Start\. Close your eyes and keep your arm still\./);
 assert.match(ja,/左腕をゆっくり前方へ肩の高さまで上げ/);
 assert.doesNotMatch(ja,/お疲れ様でした。左腕をまっすぐ前に伸ばし/);
-assert.match(source,/arm-left-step-1\.webp\?v=20261005-arm-image-hotfix-v2/);
-assert.match(source,/arm-right-step-3\.webp\?v=20261005-arm-image-hotfix-v2/);
+assert.match(source,/arm-left-step-1\.webp\?v=20261005-arm-image-hotfix-v3/);
+assert.match(source,/arm-right-step-3\.webp\?v=20261005-arm-image-hotfix-v3/);
 console.log('PASS arm progressive guide UX regression');
+
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+function assertValidWebp(asset) {
+  const p = path.join(__dirname, '..', 'assets', 'arm', asset);
+  const buf = fs.readFileSync(p);
+  assert.equal(buf.subarray(0,4).toString('ascii'),'RIFF', asset + ' must start with RIFF');
+  assert.equal(buf.subarray(8,12).toString('ascii'),'WEBP', asset + ' must be WEBP');
+  const declared = buf.readUInt32LE(4) + 8;
+  assert.equal(declared, buf.length, asset + ' RIFF size must match actual file length');
+}
+for (const asset of [
+  'arm-left-step-1.webp','arm-left-step-2.webp','arm-left-step-3.webp',
+  'arm-right-step-1.webp','arm-right-step-2.webp','arm-right-step-3.webp'
+]) assertValidWebp(asset);
+assert.doesNotMatch(source, /#action-dock\.split #action-btn,\s*@keyframes/, 'CSS selector must not be left dangling before @keyframes');
+console.log('PASS arm image RIFF integrity and CSS syntax guard');
