@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.3.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.4.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,6 +48,49 @@ function optionalNumber(value, min, max, key, digits = 4) {
   if (value == null) return undefined;
   if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) throw new TypeError("Invalid " + key);
   return Number(value.toFixed(digits));
+}
+function sanitizeFaceResearch(source) {
+  if (source == null) return undefined;
+  if (!object(source)) throw new TypeError("Invalid faceResearch");
+  const bool=(value,key)=>{
+    if (value == null) return undefined;
+    if (typeof value !== "boolean") throw new TypeError("Invalid "+key);
+    return value;
+  };
+  return {
+    schemaVersion:optionalString(source.schemaVersion,80,"faceResearchSchemaVersion"),
+    baseline:{
+      sampleCount:source.baseline?.sampleCount==null?undefined:intInRange(source.baseline.sampleCount,0,10000,"faceBaselineSampleCount"),
+      restAsymMean:optionalNumber(source.baseline?.restAsymMean,0,5,"faceRestAsymMean"),
+      restAsymMax:optionalNumber(source.baseline?.restAsymMax,0,5,"faceRestAsymMax"),
+      criticalTriggered:bool(source.baseline?.criticalTriggered,"faceCriticalTriggered"),
+      criticalRestAsym:optionalNumber(source.baseline?.criticalRestAsym,0,5,"faceCriticalRestAsym")
+    },
+    smile:{
+      representativeAsym:optionalNumber(source.smile?.representativeAsym,0,5,"faceRepresentativeAsym"),
+      weakSideRatio:optionalNumber(source.smile?.weakSideRatio,0,10,"faceWeakSideRatio"),
+      validSmileFrames:source.smile?.validSmileFrames==null?undefined:intInRange(source.smile.validSmileFrames,0,10000,"faceValidSmileFrames"),
+      smileFrameCount:source.smile?.smileFrameCount==null?undefined:intInRange(source.smile.smileFrameCount,0,10000,"faceSmileFrameCount"),
+      validSmileRatio:optionalNumber(source.smile?.validSmileRatio,0,1,"faceValidSmileRatio"),
+      visibleMouthFrames:source.smile?.visibleMouthFrames==null?undefined:intInRange(source.smile.visibleMouthFrames,0,10000,"faceVisibleMouthFrames"),
+      avgMouthVisibilityScore:optionalNumber(source.smile?.avgMouthVisibilityScore,0,5,"faceAvgMouthVisibility"),
+      peakSmileLeft:optionalNumber(source.smile?.peakSmileLeft,0,1,"facePeakSmileLeft"),
+      peakSmileRight:optionalNumber(source.smile?.peakSmileRight,0,1,"facePeakSmileRight"),
+      aggregatedSignedRiseLeft:optionalNumber(source.smile?.aggregatedSignedRiseLeft,-5,5,"faceAggregatedRiseLeft"),
+      aggregatedSignedRiseRight:optionalNumber(source.smile?.aggregatedSignedRiseRight,-5,5,"faceAggregatedRiseRight"),
+      effectiveRiseLeft:optionalNumber(source.smile?.effectiveRiseLeft,0,5,"faceEffectiveRiseLeft"),
+      effectiveRiseRight:optionalNumber(source.smile?.effectiveRiseRight,0,5,"faceEffectiveRiseRight"),
+      geometryRiseUsable:bool(source.smile?.geometryRiseUsable,"faceGeometryRiseUsable")
+    },
+    quality:{
+      faceDetectedRatio:optionalNumber(source.quality?.faceDetectedRatio,0,1,"faceDetectedRatio"),
+      poseValidRatio:optionalNumber(source.quality?.poseValidRatio,0,1,"facePoseValidRatio"),
+      mouthAssessableRatio:optionalNumber(source.quality?.mouthAssessableRatio,0,1,"faceMouthAssessableRatio"),
+      handOverlapRatio:optionalNumber(source.quality?.handOverlapRatio,0,1,"faceHandOverlapRatio")
+    },
+    validityStatus:optionalEnum(source.validityStatus,VALIDITIES,"faceResearchValidity"),
+    privacy:{rawImagesStored:false,rawFramesIncluded:false,rawLandmarksIncluded:false}
+  };
 }
 function sanitizeArmResearch(source) {
   if (source == null) return undefined;
@@ -269,6 +312,7 @@ function payloadFor(type, source, module = null) {
       qualityStatus: optionalEnum(source.qualityStatus, QUALITY, "qualityStatus"),
       qualityFlags: flags(source.qualityFlags),
       durationMs: optionalDuration(source.durationMs),
+      faceResearch: module === "face" ? sanitizeFaceResearch(source.faceResearch) : undefined,
       armResearch: module === "arm" ? sanitizeArmResearch(source.armResearch) : undefined,
       speechResearch: module === "speech" ? sanitizeSpeechResearch(source.speechResearch) : undefined
     };
