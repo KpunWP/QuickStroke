@@ -10,6 +10,7 @@ on:
       - fix/ios-first-cue-retry-history-20261006
       - fix/arm-cue-after-navigation-20261006
       - cleanup/remove-passive-arm-confirmation-cue-20261006
+      - copy/result-thai-wording-20261006
   workflow_dispatch:
 
 permissions:
