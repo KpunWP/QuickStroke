@@ -442,7 +442,13 @@
         || old.consentVersion!==cfg.consentVersion
         || old.dataCollectionPhase!==cfg.dataCollectionPhase))
       throw new Error("Stored JSSF enrollment does not match the current consent or collection phase");
-    if (isActiveCredential(old)) return {sessionId:old.sessionId,studyId:old.studyId,reused:true};
+    if (isActiveCredential(old)) {
+      // A reused capability may belong to a session whose canonical records
+      // completed while remote delivery was unavailable. Recovery is idempotent
+      // by attempt/run dedupe keys and is scoped by the active JSSF context.
+      void recoverCompleted().then(()=>flush()).catch(error=>console.warn("JSSF reused enrollment recovery deferred",error));
+      return {sessionId:old.sessionId,studyId:old.studyId,reused:true};
+    }
     if (old && old.enrollmentPending!==true) throw new Error("Stored JSSF enrollment capability is invalid");
     const uploadToken=old?.enrollmentPending===true && /^[0-9a-f]{64}$/.test(old.uploadToken||"")
       ? old.uploadToken

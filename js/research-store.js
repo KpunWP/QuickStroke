@@ -600,7 +600,10 @@
     }
     const { database, closeAfter } = await openExistingResearchDatabaseForRemoteRead();
     try {
-      const tx = database.transaction([STORE_NAMES.screeningSessions, STORE_NAMES.moduleRuns], 'readonly');
+      const tx = database.transaction(
+        [STORE_NAMES.screeningSessions, STORE_NAMES.moduleRuns, STORE_NAMES.testAttempts],
+        'readonly'
+      );
       // Attach transaction completion handlers immediately. On Safari/iOS the
       // readonly transaction can complete between the last request success
       // callback and a later oncomplete assignment, leaving resume discovery
@@ -615,12 +618,125 @@
           (session.researchProfile || session.researchMetadata?.researchProfile) !== 'community_remote_qr') {
         throw createStoreError('REMOTE_SESSION_VERIFICATION_FAILED','Only a verified remote nonclinical session can be resumed.',{screeningSessionId});
       }
-      const runs = await requestToPromise(tx.objectStore(STORE_NAMES.moduleRuns).index('screeningSessionId').getAll(screeningSessionId));
+      const runs = await requestToPromise(
+        tx.objectStore(STORE_NAMES.moduleRuns).index('screeningSessionId').getAll(screeningSessionId)
+      );
+      const attempts = await requestToPromise(
+        tx.objectStore(STORE_NAMES.testAttempts).index('screeningSessionId').getAll(screeningSessionId)
+      );
       await done;
-      return { session, moduleRuns:runs || [] };
+      return { session, moduleRuns:runs || [], testAttempts:attempts || [] };
     } finally {
       if (closeAfter) database.close();
     }
+  }
+
+  function isRemoteJssfSessionRecord(session) {
+    return Boolean(session
+      && session.appMode === 'research'
+      && (session.researchProfile || session.researchMetadata?.researchProfile) === 'community_remote_qr');
+  }
+
+  function hydrateRemoteResumeSequences(screeningSessionId, moduleRuns = []) {
+    const storage = global.sessionStorage;
+    if (!storage || CONTRACT.getSessionContext?.().screeningSessionId !== screeningSessionId) return;
+    for (const module of ['face','arm','speech']) {
+      const maxSequence = (moduleRuns || [])
+        .filter((run) => run?.module === module)
+        .reduce((max, run) => Math.max(max, Number(run?.moduleRunSequenceNo || 0)), 0);
+      if (maxSequence > 0) {
+        storage.setItem(`fast_module_run_sequence_${screeningSessionId}_${module}`, String(maxSequence));
+      }
+    }
+  }
+
+  async function reconcileRemoteSessionLifecycle(screeningSessionId) {
+    if (!isPersistenceEnabled()) {
+      return { reconciled:false, reason:'persistence_disabled', recoveredRuns:0, recoveredAttempts:0 };
+    }
+    const session = await get(STORE_NAMES.screeningSessions, screeningSessionId);
+    if (!session) return { reconciled:false, reason:'session_missing', recoveredRuns:0, recoveredAttempts:0 };
+    // Critical isolation guard: this repair path is exclusively for the
+    // community JSSF remote pilot. Public, clinic-supervised Research and Dev
+    // sessions must never be mutated by remote resume/result reconciliation.
+    if (!isRemoteJssfSessionRecord(session)) {
+      return { reconciled:false, reason:'not_remote_jssf', recoveredRuns:0, recoveredAttempts:0 };
+    }
+    if (session.sessionStatus === 'finalized') {
+      const finalizedRuns = await getAllByIndex(STORE_NAMES.moduleRuns, 'screeningSessionId', screeningSessionId);
+      hydrateRemoteResumeSequences(screeningSessionId, finalizedRuns || []);
+      return { reconciled:true, reason:'already_finalized', recoveredRuns:0, recoveredAttempts:0 };
+    }
+
+    const [runs, attempts] = await Promise.all([
+      getAllByIndex(STORE_NAMES.moduleRuns, 'screeningSessionId', screeningSessionId),
+      getAllByIndex(STORE_NAMES.testAttempts, 'screeningSessionId', screeningSessionId)
+    ]);
+    let recoveredRuns = 0;
+    let recoveredAttempts = 0;
+    const retainedAbnormalAttemptIds = [];
+
+    // Consent-resume and Result are lifecycle boundaries. An in-progress module
+    // run cannot be safely resumed mid-measurement because the live sensor/camera
+    // state is gone. Close it as interrupted, but preserve every completed
+    // attempt exactly as recorded. In particular, never discard or rewrite a
+    // valid abnormal attempt merely to make integrity pass.
+    for (const run of (runs || []).filter((item) => item?.moduleRunStatus === 'in_progress')) {
+      const runAttempts = (attempts || []).filter((attempt) => attempt?.moduleRunId === run.moduleRunId);
+      for (const attempt of runAttempts.filter((item) => item?.attemptStatus === 'in_progress')) {
+        await finalizeLifecycleRecord(STORE_NAMES.testAttempts, attempt.testAttemptId, {
+          attemptStatus:'interrupted',
+          validityStatus:'not_evaluable',
+          observationStatus:'indeterminate',
+          qualityStatus:'unusable',
+          completionReasonCode:'REMOTE_RESUME_OPEN_ATTEMPT_RECOVERED'
+        });
+        recoveredAttempts += 1;
+      }
+      const abnormalAttemptIds = runAttempts
+        .filter((attempt) =>
+          attempt?.attemptStatus === 'completed'
+          && attempt?.validityStatus === 'valid'
+          && attempt?.observationStatus === 'abnormal'
+        )
+        .map((attempt) => attempt.testAttemptId);
+      retainedAbnormalAttemptIds.push(...abnormalAttemptIds);
+      await finalizeModuleRunAndTouch(run.moduleRunId, {
+        moduleRunStatus:'interrupted',
+        validityStatus:'not_evaluable',
+        observationStatus:'indeterminate',
+        qualityStatus:'unusable',
+        qualityFlags:[
+          ...new Set([
+            ...(Array.isArray(run.qualityFlags) ? run.qualityFlags : []),
+            'REMOTE_RESUME_INCOMPLETE_RUN_RECOVERED',
+            ...(abnormalAttemptIds.length ? ['ABNORMAL_ATTEMPT_RETAINED'] : [])
+          ])
+        ],
+        completionReasonCode:'REMOTE_RESUME_INCOMPLETE_RUN_RECOVERED',
+        selectedTestAttemptId:null,
+        selectedTestAttemptIds:null,
+        recoveryEvidence: abnormalAttemptIds.length
+          ? { validAbnormalAttemptIds:abnormalAttemptIds, preserved:true }
+          : null
+      });
+      recoveredRuns += 1;
+    }
+
+    const freshRuns = await getAllByIndex(STORE_NAMES.moduleRuns, 'screeningSessionId', screeningSessionId);
+    hydrateRemoteResumeSequences(screeningSessionId, freshRuns || []);
+    const freshAttempts = await getAllByIndex(STORE_NAMES.testAttempts, 'screeningSessionId', screeningSessionId);
+    const freshSession = await get(STORE_NAMES.screeningSessions, screeningSessionId);
+    return {
+      reconciled:true,
+      reason:'ok',
+      recoveredRuns,
+      recoveredAttempts,
+      retainedAbnormalAttemptIds:[...new Set(retainedAbnormalAttemptIds)],
+      session:freshSession,
+      moduleRuns:freshRuns || [],
+      testAttempts:freshAttempts || []
+    };
   }
 
   async function recoverSupersededRemoteOpenRecords(screeningSessionId) {
@@ -755,7 +871,7 @@
     appendSensorObservation:(record)=>addImmutable(STORE_NAMES.sensorObservations,withObservationId(record)), appendSensorObservations,
     addTechnicalEvent:(record)=>addImmutable(STORE_NAMES.technicalEvents,record), addAuditEvent,
     putProjection, enqueueSync, get, getAllByIndex, exportSession,
-    getRemoteResumeBundle, recoverSupersededRemoteOpenRecords, purgeRemoteSessionLocal
+    getRemoteResumeBundle, reconcileRemoteSessionLifecycle, recoverSupersededRemoteOpenRecords, purgeRemoteSessionLocal
   });
   Object.defineProperty(global,'QuickStrokeResearchStore',{value:api,enumerable:true,configurable:false,writable:false});
 })(typeof window !== 'undefined' ? window : globalThis);

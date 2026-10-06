@@ -20,6 +20,7 @@ on:
       - research/arm-image-integrity-short-copy-20261005
       - research/arm-css-image-debug-20261005
       - research/arm-thai-voice-copy-20261005
+      - fix/jssf-session-lifecycle-recovery
   workflow_dispatch:
 
 permissions:
@@ -52,5 +53,7 @@ jobs:
         run: node tests/arm-guide-persistence.mjs
       - name: JSSF terminal result UX regression
         run: node tests/jssf-result-completion-ux.mjs
+      - name: JSSF session lifecycle regression
+        run: node tests/jssf-session-lifecycle-regression.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
