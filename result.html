@@ -397,6 +397,8 @@
      color: var(--ink-soft);
      margin-top: 4px
    }
+   .module-history{grid-column:2/4;margin-top:3px;font-size:12px;line-height:1.35;color:#9A6400;font-weight:700;}
+
 
    .module-action {
      font-size: 13.5px;
@@ -1464,8 +1466,18 @@
            && attempt?.observationStatus === 'abnormal'
          )
        : [];
+     const invalidHistoryAttempts = remoteJssf
+       ? (bundle.attempts || []).filter(attempt =>
+           attempt?.module === name
+           && ['completed','interrupted','aborted'].includes(attempt?.attemptStatus)
+           && attempt?.validityStatus !== 'valid'
+           && !selectedIds.includes(attempt?.testAttemptId)
+         )
+       : [];
      const historicalAbnormalRetained = latestObservationStatus !== 'abnormal'
        && (abnormalHistoryRuns.length > 0 || abnormalHistoryAttempts.length > 0);
+     const historicalInvalidRetained = validityStatus === 'valid'
+       && invalidHistoryAttempts.length > 0;
      // Current Result follows the latest completed eligible run. For remote JSSF,
      // a valid abnormal attempt from an interrupted retry remains safety evidence
      // even though that partial module run is never promoted to "completed".
@@ -1517,6 +1529,12 @@
        abnormalHistoryCount:abnormalHistoryRuns.length + abnormalHistoryAttempts.length,
        abnormalHistoryModuleRunIds:abnormalHistoryRuns.map(run => run.moduleRunId),
        abnormalHistoryAttemptIds:abnormalHistoryAttempts.map(attempt => attempt.testAttemptId),
+       historicalInvalidRetained,
+       invalidHistoryCount:invalidHistoryAttempts.length,
+       invalidHistoryAttemptIds:invalidHistoryAttempts.map(attempt => attempt.testAttemptId),
+       invalidHistoryReasonCodes:uniqueStrings(invalidHistoryAttempts.map(attempt =>
+         attempt?.invalidReasonCode || attempt?.completionReasonCode || null
+       )),
        qualityStatus,
        qualityFlags,
        invalidReasonCode,
@@ -2109,9 +2127,17 @@
          : '';
        el.className = `module-tile ${s.cls}${currentClass}`;
        el.innerHTML =
-         `<div class="module-icon">${ICONS[name]}</div><div class="module-name"></div><div class="module-status"></div><div class="module-action"></div>`;
+         `<div class="module-icon">${ICONS[name]}</div><div class="module-name"></div><div class="module-status"></div><div class="module-history"></div><div class="module-action"></div>`;
        el.querySelector('.module-name').textContent = T[name];
        el.querySelector('.module-status').textContent = s.text;
+       const historyEl = el.querySelector('.module-history');
+       const moduleData = r.data[name];
+       if (historyEl && moduleData?.historicalInvalidRetained) {
+         historyEl.textContent = (T.modulePriorInvalid || 'A previous attempt could not be assessed and was repeated.')
+           .replace('{n}', String(moduleData.invalidHistoryCount || 1));
+       } else if (historyEl) {
+         historyEl.remove();
+       }
        const retryAllowed = canRetryModule(name);
        if (s.actionable && retryAllowed) {
          el.setAttribute('role', 'button');
