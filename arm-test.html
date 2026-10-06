@@ -4400,7 +4400,17 @@ function finishArm() {
 
   beep(587, 0.5);
   vibe(passed ? 200 : [300,100,300]);
-  speakNow(T.vDone);
+  if (arm === 'left') {
+    speakNow(T.vDone, () => {
+      setTimeout(() => {
+        if (phase === 'BETWEEN' && arm === 'left') {
+          speak(armSideConfirmationVoice('right'));
+        }
+      }, 700);
+    });
+  } else {
+    speakNow(T.vDone);
+  }
 
   setDot(arm==='left'?0:1, 'done');
   const cardClass = analysis.valid ? (passed ? 'pass' : 'fail') : 'retry';
@@ -4870,6 +4880,13 @@ async function loadArmMessages(code) {
   return true;
 }
 
+function armSideConfirmationVoice(side) {
+  const lang = currentLangCode();
+  if (lang === 'en') return side === 'left' ? 'Confirm using your left arm' : 'Confirm using your right arm';
+  if (lang === 'ja') return side === 'left' ? '左腕を使うことを確認してください' : '右腕を使うことを確認してください';
+  return side === 'left' ? 'กดยืนยันใช้แขนซ้าย' : 'กดยืนยันใช้แขนขวา';
+}
+
 function armNavText() {
   const mode = sessionStorage.getItem('fast_mode');
 
@@ -5006,6 +5023,15 @@ async function selectLang(code) {
   actionBtn.textContent = armStartButtonText('left');
   actionBtn.disabled = false;
   $('arm-understanding-card')?.classList.remove('show');
+
+  // The first guide screen is intentionally passive until the participant taps
+  // the side-confirmation button. Give an audio cue as soon as the page/locale is
+  // ready. Priming first makes the initial utterance more reliable on Safari/iOS.
+  primeSpeechEngine().then(() => {
+    if (phase === 'IDLE' && arm === 'left') {
+      speakNow(armSideConfirmationVoice('left'));
+    }
+  });
 }
 
 // ═══════════════════════════════════════════════════
