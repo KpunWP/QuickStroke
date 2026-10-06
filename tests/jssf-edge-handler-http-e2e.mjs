@@ -337,8 +337,8 @@ try{
   res=await request("withdraw",{sessionId:v3Receipt.sessionId},v3Receipt.uploadToken);
   assert.equal(res.status,200);
   assert.equal(sessions.size,1);
-  assert.equal(events.size,0);
-  console.log("PASS: consent v3 enrollment persists bounded Speech telemetry");
+  assert.equal(events.size,1);
+  console.log("PASS: consent v4 enrollment persists bounded Speech telemetry");
 
   const now=()=>new Date().toISOString();
   const sample=[
@@ -369,7 +369,7 @@ try{
   assert.equal(res.status, 429);
   assert.equal(res.body.error, "Too many requests");
   assert.equal(res.headers.get("retry-after"), "29");
-  assert.equal(events.size, 0);
+  assert.equal(events.size, 1);
 
   syntheticRateLimit = {
     allowed: true,
@@ -379,15 +379,15 @@ try{
   res = await request("events", upload, receipt.uploadToken);
   assert.equal(res.status, 200);
   assert.equal(res.body.acknowledged.length,4);
-  assert.equal(events.size,4);
+  assert.equal(events.size,5);
   assert.ok(!JSON.stringify([...events.values()]).includes("NEVER_STORE"));
   res=await request("events",upload,receipt.uploadToken);
   assert.equal(res.status,200);
-  assert.equal(events.size,4,"Duplicate retry added events");
+  assert.equal(events.size,5,"Duplicate retry added events");
   console.log("PASS: 4 sanitized module/attempt events accepted; retry is idempotent");
 
   const legacySpeechId=randomUUID();
-  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-04-v3";
+  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-02-v1";
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:legacySpeechId,eventType:"test_attempt_completed",module:"speech",occurredAt:now(),
     payload:{
@@ -403,7 +403,7 @@ try{
   assert.equal(res.status,200);
   const legacyStored=[...events.values()].find(row=>row.client_event_id===legacySpeechId);
   assert.ok(!("speechResearch" in legacyStored.payload));
-  assert.equal(events.size,5);
+  assert.equal(events.size,6);
   sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-06-v4";
   console.log("PASS: existing legacy-consent session remains usable but new Speech telemetry is stripped server-side");
 
@@ -413,7 +413,7 @@ try{
       runStatus:"aborted",observationStatus:"abnormal"}
   }]},receipt.uploadToken);
   assert.equal(res.status,422);
-  assert.equal(events.size,4);
+  assert.equal(events.size,6);
   console.log("PASS: malformed clinical-like event rejected without storing raw media");
 
   const asrEventId=randomUUID();
@@ -427,7 +427,7 @@ try{
     }
   }]},receipt.uploadToken);
   assert.equal(res.status,200);
-  assert.equal(events.size,6);
+  assert.equal(events.size,7);
   const storedAsr=[...events.values()].find(row=>row.client_event_id===asrEventId);
   assert.deepEqual(storedAsr.payload,{code:"ASR_NO_TRANSCRIPT",relatedModuleRunId:"MR-speech12345"});
   assert.ok(!JSON.stringify(storedAsr).includes("FORBIDDEN_TRANSCRIPT"));
@@ -442,7 +442,7 @@ try{
   res=await request("events",{sessionId:receipt.sessionId,events:[completion]},receipt.uploadToken);
   assert.equal(res.status,200);
   assert.equal(res.body.duplicates,true);
-  assert.equal(events.size,7);
+  assert.equal(events.size,8);
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:randomUUID(),eventType:"technical_event",occurredAt:now(),payload:{code:"PAGE_HIDDEN"}
   }]},receipt.uploadToken);
@@ -467,7 +467,7 @@ try{
   assert.equal(res.body.error, "Too many requests");
   assert.equal(res.headers.get("retry-after"), "41");
   assert.equal(sessions.size, 1);
-  assert.equal(events.size, 7);
+  assert.equal(events.size, 8);
 
   syntheticRateLimit = {
     allowed: true,
