@@ -4404,7 +4404,7 @@ function finishArm() {
     speakNow(T.vDone, () => {
       setTimeout(() => {
         if (phase === 'BETWEEN' && arm === 'left') {
-          speak(armSideConfirmationVoice('right'));
+          speak(rightArmConfirmationVoice());
         }
       }, 700);
     });
@@ -4880,11 +4880,11 @@ async function loadArmMessages(code) {
   return true;
 }
 
-function armSideConfirmationVoice(side) {
+function rightArmConfirmationVoice() {
   const lang = currentLangCode();
-  if (lang === 'en') return side === 'left' ? 'Confirm using your left arm' : 'Confirm using your right arm';
-  if (lang === 'ja') return side === 'left' ? '左腕を使うことを確認してください' : '右腕を使うことを確認してください';
-  return side === 'left' ? 'กดยืนยันใช้แขนซ้าย' : 'กดยืนยันใช้แขนขวา';
+  if (lang === 'en') return 'Confirm using your right arm';
+  if (lang === 'ja') return '右腕を使うことを確認してください';
+  return 'กดยืนยันใช้แขนขวา';
 }
 
 function armNavText() {
@@ -5024,18 +5024,6 @@ async function selectLang(code) {
   actionBtn.disabled = false;
   $('arm-understanding-card')?.classList.remove('show');
 
-  // Paint the Arm guide first, then speak the side-confirmation cue.
-  // Using two animation frames guarantees the participant sees the Arm page
-  // before TTS is queued, instead of hearing the cue on the previous module.
-  requestAnimationFrame(() => {
-    requestAnimationFrame(() => {
-      primeSpeechEngine().then(() => {
-        if (phase === 'IDLE' && arm === 'left') {
-          speakNow(armSideConfirmationVoice('left'));
-        }
-      });
-    });
-  });
 }
 
 // ═══════════════════════════════════════════════════

@@ -7,21 +7,19 @@ const face=fs.readFileSync("face-test.html","utf8");
 const result=fs.readFileSync("result.html","utf8");
 const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
 
-// Arm: passive first guide speaks the side-confirmation cue.
-assert.match(arm,/function armSideConfirmationVoice\(side\)/);
-assert.match(arm,/กดยืนยันใช้แขนซ้าย/);
+// Arm: the initial screen is intentionally silent. The visible button
+// "ยืนยันแขนซ้ายและเริ่ม" is the instruction; TTS begins only after a user gesture.
+assert.doesNotMatch(arm,/กดยืนยันใช้แขนซ้าย/);
+assert.doesNotMatch(arm,/armSideConfirmationVoice/);
+assert.match(arm,/function rightArmConfirmationVoice\(\)/);
 assert.match(arm,/กดยืนยันใช้แขนขวา/);
-assert.match(
-  arm,
-  /primeSpeechEngine\(\)\.then\(\(\) => \{[\s\S]*phase === 'IDLE'[\s\S]*speakNow\(armSideConfirmationVoice\('left'\)\)/
-);
 
 // After left-arm completion, lower-arm cue finishes first, then a short pause,
 // then the right-arm confirmation cue. If the participant starts the next arm
 // immediately, startWait/speakNow may cancel the queued reminder safely.
 assert.match(
   arm,
-  /if \(arm === 'left'\) \{[\s\S]*speakNow\(T\.vDone, \(\) => \{[\s\S]*setTimeout\(\(\) => \{[\s\S]*phase === 'BETWEEN' && arm === 'left'[\s\S]*speak\(armSideConfirmationVoice\('right'\)\)[\s\S]*\}, 700\)/
+  /if \(arm === 'left'\) \{[\s\S]*speakNow\(T\.vDone, \(\) => \{[\s\S]*setTimeout\(\(\) => \{[\s\S]*phase === 'BETWEEN' && arm === 'left'[\s\S]*speak\(rightArmConfirmationVoice\(\)\)[\s\S]*\}, 700\)/
 );
 
 // Speech: cue is a separate non-recording phase. ASR/VAD timing starts only
@@ -49,14 +47,14 @@ const recordIndex=speech.indexOf("phase = 'RECORDING';", cueIndex);
 const asrIndex=speech.indexOf("beginSpeechRecognition()", recordIndex);
 assert.ok(cueIndex>=0 && recordIndex>cueIndex && asrIndex>recordIndex);
 
-// Full-flow Face -> Arm transition must navigate first. The Face page must not
-// speak the Arm confirmation cue; Arm owns the cue after its guide has painted.
+// Full-flow Face -> Arm transition navigates directly; the Arm page does not
+// attempt autoplay TTS before the participant's first Arm-page gesture.
 assert.doesNotMatch(face,/function nextArmConfirmationVoice\(\)/);
 assert.doesNotMatch(face,/speakFacePromise\(nextArmConfirmationVoice\(\)\)/);
 assert.match(face,/window\.location\.href=target/);
-assert.match(
+assert.doesNotMatch(
   arm,
-  /requestAnimationFrame\(\(\) => \{[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*primeSpeechEngine\(\)\.then[\s\S]*speakNow\(armSideConfirmationVoice\('left'\)\)/
+  /speakNow\(armSideConfirmationVoice\('left'\)\)/
 );
 
 // Remote JSSF result preserves prior not-evaluable attempts as retry history
