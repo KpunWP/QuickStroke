@@ -22,6 +22,7 @@ on:
       - research/arm-thai-voice-copy-20261005
       - fix/jssf-session-lifecycle-recovery
       - fix/arm-speech-voice-cues-20261006
+      - fix/ios-first-cue-retry-history-20261006
   workflow_dispatch:
 
 permissions:

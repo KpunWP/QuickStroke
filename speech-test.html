@@ -1209,6 +1209,25 @@ function speechCueText() {
   return 'เริ่มพูดได้';
 }
 
+let speechCuePrimed = false;
+
+function primeSpeechCue() {
+  if (speechCuePrimed || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
+  try {
+    const synth = window.speechSynthesis;
+    synth.cancel();
+    synth.resume?.();
+    const lang = T?.langCode || document.documentElement.lang || 'th-TH';
+    const seed = String(lang).toLowerCase().startsWith('th') ? 'เริ่ม' : 'start';
+    const utterance = new SpeechSynthesisUtterance(seed);
+    utterance.lang = lang;
+    utterance.rate = 1.1;
+    utterance.volume = 0.01;
+    synth.speak(utterance);
+    speechCuePrimed = true;
+  } catch (error) {}
+}
+
 function speakSpeechCue(text) {
   const value = String(text || '').trim();
   if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
@@ -1216,29 +1235,53 @@ function speakSpeechCue(text) {
   }
   return new Promise(resolve => {
     const synth = window.speechSynthesis;
-    const utterance = new SpeechSynthesisUtterance(
-      window.QuickStrokeI18n?.prepareSpeechText?.(value, T?.langCode || 'th-TH') ?? value
-    );
-    utterance.lang = T?.langCode || document.documentElement.lang || 'th-TH';
-    utterance.rate = 0.95;
-    utterance.volume = 1;
     let settled = false;
+    let attempt = 0;
+    let activeToken = 0;
     const done = (status) => {
       if (settled) return;
       settled = true;
       resolve(status);
     };
-    utterance.onend = () => done('ended');
-    utterance.onerror = () => done('error');
-    try {
-      synth.cancel();
-      synth.resume?.();
-      synth.speak(utterance);
-    } catch (error) {
-      done('exception');
-      return;
-    }
-    setTimeout(() => done('timeout'), 3500);
+    const launch = () => {
+      if (settled) return;
+      attempt += 1;
+      const token = ++activeToken;
+      let started = false;
+      const utterance = new SpeechSynthesisUtterance(
+        window.QuickStrokeI18n?.prepareSpeechText?.(value, T?.langCode || 'th-TH') ?? value
+      );
+      utterance.lang = T?.langCode || document.documentElement.lang || 'th-TH';
+      utterance.rate = 0.95;
+      utterance.volume = 1;
+      utterance.onstart = () => { if (token === activeToken) started = true; };
+      utterance.onend = () => { if (token === activeToken) done('ended'); };
+      utterance.onerror = () => {
+        if (token !== activeToken) return;
+        if (attempt < 2) setTimeout(launch, 220);
+        else done('error');
+      };
+      try {
+        synth.cancel();
+        synth.resume?.();
+        synth.speak(utterance);
+      } catch (error) {
+        if (attempt < 2) setTimeout(launch, 220);
+        else done('exception');
+        return;
+      }
+      setTimeout(() => {
+        if (settled || token !== activeToken || started) return;
+        if (attempt < 2) {
+          try { synth.cancel(); synth.resume?.(); } catch (error) {}
+          setTimeout(launch, 220);
+        } else {
+          done('not_started');
+        }
+      }, 850);
+    };
+    launch();
+    setTimeout(() => done('timeout'), 4200);
   });
 }
 
@@ -2424,6 +2467,7 @@ async function ensureMicDisclosureBeforeFirstUse() {
     const allowBtn = overlay.querySelector('button');
     const errorBox = overlay.querySelector('#speech-mic-disclosure-error');
     allowBtn.onclick = () => {
+      primeSpeechCue();
       // IMPORTANT: invoke getUserMedia immediately from this user gesture.
       // iOS/Safari may suppress the native permission sheet if async cleanup,
       // locale work or AudioContext setup runs before the request.
@@ -2579,6 +2623,7 @@ async function handleAction() {
   if (retryStarting) return;
 
   if (phase === 'IDLE') {
+    primeSpeechCue();
     retryStarting = true;
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
@@ -3692,25 +3737,31 @@ function runLoop() {
       // speech contaminate ASR/VAD or the research timing window. Recording starts
       // only after the cue completes (plus a short echo-tail margin).
       phase = 'READY_CUE';
-      $('mic-circle').className       = 'mic-circle recording speak-now';
-      $('mic-icon').textContent       = '👄';
-      $('hint-text').classList.add('speak-now');
-      $('hint-text').textContent      = T.speakNowPrompt;
+      $('mic-circle').className       = 'mic-circle calibrating';
+      $('mic-icon').textContent       = '🔊';
+      $('hint-text').classList.remove('speak-now');
+      $('hint-text').textContent      = T.preparePrompt;
       $('action-btn').textContent     = T.calibrating;
       $('action-btn').className       = '';
       $('action-btn').disabled        = true;
-      $('transcript-box').textContent = T.speakNowPrompt;
+      $('transcript-box').textContent = T.preparePrompt;
       drawWave(freqArr, N);
       animationFrameId = null;
 
       void (async () => {
-        await speakSpeechCue(speechCueText());
+        const cueStatus = await speakSpeechCue(speechCueText());
         if (phase !== 'READY_CUE') return;
-        await sleep(180);
+        // Never leave the participant in a silent "ready" trap. If Safari still
+        // refuses TTS after priming/retry, proceed with the visual cue immediately.
+        await sleep(cueStatus === 'ended' ? 180 : 80);
         if (phase !== 'READY_CUE') return;
 
         phase = 'RECORDING';
         recordingStartedMs = performance.now();
+        $('mic-circle').className       = 'mic-circle recording speak-now';
+        $('mic-icon').textContent       = '👄';
+        $('hint-text').classList.add('speak-now');
+        $('hint-text').textContent      = T.speakNowPrompt;
         $('action-btn').textContent     = T.btnStop || '⏹ หยุด';
         $('action-btn').className       = 'red';
         $('action-btn').disabled        = false;
