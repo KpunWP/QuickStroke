@@ -8,6 +8,7 @@ on:
       - research/speech-resume-persistence-audio-20261005
       - fix/arm-speech-voice-cues-20261006
       - fix/ios-first-cue-retry-history-20261006
+      - fix/arm-cue-after-navigation-20261006
   workflow_dispatch:
 
 permissions:
