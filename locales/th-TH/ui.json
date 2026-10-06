@@ -430,7 +430,8 @@
     "invalidReason": "เหตุผลที่ประเมินไม่ได้",
     "qualityFlags": "ธงคุณภาพ",
     "modulePriorAbnormal": "เคยพบความผิดปกติในครั้งก่อน",
-    "historicalAbnormalSummary": "เคยพบความผิดปกติในการทดสอบก่อนหน้านี้ใน session เดียวกัน แม้ผลล่าสุดจะเปลี่ยนไป"
+    "historicalAbnormalSummary": "เคยพบความผิดปกติในการทดสอบก่อนหน้านี้ใน session เดียวกัน แม้ผลล่าสุดจะเปลี่ยนไป",
+    "modulePriorInvalid": "เคยประเมินไม่ได้และทดสอบซ้ำ {n} ครั้ง"
   },
   "permissions": {
     "checking": "กำลังตรวจสอบสิทธิ์...",
