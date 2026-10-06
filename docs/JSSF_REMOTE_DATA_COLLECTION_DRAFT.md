@@ -27,13 +27,14 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
-**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-04-v3`. New enrollment is now server-locked to v3 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
+**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-06-v4`. New enrollment is now server-locked to v3 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
 
 ## Implemented staging work
 - Supabase Project: `quickstroke-jssf` (Singapore).
 - Protected tables: `public.jssf_remote_sessions`, `public.jssf_remote_events`. Both use RLS with no anonymous/authenticated privileges.
 - Edge Function: `jssf-remote-ingest`, default-disabled unless server environment variables explicitly enable it.
 - Strict ingestion event sanitizer; no raw media fields accepted; batch event IDs are idempotent.
+- **Face bounded research telemetry (Face research update, 2026-10-06):** community_remote_qr Face attempts may send derived summary features needed for repeatability and quality analysis, including resting asymmetry summaries, representative smile asymmetry, weak-side ratio, bounded mouth-corner rise summaries, valid-smile/frame counts, and coarse quality ratios. The client and Edge sanitizer explicitly exclude raw face images, video, raw frame arrays, and per-frame landmark coordinates. New enrollment is consent-v4 only; legacy consent sessions cannot acquire the new Face telemetry.
 - **Speech bounded research telemetry (Speech P0, 2026-10-04):** community_remote_qr Speech attempts may send derived timing source/duration, exact accepted-variant status, normalized phrase-similarity score, transcript-coverage ratio, speech-rate summary/reliability/reference status, ASR final/interim/restart/result/error counts, technical-quality flags, and coarse iOS/Android/ASR mode. The browser client and Edge sanitizer explicitly exclude transcript text, raw audio and raw microphone frames. The ASR alternative-selection provenance is recorded because the browser path currently chooses the alternative closest to the target phrase; this behavior is under research review and is not a validated clinical decision rule.
 - Speech timing/rate replay shows the exploratory rate observation can be sensitive near the current 2.5–6.0 units/s reference boundaries (for example, an 80 ms timing shift near the slow boundary can change the categorical reference status). These thresholds were **not changed** in Speech P0; timing source and reliability are retained for later analysis.
 - `/enroll` can mint a random Study ID and short-lived session upload token **only when enabled and current consent is submitted**.
@@ -78,7 +79,7 @@ Final engineering smoke tests passed on both iPhone Safari and Android Chrome us
 Freeze provenance:
 - build ID: `20261004-jssf-pilot-freeze-v2`
 - collection phase: `jssf_pilot`
-- consent: `JSSF-REMOTE-2026-10-04-v3` (new enrollment v3-only)
+- consent: `JSSF-REMOTE-2026-10-06-v4` (new enrollment v4-only)
 - service worker: `quickstroke-pwa-v62`
 - Face: `face-prepilot-1.4.0` / `face-asymmetry-1.2.0`
 - Arm: `arm-prepilot-1.1.0` / `arm-drift-1.0.0`
