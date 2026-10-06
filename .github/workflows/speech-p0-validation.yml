@@ -6,6 +6,7 @@ on:
       - research/speech-p0-20261004
       - research/speech-mic-user-gesture-20261005
       - research/speech-resume-persistence-audio-20261005
+      - fix/arm-speech-voice-cues-20261006
   workflow_dispatch:
 
 permissions:
@@ -52,5 +53,7 @@ jobs:
         run: node tests/arm-device-browser-hardening.mjs
       - name: Android compatibility
         run: node tests/android-compat.mjs
+      - name: Arm/Speech voice cue regression
+        run: node tests/voice-cue-flow.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
