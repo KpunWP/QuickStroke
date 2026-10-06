@@ -52,5 +52,7 @@ jobs:
         run: node tests/arm-guide-persistence.mjs
       - name: JSSF terminal result UX regression
         run: node tests/jssf-result-completion-ux.mjs
+      - name: JSSF session lifecycle regression
+        run: node tests/jssf-session-lifecycle-regression.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
