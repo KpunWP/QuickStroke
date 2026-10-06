@@ -4675,39 +4675,6 @@ function finishInvalid(reasonCode='UNABLE_TO_ASSESS', options={}){
   finalizeInvalidResult(reasonCode, detail);
 }
 
-function nextArmConfirmationVoice() {
-  const code = getPreferredFaceLang();
-  if (code === 'en') return 'Confirm using your left arm';
-  if (code === 'ja') return '左腕を使うことを確認してください';
-  return 'กดยืนยันใช้แขนซ้าย';
-}
-
-function speakFacePromise(text) {
-  if (!text || typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') {
-    return Promise.resolve('unsupported');
-  }
-  return new Promise(resolve => {
-    try {
-      speechSynthesis.cancel();
-      const code = getPreferredFaceLang();
-      const lang = SPEAK_LANG[code] || 'th-TH';
-      const utterance = new SpeechSynthesisUtterance(
-        window.QuickStrokeI18n?.prepareSpeechText?.(text, lang) ?? text
-      );
-      utterance.lang = lang;
-      utterance.rate = 1.03;
-      let done = false;
-      const finish = status => { if (!done) { done = true; resolve(status); } };
-      utterance.onend = () => finish('ended');
-      utterance.onerror = () => finish('error');
-      speechSynthesis.speak(utterance);
-      setTimeout(() => finish('timeout'), 2600);
-    } catch (error) {
-      resolve('exception');
-    }
-  });
-}
-
 function addNavButton(){
   setTimeout(()=>{
     const old=document.getElementById('fast-nav-btn'); if(old) old.remove();
@@ -4728,17 +4695,12 @@ function addNavButton(){
     btn.style.cssText=`background:${bg};border-color:rgba(255,255,255,0.25);color:#fff;font-weight:700;box-shadow:0 4px 12px rgba(43,125,233,0.35);width:100%;padding:13px 16px;border-radius:14px;`;
     btn.textContent=label; btn.onclick=async()=>{
       btn.disabled=true;
-      const enteringArm = target === 'arm-test.html';
-      const voicePromise = enteringArm
-        ? speakFacePromise(nextArmConfirmationVoice())
-        : Promise.resolve('skipped');
-      await Promise.all([
-        Promise.race([
-          flushFaceResearchPersistence(),
-          new Promise((resolve)=>setTimeout(resolve, 1200))
-        ]),
-        voicePromise
+      await Promise.race([
+        flushFaceResearchPersistence(),
+        new Promise((resolve)=>setTimeout(resolve, 1200))
       ]);
+      // Navigate first. The Arm page owns the left-arm confirmation cue so the
+      // participant sees the Arm guide before hearing "กดยืนยันใช้แขนซ้าย".
       window.location.href=target;
     };
     const row=document.getElementById('btn-row');
