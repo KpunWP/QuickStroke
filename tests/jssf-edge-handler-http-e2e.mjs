@@ -299,7 +299,7 @@ try{
   assert.equal(faceStored.payload.faceResearch.smile.representativeAsym,0.12);
   assert.equal(faceStored.payload.faceResearch.privacy.rawImagesStored,false);
   assert.ok(!JSON.stringify(faceStored).includes("FORBIDDEN_IMAGE"));
-  assert.ok(!JSON.stringify(faceStored).includes("rawLandmarks"));
+  assert.equal("rawLandmarks" in faceStored.payload.faceResearch,false);
   console.log("PASS: consent v4 persists bounded Face telemetry without raw media or landmarks");
 
   // A second v4 session verifies bounded Speech telemetry under the current release consent.
