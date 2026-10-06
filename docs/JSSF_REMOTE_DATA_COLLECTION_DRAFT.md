@@ -27,7 +27,7 @@
 [ ] ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป
 [ ] ฉันอ่านและยินยอมให้เก็บและส่งข้อมูลการทดสอบตามรายละเอียดข้างต้น
 
-**Consent version note (2026-10-04):** Speech P0 adds disclosure of bounded derived Speech telemetry while continuing to exclude transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-06-v4`. New enrollment is now server-locked to v3 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
+**Consent version note (2026-10-06):** The release consent now covers bounded derived Face telemetry in addition to the previously disclosed Speech telemetry, while continuing to exclude raw face media/landmarks, transcript text, raw audio and raw microphone frames. The release consent version is `JSSF-REMOTE-2026-10-06-v4`. New enrollment is now server-locked to v4 only. Existing legacy-consent sessions remain eligible for withdrawal/safe legacy handling, and Speech research telemetry remains consent-scoped.
 
 ## Implemented staging work
 - Supabase Project: `quickstroke-jssf` (Singapore).
