@@ -34,7 +34,7 @@ vm.createContext(context);
 vm.runInContext(config,context,{filename:"config.js"});
 vm.runInContext(client,context,{filename:"js/jssf-remote-sync.js"});
 const sync=context.QuickStrokeJssfRemote;
-assert.equal(sync.version,"jssf-remote-client-0.2.0");
+assert.equal(sync.version,"jssf-remote-client-0.3.0");
 assert.equal(typeof sync.featureReady,"function");
 assert.equal(sync.featureReady(),true);
 assert.equal(sync.canSync(),false);
