@@ -49,11 +49,15 @@ const recordIndex=speech.indexOf("phase = 'RECORDING';", cueIndex);
 const asrIndex=speech.indexOf("beginSpeechRecognition()", recordIndex);
 assert.ok(cueIndex>=0 && recordIndex>cueIndex && asrIndex>recordIndex);
 
-// Full-flow Face -> Arm transition uses the navigation tap as a reliable iOS
-// user gesture for the first left-arm confirmation voice cue.
-assert.match(face,/function nextArmConfirmationVoice\(\)/);
-assert.match(face,/speakFacePromise\(nextArmConfirmationVoice\(\)\)/);
-assert.match(face,/target === 'arm-test\.html'/);
+// Full-flow Face -> Arm transition must navigate first. The Face page must not
+// speak the Arm confirmation cue; Arm owns the cue after its guide has painted.
+assert.doesNotMatch(face,/function nextArmConfirmationVoice\(\)/);
+assert.doesNotMatch(face,/speakFacePromise\(nextArmConfirmationVoice\(\)\)/);
+assert.match(face,/window\.location\.href=target/);
+assert.match(
+  arm,
+  /requestAnimationFrame\(\(\) => \{[\s\S]*requestAnimationFrame\(\(\) => \{[\s\S]*primeSpeechEngine\(\)\.then[\s\S]*speakNow\(armSideConfirmationVoice\('left'\)\)/
+);
 
 // Remote JSSF result preserves prior not-evaluable attempts as retry history
 // without converting them into abnormal clinical evidence.
