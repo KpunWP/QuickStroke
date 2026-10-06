@@ -5024,13 +5024,17 @@ async function selectLang(code) {
   actionBtn.disabled = false;
   $('arm-understanding-card')?.classList.remove('show');
 
-  // The first guide screen is intentionally passive until the participant taps
-  // the side-confirmation button. Give an audio cue as soon as the page/locale is
-  // ready. Priming first makes the initial utterance more reliable on Safari/iOS.
-  primeSpeechEngine().then(() => {
-    if (phase === 'IDLE' && arm === 'left') {
-      speakNow(armSideConfirmationVoice('left'));
-    }
+  // Paint the Arm guide first, then speak the side-confirmation cue.
+  // Using two animation frames guarantees the participant sees the Arm page
+  // before TTS is queued, instead of hearing the cue on the previous module.
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      primeSpeechEngine().then(() => {
+        if (phase === 'IDLE' && arm === 'left') {
+          speakNow(armSideConfirmationVoice('left'));
+        }
+      });
+    });
   });
 }
 
