@@ -3,6 +3,9 @@ import fs from "node:fs";
 
 const arm=fs.readFileSync("arm-test.html","utf8");
 const speech=fs.readFileSync("speech-test.html","utf8");
+const face=fs.readFileSync("face-test.html","utf8");
+const result=fs.readFileSync("result.html","utf8");
+const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
 
 // Arm: passive first guide speaks the side-confirmation cue.
 assert.match(arm,/function armSideConfirmationVoice\(side\)/);
@@ -28,9 +31,11 @@ assert.match(speech,/READY_CUE/);
 assert.match(speech,/function speechCueText\(\)/);
 assert.match(speech,/เริ่มพูดได้/);
 assert.match(speech,/function speakSpeechCue\(text\)/);
+assert.match(speech,/function primeSpeechCue\(\)/);
+assert.match(speech,/primeSpeechCue\(\);[\s\S]*retryStarting = true/);
 assert.match(
   speech,
-  /phase = 'READY_CUE';[\s\S]*await speakSpeechCue\(speechCueText\(\)\);[\s\S]*await sleep\(180\);[\s\S]*phase = 'RECORDING';[\s\S]*recordingStartedMs = performance\.now\(\)/
+  /phase = 'READY_CUE';[\s\S]*const cueStatus = await speakSpeechCue\(speechCueText\(\)\);[\s\S]*cueStatus === 'ended' \? 180 : 80[\s\S]*phase = 'RECORDING';[\s\S]*recordingStartedMs = performance\.now\(\)/
 );
 assert.match(
   speech,
@@ -44,4 +49,17 @@ const recordIndex=speech.indexOf("phase = 'RECORDING';", cueIndex);
 const asrIndex=speech.indexOf("beginSpeechRecognition()", recordIndex);
 assert.ok(cueIndex>=0 && recordIndex>cueIndex && asrIndex>recordIndex);
 
-console.log("PASS: Arm confirmation cues and Speech start cue timing are deterministic");
+// Full-flow Face -> Arm transition uses the navigation tap as a reliable iOS
+// user gesture for the first left-arm confirmation voice cue.
+assert.match(face,/function nextArmConfirmationVoice\(\)/);
+assert.match(face,/speakFacePromise\(nextArmConfirmationVoice\(\)\)/);
+assert.match(face,/target === 'arm-test\.html'/);
+
+// Remote JSSF result preserves prior not-evaluable attempts as retry history
+// without converting them into abnormal clinical evidence.
+assert.match(result,/historicalInvalidRetained/);
+assert.match(result,/invalidHistoryCount/);
+assert.match(result,/modulePriorInvalid/);
+assert.equal(th.result.modulePriorInvalid,"เคยประเมินไม่ได้และทดสอบซ้ำ {n} ครั้ง");
+
+console.log("PASS: first-use voice cues and JSSF retry history are deterministic");
