@@ -20,6 +20,7 @@ on:
       - research/arm-image-integrity-short-copy-20261005
       - research/arm-css-image-debug-20261005
       - research/arm-thai-voice-copy-20261005
+      - fix/jssf-session-lifecycle-recovery
   workflow_dispatch:
 
 permissions:
