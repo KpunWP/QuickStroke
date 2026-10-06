@@ -186,7 +186,25 @@ test('Arm P0-A/B research instrumentation is non-gating and threshold-neutral', 
   assert.match(arm, /appMode === 'research'/);
   assert.match(remote, /slice\(0,21\)/);
   assert.match(ingest, /rawTrace\.length>21|rawTrace\.length > 21/);
-  assert.match(ingest, /jssf-remote-ingest-0\.3\.0/);
+  assert.match(ingest, /jssf-remote-ingest-0\\.4\\.0/);
+});
+
+test('Face remote research telemetry is bounded, derived, and non-media', () => {
+  const face = fs.readFileSync(path.join(ROOT, 'face-test.html'), 'utf8');
+  const remote = fs.readFileSync(path.join(ROOT, 'js/jssf-remote-sync.js'), 'utf8');
+  const ingest = fs.readFileSync(path.join(ROOT, 'supabase/functions/jssf-remote-ingest/payload.mjs'), 'utf8');
+  const consent = fs.readFileSync(path.join(ROOT, 'jssf-consent.html'), 'utf8');
+  assert.match(face, /faceResearchTelemetry:buildFaceRemoteResearchSummary/);
+  assert.match(face, /rawImagesStored:false/);
+  assert.match(face, /rawFramesIncluded:false/);
+  assert.match(face, /rawLandmarksIncluded:false/);
+  assert.match(remote, /function safeFaceResearch/);
+  assert.match(remote, /faceResearch:record\.module==="face"/);
+  assert.match(ingest, /function sanitizeFaceResearch/);
+  assert.match(ingest, /faceResearch: module === "face"/);
+  assert.match(ingest, /jssf-remote-ingest-0\.4\.0/);
+  assert.match(consent, /ข้อมูลสรุปที่คำนวณจากการวิเคราะห์ใบหน้า/);
+  assert.match(consent, /ไม่ส่งภาพใบหน้าดิบ วิดีโอ เฟรมภาพดิบ หรือพิกัดจุดบนใบหน้าแบบรายเฟรม/);
 });
 
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {
