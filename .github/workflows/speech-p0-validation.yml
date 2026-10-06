@@ -11,6 +11,7 @@ on:
       - fix/arm-cue-after-navigation-20261006
       - cleanup/remove-passive-arm-confirmation-cue-20261006
       - copy/result-thai-wording-20261006
+      - research/face-remote-telemetry
   workflow_dispatch:
 
 permissions:
@@ -29,6 +30,8 @@ jobs:
         run: node tests/run-tests.mjs
       - name: Remote client contract
         run: node tests/jssf-remote-client.mjs
+      - name: Face remote Edge HTTP contract
+        run: node tests/jssf-edge-handler-http-e2e.mjs
       - name: Speech remote sanitizer contract
         run: node tests/speech-p0-remote-contract.mjs
       - name: Deterministic Speech ASR replay

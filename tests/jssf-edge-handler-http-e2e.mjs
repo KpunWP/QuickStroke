@@ -188,7 +188,7 @@ try{
   assert.equal(res.body.collectionEnabled,false);
   const enrollment={
     consentAccepted:true,age18plus:true,participationScope:"usability_nonclinical",
-    consentVersion:"JSSF-REMOTE-2026-10-04-v3",
+    consentVersion:"JSSF-REMOTE-2026-10-06-v4",
     clientSessionId:"S-"+randomUUID().replaceAll("-",""),
     studyId:"QS-AAAA-BBBB-CCCC-DDDD-EEEE-FFFF",
     uploadToken:"b".repeat(64),
@@ -225,6 +225,8 @@ try{
   res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-02-v1"});
   assert.equal(res.status,422);
   res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-04-v2"});
+  assert.equal(res.status,422);
+  res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-04-v3"});
   assert.equal(res.status,422);
   assert.equal(sessions.size,0);
   console.log("PASS: new pre-v3 enrollment is rejected");
@@ -274,7 +276,33 @@ try{
   assert.equal(sessions.size,1);
   console.log("PASS: enrollment retry recovers the same session only with the same capability");
 
-  // A second v3 session verifies bounded Speech telemetry under the current release consent.
+  // Current consent v4 permits bounded derived Face telemetry and still excludes raw media/landmarks.
+  const faceTelemetryEventId=randomUUID();
+  res=await request("events",{sessionId:receipt.sessionId,events:[{
+    eventId:faceTelemetryEventId,eventType:"test_attempt_completed",module:"face",occurredAt:new Date().toISOString(),
+    payload:{
+      testAttemptId:"TA-faceResearch123",moduleRunId:"MR-faceResearch123",attemptNo:1,
+      measurementTarget:"face",validityStatus:"valid",observationStatus:"no_alert",qualityStatus:"acceptable",
+      faceResearch:{
+        schemaVersion:"face-remote-research-0.1.0",
+        baseline:{sampleCount:30,restAsymMean:0.04,restAsymMax:0.08,criticalTriggered:false},
+        smile:{representativeAsym:0.12,weakSideRatio:0.82,validSmileFrames:24,smileFrameCount:30,validSmileRatio:0.8,visibleMouthFrames:29,avgMouthVisibilityScore:0.12,peakSmileLeft:0.7,peakSmileRight:0.66,aggregatedSignedRiseLeft:0.05,aggregatedSignedRiseRight:0.047,effectiveRiseLeft:0.05,effectiveRiseRight:0.047,geometryRiseUsable:true},
+        quality:{faceDetectedRatio:1,poseValidRatio:0.97,mouthAssessableRatio:0.96,handOverlapRatio:0},
+        validityStatus:"valid",
+        privacy:{rawImagesStored:false,rawFramesIncluded:false,rawLandmarksIncluded:false},
+        rawImage:"FORBIDDEN_IMAGE",rawLandmarks:[1,2,3]
+      }
+    }
+  }]},receipt.uploadToken);
+  assert.equal(res.status,200);
+  const faceStored=[...events.values()].find(row=>row.client_event_id===faceTelemetryEventId);
+  assert.equal(faceStored.payload.faceResearch.smile.representativeAsym,0.12);
+  assert.equal(faceStored.payload.faceResearch.privacy.rawImagesStored,false);
+  assert.ok(!JSON.stringify(faceStored).includes("FORBIDDEN_IMAGE"));
+  assert.equal("rawLandmarks" in faceStored.payload.faceResearch,false);
+  console.log("PASS: consent v4 persists bounded Face telemetry without raw media or landmarks");
+
+  // A second v4 session verifies bounded Speech telemetry under the current release consent.
   const v3Enrollment={
     ...enrollment,
     clientSessionId:"S-"+randomUUID().replaceAll("-",""),
@@ -309,8 +337,8 @@ try{
   res=await request("withdraw",{sessionId:v3Receipt.sessionId},v3Receipt.uploadToken);
   assert.equal(res.status,200);
   assert.equal(sessions.size,1);
-  assert.equal(events.size,0);
-  console.log("PASS: consent v3 enrollment persists bounded Speech telemetry");
+  assert.equal(events.size,1);
+  console.log("PASS: consent v4 enrollment persists bounded Speech telemetry");
 
   const now=()=>new Date().toISOString();
   const sample=[
@@ -341,7 +369,7 @@ try{
   assert.equal(res.status, 429);
   assert.equal(res.body.error, "Too many requests");
   assert.equal(res.headers.get("retry-after"), "29");
-  assert.equal(events.size, 0);
+  assert.equal(events.size, 1);
 
   syntheticRateLimit = {
     allowed: true,
@@ -351,11 +379,11 @@ try{
   res = await request("events", upload, receipt.uploadToken);
   assert.equal(res.status, 200);
   assert.equal(res.body.acknowledged.length,4);
-  assert.equal(events.size,4);
+  assert.equal(events.size,5);
   assert.ok(!JSON.stringify([...events.values()]).includes("NEVER_STORE"));
   res=await request("events",upload,receipt.uploadToken);
   assert.equal(res.status,200);
-  assert.equal(events.size,4,"Duplicate retry added events");
+  assert.equal(events.size,5,"Duplicate retry added events");
   console.log("PASS: 4 sanitized module/attempt events accepted; retry is idempotent");
 
   const legacySpeechId=randomUUID();
@@ -375,8 +403,8 @@ try{
   assert.equal(res.status,200);
   const legacyStored=[...events.values()].find(row=>row.client_event_id===legacySpeechId);
   assert.ok(!("speechResearch" in legacyStored.payload));
-  assert.equal(events.size,5);
-  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-04-v3";
+  assert.equal(events.size,6);
+  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-06-v4";
   console.log("PASS: existing legacy-consent session remains usable but new Speech telemetry is stripped server-side");
 
   res=await request("events",{sessionId:receipt.sessionId,events:[{
@@ -385,7 +413,7 @@ try{
       runStatus:"aborted",observationStatus:"abnormal"}
   }]},receipt.uploadToken);
   assert.equal(res.status,422);
-  assert.equal(events.size,4);
+  assert.equal(events.size,6);
   console.log("PASS: malformed clinical-like event rejected without storing raw media");
 
   const asrEventId=randomUUID();
@@ -399,7 +427,7 @@ try{
     }
   }]},receipt.uploadToken);
   assert.equal(res.status,200);
-  assert.equal(events.size,6);
+  assert.equal(events.size,7);
   const storedAsr=[...events.values()].find(row=>row.client_event_id===asrEventId);
   assert.deepEqual(storedAsr.payload,{code:"ASR_NO_TRANSCRIPT",relatedModuleRunId:"MR-speech12345"});
   assert.ok(!JSON.stringify(storedAsr).includes("FORBIDDEN_TRANSCRIPT"));
@@ -414,7 +442,7 @@ try{
   res=await request("events",{sessionId:receipt.sessionId,events:[completion]},receipt.uploadToken);
   assert.equal(res.status,200);
   assert.equal(res.body.duplicates,true);
-  assert.equal(events.size,7);
+  assert.equal(events.size,8);
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:randomUUID(),eventType:"technical_event",occurredAt:now(),payload:{code:"PAGE_HIDDEN"}
   }]},receipt.uploadToken);
@@ -439,7 +467,7 @@ try{
   assert.equal(res.body.error, "Too many requests");
   assert.equal(res.headers.get("retry-after"), "41");
   assert.equal(sessions.size, 1);
-  assert.equal(events.size, 7);
+  assert.equal(events.size, 8);
 
   syntheticRateLimit = {
     allowed: true,

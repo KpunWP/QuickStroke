@@ -5,7 +5,7 @@
 (function initQuickStrokeJssfRemote(global) {
   "use strict";
   if (global.QuickStrokeJssfRemote) return;
-  const VERSION = "jssf-remote-client-0.2.0";
+  const VERSION = "jssf-remote-client-0.3.0";
   const DB_NAME = "quickstroke_jssf_remote_outbox";
   const DB_VERSION = 1;
   const RETENTION_DAYS = 90; // Matches the deployed primary-database retention migration.
@@ -112,6 +112,45 @@
     const number=Number(value);
     if (!Number.isFinite(number)||number<min||number>max) return undefined;
     return Number(number.toFixed(digits));
+  }
+  function safeFaceResearch(source) {
+    if (!source || typeof source!=="object" || Array.isArray(source)) return undefined;
+    const bool=value=>typeof value==="boolean"?value:undefined;
+    const safeToken=(value,max=80)=>typeof value==="string"&&value.length<=max&&/^[A-Za-z0-9_.:-]+$/.test(value)?value:undefined;
+    return {
+      schemaVersion:safeToken(source.schemaVersion),
+      baseline:{
+        sampleCount:int(source.baseline?.sampleCount,0,10000),
+        restAsymMean:safeFinite(source.baseline?.restAsymMean,0,5),
+        restAsymMax:safeFinite(source.baseline?.restAsymMax,0,5),
+        criticalTriggered:bool(source.baseline?.criticalTriggered),
+        criticalRestAsym:safeFinite(source.baseline?.criticalRestAsym,0,5)
+      },
+      smile:{
+        representativeAsym:safeFinite(source.smile?.representativeAsym,0,5),
+        weakSideRatio:safeFinite(source.smile?.weakSideRatio,0,10),
+        validSmileFrames:int(source.smile?.validSmileFrames,0,10000),
+        smileFrameCount:int(source.smile?.smileFrameCount,0,10000),
+        validSmileRatio:safeFinite(source.smile?.validSmileRatio,0,1),
+        visibleMouthFrames:int(source.smile?.visibleMouthFrames,0,10000),
+        avgMouthVisibilityScore:safeFinite(source.smile?.avgMouthVisibilityScore,0,5),
+        peakSmileLeft:safeFinite(source.smile?.peakSmileLeft,0,1),
+        peakSmileRight:safeFinite(source.smile?.peakSmileRight,0,1),
+        aggregatedSignedRiseLeft:safeFinite(source.smile?.aggregatedSignedRiseLeft,-5,5),
+        aggregatedSignedRiseRight:safeFinite(source.smile?.aggregatedSignedRiseRight,-5,5),
+        effectiveRiseLeft:safeFinite(source.smile?.effectiveRiseLeft,0,5),
+        effectiveRiseRight:safeFinite(source.smile?.effectiveRiseRight,0,5),
+        geometryRiseUsable:bool(source.smile?.geometryRiseUsable)
+      },
+      quality:{
+        faceDetectedRatio:safeFinite(source.quality?.faceDetectedRatio,0,1),
+        poseValidRatio:safeFinite(source.quality?.poseValidRatio,0,1),
+        mouthAssessableRatio:safeFinite(source.quality?.mouthAssessableRatio,0,1),
+        handOverlapRatio:safeFinite(source.quality?.handOverlapRatio,0,1)
+      },
+      validityStatus:pick(source.validityStatus,VALIDITY),
+      privacy:{rawImagesStored:false,rawFramesIncluded:false,rawLandmarksIncluded:false}
+    };
   }
   function safeArmResearch(source) {
     if (!source || typeof source!=="object" || Array.isArray(source)) return undefined;
@@ -292,6 +331,7 @@
       qualityStatus:pick(record.qualityStatus,QUALITY),
       qualityFlags:safeFlags(record.qualityFlags),
       durationMs:record.startedAt&&record.completedAt?int(Date.parse(record.completedAt)-Date.parse(record.startedAt),0,3600000):undefined,
+      faceResearch:record.module==="face" ? safeFaceResearch(record.faceResearchTelemetry) : undefined,
       armResearch:record.module==="arm" ? safeArmResearch(record.armResearchTelemetry) : undefined,
       speechResearch:record.module==="speech" ? safeSpeechResearch(record.speechResearchTelemetry) : undefined
     };

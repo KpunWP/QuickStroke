@@ -11,9 +11,13 @@ type JsonObject = Record<string, unknown>;
 const MAX_BODY = 64000;
 const origins = new Set((Deno.env.get("JSSF_ALLOWED_ORIGINS") || "").split(",").map(x => x.trim()).filter(Boolean));
 const consentVersion = Deno.env.get("JSSF_CONSENT_VERSION") || "";
-const RELEASE_CONSENT_VERSION = "JSSF-REMOTE-2026-10-04-v3";
+const RELEASE_CONSENT_VERSION = "JSSF-REMOTE-2026-10-06-v4";
 const SPEECH_TELEMETRY_CONSENT_VERSIONS = new Set([
   "JSSF-REMOTE-2026-10-04-v2",
+  "JSSF-REMOTE-2026-10-04-v3",
+  RELEASE_CONSENT_VERSION
+]);
+const FACE_TELEMETRY_CONSENT_VERSIONS = new Set([
   RELEASE_CONSENT_VERSION
 ]);
 function consentVersionAccepted(value: unknown): value is string {
@@ -237,14 +241,20 @@ function parseEnrollment(body: JsonObject) {
   };
 }
 function enforceConsentScopedEventPayload(events: ReturnType<typeof sanitizeBatch>, sessionConsentVersion: string) {
-  if (SPEECH_TELEMETRY_CONSENT_VERSIONS.has(sessionConsentVersion)) return events;
   return events.map(event => {
-    if (event.module !== "speech" || event.event_type !== "test_attempt_completed" ||
-        !event.payload || typeof event.payload !== "object" || !("speechResearch" in event.payload)) {
+    if (event.event_type !== "test_attempt_completed" || !event.payload || typeof event.payload !== "object") {
       return event;
     }
-    const { speechResearch: _discardedSpeechResearch, ...payload } = event.payload as Record<string, unknown>;
-    return { ...event, payload };
+    let payload = event.payload as Record<string, unknown>;
+    if (event.module === "speech" && !SPEECH_TELEMETRY_CONSENT_VERSIONS.has(sessionConsentVersion) && "speechResearch" in payload) {
+      const { speechResearch: _discardedSpeechResearch, ...rest } = payload;
+      payload = rest;
+    }
+    if (event.module === "face" && !FACE_TELEMETRY_CONSENT_VERSIONS.has(sessionConsentVersion) && "faceResearch" in payload) {
+      const { faceResearch: _discardedFaceResearch, ...rest } = payload;
+      payload = rest;
+    }
+    return payload === event.payload ? event : { ...event, payload };
   });
 }
 

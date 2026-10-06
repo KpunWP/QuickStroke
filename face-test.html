@@ -1678,7 +1678,7 @@
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
 <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
-<script src="./js/jssf-remote-sync.js?v=20261002-jssf-ux-v2"></script>
+<script src="./js/jssf-remote-sync.js?v=20261006-face-research-v1"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
@@ -2431,6 +2431,54 @@ function currentFaceBaselineSnapshot(){
     criticalTriggered:criticalFired, criticalRestAsym:roundMetric(criticalRestAsym)
   };
 }
+function buildFaceRemoteResearchSummary(legacyRecord, validityStatus, extra={}){
+  const baseline = currentFaceBaselineSnapshot();
+  const metrics = legacyRecord?.metrics || {};
+  const quality = legacyRecord?.quality || {};
+  const numberOrNull = (value, digits=4) => Number.isFinite(Number(value))
+    ? Number(Number(value).toFixed(digits))
+    : null;
+  const intOrNull = (value) => Number.isInteger(Number(value)) ? Number(value) : null;
+  const boolOrNull = (value) => typeof value === 'boolean' ? value : null;
+  return {
+    schemaVersion:'face-remote-research-0.1.0',
+    baseline:{
+      sampleCount:intOrNull(baseline.sampleCount),
+      restAsymMean:numberOrNull(baseline.restAsymMean),
+      restAsymMax:numberOrNull(baseline.restAsymMax),
+      criticalTriggered:boolOrNull(baseline.criticalTriggered),
+      criticalRestAsym:numberOrNull(baseline.criticalRestAsym)
+    },
+    smile:{
+      representativeAsym:numberOrNull(extra.representativeAsym),
+      weakSideRatio:numberOrNull(extra.weakRatio),
+      validSmileFrames:intOrNull(metrics.validSmileFrames),
+      smileFrameCount:intOrNull(metrics.smileFrameCount),
+      validSmileRatio:numberOrNull(metrics.validSmileRatio),
+      visibleMouthFrames:intOrNull(metrics.visibleMouthFrames),
+      avgMouthVisibilityScore:numberOrNull(quality.avgMouthVisibilityScore),
+      peakSmileLeft:numberOrNull(metrics.peakSmileLeft),
+      peakSmileRight:numberOrNull(metrics.peakSmileRight),
+      aggregatedSignedRiseLeft:numberOrNull(metrics.aggregatedSignedRiseLeft),
+      aggregatedSignedRiseRight:numberOrNull(metrics.aggregatedSignedRiseRight),
+      effectiveRiseLeft:numberOrNull(metrics.effectiveRiseLeft),
+      effectiveRiseRight:numberOrNull(metrics.effectiveRiseRight),
+      geometryRiseUsable:boolOrNull(metrics.geometryRiseUsable)
+    },
+    quality:{
+      faceDetectedRatio:numberOrNull(quality.faceDetectedRatio),
+      poseValidRatio:numberOrNull(quality.poseValidRatio),
+      mouthAssessableRatio:numberOrNull(quality.mouthAssessableRatio),
+      handOverlapRatio:numberOrNull(quality.handOverlapRatio)
+    },
+    validityStatus,
+    privacy:{
+      rawImagesStored:false,
+      rawFramesIncluded:false,
+      rawLandmarksIncluded:false
+    }
+  };
+}
 function persistCanonicalFaceAttempt(finalizedAttempt, legacyRecord, frames){
   if (!finalizedAttempt || !FACE_RESEARCH_STORE) return;
   const baselineSnapshot = currentFaceBaselineSnapshot();
@@ -2507,6 +2555,10 @@ function finalizeCanonicalFaceAttempt(outcome, reasonCode, legacyRecord, extra={
       qualityFlags, invalidReasonCode:validityStatus === 'valid' ? null : reasonCode,
       completedAt:new Date().toISOString()};
   }
+  finalized = Object.freeze({
+    ...finalized,
+    faceResearchTelemetry:buildFaceRemoteResearchSummary(legacyRecord, validityStatus, extra)
+  });
   const attemptFrames = getAllAttemptFrames(finalized.testAttemptId);
   persistCanonicalFaceAttempt(finalized, legacyRecord, attemptFrames);
   activeFaceAttemptRecord = null;

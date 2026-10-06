@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { sanitizeEvent, CONTRACT_VERSION } from "../supabase/functions/jssf-remote-ingest/payload.mjs";
 
-assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.3.0");
+assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.4.0");
 
 const event=sanitizeEvent({
   eventId:randomUUID(),
