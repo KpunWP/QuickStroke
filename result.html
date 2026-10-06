@@ -1454,10 +1454,21 @@
      const abnormalHistoryRuns = completedRuns.filter(run =>
        run?.validityStatus === 'valid' && run?.observationStatus === 'abnormal'
      );
-     const historicalAbnormalRetained = latestObservationStatus !== 'abnormal' && abnormalHistoryRuns.length > 0;
-     // Current Result follows the latest completed eligible run. A prior valid
-     // abnormal is retained separately as a historical safety warning rather
-     // than silently rewriting the latest measurement back to abnormal.
+     const remoteJssf = bundle.session?.appMode === 'research'
+       && (bundle.session?.researchProfile || bundle.session?.researchMetadata?.researchProfile) === 'community_remote_qr';
+     const abnormalHistoryAttempts = remoteJssf
+       ? (bundle.attempts || []).filter(attempt =>
+           attempt?.module === name
+           && attempt?.attemptStatus === 'completed'
+           && attempt?.validityStatus === 'valid'
+           && attempt?.observationStatus === 'abnormal'
+         )
+       : [];
+     const historicalAbnormalRetained = latestObservationStatus !== 'abnormal'
+       && (abnormalHistoryRuns.length > 0 || abnormalHistoryAttempts.length > 0);
+     // Current Result follows the latest completed eligible run. For remote JSSF,
+     // a valid abnormal attempt from an interrupted retry remains safety evidence
+     // even though that partial module run is never promoted to "completed".
      const observationStatus = latestObservationStatus;
      const qualityFlags = uniqueStrings([
        ...(projection?.qualityFlags || []),
@@ -1503,8 +1514,9 @@
        observationStatus,
        latestObservationStatus,
        historicalAbnormalRetained,
-       abnormalHistoryCount:abnormalHistoryRuns.length,
+       abnormalHistoryCount:abnormalHistoryRuns.length + abnormalHistoryAttempts.length,
        abnormalHistoryModuleRunIds:abnormalHistoryRuns.map(run => run.moduleRunId),
+       abnormalHistoryAttemptIds:abnormalHistoryAttempts.map(attempt => attempt.testAttemptId),
        qualityStatus,
        qualityFlags,
        invalidReasonCode,
@@ -3017,21 +3029,21 @@
      if (!T) return;
      await ensureResultDataContext();
 
-     // JSSF recovery is strictly scoped to this screeningSessionId. It only
-     // closes an older in-progress run when a newer completed run of the same
-     // module already exists in this exact session. It never inspects or mutates
-     // another participant's session.
+     // Result is a deterministic boundary for JSSF remote sessions. Reconcile
+     // only community_remote_qr records before rendering/finalization; Public,
+     // clinic-supervised Research and Dev sessions never enter this path.
      const activeSession = RESULT_DATA_CONTEXT?.session;
-     const isRemoteJssf = (activeSession?.researchProfile || activeSession?.researchMetadata?.researchProfile) === 'community_remote_qr';
-     if (isRemoteJssf && activeSession?.screeningSessionId && RESULT_RESEARCH_STORE?.recoverSupersededRemoteOpenRecords) {
+     const isRemoteJssf = activeSession?.appMode === 'research'
+       && (activeSession?.researchProfile || activeSession?.researchMetadata?.researchProfile) === 'community_remote_qr';
+     if (isRemoteJssf && activeSession?.screeningSessionId && RESULT_RESEARCH_STORE?.reconcileRemoteSessionLifecycle) {
        try {
-         const recovered = await RESULT_RESEARCH_STORE.recoverSupersededRemoteOpenRecords(activeSession.screeningSessionId);
+         const recovered = await RESULT_RESEARCH_STORE.reconcileRemoteSessionLifecycle(activeSession.screeningSessionId);
          if ((recovered?.recoveredRuns || 0) > 0 || (recovered?.recoveredAttempts || 0) > 0) {
            RESULT_DATA_CONTEXT = null;
            await ensureResultDataContext({ force:true });
          }
        } catch (recoveryError) {
-         console.warn('JSSF stale local run recovery skipped.', recoveryError);
+         console.warn('JSSF lifecycle reconciliation skipped.', recoveryError);
        }
      }
 
