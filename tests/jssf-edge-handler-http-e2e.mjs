@@ -188,7 +188,7 @@ try{
   assert.equal(res.body.collectionEnabled,false);
   const enrollment={
     consentAccepted:true,age18plus:true,participationScope:"usability_nonclinical",
-    consentVersion:"JSSF-REMOTE-2026-10-04-v3",
+    consentVersion:"JSSF-REMOTE-2026-10-06-v4",
     clientSessionId:"S-"+randomUUID().replaceAll("-",""),
     studyId:"QS-AAAA-BBBB-CCCC-DDDD-EEEE-FFFF",
     uploadToken:"b".repeat(64),
@@ -225,6 +225,8 @@ try{
   res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-02-v1"});
   assert.equal(res.status,422);
   res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-04-v2"});
+  assert.equal(res.status,422);
+  res=await request("enroll",{...enrollment,consentVersion:"JSSF-REMOTE-2026-10-04-v3"});
   assert.equal(res.status,422);
   assert.equal(sessions.size,0);
   console.log("PASS: new pre-v3 enrollment is rejected");
@@ -274,7 +276,33 @@ try{
   assert.equal(sessions.size,1);
   console.log("PASS: enrollment retry recovers the same session only with the same capability");
 
-  // A second v3 session verifies bounded Speech telemetry under the current release consent.
+  // Current consent v4 permits bounded derived Face telemetry and still excludes raw media/landmarks.
+  const faceTelemetryEventId=randomUUID();
+  res=await request("events",{sessionId:receipt.sessionId,events:[{
+    eventId:faceTelemetryEventId,eventType:"test_attempt_completed",module:"face",occurredAt:new Date().toISOString(),
+    payload:{
+      testAttemptId:"TA-faceResearch123",moduleRunId:"MR-faceResearch123",attemptNo:1,
+      measurementTarget:"face",validityStatus:"valid",observationStatus:"no_alert",qualityStatus:"acceptable",
+      faceResearch:{
+        schemaVersion:"face-remote-research-0.1.0",
+        baseline:{sampleCount:30,restAsymMean:0.04,restAsymMax:0.08,criticalTriggered:false},
+        smile:{representativeAsym:0.12,weakSideRatio:0.82,validSmileFrames:24,smileFrameCount:30,validSmileRatio:0.8,visibleMouthFrames:29,avgMouthVisibilityScore:0.12,peakSmileLeft:0.7,peakSmileRight:0.66,aggregatedSignedRiseLeft:0.05,aggregatedSignedRiseRight:0.047,effectiveRiseLeft:0.05,effectiveRiseRight:0.047,geometryRiseUsable:true},
+        quality:{faceDetectedRatio:1,poseValidRatio:0.97,mouthAssessableRatio:0.96,handOverlapRatio:0},
+        validityStatus:"valid",
+        privacy:{rawImagesStored:false,rawFramesIncluded:false,rawLandmarksIncluded:false},
+        rawImage:"FORBIDDEN_IMAGE",rawLandmarks:[1,2,3]
+      }
+    }
+  }]},receipt.uploadToken);
+  assert.equal(res.status,200);
+  const faceStored=[...events.values()].find(row=>row.client_event_id===faceTelemetryEventId);
+  assert.equal(faceStored.payload.faceResearch.smile.representativeAsym,0.12);
+  assert.equal(faceStored.payload.faceResearch.privacy.rawImagesStored,false);
+  assert.ok(!JSON.stringify(faceStored).includes("FORBIDDEN_IMAGE"));
+  assert.ok(!JSON.stringify(faceStored).includes("rawLandmarks"));
+  console.log("PASS: consent v4 persists bounded Face telemetry without raw media or landmarks");
+
+  // A second v4 session verifies bounded Speech telemetry under the current release consent.
   const v3Enrollment={
     ...enrollment,
     clientSessionId:"S-"+randomUUID().replaceAll("-",""),
@@ -359,7 +387,7 @@ try{
   console.log("PASS: 4 sanitized module/attempt events accepted; retry is idempotent");
 
   const legacySpeechId=randomUUID();
-  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-02-v1";
+  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-04-v3";
   res=await request("events",{sessionId:receipt.sessionId,events:[{
     eventId:legacySpeechId,eventType:"test_attempt_completed",module:"speech",occurredAt:now(),
     payload:{
@@ -376,7 +404,7 @@ try{
   const legacyStored=[...events.values()].find(row=>row.client_event_id===legacySpeechId);
   assert.ok(!("speechResearch" in legacyStored.payload));
   assert.equal(events.size,5);
-  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-04-v3";
+  sessions.get(receipt.sessionId).consent_version="JSSF-REMOTE-2026-10-06-v4";
   console.log("PASS: existing legacy-consent session remains usable but new Speech telemetry is stripped server-side");
 
   res=await request("events",{sessionId:receipt.sessionId,events:[{
