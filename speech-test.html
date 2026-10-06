@@ -1202,6 +1202,46 @@ function setSpeechCard(key, state, main, sub, icon){
   if (subEl && sub !== undefined) subEl.textContent = sub;
   if (iconEl && icon !== undefined) iconEl.textContent = icon;
 }
+function speechCueText() {
+  const lang = String(T?.langCode || document.documentElement.lang || 'th-TH').toLowerCase();
+  if (lang.startsWith('en')) return 'You may start speaking';
+  if (lang.startsWith('ja')) return '話し始めてください';
+  return 'เริ่มพูดได้';
+}
+
+function speakSpeechCue(text) {
+  const value = String(text || '').trim();
+  if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+    return Promise.resolve('unsupported');
+  }
+  return new Promise(resolve => {
+    const synth = window.speechSynthesis;
+    const utterance = new SpeechSynthesisUtterance(
+      window.QuickStrokeI18n?.prepareSpeechText?.(value, T?.langCode || 'th-TH') ?? value
+    );
+    utterance.lang = T?.langCode || document.documentElement.lang || 'th-TH';
+    utterance.rate = 0.95;
+    utterance.volume = 1;
+    let settled = false;
+    const done = (status) => {
+      if (settled) return;
+      settled = true;
+      resolve(status);
+    };
+    utterance.onend = () => done('ended');
+    utterance.onerror = () => done('error');
+    try {
+      synth.cancel();
+      synth.resume?.();
+      synth.speak(utterance);
+    } catch (error) {
+      done('exception');
+      return;
+    }
+    setTimeout(() => done('timeout'), 3500);
+  });
+}
+
 function resetSpeechCards(){
   if (!T) return;
   const L = T;
@@ -1258,7 +1298,7 @@ function resetDomainSummary() {
   setSpeechResultDetailsExpanded(false);
 }
 let T = null;
-let phase = 'IDLE'; // IDLE | CALIBRATING | RECORDING | RETRYING | DONE
+let phase = 'IDLE'; // IDLE | CALIBRATING | READY_CUE | RECORDING | RETRYING | DONE
 let retryStarting = false; // กันการกดทดสอบซ้ำซ้อนระหว่างขอไมค์ใหม่
 let automaticValidityRetries = 0;
 let speechAttemptNo = 0;
@@ -2479,7 +2519,7 @@ async function selectLang(requestedCode) {
 
 async function speechSwitchLang(code) {
   // ห้ามสลับระหว่างวัดจริง เพื่อไม่ให้ ASR, timer และ audio pipeline เพี้ยน
-  if (phase === 'CALIBRATING' || phase === 'RECORDING' || phase === 'RETRYING') return;
+  if (phase === 'CALIBRATING' || phase === 'READY_CUE' || phase === 'RECORDING' || phase === 'RETRYING') return;
   if (!SPEECH_LOCALE_MAP[String(code || '').split('-')[0].toLowerCase()]) return;
 
   await selectLang(code);
@@ -3498,8 +3538,9 @@ document.addEventListener('visibilitychange', () => {
       durationSec: speechStartMs && lastVoiceMs ? (lastVoiceMs - speechStartMs) / 1000 : 0,
       energyFrames: vowelEnergyBuf.length
     });
-  } else if (phase === 'CALIBRATING') {
+  } else if (phase === 'CALIBRATING' || phase === 'READY_CUE') {
     finalizeOpenSpeechLifecycle('PAGE_HIDDEN');
+    try { window.speechSynthesis?.cancel?.(); } catch (error) {}
     stopAll(true);
   }
 });
@@ -3646,31 +3687,48 @@ function runLoop() {
         onsetCapped: micCalibrationSummary?.onsetCapped ?? false
       }));
 
-      // ไม่เตือนเสียงรบกวนก่อนพูด เพราะยังไม่มี signal ของเสียงพูดจริงให้เทียบ SNR
-      phase = 'RECORDING';
-      recordingStartedMs = nowMs;
+      // ไม่เตือนเสียงรบกวนก่อนพูด เพราะยังไม่มี signal ของเสียงพูดจริงให้เทียบ SNR.
+      // Give the participant an audible start cue, but do not let that system
+      // speech contaminate ASR/VAD or the research timing window. Recording starts
+      // only after the cue completes (plus a short echo-tail margin).
+      phase = 'READY_CUE';
       $('mic-circle').className       = 'mic-circle recording speak-now';
       $('mic-icon').textContent       = '👄';
       $('hint-text').classList.add('speak-now');
       $('hint-text').textContent      = T.speakNowPrompt;
-      $('action-btn').textContent     = T.btnStop || '⏹ หยุด';
-      $('action-btn').className       = 'red';
-      $('action-btn').disabled        = false;
-      $('transcript-box').textContent = T.listeningPrompt;
-      try { navigator.vibrate?.([70,50,70]); } catch (error) {}
-      // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
-      window.MEASURED_NOISY = false;
-      if (ANDROID_EXCLUSIVE_ASR) {
-        drawWave(freqArr, N);
-        animationFrameId = null;
-        void (async () => {
+      $('action-btn').textContent     = T.calibrating;
+      $('action-btn').className       = '';
+      $('action-btn').disabled        = true;
+      $('transcript-box').textContent = T.speakNowPrompt;
+      drawWave(freqArr, N);
+      animationFrameId = null;
+
+      void (async () => {
+        await speakSpeechCue(speechCueText());
+        if (phase !== 'READY_CUE') return;
+        await sleep(180);
+        if (phase !== 'READY_CUE') return;
+
+        phase = 'RECORDING';
+        recordingStartedMs = performance.now();
+        $('action-btn').textContent     = T.btnStop || '⏹ หยุด';
+        $('action-btn').className       = 'red';
+        $('action-btn').disabled        = false;
+        $('transcript-box').textContent = T.listeningPrompt;
+        try { navigator.vibrate?.([70,50,70]); } catch (error) {}
+
+        // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
+        window.MEASURED_NOISY = false;
+        if (ANDROID_EXCLUSIVE_ASR) {
           await releaseAcousticCaptureForExclusiveAsr();
           if (phase !== 'RECORDING') return;
           void beginSpeechRecognition();
-        })();
-        return;
-      }
-      void beginSpeechRecognition();
+          return;
+        }
+        void beginSpeechRecognition();
+        runLoop();
+      })();
+      return;
     }
 
     drawWave(freqArr, N);

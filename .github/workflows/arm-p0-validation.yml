@@ -21,6 +21,7 @@ on:
       - research/arm-css-image-debug-20261005
       - research/arm-thai-voice-copy-20261005
       - fix/jssf-session-lifecycle-recovery
+      - fix/arm-speech-voice-cues-20261006
   workflow_dispatch:
 
 permissions:
@@ -55,5 +56,7 @@ jobs:
         run: node tests/jssf-result-completion-ux.mjs
       - name: JSSF session lifecycle regression
         run: node tests/jssf-session-lifecycle-regression.mjs
+      - name: Arm/Speech voice cue regression
+        run: node tests/voice-cue-flow.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py
