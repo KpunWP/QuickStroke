@@ -367,8 +367,23 @@
       contract.restoreScreeningContext(bundle.session);
       sessionStorage.setItem("fast_mode",bundle.session.sessionMode||"full");
       sessionStorage.setItem("fast_lang","th");
+
+      // Resume is a deterministic lifecycle boundary. Close only unfinished
+      // community_remote_qr records whose live measurement state can no longer
+      // exist after navigation/reload, while preserving every completed attempt.
+      const reconciled=typeof store.reconcileRemoteSessionLifecycle==="function"
+        ? await store.reconcileRemoteSessionLifecycle(bundle.session.screeningSessionId)
+        : bundle;
+      const resumeBundle=reconciled?.session
+        ? {session:reconciled.session,moduleRuns:reconciled.moduleRuns||[],testAttempts:reconciled.testAttempts||[]}
+        : await store.getRemoteResumeBundle(bundle.session.screeningSessionId);
+
       await remote.enroll();
-      window.location.href=resumeTarget(bundle);
+      // Backfill any canonical records that completed while the network/event
+      // outbox was unavailable. Upload failure must not block local resume.
+      await remote.recoverCompleted?.().catch(()=>null);
+      await remote.flush?.().catch(()=>null);
+      window.location.href=resumeTarget(resumeBundle);
     }catch(error){
       console.error("JSSF resume failed.",error);
       state.textContent="ยังทำต่อจากรอบเดิมไม่ได้: "+(error?.message||String(error));
