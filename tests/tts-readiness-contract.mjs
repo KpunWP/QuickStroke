@@ -22,7 +22,8 @@ const evt=sanitizeEvent({
       matchingVoiceCount:0,
       errorCode:"no_start",
       voiceNames:["FORBIDDEN"],
-      userAgent:"FORBIDDEN"
+      userAgent:"FORBIDDEN",
+      promptText:"FORBIDDEN_PROMPT"
     }
   }
 });
@@ -38,6 +39,7 @@ assert.deepEqual(evt.payload.tts,{
 });
 assert.ok(!JSON.stringify(evt).includes("voiceNames"));
 assert.ok(!JSON.stringify(evt).includes("userAgent"));
+assert.ok(!JSON.stringify(evt).includes("FORBIDDEN_PROMPT"));
 
 assert.throws(()=>sanitizeEvent({
   eventId:"123e4567-e89b-42d3-a456-426614174001",
