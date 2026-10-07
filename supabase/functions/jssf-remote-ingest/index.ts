@@ -53,7 +53,7 @@ const db = (supabaseUrl && privilegedKey)
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SESSION = /^S-[A-Za-z0-9_-]{12,100}$/;
 const COARSE_PLATFORM = new Set(["ios", "android", "desktop", "other"]);
-const COARSE_BROWSER = new Set(["safari", "chrome", "firefox", "edge", "other"]);
+const COARSE_BROWSER = new Set(["safari", "chrome", "samsung_internet", "firefox", "edge", "other"]);
 const LOCALES = new Set(["th", "en", "ja"]);
 
 function response(

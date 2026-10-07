@@ -186,7 +186,7 @@ test('Arm P0-A/B research instrumentation is non-gating and threshold-neutral', 
   assert.match(arm, /appMode === 'research'/);
   assert.match(remote, /slice\(0,21\)/);
   assert.match(ingest, /rawTrace\.length>21|rawTrace\.length > 21/);
-  assert.match(ingest, /jssf-remote-ingest-0\.4\.0/);
+  assert.match(ingest, /jssf-remote-ingest-0\.5\.0/);
 });
 
 test('Face remote research telemetry is bounded, derived, and non-media', () => {
@@ -202,9 +202,36 @@ test('Face remote research telemetry is bounded, derived, and non-media', () => 
   assert.match(remote, /faceResearch:record\.module==="face"/);
   assert.match(ingest, /function sanitizeFaceResearch/);
   assert.match(ingest, /faceResearch: module === "face"/);
-  assert.match(ingest, /jssf-remote-ingest-0\.4\.0/);
+  assert.match(ingest, /jssf-remote-ingest-0\.5\.0/);
   assert.match(consent, /ข้อมูลสรุปที่คำนวณจากการวิเคราะห์ใบหน้า/);
   assert.match(consent, /ไม่ส่งภาพใบหน้าดิบ วิดีโอ เฟรมภาพดิบ หรือพิกัดจุดบนใบหน้าแบบรายเฟรม/);
+});
+
+test('TTS readiness telemetry is bounded and visual fallbacks remain present', () => {
+  const remote = fs.readFileSync(path.join(ROOT, 'js/jssf-remote-sync.js'), 'utf8');
+  const ingest = fs.readFileSync(path.join(ROOT, 'supabase/functions/jssf-remote-ingest/payload.mjs'), 'utf8');
+  const edge = fs.readFileSync(path.join(ROOT, 'supabase/functions/jssf-remote-ingest/index.ts'), 'utf8');
+  const face = fs.readFileSync(path.join(ROOT, 'face-test.html'), 'utf8');
+  const arm = fs.readFileSync(path.join(ROOT, 'arm-test.html'), 'utf8');
+  const speech = fs.readFileSync(path.join(ROOT, 'speech-test.html'), 'utf8');
+
+  assert.match(remote, /jssf-remote-client-0\.4\.0/);
+  assert.match(remote, /SamsungBrowser/);
+  assert.match(remote, /samsung_internet/);
+  assert.match(remote, /queueTtsTelemetry/);
+  assert.match(remote, /matchingVoiceCount/);
+  assert.match(ingest, /jssf-remote-ingest-0\.5\.0/);
+  assert.match(ingest, /function sanitizeTtsTelemetry/);
+  assert.match(ingest, /TTS_NO_START/);
+  assert.match(edge, /samsung_internet/);
+
+  assert.match(face, /reportFaceTts\('TTS_NO_START'/);
+  assert.match(face, /showSmilePrompt\(FL\.smilePrompt\)/);
+  assert.match(arm, /reportArmTts\('TTS_NO_START'/);
+  assert.match(arm, /\$\('instr'\)\.textContent\s*=\s*T\.instrMeasure/);
+  assert.match(arm, /\$\('cd-num'\)\.textContent/);
+  assert.match(speech, /reportSpeechTts\('TTS_NO_START'/);
+  assert.match(speech, /\$\('hint-text'\)\.textContent\s*=\s*T\.speakNowPrompt/);
 });
 
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {

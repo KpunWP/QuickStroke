@@ -1678,7 +1678,7 @@
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
 <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
-<script src="./js/jssf-remote-sync.js?v=20261006-face-research-v1"></script>
+<script src="./js/jssf-remote-sync.js?v=20261007-tts-readiness-v1"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
@@ -2103,6 +2103,15 @@ let lastSpeechText = '';
 const SPEAK_LANG = FACE_LOCALE_MAP;
 let cachedVoices = [];
 let speechPrimed = false;
+const faceTtsTelemetrySent = new Set();
+function reportFaceTts(code, stage, status, lang, errorCode, onceKey) {
+  const key = onceKey || [code,stage,status,errorCode||''].join(':');
+  if (faceTtsTelemetrySent.has(key)) return;
+  faceTtsTelemetrySent.add(key);
+  void window.QuickStrokeJssfRemote?.queueTtsTelemetry?.(
+    'face', code, stage, status, lang, errorCode, key
+  )?.catch?.(()=>{});
+}
 function loadVoices(){ try { cachedVoices = speechSynthesis.getVoices() || []; } catch(e){ cachedVoices = []; } }
 if (typeof speechSynthesis !== 'undefined' && speechSynthesis.onvoiceschanged !== undefined) speechSynthesis.onvoiceschanged = loadVoices;
 loadVoices();
@@ -2110,22 +2119,43 @@ loadVoices();
 // gesture. Call this from a tap handler once to unlock it, so the first real prompt
 // (which fires later, after async camera init) is actually spoken.
 function primeSpeech(){
-  if (speechPrimed || typeof speechSynthesis === 'undefined') return;
+  const code = getPreferredFaceLang();
+  const lang = SPEAK_LANG[code] || 'th-TH';
+  if (speechPrimed) return;
+  if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') {
+    reportFaceTts('TTS_UNAVAILABLE','prime','unsupported',lang,undefined,'face-prime-unsupported');
+    return;
+  }
   try {
+    if (cachedVoices.length === 0) cachedVoices = speechSynthesis.getVoices() || [];
+    const shortLang = lang.toLowerCase().split('-')[0];
+    const matching = cachedVoices.filter(v => String(v.lang||'').toLowerCase().replace('_','-').startsWith(shortLang));
+    reportFaceTts(
+      'TTS_READINESS','prime',matching.length ? 'available' : 'no_matching_voice',
+      lang,undefined,'face-prime-readiness'
+    );
     // Browser บางตัว โดยเฉพาะ iOS/Safari จะไม่ unlock เสียงถ้า utterance เป็นค่าว่าง
     // ใช้เสียงสั้นมากและเบามากใน user gesture เพื่อให้ prompt แรกหลังจากนั้นพูดได้จริง
     speechSynthesis.cancel();
+    speechSynthesis.resume?.();
     const u = new SpeechSynthesisUtterance('เริ่ม');
-    const code = getPreferredFaceLang();
-    u.lang = SPEAK_LANG[code] || 'th-TH';
+    u.lang = lang;
     u.volume = 0.01;
     u.rate = 1.2;
     speechSynthesis.speak(u);
     speechPrimed = true;
-  } catch(e){}
+  } catch(e){
+    reportFaceTts('TTS_ERROR','prime','error',lang,'prime_exception','face-prime-error');
+  }
 }
 function speakFace(txt, opts={}){
-  if (typeof speechSynthesis === 'undefined' || !txt) return;
+  if (!txt) return;
+  const code = getPreferredFaceLang();
+  const lang = SPEAK_LANG[code] || 'th-TH';
+  if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') {
+    reportFaceTts('TTS_UNAVAILABLE','prompt','unsupported',lang,undefined,'face-prompt-unsupported');
+    return;
+  }
   const now = Date.now();
   const force = !!opts.force;
   const minGap = typeof opts.minGap === 'number' ? opts.minGap : 3600;
@@ -2138,21 +2168,40 @@ function speakFace(txt, opts={}){
 
   try {
     speechSynthesis.cancel();
-    const code = getPreferredFaceLang();
-    const lang = SPEAK_LANG[code] || 'th-TH';
+    speechSynthesis.resume?.();
     const spokenText = window.QuickStrokeI18n?.prepareSpeechText?.(txt, lang) ?? txt;
     const ut = new SpeechSynthesisUtterance(spokenText);
     ut.lang = lang;
     if (cachedVoices.length === 0) cachedVoices = speechSynthesis.getVoices() || [];
-    const regional = cachedVoices.filter(v => v.lang.toLowerCase().replace('_','-').startsWith(ut.lang.toLowerCase().slice(0,2)));
+    const regional = cachedVoices.filter(v => String(v.lang||'').toLowerCase().replace('_','-').startsWith(ut.lang.toLowerCase().slice(0,2)));
     if (regional[0]) ut.voice = regional[0];
     ut.rate = 1.03;
     lastSpeechAt = now;
     lastSpeechText = txt;
+    let started = false;
+    ut.onstart = () => {
+      started = true;
+      reportFaceTts('TTS_PLAYBACK_STARTED','prompt','started',lang,undefined,'face-prompt-started');
+    };
+    ut.onerror = event => {
+      const err = String(event?.error || 'unknown').replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,64);
+      reportFaceTts('TTS_ERROR','prompt','error',lang,err,'face-prompt-error-'+err);
+    };
     // Chrome/Android: speak() ทันทีหลัง cancel() บางครั้งเสียงหายทั้งประโยค
     // หน่วงสั้นๆ ให้ engine เคลียร์คิวก่อน → เสียง prompt มาครบ ไม่โดนกลืน
-    setTimeout(()=>{ try { speechSynthesis.speak(ut); } catch(e){} }, 60);
-  } catch(e){}
+    setTimeout(()=>{
+      try {
+        speechSynthesis.speak(ut);
+        setTimeout(()=>{
+          if (!started) reportFaceTts('TTS_NO_START','prompt','no_start',lang,undefined,'face-prompt-no-start');
+        },1200);
+      } catch(e){
+        reportFaceTts('TTS_ERROR','prompt','error',lang,'speak_exception','face-prompt-exception');
+      }
+    }, 80);
+  } catch(e){
+    reportFaceTts('TTS_ERROR','prompt','error',lang,'setup_exception','face-prompt-setup-exception');
+  }
 }
 
 let __lastCountdownShown = null;

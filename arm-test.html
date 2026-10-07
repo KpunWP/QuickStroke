@@ -1575,7 +1575,7 @@
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
 <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
-<script src="./js/jssf-remote-sync.js?v=20261006-face-research-v1"></script>
+<script src="./js/jssf-remote-sync.js?v=20261007-tts-readiness-v1"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260717-lang-v1"></script>
@@ -2140,6 +2140,16 @@ let _speaking = false;
 let _voiceQ = [];
 let _speechPrimed = false;
 let _speechSequence = 0;
+const armTtsTelemetrySent = new Set();
+
+function reportArmTts(code, stage, status, lang, errorCode, onceKey) {
+  const key = onceKey || [code,stage,status,errorCode||''].join(':');
+  if (armTtsTelemetrySent.has(key)) return;
+  armTtsTelemetrySent.add(key);
+  void window.QuickStrokeJssfRemote?.queueTtsTelemetry?.(
+    'arm', code, stage, status, lang, errorCode, key
+  )?.catch?.(()=>{});
+}
 
 function setArmTtsStatus(status) {
   armTtsStatus = String(status || 'idle');
@@ -2157,13 +2167,22 @@ function matchingSpeechVoice(lang) {
 }
 
 function primeSpeechEngine() {
-  if (!window.speechSynthesis || _speechPrimed) {
+  const lang = T?.code || document.documentElement.lang || 'th-TH';
+  if (_speechPrimed) return Promise.resolve();
+  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+    reportArmTts('TTS_UNAVAILABLE','prime','unsupported',lang,undefined,'arm-prime-unsupported');
     return Promise.resolve();
   }
 
   const synth = window.speechSynthesis;
-  synth.resume();
-  synth.getVoices?.();
+  synth.resume?.();
+  const voices = synth.getVoices?.() || [];
+  const short = String(lang).toLowerCase().split('-')[0];
+  const matching = voices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
+  reportArmTts(
+    'TTS_READINESS','prime',matching.length ? 'available' : 'no_matching_voice',
+    lang,undefined,'arm-prime-readiness'
+  );
   setArmTtsStatus('priming');
 
   return new Promise(resolve => {
@@ -2173,7 +2192,7 @@ function primeSpeechEngine() {
       'start';
 
     const u = new SpeechSynthesisUtterance(seed);
-    u.lang = T?.code || 'th-TH';
+    u.lang = lang;
     u.rate = 1;
     u.volume = 0.01;
     const voice = matchingSpeechVoice(u.lang);
@@ -2190,17 +2209,20 @@ function primeSpeechEngine() {
 
     u.onstart = () => setArmTtsStatus('prime-started');
     u.onend = done;
-    u.onerror = () => {
+    u.onerror = event => {
+      const err = String(event?.error || 'unknown').replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,64);
       setArmTtsStatus('prime-error');
+      reportArmTts('TTS_ERROR','prime','error',lang,err,'arm-prime-error-'+err);
       done();
     };
 
     try {
       synth.cancel();
-      synth.resume();
+      synth.resume?.();
       synth.speak(u);
     } catch (error) {
       armLastRuntimeError = `TTS prime: ${error?.message || error}`;
+      reportArmTts('TTS_ERROR','prime','error',lang,'prime_exception','arm-prime-exception');
       done();
     }
 
@@ -2224,8 +2246,10 @@ function _drainQueue() {
 
   const { txt, onDone } = _voiceQ.shift();
   const synth = window.speechSynthesis;
-  if (!synth) {
+  const lang = T?.code || document.documentElement.lang || 'th-TH';
+  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') {
     setArmTtsStatus('unsupported');
+    reportArmTts('TTS_UNAVAILABLE','prompt','unsupported',lang,undefined,'arm-prompt-unsupported');
     onDone && onDone();
     _drainQueue();
     return;
@@ -2254,7 +2278,6 @@ function _drainQueue() {
     attempt += 1;
     const token = ++attemptToken;
     let started = false;
-    const lang = T?.code || document.documentElement.lang || 'th-TH';
     const spokenText = window.QuickStrokeI18n?.prepareSpeechText?.(txt, lang) ?? txt;
     const u = new SpeechSynthesisUtterance(spokenText);
     u.lang = lang;
@@ -2267,6 +2290,7 @@ function _drainQueue() {
       if (finished || token !== attemptToken) return;
       started = true;
       setArmTtsStatus(`speaking-${attempt}`);
+      reportArmTts('TTS_PLAYBACK_STARTED','prompt','started',lang,undefined,'arm-prompt-started');
     };
 
     u.onend = () => {
@@ -2282,6 +2306,8 @@ function _drainQueue() {
         setTimeout(launch, 280);
       } else {
         armLastRuntimeError = `TTS: ${code}`;
+        const safeCode=String(code).replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,64);
+        reportArmTts('TTS_ERROR','prompt','error',lang,safeCode,'arm-prompt-error-'+safeCode);
         finish(`error-${code}`);
       }
     };
@@ -2304,6 +2330,9 @@ function _drainQueue() {
         setArmTtsStatus('retry-no-start');
         try { synth.cancel(); synth.resume(); } catch (_) {}
         setTimeout(launch, 280);
+      } else {
+        reportArmTts('TTS_NO_START','prompt','no_start',lang,undefined,'arm-prompt-no-start');
+        finish('no-start');
       }
     }, 900);
   };

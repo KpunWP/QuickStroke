@@ -12,6 +12,7 @@ on:
       - cleanup/remove-passive-arm-confirmation-cue-20261006
       - copy/result-thai-wording-20261006
       - research/face-remote-telemetry
+      - fix/android-tts-readiness-20261007
   workflow_dispatch:
 
 permissions:
@@ -60,6 +61,8 @@ jobs:
         run: node tests/arm-device-browser-hardening.mjs
       - name: Android compatibility
         run: node tests/android-compat.mjs
+      - name: TTS readiness contract
+        run: node tests/tts-readiness-contract.mjs
       - name: Arm/Speech voice cue regression
         run: node tests/voice-cue-flow.mjs
       - name: Inline script syntax
