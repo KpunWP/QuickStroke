@@ -6,8 +6,8 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261006-face-research-v17"/);
-assert.match(sw,/quickstroke-pwa-v83/);
+assert.match(config,/buildId:\s*"20261007-tts-readiness-v18"/);
+assert.match(sw,/quickstroke-pwa-v84/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);
 assert.match(result,/ส่งผลและจบการทดสอบ/);
