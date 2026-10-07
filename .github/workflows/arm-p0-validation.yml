@@ -20,6 +20,7 @@ on:
       - research/arm-image-integrity-short-copy-20261005
       - research/arm-css-image-debug-20261005
       - research/arm-thai-voice-copy-20261005
+      - research/arm-p0-start-transient-20261007
       - fix/jssf-session-lifecycle-recovery
       - fix/arm-speech-voice-cues-20261006
       - fix/ios-first-cue-retry-history-20261006
