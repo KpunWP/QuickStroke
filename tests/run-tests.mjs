@@ -186,7 +186,7 @@ test('Arm P0-A/B research instrumentation is non-gating and threshold-neutral', 
   assert.match(arm, /appMode === 'research'/);
   assert.match(remote, /slice\(0,21\)/);
   assert.match(ingest, /rawTrace\.length>21|rawTrace\.length > 21/);
-  assert.match(ingest, /jssf-remote-ingest-0\.5\.0/);
+  assert.match(ingest, /jssf-remote-ingest-0\.6\.0/);
 });
 
 test('Face remote research telemetry is bounded, derived, and non-media', () => {
@@ -202,7 +202,7 @@ test('Face remote research telemetry is bounded, derived, and non-media', () => 
   assert.match(remote, /faceResearch:record\.module==="face"/);
   assert.match(ingest, /function sanitizeFaceResearch/);
   assert.match(ingest, /faceResearch: module === "face"/);
-  assert.match(ingest, /jssf-remote-ingest-0\.5\.0/);
+  assert.match(ingest, /jssf-remote-ingest-0\.6\.0/);
   assert.match(consent, /ข้อมูลสรุปที่คำนวณจากการวิเคราะห์ใบหน้า/);
   assert.match(consent, /ไม่ส่งภาพใบหน้าดิบ วิดีโอ เฟรมภาพดิบ หรือพิกัดจุดบนใบหน้าแบบรายเฟรม/);
 });
@@ -215,12 +215,12 @@ test('TTS readiness telemetry is bounded and visual fallbacks remain present', (
   const arm = fs.readFileSync(path.join(ROOT, 'arm-test.html'), 'utf8');
   const speech = fs.readFileSync(path.join(ROOT, 'speech-test.html'), 'utf8');
 
-  assert.match(remote, /jssf-remote-client-0\.4\.0/);
+  assert.match(remote, /jssf-remote-client-0\.5\.0/);
   assert.match(remote, /SamsungBrowser/);
   assert.match(remote, /samsung_internet/);
   assert.match(remote, /queueTtsTelemetry/);
   assert.match(remote, /matchingVoiceCount/);
-  assert.match(ingest, /jssf-remote-ingest-0\.5\.0/);
+  assert.match(ingest, /jssf-remote-ingest-0\.6\.0/);
   assert.match(ingest, /function sanitizeTtsTelemetry/);
   assert.match(ingest, /TTS_NO_START/);
   assert.match(edge, /samsung_internet/);
