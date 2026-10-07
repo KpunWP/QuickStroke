@@ -2142,13 +2142,49 @@ let _speechPrimed = false;
 let _speechSequence = 0;
 const armTtsTelemetrySent = new Set();
 
-function reportArmTts(code, stage, status, lang, errorCode, onceKey) {
-  const key = onceKey || [code,stage,status,errorCode||''].join(':');
+function reportArmTts(code, stage, status, lang, errorCode, onceKey, deliveryMode, spokenLang) {
+  const key = onceKey || [code,stage,status,errorCode||'',deliveryMode||''].join(':');
   if (armTtsTelemetrySent.has(key)) return;
   armTtsTelemetrySent.add(key);
   void window.QuickStrokeJssfRemote?.queueTtsTelemetry?.(
-    'arm', code, stage, status, lang, errorCode, key
+    'arm', code, stage, status, lang, errorCode, key, deliveryMode, spokenLang
   )?.catch?.(()=>{});
+}
+
+function armEnglishFallbackText(txt) {
+  if (!T) return 'Please follow the instruction on the screen.';
+  if (txt === T.vWait_left) return 'Raise your left arm forward and keep it still.';
+  if (txt === T.vWait_right) return 'Raise your right arm forward and keep it still.';
+  if (txt === T.vReady) return 'Start. Close your eyes and keep your arm still.';
+  if (txt === T.vMid4) return 'Good.';
+  if (txt === T.vMid7) return 'Almost done.';
+  if (txt === T.vDone) return 'Lower your arm.';
+  if (txt === T.vCalibRetry) return 'Keep still.';
+  if (txt === T.vWrongHand) return 'Please switch hands.';
+  if (txt === T.vFlat) return 'Hold the phone upright with the top facing up.';
+  if (txt === T.vRetryWrist) return 'Keep your wrist straight and try again.';
+  if (txt === T.vRetryUncertain) return 'The movement was unclear. Please try again.';
+  if (txt === T.vFinalOk) return 'Both arms are complete.';
+  if (txt === T.vFinalBad) return 'Possible arm drift. Follow the instruction on the screen.';
+  return 'Please follow the instruction on the screen.';
+}
+
+function armSpeechPlan(txt, requestedLang) {
+  const voices = speechSynthesis.getVoices?.() || [];
+  const requested = String(requestedLang || 'th-TH');
+  const short = requested.toLowerCase().split('-')[0];
+  const same = voices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
+  if (short === 'th' && voices.length > 0 && same.length === 0) {
+    const enVoice = voices.find(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith('en'));
+    if (enVoice) return {text:armEnglishFallbackText(txt),lang:enVoice.lang || 'en-US',voice:enVoice,deliveryMode:'english_fallback'};
+    return {text:'',lang:requested,voice:null,deliveryMode:'visual_only'};
+  }
+  return {
+    text:window.QuickStrokeI18n?.prepareSpeechText?.(txt, requested) ?? txt,
+    lang:requested,
+    voice:same[0] || null,
+    deliveryMode:'native_tts'
+  };
 }
 
 function setArmTtsStatus(status) {
@@ -2179,24 +2215,29 @@ function primeSpeechEngine() {
   const voices = synth.getVoices?.() || [];
   const short = String(lang).toLowerCase().split('-')[0];
   const matching = voices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
+  const seed =
+    T?.code?.startsWith('th') ? 'เริ่ม' :
+    T?.code?.startsWith('ja') ? '開始' :
+    'start';
+  const plan = armSpeechPlan(seed, lang);
   reportArmTts(
     'TTS_READINESS','prime',matching.length ? 'available' : 'no_matching_voice',
-    lang,undefined,'arm-prime-readiness'
+    lang,undefined,'arm-prime-readiness',plan.deliveryMode,plan.lang
   );
   setArmTtsStatus('priming');
 
-  return new Promise(resolve => {
-    const seed =
-      T?.code?.startsWith('th') ? 'เริ่ม' :
-      T?.code?.startsWith('ja') ? '開始' :
-      'start';
+  if (plan.deliveryMode === 'visual_only') {
+    _speechPrimed = true;
+    setArmTtsStatus('visual-only');
+    return Promise.resolve();
+  }
 
-    const u = new SpeechSynthesisUtterance(seed);
-    u.lang = lang;
+  return new Promise(resolve => {
+    const u = new SpeechSynthesisUtterance(plan.deliveryMode === 'english_fallback' ? 'start' : seed);
+    u.lang = plan.lang;
     u.rate = 1;
     u.volume = 0.01;
-    const voice = matchingSpeechVoice(u.lang);
-    if (voice) u.voice = voice;
+    if (plan.voice) u.voice = plan.voice;
 
     let completed = false;
     const done = () => {
@@ -2278,19 +2319,23 @@ function _drainQueue() {
     attempt += 1;
     const token = ++attemptToken;
     let started = false;
-    const spokenText = window.QuickStrokeI18n?.prepareSpeechText?.(txt, lang) ?? txt;
-    const u = new SpeechSynthesisUtterance(spokenText);
-    u.lang = lang;
+    const plan = armSpeechPlan(txt, lang);
+    if (plan.deliveryMode === 'visual_only') {
+      reportArmTts('TTS_UNAVAILABLE','prompt','unsupported',lang,'no_fallback_voice','arm-prompt-visual-only','visual_only',lang);
+      finish('visual-only');
+      return;
+    }
+    const u = new SpeechSynthesisUtterance(plan.text);
+    u.lang = plan.lang;
     u.rate = 0.93;
     u.volume = 1;
-    const voice = matchingSpeechVoice(u.lang);
-    if (voice) u.voice = voice;
+    if (plan.voice) u.voice = plan.voice;
 
     u.onstart = () => {
       if (finished || token !== attemptToken) return;
       started = true;
       setArmTtsStatus(`speaking-${attempt}`);
-      reportArmTts('TTS_PLAYBACK_STARTED','prompt','started',lang,undefined,'arm-prompt-started');
+      reportArmTts('TTS_PLAYBACK_STARTED','prompt','started',lang,undefined,'arm-prompt-started-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
     };
 
     u.onend = () => {
@@ -2307,7 +2352,7 @@ function _drainQueue() {
       } else {
         armLastRuntimeError = `TTS: ${code}`;
         const safeCode=String(code).replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,64);
-        reportArmTts('TTS_ERROR','prompt','error',lang,safeCode,'arm-prompt-error-'+safeCode);
+        reportArmTts('TTS_ERROR','prompt','error',lang,safeCode,'arm-prompt-error-'+safeCode+'-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
         finish(`error-${code}`);
       }
     };
@@ -2331,7 +2376,7 @@ function _drainQueue() {
         try { synth.cancel(); synth.resume(); } catch (_) {}
         setTimeout(launch, 280);
       } else {
-        reportArmTts('TTS_NO_START','prompt','no_start',lang,undefined,'arm-prompt-no-start');
+        reportArmTts('TTS_NO_START','prompt','no_start',lang,undefined,'arm-prompt-no-start-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
         finish('no-start');
       }
     }, 900);
