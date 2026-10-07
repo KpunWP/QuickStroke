@@ -27,7 +27,7 @@ const evt=sanitizeEvent({
     }
   }
 });
-assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.5.0");
+assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.6.0");
 assert.deepEqual(evt.payload.tts,{
   stage:"prompt",
   status:"no_start",
