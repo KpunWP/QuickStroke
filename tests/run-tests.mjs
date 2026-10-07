@@ -232,11 +232,15 @@ test('TTS readiness telemetry is bounded and visual fallbacks remain present', (
   assert.match(arm, /\$\('cd-num'\)\.textContent/);
   assert.match(speech, /reportSpeechTts\('TTS_NO_START'/);
   assert.match(speech, /\$\('hint-text'\)\.textContent\s*=\s*T\.speakNowPrompt/);
-  assert.match(remote, /english_fallback/);
-  assert.match(ingest, /english_fallback/);
+  assert.match(face, /english_fallback/);
   assert.match(face, /Face forward and keep still/);
+  assert.match(arm, /english_fallback/);
   assert.match(arm, /Start\. Close your eyes and keep your arm still/);
+  assert.match(speech, /english_fallback/);
   assert.match(speech, /You may start speaking/);
+  const result = fs.readFileSync(path.join(ROOT, 'result.html'), 'utf8');
+  assert.match(result, /jssfCompletionSpeechPlan/);
+  assert.match(result, /Test complete\. Thank you\./);
 });
 
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {
