@@ -23,9 +23,7 @@ const evt=sanitizeEvent({
       errorCode:"no_start",
       voiceNames:["FORBIDDEN"],
       userAgent:"FORBIDDEN",
-      promptText:"FORBIDDEN_PROMPT",
-      deliveryMode:"english_fallback",
-      spokenLang:"en-US"
+      promptText:"FORBIDDEN_PROMPT"
     }
   }
 });
@@ -34,8 +32,7 @@ assert.deepEqual(evt.payload.tts,{
   stage:"prompt",
   status:"no_start",
   lang:"th-TH",
-  deliveryMode:"english_fallback",
-  spokenLang:"en-US",
+
   synthesisAvailable:true,
   voiceCount:12,
   matchingVoiceCount:0,
@@ -60,6 +57,7 @@ const arm=fs.readFileSync(path.join(ROOT,"arm-test.html"),"utf8");
 const speech=fs.readFileSync(path.join(ROOT,"speech-test.html"),"utf8");
 const consent=fs.readFileSync(path.join(ROOT,"jssf-consent.html"),"utf8");
 const sw=fs.readFileSync(path.join(ROOT,"service-worker.js"),"utf8");
+const result=fs.readFileSync(path.join(ROOT,"result.html"),"utf8");
 
 assert.match(remote,/SamsungBrowser/);
 assert.match(remote,/samsung_internet/);
@@ -81,10 +79,8 @@ assert.match(arm,/english_fallback/);
 assert.match(arm,/Start\. Close your eyes and keep your arm still/);
 assert.match(speech,/english_fallback/);
 assert.match(speech,/You may start speaking/);
-const result=fs.readFileSync(path.join(ROOT,"result.html"),"utf8");
 assert.match(result,/jssfCompletionSpeechPlan/);
-assert.match(result,/Test complete\. Thank you\./);
-assert.match(sw,/url\.pathname === "\/config\.js"/);
+assert.match(result,/Test complete\. Thank you\./);\nassert.match(sw,/url\.pathname === "\/config\.js"/);
 assert.match(sw,/cache: "no-cache"/);
 assert.match(result,/english_fallback/);
 assert.match(result,/Test complete\. Thank you\./);
