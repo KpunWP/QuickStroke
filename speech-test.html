@@ -1210,14 +1210,35 @@ function speechCueText() {
 }
 
 let speechCuePrimed = false;
+const speechTtsTelemetrySent = new Set();
+
+function reportSpeechTts(code, stage, status, lang, errorCode, onceKey) {
+  const key = onceKey || [code,stage,status,errorCode||''].join(':');
+  if (speechTtsTelemetrySent.has(key)) return;
+  speechTtsTelemetrySent.add(key);
+  void window.QuickStrokeJssfRemote?.queueTtsTelemetry?.(
+    'speech', code, stage, status, lang, errorCode, key
+  )?.catch?.(()=>{});
+}
 
 function primeSpeechCue() {
-  if (speechCuePrimed || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') return;
+  const lang = T?.langCode || document.documentElement.lang || 'th-TH';
+  if (speechCuePrimed) return;
+  if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+    reportSpeechTts('TTS_UNAVAILABLE','prime','unsupported',lang,undefined,'speech-prime-unsupported');
+    return;
+  }
   try {
     const synth = window.speechSynthesis;
     synth.cancel();
     synth.resume?.();
-    const lang = T?.langCode || document.documentElement.lang || 'th-TH';
+    const voices = synth.getVoices?.() || [];
+    const short = String(lang).toLowerCase().split('-')[0];
+    const matching = voices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
+    reportSpeechTts(
+      'TTS_READINESS','prime',matching.length ? 'available' : 'no_matching_voice',
+      lang,undefined,'speech-prime-readiness'
+    );
     const seed = String(lang).toLowerCase().startsWith('th') ? 'เริ่ม' : 'start';
     const utterance = new SpeechSynthesisUtterance(seed);
     utterance.lang = lang;
@@ -1225,12 +1246,16 @@ function primeSpeechCue() {
     utterance.volume = 0.01;
     synth.speak(utterance);
     speechCuePrimed = true;
-  } catch (error) {}
+  } catch (error) {
+    reportSpeechTts('TTS_ERROR','prime','error',lang,'prime_exception','speech-prime-exception');
+  }
 }
 
 function speakSpeechCue(text) {
   const value = String(text || '').trim();
+  const lang = T?.langCode || document.documentElement.lang || 'th-TH';
   if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
+    reportSpeechTts('TTS_UNAVAILABLE','ready','unsupported',lang,undefined,'speech-ready-unsupported');
     return Promise.resolve('unsupported');
   }
   return new Promise(resolve => {
@@ -1249,17 +1274,25 @@ function speakSpeechCue(text) {
       const token = ++activeToken;
       let started = false;
       const utterance = new SpeechSynthesisUtterance(
-        window.QuickStrokeI18n?.prepareSpeechText?.(value, T?.langCode || 'th-TH') ?? value
+        window.QuickStrokeI18n?.prepareSpeechText?.(value, lang) ?? value
       );
-      utterance.lang = T?.langCode || document.documentElement.lang || 'th-TH';
+      utterance.lang = lang;
       utterance.rate = 0.95;
       utterance.volume = 1;
-      utterance.onstart = () => { if (token === activeToken) started = true; };
-      utterance.onend = () => { if (token === activeToken) done('ended'); };
-      utterance.onerror = () => {
+      utterance.onstart = () => {
         if (token !== activeToken) return;
+        started = true;
+        reportSpeechTts('TTS_PLAYBACK_STARTED','ready','started',lang,undefined,'speech-ready-started');
+      };
+      utterance.onend = () => { if (token === activeToken) done('ended'); };
+      utterance.onerror = event => {
+        if (token !== activeToken) return;
+        const err=String(event?.error || 'unknown').replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,64);
         if (attempt < 2) setTimeout(launch, 220);
-        else done('error');
+        else {
+          reportSpeechTts('TTS_ERROR','ready','error',lang,err,'speech-ready-error-'+err);
+          done('error');
+        }
       };
       try {
         synth.cancel();
@@ -1267,7 +1300,10 @@ function speakSpeechCue(text) {
         synth.speak(utterance);
       } catch (error) {
         if (attempt < 2) setTimeout(launch, 220);
-        else done('exception');
+        else {
+          reportSpeechTts('TTS_ERROR','ready','error',lang,'speak_exception','speech-ready-exception');
+          done('exception');
+        }
         return;
       }
       setTimeout(() => {
@@ -1276,12 +1312,16 @@ function speakSpeechCue(text) {
           try { synth.cancel(); synth.resume?.(); } catch (error) {}
           setTimeout(launch, 220);
         } else {
+          reportSpeechTts('TTS_NO_START','ready','no_start',lang,undefined,'speech-ready-no-start');
           done('not_started');
         }
       }, 850);
     };
     launch();
-    setTimeout(() => done('timeout'), 4200);
+    setTimeout(() => {
+      if (!settled) reportSpeechTts('TTS_NO_START','ready','no_start',lang,undefined,'speech-ready-timeout');
+      done('timeout');
+    }, 4200);
   });
 }
 
