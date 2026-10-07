@@ -74,7 +74,7 @@ assert.match(arm,/\$\('cd-num'\)\.textContent/);
 assert.match(arm,/TTS_NO_START/);
 assert.match(speech,/\$\('hint-text'\)\.textContent\s*=\s*T\.speakNowPrompt/);
 assert.match(speech,/TTS_NO_START/);
-for (const html of [face,arm,speech,consent]) assert.match(html,/config\.js\?v=20261007-audio-fallback-v20/);
+for (const html of [face,arm,speech,consent,result]) assert.match(html,/config\.js\?v=20261007-audio-fallback-v20/);
 assert.match(face,/english_fallback/);
 assert.match(face,/Face forward and keep still/);
 assert.match(arm,/english_fallback/);
@@ -86,5 +86,7 @@ assert.match(result,/jssfCompletionSpeechPlan/);
 assert.match(result,/Test complete\. Thank you\./);
 assert.match(sw,/url\.pathname === "\/config\.js"/);
 assert.match(sw,/cache: "no-cache"/);
+assert.match(result,/english_fallback/);
+assert.match(result,/Test complete\. Thank you\./);
 
 console.log("PASS: bounded TTS telemetry, Thai-to-English spoken fallback, Samsung classification, and visual fallbacks");
