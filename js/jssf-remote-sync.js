@@ -5,7 +5,7 @@
 (function initQuickStrokeJssfRemote(global) {
   "use strict";
   if (global.QuickStrokeJssfRemote) return;
-  const VERSION = "jssf-remote-client-0.3.0";
+  const VERSION = "jssf-remote-client-0.4.0";
   const DB_NAME = "quickstroke_jssf_remote_outbox";
   const DB_VERSION = 1;
   const RETENTION_DAYS = 90; // Matches the deployed primary-database retention migration.
@@ -19,7 +19,7 @@
   const TECH_CODES = new Set([
     "PERMISSION_DENIED","SENSOR_UNAVAILABLE","SENSOR_STALE","PAGE_HIDDEN",
     "STORAGE_WRITE_FAILED","MODULE_RETRY_REQUESTED","MIC_PERMISSION_DENIED",
-    "CAMERA_UNAVAILABLE","TTS_UNAVAILABLE","ASR_UNAVAILABLE","OTHER_TECHNICAL_ERROR",
+    "CAMERA_UNAVAILABLE","TTS_UNAVAILABLE","TTS_READINESS","TTS_PLAYBACK_STARTED","TTS_NO_START","TTS_ERROR","ASR_UNAVAILABLE","OTHER_TECHNICAL_ERROR",
     "ASR_NO_SPEECH","ASR_AUDIO_CAPTURE","ASR_PERMISSION_OR_SERVICE_DENIED",
     "ASR_NETWORK","ASR_LANGUAGE_OR_GRAMMAR","ASR_ABORTED","ASR_NO_TRANSCRIPT","ASR_OTHER_ERROR"
   ]);
@@ -367,6 +367,7 @@
     const ua=String(agent||"");
     const patterns={
       edge:/(?:Edg|EdgA|EdgiOS)\/(\d+)/i,
+      samsung_internet:/SamsungBrowser\/(\d+)/i,
       chrome:/(?:Chrome|CriOS)\/(\d+)/i,
       firefox:/(?:Firefox|FxiOS)\/(\d+)/i,
       safari:/Version\/(\d+)/i
@@ -504,7 +505,7 @@
     }
     const agent=global.navigator?.userAgent||"";
     const platform=/iphone|ipad|ipod/i.test(agent)?"ios":/android/i.test(agent)?"android":/windows|macintosh|linux/i.test(agent)?"desktop":"other";
-    const browser=/edg|edga|edgios/i.test(agent)?"edge":/firefox|fxios/i.test(agent)?"firefox":/chrome|crios/i.test(agent)?"chrome":/safari/i.test(agent)?"safari":"other";
+    const browser=/edg|edga|edgios/i.test(agent)?"edge":/SamsungBrowser/i.test(agent)?"samsung_internet":/firefox|fxios/i.test(agent)?"firefox":/chrome|crios/i.test(agent)?"chrome":/safari/i.test(agent)?"safari":"other";
     const runtime=await collectRuntimeProvenance(platform,browser,agent);
     const res=await global.fetch(cfg.endpoint.replace(/\/$/,"")+"/enroll",{
       method:"POST",headers:{"content-type":"application/json"},
@@ -558,7 +559,39 @@
     if (!evt||record.screeningSessionId!==context().screeningSessionId) return false;
     return enqueue(evt);
   }
-  async function queueTechnicalEvent(code,module=null,relatedModuleRunId=null,dedupeSuffix="") {
+  function safeTtsTelemetry(source) {
+    if (!source || typeof source!=="object" || Array.isArray(source)) return undefined;
+    const stage=typeof source.stage==="string" && /^[a-z_]{1,32}$/.test(source.stage) ? source.stage : undefined;
+    const status=typeof source.status==="string" && /^[a-z_]{1,32}$/.test(source.status) ? source.status : undefined;
+    const lang=typeof source.lang==="string" && /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(source.lang) ? source.lang : undefined;
+    const errorCode=typeof source.errorCode==="string" && /^[A-Za-z0-9_.:-]{1,64}$/.test(source.errorCode) ? source.errorCode : undefined;
+    return {
+      stage,
+      status,
+      lang,
+      synthesisAvailable:typeof source.synthesisAvailable==="boolean" ? source.synthesisAvailable : undefined,
+      voiceCount:int(source.voiceCount,0,256),
+      matchingVoiceCount:int(source.matchingVoiceCount,0,256),
+      errorCode
+    };
+  }
+  function ttsCapabilitySnapshot(lang, stage="prompt", status="available", errorCode=undefined) {
+    const synth=global.speechSynthesis;
+    const available=Boolean(synth && typeof global.SpeechSynthesisUtterance!=="undefined");
+    let voices=[];
+    try { voices=available && typeof synth.getVoices==="function" ? (synth.getVoices()||[]) : []; } catch (_) {}
+    const wanted=String(lang||"").toLowerCase().replace("_","-");
+    const short=wanted.split("-")[0];
+    const matching=short ? voices.filter(v=>String(v?.lang||"").toLowerCase().replace("_","-").startsWith(short)) : [];
+    return safeTtsTelemetry({
+      stage,status,lang,
+      synthesisAvailable:available,
+      voiceCount:voices.length,
+      matchingVoiceCount:matching.length,
+      errorCode
+    });
+  }
+  async function queueTechnicalEvent(code,module=null,relatedModuleRunId=null,dedupeSuffix="",detail=undefined) {
     if (!canSync() || !TECH_CODES.has(code)) return false;
     const safeModule = module===null ? null : (MODULE.has(module) ? module : null);
     const related = relatedModuleRunId ? safeId(relatedModuleRunId) : null;
@@ -571,10 +604,16 @@
       occurredAt:new Date().toISOString(),
       payload:{
         code,
-        relatedModuleRunId:related || undefined
+        relatedModuleRunId:related || undefined,
+        tts:safeTtsTelemetry(detail?.tts)
       },
       dedupeKey:["technical",code,related || "session",suffix].filter(Boolean).join(":")
     });
+  }
+  async function queueTtsTelemetry(module, code, stage, status, lang, errorCode=undefined, dedupeSuffix="") {
+    const safeCode=TECH_CODES.has(code) ? code : "TTS_ERROR";
+    const tts=ttsCapabilitySnapshot(lang,stage,status,errorCode);
+    return queueTechnicalEvent(safeCode,module,null,dedupeSuffix,{tts});
   }
   async function pending(remoteSessionId) {
     const db=await openOutbox(),tx=db.transaction("queue","readonly");
@@ -853,7 +892,7 @@
   });
   if (global.document) global.document.addEventListener("visibilitychange",()=>{if(!global.document.hidden&&canSync())void flush().catch(()=>{});});
   const api=Object.freeze({version:VERSION,featureReady,isRemoteContext,canSync,eventFromRecord,openOutbox,enroll,activate,
-    enqueue,queueFinalized,queueTechnicalEvent,recoverCompleted,pending,flush,completeSession,
+    enqueue,queueFinalized,queueTechnicalEvent,queueTtsTelemetry,ttsCapabilitySnapshot,recoverCompleted,pending,flush,completeSession,
     hasEnrollment,listWithdrawableEnrollments,getWithdrawalDiagnostics,requestWithdrawal,resumePendingWithdrawals,purgeExpiredLocal,privacyMaintenance});
   Object.defineProperty(global,"QuickStrokeJssfRemote",{value:api,enumerable:true,configurable:false,writable:false});
   if (global.document) global.document.addEventListener("DOMContentLoaded",()=>{
