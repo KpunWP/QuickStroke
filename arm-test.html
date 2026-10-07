@@ -4379,7 +4379,9 @@ function startMeasure() {
   $('cd-prog').style.strokeDashoffset = 0;
 
   hideWarn();
-  beep(880, 0.15); vibe(120);
+  // Do not trigger haptics after MEASURE begins: Android vibration can contaminate
+  // DeviceMotion and become a false early drift peak. Keep the audible cue only.
+  beep(880, 0.15);
   speak(T.vReady);
 
   const circ = 226;
