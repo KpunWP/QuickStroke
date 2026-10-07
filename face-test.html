@@ -2104,12 +2104,12 @@ const SPEAK_LANG = FACE_LOCALE_MAP;
 let cachedVoices = [];
 let speechPrimed = false;
 const faceTtsTelemetrySent = new Set();
-function reportFaceTts(code, stage, status, lang, errorCode, onceKey, deliveryMode, spokenLang) {
+function reportFaceTts(code, stage, status, lang, errorCode, onceKey, deliveryMode) {
   const key = onceKey || [code,stage,status,errorCode||'',deliveryMode||''].join(':');
   if (faceTtsTelemetrySent.has(key)) return;
   faceTtsTelemetrySent.add(key);
   void window.QuickStrokeJssfRemote?.queueTtsTelemetry?.(
-    'face', code, stage, status, lang, errorCode, key, deliveryMode, spokenLang
+    'face', code, stage, status, lang, errorCode, key
   )?.catch?.(()=>{});
 }
 
