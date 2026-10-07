@@ -2142,12 +2142,12 @@ let _speechPrimed = false;
 let _speechSequence = 0;
 const armTtsTelemetrySent = new Set();
 
-function reportArmTts(code, stage, status, lang, errorCode, onceKey, deliveryMode, spokenLang) {
+function reportArmTts(code, stage, status, lang, errorCode, onceKey, deliveryMode) {
   const key = onceKey || [code,stage,status,errorCode||'',deliveryMode||''].join(':');
   if (armTtsTelemetrySent.has(key)) return;
   armTtsTelemetrySent.add(key);
   void window.QuickStrokeJssfRemote?.queueTtsTelemetry?.(
-    'arm', code, stage, status, lang, errorCode, key, deliveryMode, spokenLang
+    'arm', code, stage, status, lang, errorCode, key
   )?.catch?.(()=>{});
 }
 
