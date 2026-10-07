@@ -32,7 +32,7 @@ assert.match(consent,/ไม่ส่งภาพใบหน้าดิบ ว
 console.log("PASS: consent v4 explicitly discloses bounded derived Face telemetry and exclusions");
 
 assert.match(sw,/Offline-Ready Face \+ Speech Edition \(v66\)/);
-assert.match(sw,/const CACHE_NAME = "quickstroke-pwa-v84"/);
+assert.match(sw,/const CACHE_NAME = "quickstroke-pwa-v85"/);
 assert.match(sw,/\/jssf-consent\.html/);
 assert.match(sw,/\/config\.js/);
 console.log("PASS: service worker cache generation is bumped for coordinated consent/config refresh");

@@ -7,7 +7,7 @@
  * - JS / JSON / รูปภาพ: stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v84";
+const CACHE_NAME = "quickstroke-pwa-v85";
 const CACHE_PREFIX = "quickstroke-pwa-";
 
 const CORE_SHELL = [
@@ -166,6 +166,29 @@ self.addEventListener("fetch", (event) => {
     event.request.mode === "navigate" ||
     url.pathname.endsWith(".html") ||
     url.pathname === "/";
+
+  // Research provenance and consent gates must not use a stale config while online.
+  // A newly versioned HTML page may load before the new service worker takes control,
+  // so config.js is network-first as an additional integrity guard.
+  if (url.pathname === "/config.js") {
+    const freshRequest = new Request(event.request, { cache: "no-cache" });
+    event.respondWith(
+      fetchWithTimeout(freshRequest, HTML_NETWORK_TIMEOUT_MS)
+        .then(response => {
+          if (response && response.ok) {
+            const clone=response.clone();
+            event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.put(event.request,clone)));
+          }
+          return response;
+        })
+        .catch(async () => {
+          const cachedExact=await caches.match(event.request);
+          const cachedUnversioned=await caches.match("/config.js");
+          return cachedExact || cachedUnversioned || Response.error();
+        })
+    );
+    return;
+  }
 
   /*
    * HTML: network-first

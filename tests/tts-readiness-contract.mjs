@@ -52,6 +52,8 @@ const edge=fs.readFileSync(path.join(ROOT,"supabase/functions/jssf-remote-ingest
 const face=fs.readFileSync(path.join(ROOT,"face-test.html"),"utf8");
 const arm=fs.readFileSync(path.join(ROOT,"arm-test.html"),"utf8");
 const speech=fs.readFileSync(path.join(ROOT,"speech-test.html"),"utf8");
+const consent=fs.readFileSync(path.join(ROOT,"jssf-consent.html"),"utf8");
+const sw=fs.readFileSync(path.join(ROOT,"service-worker.js"),"utf8");
 
 assert.match(remote,/SamsungBrowser/);
 assert.match(remote,/samsung_internet/);
@@ -66,5 +68,8 @@ assert.match(arm,/\$\('cd-num'\)\.textContent/);
 assert.match(arm,/TTS_NO_START/);
 assert.match(speech,/\$\('hint-text'\)\.textContent\s*=\s*T\.speakNowPrompt/);
 assert.match(speech,/TTS_NO_START/);
+for (const html of [face,arm,speech,consent]) assert.match(html,/config\.js\?v=20261007-pilot-freeze-v19/);
+assert.match(sw,/url\.pathname === "\/config\.js"/);
+assert.match(sw,/cache: "no-cache"/);
 
 console.log("PASS: bounded TTS telemetry, Samsung Internet classification, and visual fallbacks");
