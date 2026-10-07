@@ -1212,13 +1212,31 @@ function speechCueText() {
 let speechCuePrimed = false;
 const speechTtsTelemetrySent = new Set();
 
-function reportSpeechTts(code, stage, status, lang, errorCode, onceKey) {
-  const key = onceKey || [code,stage,status,errorCode||''].join(':');
+function reportSpeechTts(code, stage, status, lang, errorCode, onceKey, deliveryMode, spokenLang) {
+  const key = onceKey || [code,stage,status,errorCode||'',deliveryMode||''].join(':');
   if (speechTtsTelemetrySent.has(key)) return;
   speechTtsTelemetrySent.add(key);
   void window.QuickStrokeJssfRemote?.queueTtsTelemetry?.(
-    'speech', code, stage, status, lang, errorCode, key
+    'speech', code, stage, status, lang, errorCode, key, deliveryMode, spokenLang
   )?.catch?.(()=>{});
+}
+
+function speechCuePlan(value, requestedLang) {
+  const voices = window.speechSynthesis?.getVoices?.() || [];
+  const requested = String(requestedLang || 'th-TH');
+  const short = requested.toLowerCase().split('-')[0];
+  const same = voices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
+  if (short === 'th' && voices.length > 0 && same.length === 0) {
+    const enVoice = voices.find(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith('en'));
+    if (enVoice) return {text:'You may start speaking',lang:enVoice.lang || 'en-US',voice:enVoice,deliveryMode:'english_fallback'};
+    return {text:'',lang:requested,voice:null,deliveryMode:'visual_only'};
+  }
+  return {
+    text:window.QuickStrokeI18n?.prepareSpeechText?.(value, requested) ?? value,
+    lang:requested,
+    voice:same[0] || null,
+    deliveryMode:'native_tts'
+  };
 }
 
 function primeSpeechCue() {
@@ -1235,13 +1253,19 @@ function primeSpeechCue() {
     const voices = synth.getVoices?.() || [];
     const short = String(lang).toLowerCase().split('-')[0];
     const matching = voices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
+    const seed = String(lang).toLowerCase().startsWith('th') ? 'เริ่ม' : 'start';
+    const plan = speechCuePlan(seed, lang);
     reportSpeechTts(
       'TTS_READINESS','prime',matching.length ? 'available' : 'no_matching_voice',
-      lang,undefined,'speech-prime-readiness'
+      lang,undefined,'speech-prime-readiness',plan.deliveryMode,plan.lang
     );
-    const seed = String(lang).toLowerCase().startsWith('th') ? 'เริ่ม' : 'start';
-    const utterance = new SpeechSynthesisUtterance(seed);
-    utterance.lang = lang;
+    if (plan.deliveryMode === 'visual_only') {
+      speechCuePrimed = true;
+      return;
+    }
+    const utterance = new SpeechSynthesisUtterance(plan.deliveryMode === 'english_fallback' ? 'start' : seed);
+    utterance.lang = plan.lang;
+    if (plan.voice) utterance.voice = plan.voice;
     utterance.rate = 1.1;
     utterance.volume = 0.01;
     synth.speak(utterance);
@@ -1273,16 +1297,21 @@ function speakSpeechCue(text) {
       attempt += 1;
       const token = ++activeToken;
       let started = false;
-      const utterance = new SpeechSynthesisUtterance(
-        window.QuickStrokeI18n?.prepareSpeechText?.(value, lang) ?? value
-      );
-      utterance.lang = lang;
+      const plan = speechCuePlan(value, lang);
+      if (plan.deliveryMode === 'visual_only') {
+        reportSpeechTts('TTS_UNAVAILABLE','ready','unsupported',lang,'no_fallback_voice','speech-ready-visual-only','visual_only',lang);
+        done('visual_only');
+        return;
+      }
+      const utterance = new SpeechSynthesisUtterance(plan.text);
+      utterance.lang = plan.lang;
+      if (plan.voice) utterance.voice = plan.voice;
       utterance.rate = 0.95;
       utterance.volume = 1;
       utterance.onstart = () => {
         if (token !== activeToken) return;
         started = true;
-        reportSpeechTts('TTS_PLAYBACK_STARTED','ready','started',lang,undefined,'speech-ready-started');
+        reportSpeechTts('TTS_PLAYBACK_STARTED','ready','started',lang,undefined,'speech-ready-started-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
       };
       utterance.onend = () => { if (token === activeToken) done('ended'); };
       utterance.onerror = event => {
@@ -1290,7 +1319,7 @@ function speakSpeechCue(text) {
         const err=String(event?.error || 'unknown').replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,64);
         if (attempt < 2) setTimeout(launch, 220);
         else {
-          reportSpeechTts('TTS_ERROR','ready','error',lang,err,'speech-ready-error-'+err);
+          reportSpeechTts('TTS_ERROR','ready','error',lang,err,'speech-ready-error-'+err+'-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
           done('error');
         }
       };
@@ -1312,7 +1341,7 @@ function speakSpeechCue(text) {
           try { synth.cancel(); synth.resume?.(); } catch (error) {}
           setTimeout(launch, 220);
         } else {
-          reportSpeechTts('TTS_NO_START','ready','no_start',lang,undefined,'speech-ready-no-start');
+          reportSpeechTts('TTS_NO_START','ready','no_start',lang,undefined,'speech-ready-no-start-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
           done('not_started');
         }
       }, 850);
