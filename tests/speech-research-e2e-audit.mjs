@@ -127,7 +127,7 @@ const serverEvent=sanitizeEvent({
   occurredAt:browserEvent.occurredAt,
   payload:browserEvent.payload
 });
-assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.4.0");
+assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.5.0");
 assert.equal(serverEvent.payload.speechResearch.timing.durationMs,1500);
 assert.equal(serverEvent.payload.speechResearch.asr.restartCount,1);
 assert.equal(serverEvent.payload.speechResearch.phrase.alternativeSelectionPolicy,
