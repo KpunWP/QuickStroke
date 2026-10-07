@@ -61,6 +61,8 @@ jobs:
         run: node tests/arm-device-browser-hardening.mjs
       - name: Android compatibility
         run: node tests/android-compat.mjs
+      - name: TTS readiness contract
+        run: node tests/tts-readiness-contract.mjs
       - name: Arm/Speech voice cue regression
         run: node tests/voice-cue-flow.mjs
       - name: Inline script syntax
