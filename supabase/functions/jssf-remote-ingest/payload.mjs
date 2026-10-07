@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.4.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.5.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -8,7 +8,7 @@ const VALIDITIES = new Set(["valid", "invalid", "not_evaluable"]);
 const OBSERVATIONS = new Set(["no_alert", "attention", "abnormal", "indeterminate", "not_available"]);
 const QUALITY = new Set(["acceptable", "limited", "unusable", "not_assessed"]);
 const RUN_STATUSES = new Set(["completed", "aborted", "interrupted"]);
-const TECH_CODES = new Set(["PERMISSION_DENIED", "SENSOR_UNAVAILABLE", "SENSOR_STALE", "PAGE_HIDDEN", "STORAGE_WRITE_FAILED", "MODULE_RETRY_REQUESTED", "MIC_PERMISSION_DENIED", "CAMERA_UNAVAILABLE", "TTS_UNAVAILABLE", "ASR_UNAVAILABLE", "OTHER_TECHNICAL_ERROR", "ASR_NO_SPEECH", "ASR_AUDIO_CAPTURE", "ASR_PERMISSION_OR_SERVICE_DENIED", "ASR_NETWORK", "ASR_LANGUAGE_OR_GRAMMAR", "ASR_ABORTED", "ASR_NO_TRANSCRIPT", "ASR_OTHER_ERROR"]);
+const TECH_CODES = new Set(["PERMISSION_DENIED", "SENSOR_UNAVAILABLE", "SENSOR_STALE", "PAGE_HIDDEN", "STORAGE_WRITE_FAILED", "MODULE_RETRY_REQUESTED", "MIC_PERMISSION_DENIED", "CAMERA_UNAVAILABLE", "TTS_UNAVAILABLE", "TTS_READINESS", "TTS_PLAYBACK_STARTED", "TTS_NO_START", "TTS_ERROR", "ASR_UNAVAILABLE", "OTHER_TECHNICAL_ERROR", "ASR_NO_SPEECH", "ASR_AUDIO_CAPTURE", "ASR_PERMISSION_OR_SERVICE_DENIED", "ASR_NETWORK", "ASR_LANGUAGE_OR_GRAMMAR", "ASR_ABORTED", "ASR_NO_TRANSCRIPT", "ASR_OTHER_ERROR"]);
 
 function object(value) { return value && typeof value === "object" && !Array.isArray(value); }
 function optionalEnum(value, allowed, key) {
@@ -90,6 +90,26 @@ function sanitizeFaceResearch(source) {
     },
     validityStatus:optionalEnum(source.validityStatus,VALIDITIES,"faceResearchValidity"),
     privacy:{rawImagesStored:false,rawFramesIncluded:false,rawLandmarksIncluded:false}
+  };
+}
+function sanitizeTtsTelemetry(source) {
+  if (source == null) return undefined;
+  if (!object(source)) throw new TypeError("Invalid tts telemetry");
+  const stages=new Set(["prime","prompt","ready","warning","measurement"]);
+  const statuses=new Set(["available","started","ended","no_start","error","unsupported","no_matching_voice"]);
+  const bool=(value,key)=>{
+    if (value == null) return undefined;
+    if (typeof value!=="boolean") throw new TypeError("Invalid "+key);
+    return value;
+  };
+  return {
+    stage:optionalEnum(source.stage,stages,"ttsStage"),
+    status:optionalEnum(source.status,statuses,"ttsStatus"),
+    lang:optionalString(source.lang,24,"ttsLang"),
+    synthesisAvailable:bool(source.synthesisAvailable,"ttsSynthesisAvailable"),
+    voiceCount:source.voiceCount==null?undefined:intInRange(source.voiceCount,0,256,"ttsVoiceCount"),
+    matchingVoiceCount:source.matchingVoiceCount==null?undefined:intInRange(source.matchingVoiceCount,0,256,"ttsMatchingVoiceCount"),
+    errorCode:optionalString(source.errorCode,64,"ttsErrorCode")
   };
 }
 function sanitizeArmResearch(source) {
@@ -319,7 +339,11 @@ function payloadFor(type, source, module = null) {
   }
   if (type === "technical_event") {
     if (!TECH_CODES.has(source.code)) throw new TypeError("Unrecognized technical event");
-    return { code: source.code, relatedModuleRunId: source.relatedModuleRunId ? identifier(source.relatedModuleRunId, "relatedModuleRunId") : undefined };
+    return {
+      code: source.code,
+      relatedModuleRunId: source.relatedModuleRunId ? identifier(source.relatedModuleRunId, "relatedModuleRunId") : undefined,
+      tts:sanitizeTtsTelemetry(source.tts)
+    };
   }
   const completed = source.completedModules;
   if (!Array.isArray(completed) || completed.length > 3 || completed.some(x => !MODULES.has(x)) || new Set(completed).size !== completed.length) {
