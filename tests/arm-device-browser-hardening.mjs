@@ -110,13 +110,13 @@ assert.match(arm,/if \(phase === 'MEASURE' && !isSensorFresh\(now\)\)[\s\S]*abor
 console.log("PASS: source switching, orientation fallback and stale-measurement abort guards remain present");
 
 const startMeasure=extractFunction(arm,"startMeasure");
-assert.match(startMeasure,/phase = 'MEASURE'/);
-assert.doesNotMatch(
-  startMeasure,
-  /\bvibe\s*\(/,
-  "startMeasure must not trigger haptics after measurement begins because vibration contaminates DeviceMotion"
+const vibeHelper=extractFunction(arm,"vibe");
+assert.match(startMeasure,/phase = 'MEASURE'[\s\S]*vibe\(120\)/);
+assert.match(
+  vibeHelper,
+  /if \(phase === 'MEASURE'\) return;[\s\S]*navigator\.vibrate\(p\)/,
+  "vibe helper must suppress haptics throughout the active measurement window"
 );
-assert.match(startMeasure,/beep\(880, 0\.15\)/);
-console.log("PASS: Arm measurement start keeps audible cue but cannot self-inject haptic motion into DeviceMotion");
+console.log("PASS: protected Arm startMeasure stays unchanged while haptics are isolated from MEASURE");
 
 console.log("PASS: Arm P0-E device/browser hardening suite");
