@@ -109,4 +109,14 @@ assert.match(arm,/setGravityVector\(fallback, 'orientation-fallback', 1\)/);
 assert.match(arm,/if \(phase === 'MEASURE' && !isSensorFresh\(now\)\)[\s\S]*abortMeasurementForReadiness\('sensor_stale'\)/);
 console.log("PASS: source switching, orientation fallback and stale-measurement abort guards remain present");
 
+const startMeasure=extractFunction(arm,"startMeasure");
+assert.match(startMeasure,/phase = 'MEASURE'/);
+assert.doesNotMatch(
+  startMeasure,
+  /\bvibe\s*\(/,
+  "startMeasure must not trigger haptics after measurement begins because vibration contaminates DeviceMotion"
+);
+assert.match(startMeasure,/beep\(880, 0\.15\)/);
+console.log("PASS: Arm measurement start keeps audible cue but cannot self-inject haptic motion into DeviceMotion");
+
 console.log("PASS: Arm P0-E device/browser hardening suite");
