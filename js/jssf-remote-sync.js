@@ -5,7 +5,7 @@
 (function initQuickStrokeJssfRemote(global) {
   "use strict";
   if (global.QuickStrokeJssfRemote) return;
-  const VERSION = "jssf-remote-client-0.4.0";
+  const VERSION = "jssf-remote-client-0.5.0";
   const DB_NAME = "quickstroke_jssf_remote_outbox";
   const DB_VERSION = 1;
   const RETENTION_DAYS = 90; // Matches the deployed primary-database retention migration.
@@ -565,17 +565,21 @@
     const status=typeof source.status==="string" && /^[a-z_]{1,32}$/.test(source.status) ? source.status : undefined;
     const lang=typeof source.lang==="string" && /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(source.lang) ? source.lang : undefined;
     const errorCode=typeof source.errorCode==="string" && /^[A-Za-z0-9_.:-]{1,64}$/.test(source.errorCode) ? source.errorCode : undefined;
+    const deliveryMode=["native_tts","english_fallback","visual_only"].includes(source.deliveryMode) ? source.deliveryMode : undefined;
+    const spokenLang=typeof source.spokenLang==="string" && /^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(source.spokenLang) ? source.spokenLang : undefined;
     return {
       stage,
       status,
       lang,
+      deliveryMode,
+      spokenLang,
       synthesisAvailable:typeof source.synthesisAvailable==="boolean" ? source.synthesisAvailable : undefined,
       voiceCount:int(source.voiceCount,0,256),
       matchingVoiceCount:int(source.matchingVoiceCount,0,256),
       errorCode
     };
   }
-  function ttsCapabilitySnapshot(lang, stage="prompt", status="available", errorCode=undefined) {
+  function ttsCapabilitySnapshot(lang, stage="prompt", status="available", errorCode=undefined, deliveryMode=undefined, spokenLang=undefined) {
     const synth=global.speechSynthesis;
     const available=Boolean(synth && typeof global.SpeechSynthesisUtterance!=="undefined");
     let voices=[];
@@ -584,7 +588,7 @@
     const short=wanted.split("-")[0];
     const matching=short ? voices.filter(v=>String(v?.lang||"").toLowerCase().replace("_","-").startsWith(short)) : [];
     return safeTtsTelemetry({
-      stage,status,lang,
+      stage,status,lang,deliveryMode,spokenLang,
       synthesisAvailable:available,
       voiceCount:voices.length,
       matchingVoiceCount:matching.length,
@@ -610,9 +614,9 @@
       dedupeKey:["technical",code,related || "session",suffix].filter(Boolean).join(":")
     });
   }
-  async function queueTtsTelemetry(module, code, stage, status, lang, errorCode=undefined, dedupeSuffix="") {
+  async function queueTtsTelemetry(module, code, stage, status, lang, errorCode=undefined, dedupeSuffix="", deliveryMode=undefined, spokenLang=undefined) {
     const safeCode=TECH_CODES.has(code) ? code : "TTS_ERROR";
-    const tts=ttsCapabilitySnapshot(lang,stage,status,errorCode);
+    const tts=ttsCapabilitySnapshot(lang,stage,status,errorCode,deliveryMode,spokenLang);
     return queueTechnicalEvent(safeCode,module,null,dedupeSuffix,{tts});
   }
   async function pending(remoteSessionId) {
