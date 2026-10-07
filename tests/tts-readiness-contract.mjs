@@ -22,15 +22,20 @@ const evt=sanitizeEvent({
       matchingVoiceCount:0,
       errorCode:"no_start",
       voiceNames:["FORBIDDEN"],
-      userAgent:"FORBIDDEN"
+      userAgent:"FORBIDDEN",
+      promptText:"FORBIDDEN_PROMPT",
+      deliveryMode:"english_fallback",
+      spokenLang:"en-US"
     }
   }
 });
-assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.5.0");
+assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.6.0");
 assert.deepEqual(evt.payload.tts,{
   stage:"prompt",
   status:"no_start",
   lang:"th-TH",
+  deliveryMode:"english_fallback",
+  spokenLang:"en-US",
   synthesisAvailable:true,
   voiceCount:12,
   matchingVoiceCount:0,
@@ -38,6 +43,7 @@ assert.deepEqual(evt.payload.tts,{
 });
 assert.ok(!JSON.stringify(evt).includes("voiceNames"));
 assert.ok(!JSON.stringify(evt).includes("userAgent"));
+assert.ok(!JSON.stringify(evt).includes("FORBIDDEN_PROMPT"));
 
 assert.throws(()=>sanitizeEvent({
   eventId:"123e4567-e89b-42d3-a456-426614174001",
@@ -68,8 +74,17 @@ assert.match(arm,/\$\('cd-num'\)\.textContent/);
 assert.match(arm,/TTS_NO_START/);
 assert.match(speech,/\$\('hint-text'\)\.textContent\s*=\s*T\.speakNowPrompt/);
 assert.match(speech,/TTS_NO_START/);
-for (const html of [face,arm,speech,consent]) assert.match(html,/config\.js\?v=20261007-pilot-freeze-v19/);
+for (const html of [face,arm,speech,consent]) assert.match(html,/config\.js\?v=20261007-audio-fallback-v20/);
+assert.match(face,/english_fallback/);
+assert.match(face,/Face forward and keep still/);
+assert.match(arm,/english_fallback/);
+assert.match(arm,/Start\. Close your eyes and keep your arm still/);
+assert.match(speech,/english_fallback/);
+assert.match(speech,/You may start speaking/);
+const result=fs.readFileSync(path.join(ROOT,"result.html"),"utf8");
+assert.match(result,/jssfCompletionSpeechPlan/);
+assert.match(result,/Test complete\. Thank you\./);
 assert.match(sw,/url\.pathname === "\/config\.js"/);
 assert.match(sw,/cache: "no-cache"/);
 
-console.log("PASS: bounded TTS telemetry, Samsung Internet classification, and visual fallbacks");
+console.log("PASS: bounded TTS telemetry, Thai-to-English spoken fallback, Samsung classification, and visual fallbacks");

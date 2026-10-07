@@ -874,13 +874,13 @@
    .export-button{border:1.5px solid var(--line);background:#fff;color:var(--ink);flex:1 1 150px}
    .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
   </style>
-  <script src="config.js?v=20261007-pilot-freeze-v19">
+  <script src="config.js?v=20261007-audio-fallback-v20">
   </script>
   <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
   <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
-<script src="./js/jssf-remote-sync.js?v=20261007-tts-readiness-v1"></script>
+<script src="./js/jssf-remote-sync.js?v=20261007-audio-fallback-v2"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
   <script src="./js/languages.js?v=20260717-lang-v1"></script>
   <script src="./js/i18n.js">
@@ -2708,6 +2708,21 @@
        null;
    }
 
+   function jssfCompletionSpeechPlan(copy) {
+     const voices = window.speechSynthesis?.getVoices?.() || [];
+     const requested = String(copy?.lang || 'th-TH');
+     const short = requested.toLowerCase().split('-')[0];
+     const nativeVoice = voices.find(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short)) || null;
+     if (short === 'th' && voices.length > 0 && !nativeVoice) {
+       const enVoice = voices.find(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith('en')) || null;
+       if (enVoice) {
+         return { text:'Test complete. Thank you.', lang:enVoice.lang || 'en-US', voice:enVoice, deliveryMode:'english_fallback' };
+       }
+       return { text:'', lang:requested, voice:null, deliveryMode:'visual_only' };
+     }
+     return { text:copy.done, lang:requested, voice:nativeVoice, deliveryMode:'native_tts' };
+   }
+
    function prepareJssfPlaybackAudioSession() {
      try {
        if (navigator.audioSession && 'type' in navigator.audioSession) {
@@ -2722,13 +2737,19 @@
      try {
        prepareJssfPlaybackAudioSession();
        const copy = jssfSpeechLocale();
-       const seed = LANG === 'ja' ? '終了' : LANG === 'en' ? 'done' : 'จบ';
+       const plan = jssfCompletionSpeechPlan(copy);
+       if (plan.deliveryMode === 'visual_only') {
+         JSSF_SPEECH_PRIMED = false;
+         return;
+       }
+       const seed = plan.deliveryMode === 'english_fallback'
+         ? 'done'
+         : (LANG === 'ja' ? '終了' : LANG === 'en' ? 'done' : 'จบ');
        const utterance = new SpeechSynthesisUtterance(seed);
-       utterance.lang = copy.lang;
+       utterance.lang = plan.lang;
        utterance.rate = 1;
        utterance.volume = 0.01;
-       const voice = jssfMatchingSpeechVoice(copy.lang);
-       if (voice) utterance.voice = voice;
+       if (plan.voice) utterance.voice = plan.voice;
        utterance.onstart = () => { JSSF_SPEECH_PRIMED = true; };
        utterance.onerror = (event) => {
          JSSF_SPEECH_PRIMED = false;
@@ -2749,12 +2770,13 @@
      if (sessionStorage.getItem(key) === '1') return;
      try {
        const copy = jssfSpeechLocale();
-       const utterance = new SpeechSynthesisUtterance(copy.done);
-       utterance.lang = copy.lang;
+       const plan = jssfCompletionSpeechPlan(copy);
+       if (plan.deliveryMode === 'visual_only') return;
+       const utterance = new SpeechSynthesisUtterance(plan.text);
+       utterance.lang = plan.lang;
        utterance.rate = 0.93;
        utterance.volume = 1;
-       const voice = jssfMatchingSpeechVoice(copy.lang);
-       if (voice) utterance.voice = voice;
+       if (plan.voice) utterance.voice = plan.voice;
        utterance.onstart = () => {
          sessionStorage.setItem(key, '1');
          JSSF_SPEECH_PRIMED = true;
