@@ -1212,12 +1212,12 @@ function speechCueText() {
 let speechCuePrimed = false;
 const speechTtsTelemetrySent = new Set();
 
-function reportSpeechTts(code, stage, status, lang, errorCode, onceKey, deliveryMode, spokenLang) {
+function reportSpeechTts(code, stage, status, lang, errorCode, onceKey, deliveryMode) {
   const key = onceKey || [code,stage,status,errorCode||'',deliveryMode||''].join(':');
   if (speechTtsTelemetrySent.has(key)) return;
   speechTtsTelemetrySent.add(key);
   void window.QuickStrokeJssfRemote?.queueTtsTelemetry?.(
-    'speech', code, stage, status, lang, errorCode, key, deliveryMode, spokenLang
+    'speech', code, stage, status, lang, errorCode, key
   )?.catch?.(()=>{});
 }
 
