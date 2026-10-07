@@ -12,6 +12,7 @@ on:
       - cleanup/remove-passive-arm-confirmation-cue-20261006
       - copy/result-thai-wording-20261006
       - research/face-remote-telemetry
+      - fix/android-tts-readiness-20261007
   workflow_dispatch:
 
 permissions:
