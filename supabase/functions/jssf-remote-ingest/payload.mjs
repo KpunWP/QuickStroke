@@ -339,10 +339,11 @@ function payloadFor(type, source, module = null) {
   }
   if (type === "technical_event") {
     if (!TECH_CODES.has(source.code)) throw new TypeError("Unrecognized technical event");
+    const tts=sanitizeTtsTelemetry(source.tts);
     return {
       code: source.code,
       relatedModuleRunId: source.relatedModuleRunId ? identifier(source.relatedModuleRunId, "relatedModuleRunId") : undefined,
-      tts:sanitizeTtsTelemetry(source.tts)
+      ...(tts ? { tts } : {})
     };
   }
   const completed = source.completedModules;
