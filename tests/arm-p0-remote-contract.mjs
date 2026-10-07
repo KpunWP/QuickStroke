@@ -33,7 +33,7 @@ const event=sanitizeEvent({
   }
 });
 
-assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.5.0");
+assert.equal(CONTRACT_VERSION,"jssf-remote-ingest-0.6.0");
 assert.equal(event.payload.armResearch.protocolUnderstanding.answer,"understood");
 assert.equal(event.payload.armResearch.raiseGesture.hardGate,false);
 assert.equal(event.payload.armResearch.measurement.cutoffs.length,7);
