@@ -2527,7 +2527,13 @@ function beep(freq, dur) {
     osc.start(); osc.stop(audioCtx.currentTime + dur);
   } catch(e){}
 }
-function vibe(p) { if (navigator.vibrate) navigator.vibrate(p); }
+function vibe(p) {
+  // Never inject haptic motion while DeviceMotion is part of the active Arm
+  // measurement window. This preserves the protected measurement function while
+  // preventing Android vibration from becoming a self-generated drift peak.
+  if (phase === 'MEASURE') return;
+  if (navigator.vibrate) navigator.vibrate(p);
+}
 
 async function requestSensor(cb) {
   sensorPermissionAttempted = true;
@@ -4379,9 +4385,7 @@ function startMeasure() {
   $('cd-prog').style.strokeDashoffset = 0;
 
   hideWarn();
-  // Do not trigger haptics after MEASURE begins: Android vibration can contaminate
-  // DeviceMotion and become a false early drift peak. Keep the audible cue only.
-  beep(880, 0.15);
+  beep(880, 0.15); vibe(120);
   speak(T.vReady);
 
   const circ = 226;
