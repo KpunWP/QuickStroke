@@ -23,7 +23,9 @@ const evt=sanitizeEvent({
       errorCode:"no_start",
       voiceNames:["FORBIDDEN"],
       userAgent:"FORBIDDEN",
-      promptText:"FORBIDDEN_PROMPT"
+      promptText:"FORBIDDEN_PROMPT",
+      deliveryMode:"english_fallback",
+      spokenLang:"en-US"
     }
   }
 });
@@ -32,7 +34,8 @@ assert.deepEqual(evt.payload.tts,{
   stage:"prompt",
   status:"no_start",
   lang:"th-TH",
-
+  deliveryMode:"english_fallback",
+  spokenLang:"en-US",
   synthesisAvailable:true,
   voiceCount:12,
   matchingVoiceCount:0,
