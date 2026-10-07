@@ -1,5 +1,5 @@
 // JSSF remote usability event sanitizer. No clinical claims; no raw audio, video, transcripts or sensor streams.
-export const CONTRACT_VERSION = "jssf-remote-ingest-0.5.0";
+export const CONTRACT_VERSION = "jssf-remote-ingest-0.6.0";
 const EVENT_TYPES = new Set(["module_run_completed", "test_attempt_completed", "technical_event", "session_completed"]);
 const MODULES = new Set(["face", "arm", "speech"]);
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -106,6 +106,8 @@ function sanitizeTtsTelemetry(source) {
     stage:optionalEnum(source.stage,stages,"ttsStage"),
     status:optionalEnum(source.status,statuses,"ttsStatus"),
     lang:optionalString(source.lang,24,"ttsLang"),
+    deliveryMode:optionalEnum(source.deliveryMode,new Set(["native_tts","english_fallback","visual_only"]),"ttsDeliveryMode"),
+    spokenLang:optionalString(source.spokenLang,24,"ttsSpokenLang"),
     synthesisAvailable:bool(source.synthesisAvailable,"ttsSynthesisAvailable"),
     voiceCount:source.voiceCount==null?undefined:intInRange(source.voiceCount,0,256,"ttsVoiceCount"),
     matchingVoiceCount:source.matchingVoiceCount==null?undefined:intInRange(source.matchingVoiceCount,0,256,"ttsMatchingVoiceCount"),
