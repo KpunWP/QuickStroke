@@ -2134,11 +2134,9 @@ function faceSpeechPlan(txt, requestedLang) {
   const requested = String(requestedLang || 'th-TH');
   const short = requested.toLowerCase().split('-')[0];
   const same = cachedVoices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
-  if (short === 'th' && cachedVoices.length > 0 && same.length === 0) {
-    const enVoice = cachedVoices.find(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith('en'));
-    if (enVoice) {
-      return {text:faceEnglishFallbackText(txt),lang:enVoice.lang || 'en-US',voice:enVoice,deliveryMode:'english_fallback'};
-    }
+  // JSSF protocol language must stay Thai. If the device exposes no Thai voice,
+  // fail over to the visible Thai instruction instead of speaking English.
+  if (short === 'th' && same.length === 0) {
     return {text:'',lang:requested,voice:null,deliveryMode:'visual_only'};
   }
   return {
@@ -2179,7 +2177,7 @@ function primeSpeech(){
     // ใช้เสียงสั้นมากและเบามากใน user gesture เพื่อให้ prompt แรกหลังจากนั้นพูดได้จริง
     speechSynthesis.cancel();
     speechSynthesis.resume?.();
-    const u = new SpeechSynthesisUtterance(plan.deliveryMode === 'english_fallback' ? 'start' : 'เริ่ม');
+    const u = new SpeechSynthesisUtterance('เริ่ม');
     u.lang = plan.lang;
     if (plan.voice) u.voice = plan.voice;
     u.volume = 0.01;
