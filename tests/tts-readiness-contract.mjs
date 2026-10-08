@@ -24,8 +24,8 @@ const evt=sanitizeEvent({
       voiceNames:["FORBIDDEN"],
       userAgent:"FORBIDDEN",
       promptText:"FORBIDDEN_PROMPT",
-      deliveryMode:"english_fallback",
-      spokenLang:"en-US"
+      deliveryMode:"visual_only",
+      spokenLang:"th-TH"
     }
   }
 });
@@ -34,8 +34,8 @@ assert.deepEqual(evt.payload.tts,{
   stage:"prompt",
   status:"no_start",
   lang:"th-TH",
-  deliveryMode:"english_fallback",
-  spokenLang:"en-US",
+  deliveryMode:"visual_only",
+  spokenLang:"th-TH",
   synthesisAvailable:true,
   voiceCount:12,
   matchingVoiceCount:0,
@@ -75,16 +75,16 @@ assert.match(arm,/TTS_NO_START/);
 assert.match(speech,/\$\('hint-text'\)\.textContent\s*=\s*T\.speakNowPrompt/);
 assert.match(speech,/TTS_NO_START/);
 for (const html of [face,arm,speech,consent]) assert.match(html,/config\.js\?v=20261007-audio-fallback-v20/);
-assert.match(face,/english_fallback/);
-assert.match(face,/Face forward and keep still/);
-assert.match(arm,/english_fallback/);
-assert.match(arm,/Start\. Close your eyes and keep your arm still/);
-assert.match(speech,/english_fallback/);
-assert.match(speech,/You may start speaking/);
 const result=fs.readFileSync(path.join(ROOT,"result.html"),"utf8");
+for (const html of [face,arm,speech,result]) {
+  assert.doesNotMatch(html,/deliveryMode:'english_fallback'/);
+}
+assert.match(face,/deliveryMode:'visual_only'/);
+assert.match(arm,/deliveryMode:'visual_only'/);
+assert.match(speech,/deliveryMode:'visual_only'/);
 assert.match(result,/jssfCompletionSpeechPlan/);
-assert.match(result,/Test complete\. Thank you\./);
+assert.match(result,/deliveryMode:'visual_only'/);
 assert.match(sw,/url\.pathname === "\/config\.js"/);
 assert.match(sw,/cache: "no-cache"/);
 
-console.log("PASS: bounded TTS telemetry, Thai-to-English spoken fallback, Samsung classification, and visual fallbacks");
+console.log("PASS: bounded TTS telemetry, Thai protocol never falls back to spoken English, Samsung classification, and visual fallback");
