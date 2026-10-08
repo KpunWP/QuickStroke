@@ -6,7 +6,7 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261007-audio-fallback-v20"/);
+assert.match(config,/buildId:\s*"20261008-jssf-p0-arm-speech-thai-v21"/);
 assert.match(sw,/quickstroke-pwa-v86/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);

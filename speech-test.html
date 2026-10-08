@@ -1204,9 +1204,9 @@ function setSpeechCard(key, state, main, sub, icon){
 }
 function speechCueText() {
   const lang = String(T?.langCode || document.documentElement.lang || 'th-TH').toLowerCase();
-  if (lang.startsWith('en')) return 'You may start speaking';
-  if (lang.startsWith('ja')) return '話し始めてください';
-  return 'เริ่มพูดได้';
+  if (lang.startsWith('en')) return 'Get ready. Wait for the signal before speaking.';
+  if (lang.startsWith('ja')) return '準備してください。合図のあとに話し始めてください。';
+  return 'เตรียมพูด รอเสียงสัญญาณก่อนเริ่มพูด';
 }
 
 let speechCuePrimed = false;
@@ -1226,9 +1226,10 @@ function speechCuePlan(value, requestedLang) {
   const requested = String(requestedLang || 'th-TH');
   const short = requested.toLowerCase().split('-')[0];
   const same = voices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
-  if (short === 'th' && voices.length > 0 && same.length === 0) {
-    const enVoice = voices.find(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith('en'));
-    if (enVoice) return {text:'You may start speaking',lang:enVoice.lang || 'en-US',voice:enVoice,deliveryMode:'english_fallback'};
+  // Do not change protocol language when the Android/Samsung voice list lacks Thai.
+  // The visible Thai instruction remains authoritative until a recorded-Thai
+  // fallback is bundled and validated.
+  if (short === 'th' && same.length === 0) {
     return {text:'',lang:requested,voice:null,deliveryMode:'visual_only'};
   }
   return {
@@ -1263,7 +1264,7 @@ function primeSpeechCue() {
       speechCuePrimed = true;
       return;
     }
-    const utterance = new SpeechSynthesisUtterance(plan.deliveryMode === 'english_fallback' ? 'start' : seed);
+    const utterance = new SpeechSynthesisUtterance(seed);
     utterance.lang = plan.lang;
     if (plan.voice) utterance.voice = plan.voice;
     utterance.rate = 1.1;
@@ -1522,6 +1523,7 @@ let recognitionStarted = false;
 let recognitionRunId = 0;
 let recognitionFinalTimer = null;
 let recognitionSafetyTimer = null;
+let recognitionReadyFallbackTimer = null;
 
 function asrTechnicalCode(errorCode) {
   const code=String(errorCode || "").toLowerCase();
@@ -1546,6 +1548,7 @@ function queueSpeechTechnicalDiagnostic(code) {
 function clearRecognitionTimers() {
   if (recognitionFinalTimer) { clearTimeout(recognitionFinalTimer); recognitionFinalTimer = null; }
   if (recognitionSafetyTimer) { clearTimeout(recognitionSafetyTimer); recognitionSafetyTimer = null; }
+  if (recognitionReadyFallbackTimer) { clearTimeout(recognitionReadyFallbackTimer); recognitionReadyFallbackTimer = null; }
 }
 
 const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -3267,6 +3270,28 @@ function speechTranscriptMatchesAcceptedPhrase(value) {
   return (T?.keywords || []).map(normalizeSpeechText).filter(Boolean).includes(normalized);
 }
 
+function markSpeechRecognitionReady(source = 'audio_start') {
+  if (phase !== 'RECORDING' || recordingStartedMs) return;
+  recordingStartedMs = performance.now();
+  if (recognitionReadyFallbackTimer) {
+    clearTimeout(recognitionReadyFallbackTimer);
+    recognitionReadyFallbackTimer = null;
+  }
+  $('mic-circle').className       = 'mic-circle recording speak-now';
+  $('mic-icon').textContent       = '👄';
+  $('hint-text').classList.add('speak-now');
+  $('hint-text').textContent      = T.speakNowPrompt;
+  $('action-btn').textContent     = T.btnStop || '⏹ หยุด';
+  $('action-btn').className       = 'red';
+  $('action-btn').disabled        = false;
+  $('transcript-box').textContent = T.listeningPrompt;
+  DBG('ASR READY', `source=${source} ready=${(recordingStartedMs-currentAttemptPerformanceStartedAt).toFixed(1)}ms`);
+  appendAsrObservation('capture_ready', {
+    source,
+    performanceOffsetMs: roundSpeechMetric(recordingStartedMs - currentAttemptPerformanceStartedAt, 1)
+  });
+}
+
 async function beginSpeechRecognition() {
   // รอให้ recognition เก่าหยุดและ disconnect จริงก่อนสร้าง session ใหม่
   await resetRecognitionEngine();
@@ -3287,10 +3312,17 @@ async function beginSpeechRecognition() {
     recognition.onstart = () => {
       DBG('ASR onstart', 'engine เริ่มทำงานแล้ว');
       appendAsrObservation('start');
+      if (recognitionReadyFallbackTimer) clearTimeout(recognitionReadyFallbackTimer);
+      recognitionReadyFallbackTimer = setTimeout(() => {
+        if (runId === recognitionRunId && phase === 'RECORDING' && !recordingStartedMs) {
+          markSpeechRecognitionReady('onstart_timeout_fallback');
+        }
+      }, 900);
     };
     recognition.onaudiostart = () => {
       DBG('ASR onaudiostart', '🎤 engine เริ่มรับ audio แล้ว');
       appendAsrObservation('audio_start');
+      markSpeechRecognitionReady('audio_start');
     };
     recognition.onaudioend = () => {
       DBG('ASR onaudioend', 'engine หยุดรับ audio');
@@ -3825,17 +3857,19 @@ function runLoop() {
         await sleep(cueStatus === 'ended' ? 180 : 80);
         if (phase !== 'READY_CUE') return;
 
+        // Enter the recognition phase, but do not tell the participant to speak yet.
+        // Android still has to hand the microphone from WebAudio to Web Speech.
+        // The visible "เริ่มพูดได้" state is exposed only from ASR onaudiostart.
         phase = 'RECORDING';
-        recordingStartedMs = performance.now();
-        $('mic-circle').className       = 'mic-circle recording speak-now';
-        $('mic-icon').textContent       = '👄';
-        $('hint-text').classList.add('speak-now');
-        $('hint-text').textContent      = T.speakNowPrompt;
-        $('action-btn').textContent     = T.btnStop || '⏹ หยุด';
-        $('action-btn').className       = 'red';
-        $('action-btn').disabled        = false;
-        $('transcript-box').textContent = T.listeningPrompt;
-        try { navigator.vibrate?.([70,50,70]); } catch (error) {}
+        recordingStartedMs = null;
+        $('mic-circle').className       = 'mic-circle calibrating';
+        $('mic-icon').textContent       = '🎤';
+        $('hint-text').classList.remove('speak-now');
+        $('hint-text').textContent      = T.preparePrompt;
+        $('action-btn').textContent     = T.calibrating;
+        $('action-btn').className       = '';
+        $('action-btn').disabled        = true;
+        $('transcript-box').textContent = T.preparePrompt;
 
         // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
         window.MEASURED_NOISY = false;

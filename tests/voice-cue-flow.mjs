@@ -27,25 +27,35 @@ assert.match(
 // transcript/acoustic research data.
 assert.match(speech,/READY_CUE/);
 assert.match(speech,/function speechCueText\(\)/);
-assert.match(speech,/เริ่มพูดได้/);
+assert.match(speech,/เตรียมพูด รอเสียงสัญญาณก่อนเริ่มพูด/);
 assert.match(speech,/function speakSpeechCue\(text\)/);
 assert.match(speech,/function primeSpeechCue\(\)/);
 assert.match(speech,/primeSpeechCue\(\);[\s\S]*retryStarting = true/);
 assert.match(
   speech,
-  /phase = 'READY_CUE';[\s\S]*const cueStatus = await speakSpeechCue\(speechCueText\(\)\);[\s\S]*cueStatus === 'ended' \? 180 : 80[\s\S]*phase = 'RECORDING';[\s\S]*recordingStartedMs = performance\.now\(\)/
+  /phase = 'READY_CUE';[\s\S]*const cueStatus = await speakSpeechCue\(speechCueText\(\)\);[\s\S]*cueStatus === 'ended' \? 180 : 80[\s\S]*phase = 'RECORDING';[\s\S]*recordingStartedMs = null/
+);
+assert.match(
+  speech,
+  /recognition\.onaudiostart = \(\) => \{[\s\S]*markSpeechRecognitionReady\('audio_start'\)/
+);
+assert.match(
+  speech,
+  /function markSpeechRecognitionReady\(source = 'audio_start'\)[\s\S]*recordingStartedMs = performance\.now\(\)[\s\S]*T\.speakNowPrompt/
 );
 assert.match(
   speech,
   /phase === 'CALIBRATING' \|\| phase === 'READY_CUE'[\s\S]*speechSynthesis\?\.cancel/
 );
 
-// Ensure system TTS starts before recognition and does not interrupt itself on
-// early participant speech. User audio is accepted only after the cue ends.
+// The preparation cue finishes before recognition starts. "Speak now" is not
+// exposed until SpeechRecognition confirms that the audio input is ready.
 const cueIndex=speech.indexOf("await speakSpeechCue(speechCueText())");
 const recordIndex=speech.indexOf("phase = 'RECORDING';", cueIndex);
 const asrIndex=speech.indexOf("beginSpeechRecognition()", recordIndex);
+const audioReadyIndex=speech.indexOf("markSpeechRecognitionReady('audio_start')");
 assert.ok(cueIndex>=0 && recordIndex>cueIndex && asrIndex>recordIndex);
+assert.ok(audioReadyIndex>=0);
 
 // Full-flow Face -> Arm transition navigates directly; the Arm page does not
 // attempt autoplay TTS before the participant's first Arm-page gesture.

@@ -109,4 +109,14 @@ assert.match(arm,/setGravityVector\(fallback, 'orientation-fallback', 1\)/);
 assert.match(arm,/if \(phase === 'MEASURE' && !isSensorFresh\(now\)\)[\s\S]*abortMeasurementForReadiness\('sensor_stale'\)/);
 console.log("PASS: source switching, orientation fallback and stale-measurement abort guards remain present");
 
+const startMeasure=extractFunction(arm,"startMeasure");
+const vibeHelper=extractFunction(arm,"vibe");
+assert.match(startMeasure,/phase = 'MEASURE'[\s\S]*vibe\(120\)/);
+assert.match(
+  vibeHelper,
+  /if \(phase === 'MEASURE'\) return;[\s\S]*navigator\.vibrate\(p\)/,
+  "vibe helper must suppress haptics throughout the active measurement window"
+);
+console.log("PASS: protected Arm startMeasure stays unchanged while haptics are isolated from MEASURE");
+
 console.log("PASS: Arm P0-E device/browser hardening suite");

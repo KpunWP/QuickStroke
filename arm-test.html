@@ -2174,9 +2174,9 @@ function armSpeechPlan(txt, requestedLang) {
   const requested = String(requestedLang || 'th-TH');
   const short = requested.toLowerCase().split('-')[0];
   const same = voices.filter(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short));
-  if (short === 'th' && voices.length > 0 && same.length === 0) {
-    const enVoice = voices.find(v => String(v?.lang||'').toLowerCase().replace('_','-').startsWith('en'));
-    if (enVoice) return {text:armEnglishFallbackText(txt),lang:enVoice.lang || 'en-US',voice:enVoice,deliveryMode:'english_fallback'};
+  // Keep the JSSF cue in the selected protocol language. A missing Thai
+  // system voice becomes a visible Thai cue, never an English spoken fallback.
+  if (short === 'th' && same.length === 0) {
     return {text:'',lang:requested,voice:null,deliveryMode:'visual_only'};
   }
   return {
@@ -2233,7 +2233,7 @@ function primeSpeechEngine() {
   }
 
   return new Promise(resolve => {
-    const u = new SpeechSynthesisUtterance(plan.deliveryMode === 'english_fallback' ? 'start' : seed);
+    const u = new SpeechSynthesisUtterance(seed);
     u.lang = plan.lang;
     u.rate = 1;
     u.volume = 0.01;
@@ -2527,7 +2527,13 @@ function beep(freq, dur) {
     osc.start(); osc.stop(audioCtx.currentTime + dur);
   } catch(e){}
 }
-function vibe(p) { if (navigator.vibrate) navigator.vibrate(p); }
+function vibe(p) {
+  // Never inject haptic motion while DeviceMotion is part of the active Arm
+  // measurement window. This preserves the protected measurement function while
+  // preventing Android vibration from becoming a self-generated drift peak.
+  if (phase === 'MEASURE') return;
+  if (navigator.vibrate) navigator.vibrate(p);
+}
 
 async function requestSensor(cb) {
   sensorPermissionAttempted = true;
