@@ -236,7 +236,7 @@ test('TTS readiness telemetry is bounded and visual fallbacks remain present', (
   assert.match(ingest, /english_fallback/);
   assert.match(face, /Face forward and keep still/);
   assert.match(arm, /Start\. Close your eyes and keep your arm still/);
-  assert.match(speech, /You may start speaking/);
+  assert.match(speech, /เตรียมพูด รอเสียงสัญญาณก่อนเริ่มพูด/);
 });
 
 test('Public Mode is ephemeral and has no Study ID snapshot', () => {
