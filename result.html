@@ -2729,6 +2729,7 @@
    }
 
    function primeJssfCompletionSpeech() {
+     if (window.QuickStrokeThaiRecorded?.use(LANG)) return;
      if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
      try {
        prepareJssfPlaybackAudioSession();
@@ -2759,6 +2760,11 @@
    }
 
    function speakJssfCompletionOnce(sessionId) {
+     if (sessionId && window.QuickStrokeThaiRecorded?.use(LANG)) {
+       const key = 'quickstroke_jssf_completion_spoken_'+sessionId;
+       if (sessionStorage.getItem(key)!=='1') window.QuickStrokeThaiRecorded.play('จบการทดสอบ ขอบคุณค่ะ').then(status=>{if(status==='ended')sessionStorage.setItem(key,'1');});
+       return;
+     }
      if (!sessionId || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
      const key = `quickstroke_jssf_completion_spoken_${sessionId}`;
      if (sessionStorage.getItem(key) === '1') return;
