@@ -35,7 +35,11 @@
     if(mode==='recorded') return true;
     if(mode==='tts') return false;
     const voices=window.speechSynthesis?.getVoices?.() || [];
-    return !voices.some(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'));
+    if (voices.some(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'))) return false;
+    // iOS can deliver its voice list asynchronously; keep the proven iOS TTS path.
+    if (/iPad|iPhone|iPod/i.test(navigator.userAgent||'')) return false;
+    // An absent Thai voice on Android (including Samsung) uses bundled audio.
+    return true;
   }
   function fileFor(text) { return lookup.get(norm(alias[text]||text))||null; }
   function stop() {
