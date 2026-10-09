@@ -29,6 +29,7 @@ on:
       - copy/result-thai-wording-20261006
       - research/jssf-p0-arm-speech-thai-20261008
       - research/thai-audio-ab-20261009
+      - fix/jssf-explicit-new-session-20261009
   pull_request:
     branches:
       - main
@@ -68,5 +69,7 @@ jobs:
         run: node tests/jssf-session-lifecycle-regression.mjs
       - name: Arm/Speech voice cue regression
         run: node tests/voice-cue-flow.mjs
+      - name: JSSF start-new versus resume contract
+        run: node tests/jssf-new-session-vs-resume.mjs
       - name: Inline script syntax
         run: python3 tests/check-inline-scripts.py

@@ -247,7 +247,7 @@
         : requiresExternalBrowser
           ? "กรุณากด “เปิดด้วย Safari” ก่อนเริ่มการทดสอบ"
           : "ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
-      start.textContent=resumeCandidate?"เริ่มรอบใหม่":"เริ่มการทดสอบ";
+      start.textContent=(resumeCandidate || isReusableRemoteContext(contract?.getSessionContext?.()))?"เริ่มรอบใหม่":"เริ่มการทดสอบ";
     }else{
       releaseHeading.textContent="สถานะก่อนเปิดรับสมัคร";
       consentVersionState.classList.add("pending");
@@ -400,7 +400,10 @@
     start.textContent="กำลังเริ่มการทดสอบ…";
     state.textContent="กำลังสร้างรอบการทดสอบและยืนยันการลงทะเบียน…";
     try{
-      await ensureRemoteSession({forceNew:Boolean(resumeCandidate)});
+      // Starting from Consent is always a new consented session, even if
+      // an unfinished local context exists but resume discovery missed it.
+      // Explicit resume remains available through resumeExisting().
+      await ensureRemoteSession({forceNew:true});
       await remote.enroll();
       // JSSF community testing in Thailand starts each new participant session
       // in Thai regardless of a language left over from an earlier app session.
