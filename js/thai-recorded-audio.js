@@ -6,8 +6,8 @@
   if(q==='tts'||q==='recorded') {
     try { sessionStorage.setItem(KEY,q); } catch(_) {}
   }
-  let mode='tts';
-  try { mode=sessionStorage.getItem(KEY)==='recorded'?'recorded':'tts'; } catch(_) {}
+  let mode='auto';
+  try { mode=['recorded','tts'].includes(sessionStorage.getItem(KEY)) ? sessionStorage.getItem(KEY) : 'auto'; } catch(_) {}
   const manifest={
     'หน้าตรงและอยู่นิ่ง':'face_01_rest.mp3',
     'ยิ้มกว้าง':'face_02_smile.mp3',
@@ -30,7 +30,13 @@
   const norm=s=>String(s||'').replace(/[\u200b\u200c\u200d]/g,'').replace(/\s+/g,'').replace(/[.,，。!?ฯ]/g,'').replace(/ๆ/g,'ๆ');
   const lookup=new Map(Object.entries(manifest).map(([s,f])=>[norm(s),f]));
   let player=null, active=null, token=0, unlocked=false;
-  function use(lang) { return mode==='recorded' && String(lang||'th').toLowerCase().startsWith('th'); }
+  function use(lang) {
+    if (!String(lang||'th').toLowerCase().startsWith('th')) return false;
+    if(mode==='recorded') return true;
+    if(mode==='tts') return false;
+    const voices=window.speechSynthesis?.getVoices?.() || [];
+    return !voices.some(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'));
+  }
   function fileFor(text) { return lookup.get(norm(alias[text]||text))||null; }
   function stop() {
     token++;
