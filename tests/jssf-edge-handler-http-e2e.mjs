@@ -19,6 +19,15 @@ assert.match(config,/enabled: true,[\s\S]*consentApproved: true,[\s\S]*agePolicy
 const stripped=stripTypeScriptTypes(source.replace(/^import .*;$/gm,""));
 assert.doesNotMatch(stripped,/^import /m,"Unsupported Edge import format; update local harness first");
 
+// Replay the browser CHECK contract from migrations; the old mock accepted every value.
+const migrationDir=path.join(root,"supabase/migrations");
+const browserChecks=fs.readdirSync(migrationDir).filter(x=>x.endsWith('.sql')).sort()
+  .flatMap(file=>[...fs.readFileSync(path.join(migrationDir,file),'utf8').matchAll(/CHECK\s*\(browser_family IN \(([^)]+)\)\)/g)]);
+assert.ok(browserChecks.length);
+const allowedBrowsers=new Set([...browserChecks.at(-1)[1].matchAll(/'([^']+)'/g)].map(x=>x[1]));
+const edgeBrowsers=new Set([...source.match(/const COARSE_BROWSER = new Set\(\[([^\]]+)\]/)[1].matchAll(/"([^"]+)"/g)].map(x=>x[1]));
+assert.deepEqual(allowedBrowsers,edgeBrowsers,"Edge browser values must match the migrated DB constraint");
+
 const sessions=new Map(),events=new Map();
   let syntheticRateLimit={
   allowed:true,
@@ -45,6 +54,7 @@ class Query {
   async single(){
     if(this.operation!=="insert")return this.maybeSingle();
     assert.equal(this.table,"jssf_remote_sessions");
+    if(this.input.browser_family!=null && !allowedBrowsers.has(this.input.browser_family)) return {data:null,error:{code:"23514"}};
     const id=randomUUID();
     const created_at=new Date().toISOString();
     const row={
@@ -205,6 +215,12 @@ try{
   console.log("PASS: production-style disabled gate rejects all enrollment");
 
   handler=makeHandler(true); // In-memory ONLY; deployed environment stays disabled.
+  const samsung={...enrollment,clientSessionId:'S-'+randomUUID().replaceAll('-',''),studyId:'QS-1111-2222-3333-4444-5555-6666',platformFamily:'android',deviceClass:'phone',browserFamily:'samsung_internet'};
+  const samsungResult=await request('enroll',samsung);
+  assert.equal(samsungResult.status,201,'Samsung Internet must enroll against DB browser contract');
+  assert.equal([...sessions.values()][0].browser_family,'samsung_internet');
+  sessions.clear();
+  console.log('PASS: Samsung Internet enrolls and Edge browser values match SQL migration');
 
   res=await request("enroll",enrollment,null,allowedOrigin,null);
   assert.equal(res.status,401);
