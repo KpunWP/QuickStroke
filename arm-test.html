@@ -1571,6 +1571,7 @@
   }
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
+<script src="./js/thai-recorded-audio.js?v=20261009-ab-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
@@ -2203,6 +2204,7 @@ function matchingSpeechVoice(lang) {
 }
 
 function primeSpeechEngine() {
+  if (window.QuickStrokeThaiRecorded?.use(currentLangCode())) return Promise.resolve();
   const lang = T?.code || document.documentElement.lang || 'th-TH';
   if (_speechPrimed) return Promise.resolve();
   if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
@@ -2286,6 +2288,18 @@ function _drainQueue() {
   if (_speaking || !_voiceQ.length) return;
 
   const { txt, onDone } = _voiceQ.shift();
+  if (window.QuickStrokeThaiRecorded?.use(currentLangCode())) {
+    _speaking=true;
+    const sequence=++_speechSequence;
+    window.QuickStrokeThaiRecorded.play(txt).then(status=>{
+      if(sequence!==_speechSequence)return;
+      _speaking=false;
+      setArmTtsStatus('recorded-'+status);
+      onDone?.();
+      _drainQueue();
+    });
+    return;
+  }
   const synth = window.speechSynthesis;
   const lang = T?.code || document.documentElement.lang || 'th-TH';
   if (!synth || typeof SpeechSynthesisUtterance === 'undefined') {
@@ -2394,6 +2408,7 @@ function _drainQueue() {
 }
 
 function clearVoiceQueue() {
+  window.QuickStrokeThaiRecorded?.stop();
   _voiceQ = [];
   _speaking = false;
   _speechSequence += 1;

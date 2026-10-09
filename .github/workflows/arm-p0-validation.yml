@@ -28,6 +28,10 @@ on:
       - cleanup/remove-passive-arm-confirmation-cue-20261006
       - copy/result-thai-wording-20261006
       - research/jssf-p0-arm-speech-thai-20261008
+      - research/thai-audio-ab-20261009
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

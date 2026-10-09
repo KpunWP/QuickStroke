@@ -904,6 +904,7 @@
 
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
+<script src="./js/thai-recorded-audio.js?v=20261009-ab-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
@@ -1241,6 +1242,7 @@ function speechCuePlan(value, requestedLang) {
 }
 
 function primeSpeechCue() {
+  if (window.QuickStrokeThaiRecorded?.use(T?.langCode)) return;
   const lang = T?.langCode || document.documentElement.lang || 'th-TH';
   if (speechCuePrimed) return;
   if (!window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
@@ -1278,6 +1280,7 @@ function primeSpeechCue() {
 
 function speakSpeechCue(text) {
   const value = String(text || '').trim();
+  if(window.QuickStrokeThaiRecorded?.use(T?.langCode)) return window.QuickStrokeThaiRecorded.play(value);
   const lang = T?.langCode || document.documentElement.lang || 'th-TH';
   if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
     reportSpeechTts('TTS_UNAVAILABLE','ready','unsupported',lang,undefined,'speech-ready-unsupported');
@@ -3658,6 +3661,7 @@ async function releaseCurrentAudioResources(fullRelease = !KEEP_MIC_ALIVE) {
 }
 
 function stopAll(fullRelease) {
+  window.QuickStrokeThaiRecorded?.stop();
   cleanupPromise = cleanupPromise
     .catch(() => {})
     .then(() => releaseCurrentAudioResources(fullRelease));

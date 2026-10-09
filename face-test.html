@@ -1674,6 +1674,7 @@
 
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
+<script src="./js/thai-recorded-audio.js?v=20261009-ab-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
@@ -2153,6 +2154,7 @@ loadVoices();
 // gesture. Call this from a tap handler once to unlock it, so the first real prompt
 // (which fires later, after async camera init) is actually spoken.
 function primeSpeech(){
+  if (window.QuickStrokeThaiRecorded?.use(getPreferredFaceLang())) return;
   const code = getPreferredFaceLang();
   const lang = SPEAK_LANG[code] || 'th-TH';
   if (speechPrimed) return;
@@ -2206,6 +2208,12 @@ function speakFace(txt, opts={}){
   if (!force && now - lastSpeechAt < minGap) return;
   if (!force && txt === lastSpeechText && now - lastSpeechAt < sameTextGap) return;
 
+  if (window.QuickStrokeThaiRecorded?.use(lang)) {
+    lastSpeechAt = now;
+    lastSpeechText = txt;
+    window.QuickStrokeThaiRecorded.play(txt);
+    return;
+  }
   try {
     speechSynthesis.cancel();
     speechSynthesis.resume?.();
