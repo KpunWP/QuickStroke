@@ -47,6 +47,8 @@ jobs:
         run: node tests/speech-asr-replay.mjs
       - name: Speech timing and rate replay
         run: node tests/speech-timing-rate-replay.mjs
+      - name: Speech microphone timeout recovery
+        run: node tests/speech-mic-timeout.mjs
       - name: Speech device/browser hardening
         run: node tests/speech-device-browser-hardening.mjs
       - name: Speech research E2E audit

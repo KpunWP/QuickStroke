@@ -1468,6 +1468,7 @@ const DEAD_MIC_ENERGY_MIN  = SPEECH_CFG.deadMicEnergyMin ?? 0.00001;
 const DEAD_MIC_MAX_ATTEMPT = SPEECH_CFG.deadMicMaxAttempts ?? 4;
 
 async function recoverDeadMic() {
+  const recoveryToken = audioStartToken;
   deadMicAttempt++;
   DBG('☠️ DEAD MIC', `stream เงียบสนิท — กู้คืนครั้งที่ ${deadMicAttempt}/${DEAD_MIC_MAX_ATTEMPT}`);
   phase = 'IDLE'; // หยุด runLoop รอบนี้
@@ -1516,6 +1517,7 @@ async function recoverDeadMic() {
   await stopAll(true);
   const waitMs = 1500 + deadMicAttempt * 1500; // 3s → 4.5s → 6s → 7.5s
   await sleep(waitMs);
+  if (recoveryToken !== audioStartToken || document.hidden) return;
   DBG('🔧 RECOVERY', `เริ่มรอบใหม่หลังรอ ${waitMs}ms`);
   startRecording(true);
 }
@@ -2835,13 +2837,49 @@ function scheduleResultMicRelease() {
   }, RESULT_KEEP_ALIVE_MS);
 }
 
+// Bound browser promises that may never settle on an interrupted iOS audio session.
+// A late microphone stream must be stopped, never attached to a newer attempt.
+function waitForSpeechMicStep(promise, stage, timeoutMs = 12000, token = audioStartToken) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const timer = setTimeout(() => {
+      settled = true;
+      const error = new Error('Microphone preparation timed out: ' + stage);
+      error.name = 'SpeechMicTimeoutError';
+      error.micStage = stage;
+      reject(error);
+    }, timeoutMs);
+    Promise.resolve(promise).then(value => {
+      if (settled || token !== audioStartToken) {
+        try { value?.getTracks?.().forEach(track => track.stop()); } catch (error) {}
+        if (!settled) {
+          settled = true;
+          clearTimeout(timer);
+          const error = new Error('Superseded microphone start');
+          error.name = 'AbortError';
+          reject(error);
+        }
+        return;
+      }
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    }, error => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(error);
+    });
+  });
+}
+
 async function probeExistingAudioPipeline(durationMs = REUSE_HEALTH_PROBE_MS) {
   if (!audioCtx || audioCtx.state === 'closed' || !analyser || !hasLiveAudioTrack(streamRef)) {
     return false;
   }
 
   if (audioCtx.state === 'suspended') {
-    try { await audioCtx.resume(); } catch (error) {}
+    await waitForSpeechMicStep(audioCtx.resume(), 'audio_context_resume');
   }
   if (audioCtx.state !== 'running') return false;
 
@@ -3034,7 +3072,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     audioCtx = new AudioContextClass();
     DBG('AUDIOCTX created', `state=${audioCtx.state}`);
     if (audioCtx.state === 'suspended') {
-      try { await audioCtx.resume(); } catch (error) {}
+      await waitForSpeechMicStep(audioCtx.resume(), 'audio_context_resume');
       DBG('AUDIOCTX after resume', `state=${audioCtx.state}`);
     }
 
@@ -3051,17 +3089,16 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 
       // รอบ Retry ขอ stream ใหม่จาก browser โดยตรง ไม่ใช้ stream cache ของ helper
       prepareSpeechCaptureAudioSession();
-      prepareSpeechCaptureAudioSession();
-      streamRef = await navigator.mediaDevices.getUserMedia({
+      streamRef = await waitForSpeechMicStep(navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: false,
           autoGainControl: false
         }
-      });
+      }), 'get_user_media', 30000, startToken);
       captureSpeechMicrophoneRuntime(streamRef, 'direct_get_user_media');
     } else {
-      streamRef = await acquireFreshMicStream(permLang);
+      streamRef = await waitForSpeechMicStep(acquireFreshMicStream(permLang), 'acquire_microphone', 30000, startToken);
     }
 
     if (startToken !== audioStartToken) {
@@ -3089,13 +3126,13 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
       await sleep(600); // เว้นจังหวะให้ OS ปล่อย mic ก่อนขอใหม่
 
       prepareSpeechCaptureAudioSession();
-      streamRef = await navigator.mediaDevices.getUserMedia({
+      streamRef = await waitForSpeechMicStep(navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
           noiseSuppression: false,
           autoGainControl: false
         }
-      });
+      }), 'get_user_media_retry', 30000, startToken);
       captureSpeechMicrophoneRuntime(streamRef, `direct_get_user_media_track_retry_${retry + 1}`);
       DBG_TRACK(`STREAM retry ${retry + 1}`, streamRef);
 
@@ -3115,7 +3152,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 
     // resume ซ้ำหลังได้ stream เผื่อ browser suspend ระหว่าง permission request
     if (audioCtx.state === 'suspended') {
-      try { await audioCtx.resume(); } catch (error) {}
+      await waitForSpeechMicStep(audioCtx.resume(), 'audio_context_resume');
     }
 
     analyser = audioCtx.createAnalyser();
@@ -3135,6 +3172,8 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
   } catch (err) {
     DBG('❌ START ERROR', err.name, err.message);
     if (startToken !== audioStartToken) return;
+    try { preauthorizedStream?.getTracks?.().forEach(track => track.stop()); } catch (error) {}
+    preauthorizedStream = null;
     await stopAll(true);
     if (startToken !== audioStartToken) return;
 
@@ -3145,8 +3184,23 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     finishSpeechInvalid(reasonCode, {
       message: err?.message || String(err),
       errorName: err?.name || null,
+      qualityFlags: err?.name === 'SpeechMicTimeoutError'
+        ? ['MIC_PREPARATION_TIMEOUT', 'MIC_STAGE_' + String(err.micStage).toUpperCase()]
+        : currentSpeechQualityFlags(),
       attemptNo: speechAttemptNo
     });
+
+    if (err?.name === 'SpeechMicTimeoutError') {
+      const lang = sessionStorage.getItem('fast_lang') || 'th';
+      const message = lang === 'th'
+        ? 'ไมโครโฟนยังไม่พร้อม กรุณากดลองเปิดไมโครโฟนอีกครั้ง'
+        : lang === 'ja' ? 'マイクの準備ができません。もう一度お試しください。'
+        : 'The microphone is not ready. Please try opening it again.';
+      $('hint-text').textContent = message;
+      $('transcript-box').textContent = message;
+      $('action-btn').textContent = lang === 'th' ? 'ลองเปิดไมโครโฟนอีกครั้ง' : T.btnRetry;
+      return;
+    }
 
     // Permission recovery is a new module-level test_attempt. The technical
     // invalid payload above remains in fast_speech_research_history.
