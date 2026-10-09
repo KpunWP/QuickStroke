@@ -1,0 +1,27 @@
+{
+  "version": "20261009-thai-recorded-ab-v1",
+  "language": "th-TH",
+  "speechAB": {
+    "tts": "tts",
+    "recorded": "recorded"
+  },
+  "recordedSpeedPercent": 88,
+  "internalPauseAdded": false,
+  "clips": {
+    "หน้าตรงและอยู่นิ่ง": "face_01_rest.mp3",
+    "ยิ้มกว้าง": "face_02_smile.mp3",
+    "เหยียดแขนซ้ายไปข้างหน้าตามภาพ และถือนิ่งๆ": "arm_01_left.mp3",
+    "เหยียดแขนขวาไปข้างหน้าตามภาพ และถือนิ่งๆ": "arm_06_right.mp3",
+    "เริ่มทดสอบ หลับตา และถือนิ่งๆ": "arm_02_start.mp3",
+    "ดีมาก": "arm_03_good.mp3",
+    "เกือบเสร็จแล้ว": "arm_04_almost.mp3",
+    "ลดแขนลง": "arm_05_lower.mp3",
+    "ถือนิ่งๆ": "arm_07_still.mp3",
+    "ข้อมือขยับ เหยียดข้อมือให้ตรงแล้วลองอีกครั้ง": "arm_08_wrist.mp3",
+    "การเคลื่อนไหวไม่ชัด ลองอีกครั้ง": "arm_09_retry.mp3",
+    "แขนทั้งสองข้างปกติ": "arm_10_complete.mp3",
+    "อาจพบแขนตก หากสงสัยสโตรก โทร 1669 ทันที": "arm_11_alert.mp3",
+    "เตรียมพูด รอจนหน้าจอแสดงว่าเริ่มพูดได้": "speech_01_prepare.mp3",
+    "จบการทดสอบ ขอบคุณค่ะ": "result_01_thanks.mp3"
+  }
+}
