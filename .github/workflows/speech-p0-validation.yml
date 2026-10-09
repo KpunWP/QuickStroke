@@ -51,6 +51,8 @@ jobs:
         run: node tests/speech-device-browser-hardening.mjs
       - name: Speech research E2E audit
         run: node tests/speech-research-e2e-audit.mjs
+      - name: JSSF consent entry and storage availability
+        run: node tests/jssf-consent-entry-flow.mjs
       - name: JSSF consent v2 contract
         run: node tests/jssf-consent-v2-contract.mjs
       - name: JSSF provenance contract

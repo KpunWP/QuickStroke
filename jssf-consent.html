@@ -159,6 +159,28 @@
   let resumeCandidate=null;
   let requiresExternalBrowser=false;
   let requiresMobilePhone=false;
+  let storageUnavailable=false;
+  const storageWarning="ไม่สามารถเริ่มการทดสอบได้ เนื่องจากเบราว์เซอร์ไม่อนุญาตให้จัดเก็บข้อมูล ซึ่งอาจเกิดจากการเปิด Lockdown Mode กรุณาใช้อุปกรณ์อื่น";
+
+  // Capability detection only: do not create a database or session before consent.
+  // Missing IndexedDB does not prove that Lockdown Mode is enabled.
+  function storageApiAvailable(){
+    try { return typeof window.indexedDB?.open==="function"; }
+    catch(error){ return false; }
+  }
+
+  function showStorageWarning(){
+    storageUnavailable=true;
+    state.textContent=storageWarning;
+    start.textContent="ไม่สามารถเริ่มการทดสอบได้";
+    resumeButton.disabled=true;
+    updateStartState();
+  }
+
+  function isStorageAccessError(error){
+    return !storageApiAvailable() || error?.code==="STORAGE_UNAVAILABLE"
+      || error?.name==="SecurityError" || error?.cause?.name==="SecurityError";
+  }
 
   function mobilePhoneEligibility(){
     const ua=navigator.userAgent||"";
@@ -226,7 +248,7 @@
 
   function updateStartState(){
     const ready=releaseReady();
-    const canStart=ready && !requiresExternalBrowser && !requiresMobilePhone && age.checked && consent.checked;
+    const canStart=ready && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && age.checked && consent.checked;
     start.disabled=!canStart;
     start.setAttribute("aria-disabled",String(!canStart));
   }
@@ -254,6 +276,9 @@
       consentVersionState.textContent="ยังเป็นร่างสำหรับตรวจ ยังไม่อนุมัติให้รับสมัครจริง";
       state.textContent="ระบบรับข้อมูลทางไกลยังปิดอยู่ — ไม่มีการส่งข้อมูลจากหน้านี้";
       start.textContent="เริ่มการทดสอบ — ยังไม่เปิดใช้งาน";
+    }
+    if(ready && !requiresMobilePhone && !requiresExternalBrowser && !storageApiAvailable()){
+      showStorageWarning();
     }
     updateStartState();
   }
@@ -322,7 +347,7 @@
   async function discoverResumeCandidate(){
     resumeCandidate=null;
     resumeBox.hidden=true;
-    if(!releaseReady() || typeof remote?.listWithdrawableEnrollments!=="function") return;
+    if(storageUnavailable || !releaseReady() || typeof remote?.listWithdrawableEnrollments!=="function") return;
     try{
       const enrollments=await remote.listWithdrawableEnrollments();
       for(const enrollment of enrollments){
@@ -353,7 +378,8 @@
   }
 
   async function resumeExisting(){
-    if(!resumeCandidate) return;
+    if(!resumeCandidate || storageUnavailable) return;
+    if(!storageApiAvailable()){ showStorageWarning(); return; }
     resumeButton.disabled=true;
     state.textContent="กำลังกู้รอบการทดสอบเดิม…";
     try{
@@ -388,13 +414,15 @@
       window.location.href=resumeTarget(resumeBundle);
     }catch(error){
       console.error("JSSF resume failed.",error);
+      if(isStorageAccessError(error)){ showStorageWarning(); return; }
       state.textContent="ยังทำต่อจากรอบเดิมไม่ได้: "+(error?.message||String(error));
       resumeButton.disabled=false;
     }
   }
 
   async function begin(){
-    if(!releaseReady() || !age.checked || !consent.checked) return;
+    if(!releaseReady() || !age.checked || !consent.checked || requiresExternalBrowser || requiresMobilePhone || storageUnavailable) return;
+    if(!storageApiAvailable()){ showStorageWarning(); return; }
     start.disabled=true;
     start.setAttribute("aria-disabled","true");
     start.textContent="กำลังเริ่มการทดสอบ…";
@@ -413,6 +441,7 @@
       window.location.href="./face-test.html";
     }catch(error){
       console.error("JSSF enrollment failed.",error);
+      if(isStorageAccessError(error)){ showStorageWarning(); return; }
       state.textContent="ยังเริ่มการทดสอบไม่ได้: "+(error?.message||String(error))+" กรุณาลองอีกครั้ง";
       start.textContent="ลองเริ่มการทดสอบอีกครั้ง";
       updateStartState();

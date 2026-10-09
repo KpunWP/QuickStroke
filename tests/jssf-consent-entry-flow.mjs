@@ -20,12 +20,12 @@ function element(id){
   };
 }
 
-function harness({ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Safari"}={}){
+function harness({resumeSession=null,storageAvailable=true,storageThrows=false,ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Safari"}={}){
   const ids=[
     "age-confirmation","consent-confirmation","start-testing","collection-state",
     "recruitment-badge","recruitment-notice","release-status-heading","consent-version-state",
     "resume-box","resume-meta","resume-testing","browser-guidance-text",
-    "external-browser-gate","open-external-browser"
+    "external-browser-gate","open-external-browser","mobile-only-gate"
   ];
   const elements=Object.fromEntries(ids.map(id=>[id,element(id)]));
   const draft=[element("draft-1"),element("draft-2")];
@@ -35,13 +35,14 @@ function harness({ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone
   };
   let selectedMeta=null;
   const calls={configured:0,created:0,persisted:0,updated:0,enrolled:0,rollback:0,restored:0,resumeReads:0};
-  const storedSessions=new Map();
+  const storedSessions=new Map(resumeSession?[[resumeSession.screeningSessionId,resumeSession]]:[]);
   const window={
+    indexedDB:storageAvailable?{open(){throw new Error("Pre-consent must not open a database");}}:undefined,
     QS_CONFIG:{jssfRemote:{consentVersion:"JSSF-CONSENT-TEST-1"}},
     QuickStrokeJssfRemote:{
       featureReady:()=>ready,
       enroll:async()=>{calls.enrolled++;return {sessionId:"remote-1"};},
-      listWithdrawableEnrollments:async()=>[]
+      listWithdrawableEnrollments:async()=>resumeSession?[{clientSessionId:resumeSession.screeningSessionId}]:[]
     },
     QuickStrokeAppMode:{
       configureResearchContext(input){
@@ -96,7 +97,9 @@ function harness({ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone
       origin:"https://quickstroke.vercel.app"
     }
   };
+  if(storageThrows) Object.defineProperty(window,"indexedDB",{get(){throw new DOMException("Blocked","SecurityError");}});
   const document={
+    body:{classList:{toggle(){}}},
     getElementById:id=>elements[id],
     querySelectorAll:selector=>selector===".draft-only"?draft:[]
   };
@@ -179,4 +182,48 @@ function harness({ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone
   assert.equal(h.window.location.href,"https://quickstroke.vercel.app/jssf-consent.html");
   assert.match(h.elements["collection-state"].textContent,/Research\/Dev session/);
   console.log("PASS: consent entry refuses to overwrite an active clinic or Dev session");
+}
+
+for(const options of [{storageAvailable:false},{storageThrows:true}]){
+  const h=harness({ready:true,...options});
+  assert.equal(h.elements["start-testing"].disabled,true);
+  assert.match(h.elements["collection-state"].textContent,/ซึ่งอาจเกิดจากการเปิด Lockdown Mode/);
+  h.elements["age-confirmation"].checked=true;
+  h.elements["consent-confirmation"].checked=true;
+  await h.elements["consent-confirmation"].fire("change");
+  await h.elements["start-testing"].fire("click");
+  assert.equal(h.elements["start-testing"].disabled,true);
+  assert.equal(h.calls.created,0);
+  assert.equal(h.calls.enrolled,0);
+  assert.equal(h.calls.configured,0);
+  assert.equal(h.calls.resumeReads,0);
+  assert.doesNotMatch(h.elements["start-testing"].textContent,/ลอง/);
+  console.log("PASS: unavailable or blocked IndexedDB prevents entry without creating a session");
+}
+{
+  const h=harness({ready:true});
+  h.window.indexedDB=undefined;
+  h.elements["age-confirmation"].checked=true;
+  h.elements["consent-confirmation"].checked=true;
+  await h.elements["start-testing"].fire("click");
+  assert.equal(h.calls.configured,0);
+  assert.equal(h.elements["start-testing"].disabled,true);
+  assert.match(h.elements["collection-state"].textContent,/Lockdown Mode/);
+  console.log("PASS: storage availability is rechecked before modifying session context");
+}
+
+{
+  const h=harness({ready:true,resumeSession:{
+    participantId:"P-RESUME",screeningSessionId:"S-RESUME",sessionStatus:"active",sessionMode:"full",
+    appMode:"research",researchMetadata:{researchProfile:"community_remote_qr",consentStatus:"consented",consentVersion:"JSSF-CONSENT-TEST-1"}
+  }});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(h.elements["resume-box"].hidden,false);
+  await h.elements["resume-testing"].fire("click");
+  assert.equal(h.calls.restored,1);
+  assert.equal(h.calls.created,0);
+  assert.equal(h.calls.enrolled,1);
+  assert.equal(h.window.QuickStrokeDataContract.getSessionContext().screeningSessionId,"S-RESUME");
+  assert.equal(h.window.location.href,"./face-test.html");
+  console.log("PASS: available storage preserves explicit resume and the existing session identity");
 }
