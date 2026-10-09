@@ -17,6 +17,9 @@ on:
       - fix/thai-tts-english-fallback-20261007
       - research/jssf-p0-arm-speech-thai-20261008
       - research/thai-audio-ab-20261009
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:
