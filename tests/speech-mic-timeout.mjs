@@ -16,7 +16,7 @@ function harness(kind){
   T:{preparePrompt:'prepare',calibrating:'preparing',noiseCalib:'noise',noiseMetric:'noise',rate:'rate',pending:'pending',btnRetry:'retry'},
   $:el,document:{getElementById:()=>null},sessionStorage:{getItem:()=> 'th'},
   clearResultReleaseTimer:noop,DBG:noop,DBG_TRACK:noop,ensureSpeechModuleRun:noop,beginSpeechCanonicalAttempt:noop,resetMeasurementState:noop,
-  setSpeechCard:noop,captureSpeechMicrophoneRuntime:noop,prepareSpeechCaptureAudioSession:noop,
+  setSpeechCard:noop,captureSpeechMicrophoneRuntime:noop,prepareSpeechCaptureAudioSession:noop,queueSpeechTechnicalDiagnostic:noop,
   currentSpeechQualityFlags:()=>[],hasLiveAudioTrack:()=>true,waitForMicTrackReady:async()=>true,
   finishSpeechInvalid:(code,details)=>{failures.push({code,details});ctx.phase='DONE';el('action-btn').disabled=false;},
   stopAll:async()=>{ctx.streamRef?.getTracks().forEach(t=>t.stop());ctx.audioCtx=null;},runLoop:()=>loop++,
