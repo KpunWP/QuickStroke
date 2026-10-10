@@ -3162,6 +3162,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     source = audioCtx.createMediaStreamSource(streamRef);
     source.connect(analyser);
     DBG('PIPELINE READY', `audioCtx=${audioCtx.state} → เริ่ม calibration`);
+    queueSpeechTechnicalDiagnostic('MIC_PIPELINE_READY');
 
     // เริ่มนับเวลาเฝ้าดู stream เงียบ (iOS dead-mic detection)
     pipelineReadyMs = performance.now();
@@ -3181,6 +3182,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
       captureSpeechPermissionRuntime(err.permissionResult, 'fast_permissions_request');
     }
     const reasonCode = mapMicErrorReason(err);
+    queueSpeechTechnicalDiagnostic(err?.name === 'SpeechMicTimeoutError' ? 'MIC_PREPARATION_TIMEOUT' : 'MIC_PREPARATION_FAILED');
     finishSpeechInvalid(reasonCode, {
       message: err?.message || String(err),
       errorName: err?.name || null,
@@ -3367,6 +3369,7 @@ async function beginSpeechRecognition() {
 
     // ═══ DEBUG: event ที่บอกว่า ASR "ได้ยิน" อะไรบ้าง ═══
     recognition.onstart = () => {
+      queueSpeechTechnicalDiagnostic('ASR_ENGINE_STARTED');
       DBG('ASR onstart', 'engine เริ่มทำงานแล้ว');
       appendAsrObservation('start');
       if (recognitionReadyFallbackTimer) clearTimeout(recognitionReadyFallbackTimer);
@@ -3377,6 +3380,7 @@ async function beginSpeechRecognition() {
       }, 900);
     };
     recognition.onaudiostart = () => {
+      queueSpeechTechnicalDiagnostic('ASR_AUDIO_STARTED');
       DBG('ASR onaudiostart', '🎤 engine เริ่มรับ audio แล้ว');
       appendAsrObservation('audio_start');
       markSpeechRecognitionReady('audio_start');
@@ -3624,6 +3628,7 @@ async function beginSpeechRecognition() {
           setTimeout(() => startRecognitionSafely(attempt + 1), 250);
         } else {
           if (isCurrentRun()) {
+            queueSpeechTechnicalDiagnostic('ASR_START_RETRY_EXHAUSTED');
             $('transcript-box').textContent = T.listening + ' (ASR retry failed; using voice detection)';
           }
         }
