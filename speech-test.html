@@ -2915,9 +2915,12 @@ function mapMicErrorReason(error) {
 
 function prepareSpeechCaptureAudioSession() {
   try {
-    if (navigator.audioSession && 'type' in navigator.audioSession) {
-      navigator.audioSession.type = 'play-and-record';
-    }
+    if (!navigator.audioSession || !('type' in navigator.audioSession)) return;
+    // WebKit routes play-and-record through a separate system volume. Forcing
+    // it before the mic request can make Face/Arm volume appear to drop to zero.
+    // Let iOS choose its capture route from getUserMedia instead.
+    if (IS_IOS) return;
+    navigator.audioSession.type = 'play-and-record';
   } catch (error) {
     console.warn('Unable to prepare capture audio session.', error);
   }
@@ -3071,9 +3074,11 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 
     audioCtx = new AudioContextClass();
     DBG('AUDIOCTX created', `state=${audioCtx.state}`);
+    // Never await resume() before acquiring the microphone. On affected iOS
+    // Safari builds that promise can remain pending until capture begins.
+    // The post-stream resume below is still bounded by waitForSpeechMicStep.
     if (audioCtx.state === 'suspended') {
-      await waitForSpeechMicStep(audioCtx.resume(), 'audio_context_resume');
-      DBG('AUDIOCTX after resume', `state=${audioCtx.state}`);
+      try { void Promise.resolve(audioCtx.resume()).catch(()=>{}); } catch (_) {}
     }
 
     if (preauthorizedStream && hasLiveAudioTrack(preauthorizedStream)) {
@@ -3151,8 +3156,14 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     }
 
     // resume ซ้ำหลังได้ stream เผื่อ browser suspend ระหว่าง permission request
-    if (audioCtx.state === 'suspended') {
-      await waitForSpeechMicStep(audioCtx.resume(), 'audio_context_resume');
+    if (audioCtx.state !== 'running') {
+      await waitForSpeechMicStep(audioCtx.resume(), 'audio_context_resume', 5000, startToken);
+    }
+    if (audioCtx.state !== 'running') {
+      const suspended = new Error('AudioContext did not enter running state after mic acquisition');
+      suspended.name = 'SpeechMicTimeoutError';
+      suspended.micStage = 'audio_context_running';
+      throw suspended;
     }
 
     analyser = audioCtx.createAnalyser();
@@ -3913,7 +3924,16 @@ function runLoop() {
       animationFrameId = null;
 
       void (async () => {
-        const cueStatus = await speakSpeechCue(speechCueText());
+        // A visual cue avoids routing synthesized speech over the microphone
+        // while Safari is handing off WebAudio and Web Speech capture.
+        // Actual permission to speak is still gated on ASR onaudiostart.
+        for (const count of [3,2,1]) {
+          if (phase !== 'READY_CUE') return;
+          $('hint-text').textContent = 'เตรียมพูด ' + count;
+          $('transcript-box').textContent = 'เตรียมพูด ' + count;
+          await sleep(550);
+        }
+        const cueStatus = 'visual_only';
         if (phase !== 'READY_CUE') return;
         // Never leave the participant in a silent "ready" trap. If Safari still
         // refuses TTS after priming/retry, proceed with the visual cue immediately.
