@@ -206,7 +206,7 @@ assert.match(read("js/thai-recorded-audio.js"),/document\.addEventListener\('DOM
 
 assert.doesNotThrow(()=>new Function(read("js/thai-recorded-audio.js")),"bundled Thai audio client must be valid JavaScript");
 assert.match(read("js/thai-recorded-audio.js"),/remote\.queueTtsTelemetry/);
-assert.match(read("speech-test.html"),/if \(IS_IOS\) return;/);
+assert.doesNotMatch(read("speech-test.html"),/if \(IS_IOS\) return;/);
 assert.match(read("speech-test.html"),/AudioContext did not enter running state after mic acquisition/);
 assert.match(read("speech-test.html"),/for \(const count of \[3,2,1\]\)/);
 assert.match(read("speech-test.html"),/const cueStatus = 'visual_only'/);
