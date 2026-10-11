@@ -22,35 +22,19 @@ assert.match(
   /if \(arm === 'left'\) \{[\s\S]*speakNow\(T\.vDone, \(\) => \{[\s\S]*setTimeout\(\(\) => \{[\s\S]*phase === 'BETWEEN' && arm === 'left'[\s\S]*speak\(rightArmConfirmationVoice\(\)\)[\s\S]*\}, 700\)/
 );
 
-// Speech: cue is a separate non-recording phase. ASR/VAD timing starts only
-// after system TTS finishes, preventing the app's own voice from contaminating
-// transcript/acoustic research data.
+// Speech: the pre-recognition phase uses visual 3-2-1 instead of TTS,
+// and "speak now" appears only after SpeechRecognition confirms audio capture.
 assert.match(speech,/READY_CUE/);
 assert.match(speech,/function speechCueText\(\)/);
-assert.match(speech,/เตรียมพูด รอเสียงสัญญาณก่อนเริ่มพูด/);
 assert.match(speech,/function speakSpeechCue\(text\)/);
 assert.match(speech,/function primeSpeechCue\(\)/);
-assert.match(speech,/primeSpeechCue\(\);[\s\S]*retryStarting = true/);
-assert.match(
-  speech,
-  /phase = 'READY_CUE';[\s\S]*const cueStatus = await speakSpeechCue\(speechCueText\(\)\);[\s\S]*cueStatus === 'ended' \? 180 : 80[\s\S]*phase = 'RECORDING';[\s\S]*recordingStartedMs = null/
-);
-assert.match(
-  speech,
-  /recognition\.onaudiostart = \(\) => \{[\s\S]*markSpeechRecognitionReady\('audio_start'\)/
-);
-assert.match(
-  speech,
-  /function markSpeechRecognitionReady\(source = 'audio_start'\)[\s\S]*recordingStartedMs = performance\.now\(\)[\s\S]*T\.speakNowPrompt/
-);
-assert.match(
-  speech,
-  /phase === 'CALIBRATING' \|\| phase === 'READY_CUE'[\s\S]*speechSynthesis\?\.cancel/
-);
-
-// The preparation cue finishes before recognition starts. "Speak now" is not
-// exposed until SpeechRecognition confirms that the audio input is ready.
-const cueIndex=speech.indexOf("await speakSpeechCue(speechCueText())");
+assert.match(speech,/for \(const count of \[3,2,1\]\)/);
+assert.match(speech,/const cueStatus = 'visual_only'/);
+assert.match(speech,/phase = 'READY_CUE';[\s\S]*phase = 'RECORDING';[\s\S]*recordingStartedMs = null/);
+assert.match(speech,/recognition\.onaudiostart = \(\) => \{[\s\S]*markSpeechRecognitionReady\('audio_start'\)/);
+assert.match(speech,/function markSpeechRecognitionReady\(source = 'audio_start'\)[\s\S]*recordingStartedMs = performance\.now\(\)[\s\S]*T\.speakNowPrompt/);
+assert.match(speech,/phase === 'CALIBRATING' \|\| phase === 'READY_CUE'[\s\S]*speechSynthesis\?\.cancel/);
+const cueIndex=speech.indexOf("for (const count of [3,2,1])");
 const recordIndex=speech.indexOf("phase = 'RECORDING';", cueIndex);
 const asrIndex=speech.indexOf("beginSpeechRecognition()", recordIndex);
 const audioReadyIndex=speech.indexOf("markSpeechRecognitionReady('audio_start')");
