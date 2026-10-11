@@ -192,6 +192,7 @@ assert.match(read("arm-test.html"),/const normalizedRaw = normalizeGravityConven
 assert.match(read("speech-test.html"),/ASR_NO_TRANSCRIPT/);
 assert.match(read("speech-test.html"),/ASR_NETWORK/);
 assert.match(read("js/thai-recorded-audio.js"),/SamsungBrowser/);
+assert.doesNotThrow(()=>new Function(read("js/thai-recorded-audio.js")),"bundled Thai audio client must be valid JavaScript");
 assert.match(read("js/thai-recorded-audio.js"),/remote\.queueTtsTelemetry/);
 assert.match(read("speech-test.html"),/if \(IS_IOS\) return;/);
 assert.match(read("speech-test.html"),/AudioContext did not enter running state after mic acquisition/);
