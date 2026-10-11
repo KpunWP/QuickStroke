@@ -166,7 +166,7 @@ const withdrawal=read("jssf-withdraw.html");
 assert.match(withdrawal,/listWithdrawableEnrollments/);
 assert.match(withdrawal,/requestWithdrawal\(selected\.clientSessionId\)/);
 assert.match(client,/listWithdrawableEnrollments/);
-assert.match(read("service-worker.js"),/quickstroke-pwa-v88/);
+assert.match(read("service-worker.js"),/quickstroke-pwa-v89/);
 assert.match(read("service-worker.js"),/\/jssf-consent\.html/);
 assert.match(read("service-worker.js"),/\/jssf-withdraw\.html/);
 assert.match(read("result.html"),/CURRENT = calculate\(\);[\s\S]*void \(async \(\) =>/);
@@ -192,13 +192,18 @@ assert.match(read("arm-test.html"),/const normalizedRaw = normalizeGravityConven
 assert.match(read("speech-test.html"),/ASR_NO_TRANSCRIPT/);
 assert.match(read("speech-test.html"),/ASR_NETWORK/);
 assert.match(read("js/thai-recorded-audio.js"),/SamsungBrowser/);
+assert.match(read("js/thai-recorded-audio.js"),/id='quickstroke-audio-test'/);
+assert.match(read("js/thai-recorded-audio.js"),/void play\('หน้าตรงและอยู่นิ่ง'\)/);
+assert.doesNotMatch(read("js/thai-recorded-audio.js"),/player\.muted=true/);
+assert.match(read("js/thai-recorded-audio.js"),/document\.addEventListener\('DOMContentLoaded',addAudioTestControl/);
+
 assert.doesNotThrow(()=>new Function(read("js/thai-recorded-audio.js")),"bundled Thai audio client must be valid JavaScript");
 assert.match(read("js/thai-recorded-audio.js"),/remote\.queueTtsTelemetry/);
 assert.match(read("speech-test.html"),/if \(IS_IOS\) return;/);
 assert.match(read("speech-test.html"),/AudioContext did not enter running state after mic acquisition/);
 assert.match(read("speech-test.html"),/for \(const count of \[3,2,1\]\)/);
 assert.match(read("speech-test.html"),/const cueStatus = 'visual_only'/);
-assert.match(read("service-worker.js"),/quickstroke-pwa-v88/);
+assert.match(read("service-worker.js"),/quickstroke-pwa-v89/);
 console.log("PASS: recorded Samsung prompts, post-stream iOS AudioContext and visual speech cue");
 assert.match(client,/queueTechnicalEvent/);
 assert.match(client,/ASR_PERMISSION_OR_SERVICE_DENIED/);

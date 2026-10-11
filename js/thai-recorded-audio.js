@@ -55,8 +55,10 @@
     unlocked=true;
     if(!player) player=new Audio();
     player.preload='auto';
-    // Keep one reusable element. User gesture primes media on iOS without emitting a sound.
-    try {player.muted=true;player.src='data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';const p=player.play();p?.then(()=>{player.pause();player.muted=false;}).catch(()=>{player.muted=false;});} catch(_) {player.muted=false;}
+    player.muted=false;
+    // Never play a muted prime: its pending play() promise can settle after the
+    // real instruction starts and inadvertently pause audible playback.
+    // The visible "ทดสอบเสียง" control below plays real audio on a direct tap.
   }
   document.addEventListener('pointerdown',unlock,{capture:true,once:true});
   document.addEventListener('touchstart',unlock,{capture:true,once:true});
@@ -100,5 +102,35 @@
       catch(_){finish('exception');}
     });
   }
+  function addAudioTestControl() {
+    // The recorded path is currently used primarily on Android browsers.
+    // Always provide an audible, direct-gesture test when that path is selected,
+    // so users can distinguish browser playback from an application prompt error.
+    if (!use('th-TH') || document.getElementById('quickstroke-audio-test')) return;
+    const button=document.createElement('button');
+    button.id='quickstroke-audio-test';
+    button.type='button';
+    button.textContent='🔊 ทดสอบเสียง';
+    button.setAttribute('aria-label','ทดสอบเสียงคำแนะนำภาษาไทย');
+    button.style.cssText='position:fixed;right:10px;bottom:calc(12px + env(safe-area-inset-bottom));z-index:10000;width:auto;max-width:calc(100vw - 20px);min-height:42px;padding:9px 14px;background:#175c89;color:#fff;border:2px solid #fff;border-radius:999px;font:600 14px system-ui,sans-serif;box-shadow:0 2px 12px #0005;';
+    const status=document.createElement('span');
+    status.id='quickstroke-audio-status';
+    status.setAttribute('role','status');
+    status.style.cssText='position:fixed;right:10px;bottom:calc(62px + env(safe-area-inset-bottom));z-index:10000;max-width:min(320px,calc(100vw - 20px));padding:8px 10px;border-radius:9px;background:#fff;color:#172938;font:14px system-ui,sans-serif;box-shadow:0 1px 10px #0003;display:none;';
+    button.addEventListener('click',()=>{
+      status.textContent='กำลังเล่นเสียงทดสอบ…';
+      status.style.display='block';
+      // play() starts synchronously in the tap handler, preserving activation.
+      void play('หน้าตรงและอยู่นิ่ง').then(result=>{
+        status.textContent=result==='ended'
+          ? 'เสียงเล่นจบแล้ว หากไม่ได้ยิน กรุณาเพิ่มระดับเสียงสื่อ'
+          : 'เล่นเสียงไม่ได้ ('+result+') กรุณาเพิ่มระดับเสียงสื่อหรือลองเปิดผ่าน Chrome';
+      });
+    });
+    document.body.appendChild(status);
+    document.body.appendChild(button);
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addAudioTestControl,{once:true});
+  else addAudioTestControl();
   window.QuickStrokeThaiRecorded={mode,use,fileFor,play,stop,unlock};
 })();
