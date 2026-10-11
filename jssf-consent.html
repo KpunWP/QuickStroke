@@ -15,9 +15,14 @@
     .notice{margin:20px 0;padding:14px 16px;background:#fff6eb;border:1px solid #f2c891;border-radius:14px}
     .warning{margin:18px 0;padding:14px 16px;background:#ffeded;border:1px solid #f2b9b9;border-radius:14px;color:#7c2525}
     .box{margin-top:20px;background:#f5f9fc;padding:16px;border-radius:14px;border:1px solid #e0e8f0}
-    #resume-box{background:#eef7ff;border-color:#b9d9f4}
-    #resume-box[hidden]{display:none}
-    #resume-testing{margin-top:10px;background:#236c96;color:#fff;cursor:pointer}
+    #resume-box{background:#eef7ff;border-color:#b9d9f4;margin-top:15px}
+    #resume-box[hidden],#resume-testing[hidden]{display:none}
+    .session-actions{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;margin-top:12px}
+    .session-actions.has-resume{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .session-actions button{padding:14px 9px;min-width:0}
+    #resume-testing:not(:disabled){background:#e6f3ff;color:#15547c;border:1px solid #9fc5e4}
+    #new-session-consent-note{margin:8px 0 0}
+    #new-session-consent-note[hidden]{display:none}
     #browser-guidance{background:#eef7ff;border-color:#b9d9f4}
     #browser-guidance strong{display:block;margin-bottom:4px}
     #mobile-only-gate{background:#fff1ed;border:2px solid #e58b73;color:#7c2c1f}
@@ -61,12 +66,6 @@
     <p class="small">กรุณาเปิดลิงก์นี้บน iPhone หรือโทรศัพท์ Android แล้วเริ่มใหม่ ไม่รองรับ notebook, desktop หรือ tablet สำหรับการเก็บข้อมูลรอบนี้</p>
   </div>
   <div id="consent-content">
-  <div class="box" id="resume-box" hidden>
-    <strong>พบการทดสอบที่ยังไม่เสร็จในอุปกรณ์นี้</strong>
-    <p id="resume-meta" class="small"></p>
-    <button id="resume-testing" type="button">ทำต่อจากรอบเดิม</button>
-    <p class="small">หากไม่ใช่รอบที่ต้องการ สามารถอ่านข้อมูลด้านล่างและเลือกเริ่มรอบใหม่ได้</p>
-  </div>
   <div class="box" id="external-browser-gate" role="alert" hidden>
     <strong>เปิดด้วย Safari ก่อนเริ่ม</strong>
     <p class="small">เพื่อให้สามารถกลับมาทำต่อหรือถอนข้อมูลได้ภายหลัง กรุณาเปิดหน้านี้ออกจาก LINE ก่อนเริ่มการทดสอบ</p>
@@ -128,7 +127,15 @@
   </div>
   <label><input id="age-confirmation" type="checkbox" disabled> ฉันยืนยันว่าฉันมีอายุ 18 ปีขึ้นไป <span class="draft-only">(ปิดใช้งานระหว่างตรวจร่าง)</span></label>
   <label><input id="consent-confirmation" type="checkbox" disabled> ฉันได้อ่านข้อมูลโครงการ เข้าใจว่าจะมีการเก็บและส่งข้อมูลตามที่ระบุ และยินยอมเข้าร่วมโดยสมัครใจ <span class="draft-only">(ปิดใช้งานระหว่างตรวจร่าง)</span></label>
-  <button id="start-testing" type="button" disabled aria-disabled="true">เริ่มการทดสอบ — ยังไม่เปิดใช้งาน</button>
+  <div class="box" id="resume-box" hidden aria-live="polite">
+    <strong id="resume-heading">พบการทดสอบก่อนหน้าในอุปกรณ์นี้</strong>
+    <p id="resume-meta" class="small"></p>
+  </div>
+  <p class="small" id="new-session-consent-note" hidden>เริ่มทดสอบใหม่จะสร้าง Study ID ใหม่ กรุณาติ๊กยืนยันอายุและความยินยอมอีกครั้ง ส่วนการทำต่อจากรอบเดิมไม่ต้องติ๊กใหม่</p>
+  <div id="session-actions" class="session-actions">
+    <button id="start-testing" type="button" disabled aria-disabled="true">เริ่มทดสอบ — ยังไม่เปิดใช้งาน</button>
+    <button id="resume-testing" type="button" hidden disabled>ทำต่อจากรอบเดิม</button>
+  </div>
   <p class="small" id="collection-state">กำลังตรวจสอบสถานะระบบรับข้อมูล…</p>
   <footer><a href="./jssf-withdraw.html">ดูตัวอย่างหน้าถอนความยินยอมและลบข้อมูล →</a><br><br><a href="./index.html">← กลับหน้าหลัก QuickStroke</a></footer>
   </div>
@@ -150,6 +157,9 @@
   const consentVersionState=document.getElementById("consent-version-state");
   const resumeBox=document.getElementById("resume-box");
   const resumeMeta=document.getElementById("resume-meta");
+  const resumeHeading=document.getElementById("resume-heading");
+  const sessionActions=document.getElementById("session-actions");
+  const newSessionConsentNote=document.getElementById("new-session-consent-note");
   const resumeButton=document.getElementById("resume-testing");
   const browserGuidanceText=document.getElementById("browser-guidance-text");
   const externalBrowserGate=document.getElementById("external-browser-gate");
@@ -157,6 +167,7 @@
   const mobileOnlyGate=document.getElementById("mobile-only-gate");
   const draftOnly=[...document.querySelectorAll(".draft-only")];
   let resumeCandidate=null;
+  let hasPreviousSession=false;
   let requiresExternalBrowser=false;
   let requiresMobilePhone=false;
   let storageUnavailable=false;
@@ -251,6 +262,9 @@
     const canStart=ready && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && age.checked && consent.checked;
     start.disabled=!canStart;
     start.setAttribute("aria-disabled",String(!canStart));
+    const canResume=ready && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && Boolean(resumeCandidate);
+    resumeButton.disabled=!canResume;
+    resumeButton.setAttribute("aria-disabled",String(!canResume));
   }
 
   function applyReleaseState(){
@@ -269,18 +283,23 @@
         : requiresExternalBrowser
           ? "กรุณากด “เปิดด้วย Safari” ก่อนเริ่มการทดสอบ"
           : "ระบบรับข้อมูลทางไกลพร้อมใช้งานสำหรับโครงการนี้";
-      start.textContent=(resumeCandidate || isReusableRemoteContext(contract?.getSessionContext?.()))?"เริ่มรอบใหม่":"เริ่มการทดสอบ";
+      start.textContent=(hasPreviousSession || resumeCandidate || isRemoteJssfContext(contract?.getSessionContext?.()))?"เริ่มทดสอบใหม่":"เริ่มทดสอบ";
     }else{
       releaseHeading.textContent="สถานะก่อนเปิดรับสมัคร";
       consentVersionState.classList.add("pending");
       consentVersionState.textContent="ยังเป็นร่างสำหรับตรวจ ยังไม่อนุมัติให้รับสมัครจริง";
       state.textContent="ระบบรับข้อมูลทางไกลยังปิดอยู่ — ไม่มีการส่งข้อมูลจากหน้านี้";
-      start.textContent="เริ่มการทดสอบ — ยังไม่เปิดใช้งาน";
+      start.textContent="เริ่มทดสอบ — ยังไม่เปิดใช้งาน";
     }
     if(ready && !requiresMobilePhone && !requiresExternalBrowser && !storageApiAvailable()){
       showStorageWarning();
     }
     updateStartState();
+  }
+
+  function isRemoteJssfContext(context){
+    return context?.appMode==="research"
+      && context?.researchMetadata?.researchProfile==="community_remote_qr";
   }
 
   function isReusableRemoteContext(context){
@@ -296,7 +315,7 @@
     return context?.screeningSessionId
       && context?.sessionStatus!=="finalized"
       && context?.appMode!=="public"
-      && !isReusableRemoteContext(context);
+      && !isRemoteJssfContext(context);
   }
 
   async function ensureRemoteSession({forceNew=false}={}){
@@ -344,26 +363,49 @@
     return context;
   }
 
+  function resumeHasCompletedProtocol(bundle){
+    if(bundle?.session?.sessionStatus==="protocol_completed") return true;
+    const completed=new Set((bundle?.moduleRuns||[])
+      .filter(run=>run?.moduleRunStatus==="completed")
+      .map(run=>run.module));
+    return ["face","arm","speech"].every(name=>completed.has(name));
+  }
+
   async function discoverResumeCandidate(){
     resumeCandidate=null;
     resumeBox.hidden=true;
-    if(storageUnavailable || !releaseReady() || typeof remote?.listWithdrawableEnrollments!=="function") return;
+    resumeButton.hidden=true;
+    sessionActions.classList.remove("has-resume");
+    if(storageUnavailable || !releaseReady() || typeof remote?.listWithdrawableEnrollments!=="function"){
+      applyReleaseState();
+      return;
+    }
     try{
       const enrollments=await remote.listWithdrawableEnrollments();
+      hasPreviousSession=enrollments.length>0;
       for(const enrollment of enrollments){
+        if(enrollment.withdrawalPending) continue;
         const bundle=await store.getRemoteResumeBundle(enrollment.clientSessionId).catch(()=>null);
         const session=bundle?.session;
         if(!session || session.sessionStatus==="finalized") continue;
         if(session.researchMetadata?.consentVersion!==cfg.consentVersion) continue;
         resumeCandidate={...enrollment,bundle};
+        const completed=resumeHasCompletedProtocol(bundle);
+        resumeHeading.textContent=completed
+          ? "ทดสอบครบแล้ว แต่ยังไม่ได้ยืนยันจบและส่งผล"
+          : "พบการทดสอบที่ยังไม่เสร็จในอุปกรณ์นี้";
         resumeMeta.textContent="Study ID: "+(enrollment.studyId||session.researchMetadata?.studyId||"—");
+        resumeButton.textContent=completed?"กลับไปส่งผลรอบเดิม":"ทำต่อจากรอบเดิม";
         resumeBox.hidden=false;
-        if(!start.disabled) start.textContent="เริ่มรอบใหม่";
-        return;
+        resumeButton.hidden=false;
+        sessionActions.classList.add("has-resume");
+        break;
       }
     }catch(error){
       console.warn("JSSF resume discovery skipped.",error);
     }
+    newSessionConsentNote.hidden=!resumeCandidate;
+    applyReleaseState();
   }
 
   function resumeTarget(bundle){
@@ -378,7 +420,7 @@
   }
 
   async function resumeExisting(){
-    if(!resumeCandidate || storageUnavailable) return;
+    if(!resumeCandidate || storageUnavailable || requiresExternalBrowser || requiresMobilePhone || !releaseReady()) return;
     if(!storageApiAvailable()){ showStorageWarning(); return; }
     resumeButton.disabled=true;
     state.textContent="กำลังกู้รอบการทดสอบเดิม…";

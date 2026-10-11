@@ -24,7 +24,7 @@ function harness({resumeSession=null,storageAvailable=true,storageThrows=false,r
   const ids=[
     "age-confirmation","consent-confirmation","start-testing","collection-state",
     "recruitment-badge","recruitment-notice","release-status-heading","consent-version-state",
-    "resume-box","resume-meta","resume-testing","browser-guidance-text",
+    "resume-box","resume-meta","resume-heading","session-actions","new-session-consent-note","resume-testing","browser-guidance-text",
     "external-browser-gate","open-external-browser","mobile-only-gate"
   ];
   const elements=Object.fromEntries(ids.map(id=>[id,element(id)]));
@@ -219,6 +219,10 @@ for(const options of [{storageAvailable:false},{storageThrows:true}]){
   }});
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(h.elements["resume-box"].hidden,false);
+  assert.equal(h.elements["resume-testing"].hidden,false);
+  assert.equal(h.elements["resume-testing"].disabled,false);
+  assert.equal(h.elements["start-testing"].textContent,"เริ่มทดสอบใหม่");
+  assert.equal(h.elements["start-testing"].disabled,true);
   await h.elements["resume-testing"].fire("click");
   assert.equal(h.calls.restored,1);
   assert.equal(h.calls.created,0);
@@ -226,4 +230,40 @@ for(const options of [{storageAvailable:false},{storageThrows:true}]){
   assert.equal(h.window.QuickStrokeDataContract.getSessionContext().screeningSessionId,"S-RESUME");
   assert.equal(h.window.location.href,"./face-test.html");
   console.log("PASS: available storage preserves explicit resume and the existing session identity");
+}
+
+{
+  const old={
+    participantId:"P-OLD",screeningSessionId:"S-OLD",sessionStatus:"protocol_completed",sessionMode:"full",
+    appMode:"research",researchMetadata:{researchProfile:"community_remote_qr",consentStatus:"consented",consentVersion:"JSSF-CONSENT-TEST-1"}
+  };
+  const h=harness({ready:true,resumeSession:old,initialContext:old});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(h.elements["resume-box"].hidden,false);
+  assert.equal(h.elements["resume-testing"].textContent,"กลับไปส่งผลรอบเดิม");
+  assert.match(h.elements["resume-heading"].textContent,/ยังไม่ได้ยืนยันจบและส่งผล/);
+  assert.equal(h.elements["start-testing"].textContent,"เริ่มทดสอบใหม่");
+  assert.equal(h.elements["start-testing"].disabled,true);
+  assert.equal(h.elements["resume-testing"].disabled,false);
+  h.elements["age-confirmation"].checked=true;
+  h.elements["consent-confirmation"].checked=true;
+  await h.elements["age-confirmation"].fire("change");
+  assert.equal(h.elements["start-testing"].disabled,false);
+  await h.elements["start-testing"].fire("click");
+  assert.equal(h.calls.created,1);
+  assert.equal(h.calls.enrolled,1);
+  assert.equal(h.window.location.href,"./face-test.html");
+  console.log("PASS: protocol-completed JSSF can start a fresh Study ID after renewed consent");
+}
+{
+  const old={
+    participantId:"P-FINAL",screeningSessionId:"S-FINAL",sessionStatus:"finalized",sessionMode:"full",
+    appMode:"research",researchMetadata:{researchProfile:"community_remote_qr",consentStatus:"consented",consentVersion:"JSSF-CONSENT-TEST-1"}
+  };
+  const h=harness({ready:true,resumeSession:old,initialContext:old});
+  await new Promise(resolve=>setImmediate(resolve));
+  assert.equal(h.elements["resume-box"].hidden,true);
+  assert.equal(h.elements["resume-testing"].hidden,true);
+  assert.equal(h.elements["start-testing"].textContent,"เริ่มทดสอบใหม่");
+  console.log("PASS: finalized local session offers fresh start without a misleading resume button");
 }
