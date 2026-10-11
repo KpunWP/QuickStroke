@@ -2544,7 +2544,10 @@ async function ensureMicDisclosureBeforeFirstUse() {
     const allowBtn = overlay.querySelector('button');
     const errorBox = overlay.querySelector('#speech-mic-disclosure-error');
     allowBtn.onclick = () => {
-      primeSpeechCue();
+      // iOS may switch back to playback when priming TTS, which makes a
+      // subsequent getUserMedia fail with incompatible audio-session category.
+      // The actual Speech ready cue is visual; do not prime TTS before capture.
+      if (!IS_IOS) primeSpeechCue();
       // IMPORTANT: invoke getUserMedia immediately from this user gesture.
       // iOS/Safari may suppress the native permission sheet if async cleanup,
       // locale work or AudioContext setup runs before the request.
@@ -2916,10 +2919,10 @@ function mapMicErrorReason(error) {
 function prepareSpeechCaptureAudioSession() {
   try {
     if (!navigator.audioSession || !('type' in navigator.audioSession)) return;
-    // WebKit routes play-and-record through a separate system volume. Forcing
-    // it before the mic request can make Face/Arm volume appear to drop to zero.
-    // Let iOS choose its capture route from getUserMedia instead.
-    if (IS_IOS) return;
+    // Safari can retain a 'playback' category from Face/Arm/Result even when
+    // the next step requests microphone capture. Explicitly select the
+    // capture-compatible category synchronously BEFORE getUserMedia.
+    // Change it only inside Speech, never while Face/Arm instructions play.
     navigator.audioSession.type = 'play-and-record';
   } catch (error) {
     console.warn('Unable to prepare capture audio session.', error);
@@ -3064,11 +3067,9 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
       if (startToken !== audioStartToken) return;
     }
 
-    /*
-      สร้างและสั่ง resume AudioContext ก่อน await getUserMedia
-      เพื่อให้คำสั่งยังอยู่ใน user gesture ของปุ่ม โดยเฉพาะรอบทดสอบซ้ำ
-      บน Chrome/Edge/iOS บางรุ่น การสร้าง AudioContext หลัง await อาจค้างที่ suspended
-    */
+    // Web Audio is created after session category preparation. Do not await
+    // resume() before getUserMedia; iOS can wait for capture before resuming.
+    prepareSpeechCaptureAudioSession();
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) throw new Error('Web Audio API is not available');
 
