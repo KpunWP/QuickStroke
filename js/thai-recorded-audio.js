@@ -36,7 +36,7 @@
     if(mode==='tts') return false;
     // Samsung Internet can advertise a Thai TTS voice but fail to produce
     // audible prompts. Prefer the bundled Thai recordings on that browser.
-    if (/SamsungBrowser\\//i.test(navigator.userAgent||'')) return true;
+    if (String(navigator.userAgent||'').includes('SamsungBrowser/')) return true;
     const voices=window.speechSynthesis?.getVoices?.() || [];
     if (voices.some(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'))) return false;
     // iOS can deliver its voice list asynchronously; keep the proven iOS TTS path.
