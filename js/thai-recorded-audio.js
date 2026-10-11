@@ -34,6 +34,9 @@
     if (!String(lang||'th').toLowerCase().startsWith('th')) return false;
     if(mode==='recorded') return true;
     if(mode==='tts') return false;
+    // Samsung Internet can advertise a Thai TTS voice but fail to produce
+    // audible prompts. Prefer the bundled Thai recordings on that browser.
+    if (/SamsungBrowser\\//i.test(navigator.userAgent||'')) return true;
     const voices=window.speechSynthesis?.getVoices?.() || [];
     if (voices.some(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'))) return false;
     // iOS can deliver its voice list asynchronously; keep the proven iOS TTS path.
@@ -59,6 +62,19 @@
   document.addEventListener('touchstart',unlock,{capture:true,once:true});
   function play(text,{onDone,timeoutMs=13000}={}) {
     const file=fileFor(text);
+    const module=file?.startsWith('face_') ? 'face' :
+      file?.startsWith('arm_') ? 'arm' : file?.startsWith('speech_') ? 'speech' : null;
+    const report=(code,stage,status,errorCode)=> {
+      if (!module) return;
+      try {
+        const remote=window.QuickStrokeJssfRemote;
+        if(remote?.canSync?.() !== true) return;
+        void remote.queueTtsTelemetry?.(
+          module,code,stage,status,'th-TH',errorCode,
+          'recorded-'+file+'-'+status,'recorded_audio','th-TH'
+        )?.catch?.(()=>{});
+      } catch(_) {}
+    };
     if(!file) {onDone?.('missing');return Promise.resolve('missing');}
     stop();const my=token;
     if(!player) player=new Audio();
@@ -72,6 +88,9 @@
         settled=true;clearTimeout(timer);
         player.removeEventListener('ended',ended);player.removeEventListener('error',failed);
         if(my===token)active=null;
+        if(status==='ended') report('TTS_PLAYBACK_STARTED','prompt','ended');
+        else if(status==='blocked'||status==='timeout'||status==='error'||status==='exception')
+          report(status==='timeout'?'TTS_NO_START':'TTS_ERROR','prompt',status,status);
         onDone?.(status);resolve(status);
       };
       const ended=()=>finish('ended'),failed=()=>finish('error');
