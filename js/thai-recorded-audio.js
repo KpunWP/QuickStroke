@@ -29,6 +29,42 @@
     'ข้อมือขยับ เหยียดข้อมือให้ตรงแล้วลองอีกครั้ง':'ข้อมือขยับ เหยียดข้อมือให้ตรงแล้วลองอีกครั้ง'};
   const norm=s=>String(s||'').replace(/[\u200b\u200c\u200d]/g,'').replace(/\s+/g,'').replace(/[.,，。!?ฯ]/g,'').replace(/ๆ/g,'ๆ');
   const lookup=new Map(Object.entries(manifest).map(([s,f])=>[norm(s),f]));
+  // Consent warm-up: cache every required Thai prompt before the first module.
+  // A completed fetch is verified as audio bytes, not merely preload='auto'.
+  const AUDIO_CACHE='quickstroke-jssf-th-audio-v1';
+  const REQUIRED_FILES=[...new Set(Object.values(manifest))];
+  let preparePromise=null;
+  function shouldPrepare() {
+    if(mode==='tts') return false;
+    if(mode==='recorded') return true;
+    return /Android/i.test(navigator.userAgent||'') && use('th-TH');
+  }
+  async function prepareAll(onProgress) {
+    if(!shouldPrepare()) return {ready:true,total:0,done:0,skipped:true};
+    if(preparePromise) return preparePromise;
+    preparePromise=(async()=>{
+      if(!('caches' in window)) throw new Error('Browser audio cache unavailable');
+      const cache=await caches.open(AUDIO_CACHE);
+      let done=0;
+      for(const file of REQUIRED_FILES){
+        const url=new URL('./audio/th/'+file,document.baseURI).href;
+        let response=await cache.match(url);
+        if(!response?.ok || !(await response.clone().arrayBuffer()).byteLength) {
+          const fresh=await fetch(url,{cache:'no-store'});
+          if(!fresh.ok || !(fresh.headers.get('content-type')||'').includes('audio/')) throw new Error('Audio HTTP error: '+file);
+          const bytes=await fresh.clone().arrayBuffer();
+          if(bytes.byteLength<1000) throw new Error('Audio file incomplete: '+file);
+          await cache.put(url,fresh);
+          response=await cache.match(url);
+        }
+        done++;
+        onProgress?.(done,REQUIRED_FILES.length);
+      }
+      return {ready:true,total:REQUIRED_FILES.length,done};
+    })();
+    try { return await preparePromise; }
+    catch(error){preparePromise=null;throw error;}
+  }
   let player=null, active=null, token=0, unlocked=false;
   function use(lang) {
     if (!String(lang||'th').toLowerCase().startsWith('th')) return false;
@@ -47,59 +83,64 @@
   function fileFor(text) { return lookup.get(norm(alias[text]||text))||null; }
   function stop() {
     token++;
-    if(active) { active('cancelled'); active=null; }
-    if(player) { try {player.pause();player.removeAttribute('src');player.load();} catch(_) {} }
+    const previous=active;
+    active=null;
+    if(previous) previous('cancelled');
+    if(player) {
+      try { player.pause();player.removeAttribute('src'); } catch(_) {}
+      player=null;
+    }
   }
   function unlock() {
     if(unlocked) return;
     unlocked=true;
-    if(!player) player=new Audio();
-    player.preload='auto';
-    player.muted=false;
-    // Never play a muted prime: its pending play() promise can settle after the
-    // real instruction starts and inadvertently pause audible playback.
-    // The visible "ทดสอบเสียง" control below plays real audio on a direct tap.
+    // A soundless primer is not an audible playback authorization.
+    // The Consent voice check is initiated directly by the participant.
   }
   document.addEventListener('pointerdown',unlock,{capture:true,once:true});
   document.addEventListener('touchstart',unlock,{capture:true,once:true});
   function play(text,{onDone,timeoutMs=13000}={}) {
     const file=fileFor(text);
-    const module=file?.startsWith('face_') ? 'face' :
-      file?.startsWith('arm_') ? 'arm' : file?.startsWith('speech_') ? 'speech' : null;
-    const report=(code,stage,status,errorCode)=> {
-      if (!module) return;
-      try {
-        const remote=window.QuickStrokeJssfRemote;
-        if(remote?.canSync?.() !== true) return;
-        void remote.queueTtsTelemetry?.(
-          module,code,stage,status,'th-TH',errorCode,
-          'recorded-'+file+'-'+status,'recorded_audio','th-TH'
-        )?.catch?.(()=>{});
-      } catch(_) {}
-    };
     if(!file) {onDone?.('missing');return Promise.resolve('missing');}
     stop();const my=token;
-    if(!player) player=new Audio();
-    player.preload='auto';player.muted=false;player.volume=1;player.playbackRate=1;
+    // Create a new media element for each prompt. Reusing a media element
+    // across MP3 src changes can trigger an asynchronous media error on Android.
+    const current=new Audio();
+    player=current;
+    current.preload='auto';current.muted=false;current.volume=1;current.playbackRate=1;
     const url=new URL('./audio/th/'+file,document.baseURI);
-    player.src=url.href;
+    current.src=url.href;
+    const module=file.startsWith('face_')?'face':file.startsWith('arm_')?'arm':file.startsWith('speech_')?'speech':null;
+    const report=(status,reason)=>{
+      if(!module) return;
+      const remote=window.QuickStrokeJssfRemote;
+      if(remote?.canSync?.()!==true)return;
+      const code=status==='ended'?'TTS_PLAYBACK_STARTED':status==='timeout'?'TTS_NO_START':'TTS_ERROR';
+      void remote.queueTtsTelemetry?.(module,code,'prompt',status,'th-TH',reason,'recorded-'+file+'-'+status,'recorded_audio','th-TH')?.catch?.(()=>{});
+    };
     return new Promise(resolve=>{
       let settled=false;
-      const finish=status=>{
+      let timer=null;
+      const finish=(status,reason)=>{
         if(settled)return;
-        settled=true;clearTimeout(timer);
-        player.removeEventListener('ended',ended);player.removeEventListener('error',failed);
-        if(my===token)active=null;
-        if(status==='ended') report('TTS_PLAYBACK_STARTED','prompt','ended');
-        else if(status==='blocked'||status==='timeout'||status==='error'||status==='exception')
-          report(status==='timeout'?'TTS_NO_START':'TTS_ERROR','prompt',status,status);
+        settled=true;
+        clearTimeout(timer);
+        current.removeEventListener('ended',ended);
+        current.removeEventListener('error',failed);
+        if(my===token){active=null;if(status!=='ended')try{current.pause();}catch(_){}}
+        if(status!=='cancelled')report(status,reason);
         onDone?.(status);resolve(status);
       };
-      const ended=()=>finish('ended'),failed=()=>finish('error');
-      active=finish;player.addEventListener('ended',ended);player.addEventListener('error',failed);
-      const timer=setTimeout(()=>{if(my===token)stop();finish('timeout');},timeoutMs);
-      try { const p=player.play();if(p?.catch)p.catch(()=>finish('blocked')); }
-      catch(_){finish('exception');}
+      const ended=()=>finish('ended');
+      const failed=()=>finish('error',String(current.error?.code||'media_error'));
+      active=finish;
+      current.addEventListener('ended',ended);
+      current.addEventListener('error',failed);
+      timer=setTimeout(()=>finish('timeout','time_limit'),timeoutMs);
+      try {
+        const attempt=current.play();
+        attempt?.catch?.(error=>finish(error?.name==='NotAllowedError'?'blocked':'error',error?.name||'play_failed'));
+      }catch(error){finish('exception',error?.name||'play_exception');}
     });
   }
   function addAudioTestControl() {
@@ -132,5 +173,5 @@
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addAudioTestControl,{once:true});
   else addAudioTestControl();
-  window.QuickStrokeThaiRecorded={mode,use,fileFor,play,stop,unlock};
+  window.QuickStrokeThaiRecorded={mode,use,fileFor,play,stop,unlock,prepareAll,shouldPrepare};
 })();

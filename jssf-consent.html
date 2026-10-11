@@ -46,7 +46,7 @@
   <script src="./js/data-contract.js"></script>
   <script src="./js/research-store.js"></script>
   <script src="./js/jssf-remote-sync.js?v=20261007-audio-fallback-v2"></script>
-<script src="./js/thai-recorded-audio.js?v=20261011-samsung-hotfix-v2"></script>
+<script src="./js/thai-recorded-audio.js?v=20261011-preload-ios-v3"></script>
 </head>
 <body>
 <main>
@@ -136,6 +136,8 @@
     <button id="start-testing" type="button" disabled aria-disabled="true">เริ่มทดสอบ — ยังไม่เปิดใช้งาน</button>
     <button id="resume-testing" type="button" hidden disabled>ทำต่อจากรอบเดิม</button>
   </div>
+  <p class="small" id="audio-preparation-state" role="status" aria-live="polite" hidden></p>
+  <button id="retry-audio-preparation" type="button" hidden>ลองเตรียมเสียงอีกครั้ง</button>
   <p class="small" id="collection-state">กำลังตรวจสอบสถานะระบบรับข้อมูล…</p>
   <footer><a href="./jssf-withdraw.html">ดูตัวอย่างหน้าถอนความยินยอมและลบข้อมูล →</a><br><br><a href="./index.html">← กลับหน้าหลัก QuickStroke</a></footer>
   </div>
@@ -150,6 +152,10 @@
   const age=document.getElementById("age-confirmation");
   const consent=document.getElementById("consent-confirmation");
   const start=document.getElementById("start-testing");
+  const audioState=document.getElementById("audio-preparation-state");
+  const audioRetry=document.getElementById("retry-audio-preparation");
+  const audioClient=window.QuickStrokeThaiRecorded;
+  let audioReady=!audioClient?.shouldPrepare?.();
   const state=document.getElementById("collection-state");
   const badge=document.getElementById("recruitment-badge");
   const notice=document.getElementById("recruitment-notice");
@@ -259,10 +265,10 @@
 
   function updateStartState(){
     const ready=releaseReady();
-    const canStart=ready && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && age.checked && consent.checked;
+    const canStart=ready && audioReady && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && age.checked && consent.checked;
     start.disabled=!canStart;
     start.setAttribute("aria-disabled",String(!canStart));
-    const canResume=ready && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && Boolean(resumeCandidate);
+    const canResume=ready && audioReady && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && Boolean(resumeCandidate);
     resumeButton.disabled=!canResume;
     resumeButton.setAttribute("aria-disabled",String(!canResume));
   }
@@ -419,8 +425,32 @@
     return "./speech-test.html";
   }
 
+  async function prepareJssfAudio() {
+    if(!audioClient?.shouldPrepare?.()){
+      audioReady=true;updateStartState();return;
+    }
+    audioReady=false;
+    audioRetry.hidden=true;
+    audioState.hidden=false;
+    audioState.textContent='กำลังเตรียมเสียงภาษาไทย…';
+    updateStartState();
+    try {
+      await audioClient.prepareAll((done,total)=>{
+        audioState.textContent='กำลังเตรียมเสียงภาษาไทย '+done+'/'+total+' ไฟล์';
+      });
+      audioReady=true;
+      audioState.textContent='เตรียมไฟล์เสียงภาษาไทยพร้อมแล้ว';
+    }catch(error){
+      audioReady=false;
+      audioState.textContent='เตรียมเสียงไม่สำเร็จ ('+(error?.message||'โหลดไฟล์ไม่ได้')+') กรุณาตรวจอินเทอร์เน็ตและลองอีกครั้ง';
+      audioRetry.hidden=false;
+      console.warn('JSSF audio preparation failed',error);
+    }
+    updateStartState();
+  }
+
   async function resumeExisting(){
-    if(!resumeCandidate || storageUnavailable || requiresExternalBrowser || requiresMobilePhone || !releaseReady()) return;
+    if(!audioReady || !resumeCandidate || storageUnavailable || requiresExternalBrowser || requiresMobilePhone || !releaseReady()) return;
     if(!storageApiAvailable()){ showStorageWarning(); return; }
     resumeButton.disabled=true;
     state.textContent="กำลังกู้รอบการทดสอบเดิม…";
@@ -463,7 +493,7 @@
   }
 
   async function begin(){
-    if(!releaseReady() || !age.checked || !consent.checked || requiresExternalBrowser || requiresMobilePhone || storageUnavailable) return;
+    if(!audioReady || !releaseReady() || !age.checked || !consent.checked || requiresExternalBrowser || requiresMobilePhone || storageUnavailable) return;
     if(!storageApiAvailable()){ showStorageWarning(); return; }
     start.disabled=true;
     start.setAttribute("aria-disabled","true");
@@ -492,10 +522,12 @@
 
   age.addEventListener("change",updateStartState);
   consent.addEventListener("change",updateStartState);
+  audioRetry.addEventListener("click",()=>{void prepareJssfAudio();});
   start.addEventListener("click",begin);
   resumeButton.addEventListener("click",resumeExisting);
   renderBrowserGuidance();
   applyReleaseState();
+  void prepareJssfAudio();
   void discoverResumeCandidate();
 })();
 </script>

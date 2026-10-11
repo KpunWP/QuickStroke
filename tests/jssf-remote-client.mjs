@@ -139,7 +139,7 @@ assert.match(consent,/start\.textContent=\(hasPreviousSession \|\| resumeCandida
 assert.match(consent,/return \["face","arm","speech"\]\.every\(name=>completed\.has\(name\)\)/);
 assert.match(consent,/completed\?"กลับไปส่งผลรอบเดิม":"ทำต่อจากรอบเดิม"/);
 assert.match(consent,/resumeButton\.disabled=!canResume/);
-assert.match(consent,/const canStart=ready && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && age\.checked && consent\.checked/);
+assert.match(consent,/const canStart=ready && audioReady && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && age\.checked && consent\.checked/);
 assert.match(consent,/await ensureRemoteSession\(\{forceNew:true\}\)/);
 assert.match(consent,/&& !isRemoteJssfContext\(context\)/);
 console.log("PASS: JSSF consent has adjacent start/resume actions, independent consent gating, and protocol-completed new-session escape");
@@ -166,7 +166,7 @@ const withdrawal=read("jssf-withdraw.html");
 assert.match(withdrawal,/listWithdrawableEnrollments/);
 assert.match(withdrawal,/requestWithdrawal\(selected\.clientSessionId\)/);
 assert.match(client,/listWithdrawableEnrollments/);
-assert.match(read("service-worker.js"),/quickstroke-pwa-v89/);
+assert.match(read("service-worker.js"),/quickstroke-pwa-v90/);
 assert.match(read("service-worker.js"),/\/jssf-consent\.html/);
 assert.match(read("service-worker.js"),/\/jssf-withdraw\.html/);
 assert.match(read("result.html"),/CURRENT = calculate\(\);[\s\S]*void \(async \(\) =>/);
@@ -192,6 +192,13 @@ assert.match(read("arm-test.html"),/const normalizedRaw = normalizeGravityConven
 assert.match(read("speech-test.html"),/ASR_NO_TRANSCRIPT/);
 assert.match(read("speech-test.html"),/ASR_NETWORK/);
 assert.match(read("js/thai-recorded-audio.js"),/SamsungBrowser/);
+assert.match(read("js/thai-recorded-audio.js"),/async function prepareAll\(onProgress\)/);
+assert.match(read("js/thai-recorded-audio.js"),/await cache\.put\(url,fresh\)/);
+assert.match(read("jssf-consent.html"),/await audioClient\.prepareAll/);
+assert.match(read("jssf-consent.html"),/audioReady && !storageUnavailable/);
+assert.match(read("speech-test.html"),/navigator\.audioSession\.type = 'play-and-record'/);
+assert.match(read("speech-test.html"),/if \(!IS_IOS\) primeSpeechCue\(\)/);
+
 assert.match(read("js/thai-recorded-audio.js"),/id='quickstroke-audio-test'/);
 assert.match(read("js/thai-recorded-audio.js"),/void play\('หน้าตรงและอยู่นิ่ง'\)/);
 assert.doesNotMatch(read("js/thai-recorded-audio.js"),/player\.muted=true/);
@@ -199,11 +206,11 @@ assert.match(read("js/thai-recorded-audio.js"),/document\.addEventListener\('DOM
 
 assert.doesNotThrow(()=>new Function(read("js/thai-recorded-audio.js")),"bundled Thai audio client must be valid JavaScript");
 assert.match(read("js/thai-recorded-audio.js"),/remote\.queueTtsTelemetry/);
-assert.match(read("speech-test.html"),/if \(IS_IOS\) return;/);
+assert.doesNotMatch(read("speech-test.html"),/if \(IS_IOS\) return;/);
 assert.match(read("speech-test.html"),/AudioContext did not enter running state after mic acquisition/);
 assert.match(read("speech-test.html"),/for \(const count of \[3,2,1\]\)/);
 assert.match(read("speech-test.html"),/const cueStatus = 'visual_only'/);
-assert.match(read("service-worker.js"),/quickstroke-pwa-v89/);
+assert.match(read("service-worker.js"),/quickstroke-pwa-v90/);
 console.log("PASS: recorded Samsung prompts, post-stream iOS AudioContext and visual speech cue");
 assert.match(client,/queueTechnicalEvent/);
 assert.match(client,/ASR_PERMISSION_OR_SERVICE_DENIED/);
