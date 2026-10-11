@@ -172,7 +172,7 @@ self.addEventListener("fetch", (event) => {
       if (!cached) return fetch(event.request);
       const range=event.request.headers.get("range");
       if (!range) return cached;
-      const parsed=/^bytes=(\\d*)-(\\d*)$/.exec(range.trim());
+      const parsed=/^bytes=(\d*)-(\d*)$/.exec(range.trim());
       if (!parsed) return fetch(event.request);
       const bytes=await cached.arrayBuffer();
       const size=bytes.byteLength;
