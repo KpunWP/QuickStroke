@@ -139,7 +139,7 @@ assert.match(consent,/start\.textContent=\(hasPreviousSession \|\| resumeCandida
 assert.match(consent,/return \["face","arm","speech"\]\.every\(name=>completed\.has\(name\)\)/);
 assert.match(consent,/completed\?"กลับไปส่งผลรอบเดิม":"ทำต่อจากรอบเดิม"/);
 assert.match(consent,/resumeButton\.disabled=!canResume/);
-assert.match(consent,/const canStart=ready && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && age\.checked && consent\.checked/);
+assert.match(consent,/const canStart=ready && audioReady && !storageUnavailable && !requiresExternalBrowser && !requiresMobilePhone && age\.checked && consent\.checked/);
 assert.match(consent,/await ensureRemoteSession\(\{forceNew:true\}\)/);
 assert.match(consent,/&& !isRemoteJssfContext\(context\)/);
 console.log("PASS: JSSF consent has adjacent start/resume actions, independent consent gating, and protocol-completed new-session escape");
