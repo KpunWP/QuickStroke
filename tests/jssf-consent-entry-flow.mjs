@@ -22,7 +22,7 @@ function element(id){
 
 function harness({resumeSession=null,storageAvailable=true,storageThrows=false,ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Safari"}={}){
   const ids=[
-    "age-confirmation","consent-confirmation","start-testing","collection-state",
+    "age-confirmation","consent-confirmation","start-testing","collection-state","audio-preparation-state","retry-audio-preparation",
     "recruitment-badge","recruitment-notice","release-status-heading","consent-version-state",
     "resume-box","resume-meta","resume-heading","session-actions","new-session-consent-note","resume-testing","browser-guidance-text",
     "external-browser-gate","open-external-browser","mobile-only-gate"
