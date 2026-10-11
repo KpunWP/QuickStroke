@@ -1,0 +1,31 @@
+name: Diagnose Thai audio assets
+on:
+  push:
+    branches:
+      - research/audio-asset-diagnostics-20261011
+jobs:
+  inspect-audio:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify local audio files and decoded signal
+        shell: bash
+        run: |
+          set -euxo pipefail
+          for f in audio/th/face_01_rest.mp3 audio/th/face_02_smile.mp3 audio/th/arm_01_left.mp3; do
+            file "$f"
+            sha256sum "$f"
+            ffprobe -v error -show_entries format=format_name,duration,size:stream=codec_name,sample_rate,channels -of json "$f"
+            ffmpeg -hide_banner -nostats -i "$f" -af volumedetect -f null - 2>&1 | grep -E 'mean_volume:|max_volume:'
+          done
+      - name: Verify production asset HTTP and body match
+        shell: bash
+        run: |
+          set -euxo pipefail
+          curl -sSL -D /tmp/headers --max-time 20 -o /tmp/prod.mp3 -w 'HTTP_CODE=%{http_code} MIME=%{content_type} BYTES=%{size_download}\n' 'https://quickstroke.vercel.app/audio/th/face_01_rest.mp3?diag=20261011'
+          head -n 20 /tmp/headers
+          file /tmp/prod.mp3
+          wc -c /tmp/prod.mp3
+          sha256sum audio/th/face_01_rest.mp3 /tmp/prod.mp3
+          if ! cmp -s audio/th/face_01_rest.mp3 /tmp/prod.mp3; then echo 'PRODUCTION_BYTES_DIFFER_FROM_REPO'; exit 1; fi
+          ffmpeg -hide_banner -nostats -i /tmp/prod.mp3 -af volumedetect -f null - 2>&1 | grep -E 'mean_volume:|max_volume:'
