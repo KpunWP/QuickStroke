@@ -163,6 +163,36 @@ self.addEventListener("fetch", (event) => {
    */
   if (url.origin !== self.location.origin) return;
 
+  // Previously validated on Consent and stored in a dedicated cache. A new
+  // page must read that cache rather than contacting the network again.
+  // Support byte-range requests issued by Android's HTMLAudioElement.
+  if (url.pathname.startsWith("/audio/th/") && url.pathname.endsWith(".mp3")) {
+    event.respondWith((async () => {
+      const cached=await caches.match(url.href,{ignoreSearch:true});
+      if (!cached) return fetch(event.request);
+      const range=event.request.headers.get("range");
+      if (!range) return cached;
+      const parsed=/^bytes=(\\d*)-(\\d*)$/.exec(range.trim());
+      if (!parsed) return fetch(event.request);
+      const bytes=await cached.arrayBuffer();
+      const size=bytes.byteLength;
+      let start=parsed[1] ? Number(parsed[1]) : Math.max(0,size-Number(parsed[2]));
+      let end=parsed[2] && parsed[1] ? Number(parsed[2]) : size-1;
+      if (!Number.isSafeInteger(start)||!Number.isSafeInteger(end)||start<0||end<start||start>=size) {
+        return new Response(null,{status:416,headers:{"Content-Range":"bytes */"+size}});
+      }
+      end=Math.min(end,size-1);
+      const body=bytes.slice(start,end+1);
+      return new Response(body,{status:206,headers:{
+        "Content-Type":"audio/mpeg",
+        "Content-Range":"bytes "+start+"-"+end+"/"+size,
+        "Content-Length":String(body.byteLength),
+        "Accept-Ranges":"bytes"
+      }});
+    })());
+    return;
+  }
+
   const isHTML =
     event.request.mode === "navigate" ||
     url.pathname.endsWith(".html") ||
