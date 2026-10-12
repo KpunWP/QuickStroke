@@ -1571,6 +1571,8 @@
   }
   /* Hide confirmation controls only during active 10-second measurement. */
   #test-screen.arm-guide-measuring #action-dock{display:none!important;}
+  #arm-listen-btn{display:none;margin:12px auto 0;padding:11px 17px;min-height:44px;border-radius:16px;border:1px solid #77abe9;background:#fff;color:#175caa;font:700 16px 'IBM Plex Sans Thai',system-ui,sans-serif;}
+  #arm-listen-btn.show{display:block;}
   /* JSSF Arm visual copy: keep each image card image-only; all instructions live below. */
   #pose-guide .guide-step-copy{display:none!important;}
   #pose-guide .guide-step-visual{height:min(37vh,315px);max-height:315px;}
@@ -1582,7 +1584,7 @@
   }
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
-<script src="./js/thai-recorded-audio.js?v=20261011-preload-ios-v3"></script>
+<script src="./js/thai-recorded-audio.js?v=20261012-arm-step1-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
@@ -1718,6 +1720,7 @@
 </div>
 </div>
 </div>
+<button id="arm-listen-btn" type="button" onclick="playArmStepOneGuide()" aria-label="ฟังคำแนะนำเริ่มทดสอบแขน">🔊 ฟังคำแนะนำ</button>
 <div id="arm-hold-cue" aria-live="polite"></div>
 </div>
 <div id="warn-banner"><span class="warn-title" id="warn-title"></span><span class="warn-sub" id="warn-sub"></span></div>
@@ -4189,6 +4192,20 @@ function updateArmGuideInstructionCopy() {
   });
 }
 
+function armStepOneVoice(side) {
+  const code=currentLangCode();
+  if (code==='en') return `Hold the phone in your ${side} hand as shown, then press confirm to start the test.`;
+  if (code==='ja') return `図のようにスマートフォンを${side==='left'?'左':'右'}手で持ち、確認を押してテストを開始してください。`;
+  return `ถือโทรศัพท์ด้วยมือ${side==='right'?'ขวา':'ซ้าย'}ตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ`;
+}
+function playArmStepOneGuide() {
+  const guide=$('pose-guide');
+  const side=guide?.dataset.guideSide;
+  if (side !== 'left' || guide.dataset.guideStep!=='1' || phase !== 'IDLE') return;
+  const clip=armStepOneVoice(side);
+  // Direct user gesture preserves mobile playback authorization; never autoplay.
+  speak(clip);
+}
 function setArmGuideStage(side, step) {
   const guide = $('pose-guide');
   if (!guide) return;
@@ -4196,6 +4213,8 @@ function setArmGuideStage(side, step) {
   const safeStep = [1,2,3].includes(Number(step)) ? Number(step) : 1;
   guide.dataset.guideSide = safeSide;
   guide.dataset.guideStep = String(safeStep);
+  const listen=$('arm-listen-btn');
+  if (listen) listen.classList.toggle('show',safeStep===1 && safeSide==='left');
   updatePoseGuide();
 }
 
@@ -4520,9 +4539,7 @@ function finishArm() {
   if (arm === 'left') {
     speakNow(T.vDone, () => {
       setTimeout(() => {
-        if (phase === 'BETWEEN' && arm === 'left') {
-          speak(rightArmConfirmationVoice());
-        }
+        if (phase === 'BETWEEN' && arm === 'left') speak(rightArmConfirmationVoice());
       }, 700);
     });
   } else {

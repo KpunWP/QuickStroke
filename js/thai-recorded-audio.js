@@ -11,6 +11,7 @@
   const manifest={
     'หน้าตรงและอยู่นิ่ง':'face_01_rest.mp3',
     'ยิ้มกว้าง':'face_02_smile.mp3',
+    'ถือโทรศัพท์ด้วยมือซ้ายตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ':'arm_12_left_start.mp3',
     'เหยียดแขนซ้ายไปข้างหน้าตามภาพ และถือนิ่งๆ':'arm_01_left.mp3',
     'เหยียดแขนขวาไปข้างหน้าตามภาพ และถือนิ่งๆ':'arm_06_right.mp3',
     'เริ่มทดสอบ หลับตา และถือนิ่งๆ':'arm_02_start.mp3',
@@ -145,6 +146,8 @@
     });
   }
   function addAudioTestControl() {
+    // Keep engineering playback controls out of Public and JSSF Research screens.
+    if (window.QuickStrokeDevMode?.isEnabled?.() !== true) return;
     // The recorded path is currently used primarily on Android browsers.
     // Always provide an audible, direct-gesture test when that path is selected,
     // so users can distinguish browser playback from an application prompt error.
