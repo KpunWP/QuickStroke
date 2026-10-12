@@ -4206,6 +4206,19 @@ function playArmStepOneGuide() {
   // Direct user gesture preserves mobile playback authorization; never autoplay.
   speak(clip);
 }
+let armInitialCueAttempted=false;
+function attemptAutoArmStepOneVoice() {
+  if (armInitialCueAttempted || phase!=='IDLE' || arm!=='left') return;
+  armInitialCueAttempted=true;
+  // Best effort only. Mobile browsers may reject media playback after
+  // navigation; keep the listen and confirm buttons available.
+  const phrase=armStepOneVoice('left');
+  if (window.QuickStrokeThaiRecorded?.use(currentLangCode()) && window.QuickStrokeThaiRecorded.fileFor?.(phrase)) {
+    void window.QuickStrokeThaiRecorded.play(phrase,{timeoutMs:8000}).catch(()=>{});
+    return;
+  }
+  try { speak(phrase); } catch (_) {}
+}
 function setArmGuideStage(side, step) {
   const guide = $('pose-guide');
   if (!guide) return;
@@ -5156,6 +5169,7 @@ async function selectLang(code) {
   showArmOuterGuideCopy('left', 1);
   actionBtn.disabled = false;
   $('arm-understanding-card')?.classList.remove('show');
+  attemptAutoArmStepOneVoice();
 
 }
 
