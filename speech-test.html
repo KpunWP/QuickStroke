@@ -2707,6 +2707,18 @@ function resetUI() {
   resetSpeechCards();
 }
 
+async function playSpeechInstructionBeforeCapture() {
+  if (!String(T?.langCode || '').toLowerCase().startsWith('th')) return 'skipped';
+  const recorded=window.QuickStrokeThaiRecorded;
+  const message='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
+  if (!recorded?.fileFor?.(message)) return 'missing';
+  $('hint-text').textContent=message;
+  $('transcript-box').textContent=message;
+  const status=await recorded.play(message,{timeoutMs:11000});
+  if (status==='ended') await sleep(180);
+  return status;
+}
+
 async function handleAction() {
   if (retryStarting) return;
 
@@ -2718,6 +2730,7 @@ async function handleAction() {
     beginSpeechModuleRun('initial_start');
     try {
       const firstUseStream = await ensureMicDisclosureBeforeFirstUse();
+      await playSpeechInstructionBeforeCapture();
       await startRecording(false, firstUseStream);
     } catch (error) {
       if (phase !== 'DONE') {
@@ -2752,6 +2765,7 @@ async function handleAction() {
       beginSpeechModuleRun('user_retry');
       actionBtn.disabled = true;
       actionBtn.textContent = T.calibrating;
+      await playSpeechInstructionBeforeCapture();
       await startRecording(true);
     } finally {
       retryStarting = false;
@@ -3242,6 +3256,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
                 resetUI();
                 beginSpeechModuleRun('user_retry');
                 captureSpeechPermissionRuntime(result, 'fast_permissions_ui');
+                await playSpeechInstructionBeforeCapture();
                 await startRecording(true);
               } finally {
                 retryStarting = false;
