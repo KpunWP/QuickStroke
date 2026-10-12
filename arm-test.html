@@ -4201,7 +4201,7 @@ function armStepOneVoice(side) {
 function playArmStepOneGuide() {
   const guide=$('pose-guide');
   const side=guide?.dataset.guideSide;
-  if (!side || guide.dataset.guideStep!=='1' || !['IDLE','BETWEEN','RETRY_ARM'].includes(phase)) return;
+  if (side !== 'left' || guide.dataset.guideStep!=='1' || phase !== 'IDLE') return;
   const clip=armStepOneVoice(side);
   // Direct user gesture preserves mobile playback authorization; never autoplay.
   speak(clip);
@@ -4214,7 +4214,7 @@ function setArmGuideStage(side, step) {
   guide.dataset.guideSide = safeSide;
   guide.dataset.guideStep = String(safeStep);
   const listen=$('arm-listen-btn');
-  if (listen) listen.classList.toggle('show',safeStep===1);
+  if (listen) listen.classList.toggle('show',safeStep===1 && safeSide==='left');
   updatePoseGuide();
 }
 
@@ -4536,9 +4536,15 @@ function finishArm() {
 
   beep(587, 0.5);
   vibe(passed ? 200 : [300,100,300]);
-  // Step 1 right-side instructions are user-initiated via the listen button.
-  // Avoid a missing recorded-audio cue and competing automatic instructions.
-  speakNow(T.vDone);
+  if (arm === 'left') {
+    speakNow(T.vDone, () => {
+      setTimeout(() => {
+        if (phase === 'BETWEEN' && arm === 'left') speak(rightArmConfirmationVoice());
+      }, 700);
+    });
+  } else {
+    speakNow(T.vDone);
+  }
 
   setDot(arm==='left'?0:1, 'done');
   const cardClass = analysis.valid ? (passed ? 'pass' : 'fail') : 'retry';
