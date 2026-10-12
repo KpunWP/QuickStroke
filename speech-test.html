@@ -1481,6 +1481,19 @@ async function recoverDeadMic() {
   DBG('☠️ DEAD MIC', `stream เงียบสนิท — กู้คืนครั้งที่ ${deadMicAttempt}/${DEAD_MIC_MAX_ATTEMPT}`);
   phase = 'IDLE'; // หยุด runLoop รอบนี้
 
+  if (IS_IOS) {
+    // Make this one failed attempt, not multiple automatic retries. Completing
+    // via finishSpeechInvalid preserves Research lifecycle exactly once.
+    deadMicAttempt = 0;
+    await stopAll(true);
+    if (recoveryToken !== audioStartToken || document.hidden) return;
+    finishSpeechInvalid('DEAD_MIC_DETECTED', {
+      message: 'Digital silence detected; tap Retry to reacquire mic',
+      qualityFlags: ['DEAD_MIC_DETECTED']
+    });
+    return;
+  }
+
   if (deadMicAttempt > DEAD_MIC_MAX_ATTEMPT) {
     deadMicAttempt = 0;
     await stopAll(true);
@@ -1521,12 +1534,10 @@ async function recoverDeadMic() {
     .replace('{attempt}', String(deadMicAttempt))
     .replace('{max}', String(DEAD_MIC_MAX_ATTEMPT));
 
-  // ถึงจุดนี้ = pipeline ตายจริง ต้องปิดหมด (full release) แล้วรอนานขึ้นให้ iOS reset audio session
   await stopAll(true);
-  const waitMs = 1500 + deadMicAttempt * 1500; // 3s → 4.5s → 6s → 7.5s
+  const waitMs = 1500 + deadMicAttempt * 1500;
   await sleep(waitMs);
   if (recoveryToken !== audioStartToken || document.hidden) return;
-  DBG('🔧 RECOVERY', `เริ่มรอบใหม่หลังรอ ${waitMs}ms`);
   startRecording(true);
 }
 
@@ -3044,7 +3055,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 
   // On iOS keep the old pipeline temporarily so it can be health-checked.
   // Other platforms fully release before every new attempt.
-  await stopAll(KEEP_MIC_ALIVE ? false : true);
+  await stopAll(IS_IOS && forceDirectMic ? true : (KEEP_MIC_ALIVE ? false : true));
   if (startToken !== audioStartToken) return;
   DBG('CLEANUP DONE', 'previous ASR/session cleanup completed');
 
@@ -4971,8 +4982,8 @@ function finishSpeechInvalid(reasonCode, details = {}) {
     'WEB_AUDIO_UNAVAILABLE',
     'DEAD_MIC_RECOVERY_FAILED'
   ].includes(reasonCode);
-  stopAll(mustReleaseImmediately ? true : (KEEP_MIC_ALIVE ? false : true));
-  if (!mustReleaseImmediately) scheduleResultMicRelease();
+  stopAll(IS_IOS ? true : (mustReleaseImmediately ? true : (KEEP_MIC_ALIVE ? false : true)));
+  if (!IS_IOS && !mustReleaseImmediately) scheduleResultMicRelease();
 }
 
 function evaluateSpeech(text, confidence) {
@@ -5393,8 +5404,8 @@ function evaluateSpeech(text, confidence) {
     `quality flags: ${qualityFlags.join(', ') || 'none'}`
   ].join('\n');
 
-  stopAll(KEEP_MIC_ALIVE ? false : true);
-  scheduleResultMicRelease();
+  stopAll(IS_IOS ? true : (KEEP_MIC_ALIVE ? false : true));
+  if (!IS_IOS) scheduleResultMicRelease();
 
   requestAnimationFrame(() => {
     if (rb && typeof rb.scrollIntoView === 'function') {
