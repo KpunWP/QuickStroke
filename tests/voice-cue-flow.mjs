@@ -44,6 +44,17 @@ const audioReadyIndex=speech.indexOf("markSpeechRecognitionReady('audio_start')"
 assert.ok(cueIndex>=0 && recordIndex>cueIndex && asrIndex>recordIndex);
 assert.ok(audioReadyIndex>=0);
 
+// Speech instructional audio must be bundled before releasing Consent preload.
+const recordedAudio=fs.readFileSync("js/thai-recorded-audio.js","utf8");
+const voiceText='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
+assert.ok(recordedAudio.includes(voiceText), 'instruction must be mapped in recorded audio manifest');
+assert.ok(recordedAudio.includes('speech_02_instruction.mp3'));
+assert.ok(fs.existsSync("audio/th/speech_02_instruction.mp3"), 'approved instruction MP3 must be uploaded to GitHub before release');
+assert.match(speech,/function playSpeechInstructionBeforeCapture\(\)/);
+assert.match(speech,/await playSpeechInstructionBeforeCapture\(\)/);
+assert.match(speech,/await sleep\(1000\)/, 'countdown should show each large digit for a full second');
+assert.match(speech,/speech-countdown-active #freq-canvas\{display:none!important;\}/,'waveform should not overlap countdown');
+
 // Full-flow Face -> Arm transition navigates directly; the Arm page does not
 // attempt autoplay TTS before the participant's first Arm-page gesture.
 assert.doesNotMatch(face,/function nextArmConfirmationVoice\(\)/);
