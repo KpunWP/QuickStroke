@@ -77,6 +77,20 @@ assert.match(speech,/const healthyReuse = await probeExistingAudioPipeline\(\)/)
 assert.match(speech,/await stopAll\(true\);[\s\S]*await sleep\(RETRY_FULL_RELEASE_WAIT_MS\)/);
 console.log("PASS: iOS keep-alive is health-probed before reuse and stale pipelines are fully rebuilt");
 
+// P0 iOS manual recovery: no blind new microphone request after digital silence.
+// The explicit user's Retry gesture will start a fresh capture after full release.
+const recoverFn=extractFunction(speech,"recoverDeadMic");
+const iosBranch=recoverFn.slice(recoverFn.indexOf("if (IS_IOS)"), recoverFn.indexOf("if (deadMicAttempt >"));
+assert.match(iosBranch,/await stopAll\(true\)/);
+assert.match(iosBranch,/finishSpeechInvalid\('DEAD_MIC_DETECTED'/);
+assert.doesNotMatch(iosBranch,/startRecording\(/);
+assert.doesNotMatch(iosBranch,/finalizeCanonicalSpeechAttempt\(/);
+assert.match(speech,/await stopAll\(IS_IOS && forceDirectMic \? true :/);
+assert.match(speech,/stopAll\(IS_IOS \? true : \(KEEP_MIC_ALIVE \? false : true\)\)/);
+assert.match(speech,/if \(!IS_IOS\) scheduleResultMicRelease\(\)/);
+console.log("PASS: iOS speech result releases mic and dead mic requires explicit Retry gesture");
+
+
 assert.match(speech,/if \(ANDROID_EXCLUSIVE_ASR\) \{[\s\S]*await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(speech,/oldStream\.getTracks\(\)\.forEach\(track => track\.stop\(\)\)/);
 assert.match(speech,/const useAcousticTimingForScoring = !ANDROID_EXCLUSIVE_ASR/);
