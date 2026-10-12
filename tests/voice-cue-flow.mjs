@@ -14,13 +14,22 @@ assert.doesNotMatch(arm,/armSideConfirmationVoice/);
 assert.match(arm,/function rightArmConfirmationVoice\(\)/);
 assert.match(arm,/กดยืนยันใช้แขนขวา/);
 
-// After left-arm completion, lower-arm cue finishes first, then a short pause,
-// then the right-arm confirmation cue. If the participant starts the next arm
-// immediately, startWait/speakNow may cancel the queued reminder safely.
-assert.match(
-  arm,
-  /if \(arm === 'left'\) \{[\s\S]*speakNow\(T\.vDone, \(\) => \{[\s\S]*setTimeout\(\(\) => \{[\s\S]*phase === 'BETWEEN' && arm === 'left'[\s\S]*speak\(rightArmConfirmationVoice\(\)\)[\s\S]*\}, 700\)/
-);
+// Step 1 instructions are on-demand, never unsolicited when navigating from Face.
+assert.match(arm,/function playArmStepOneGuide\(\)/);
+assert.match(arm,/id="arm-listen-btn"/);
+assert.match(arm,/function armStepOneVoice\(side\)/);
+assert.match(arm,/speakNow\(T\.vDone\)/);
+assert.doesNotMatch(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
+
+const recordedAudio=fs.readFileSync('js/thai-recorded-audio.js','utf8');
+for (const [phrase,file] of [
+  ['ถือโทรศัพท์ด้วยมือซ้ายตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_12_left_start.mp3'],
+  ['ถือโทรศัพท์ด้วยมือขวาตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_13_right_start.mp3']
+]) {
+  assert.ok(recordedAudio.includes(phrase) && recordedAudio.includes(file),'recorded prompt must be mapped');
+  assert.ok(fs.existsSync('audio/th/'+file),file+' must exist before merging for Android/Consent preload');
+}
+assert.match(recordedAudio,/QuickStrokeDevMode\?\.isEnabled\?\.\(\) !== true/,'debug sound-test button only in Dev');
 
 // Speech: the pre-recognition phase uses visual 3-2-1 instead of TTS,
 // and "speak now" appears only after SpeechRecognition confirms audio capture.
