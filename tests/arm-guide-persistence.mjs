@@ -42,6 +42,8 @@ assert.match(wait, /setArmGuideStage\(arm, 2\);[\s\S]*showArmGuide\(\)/, 'instru
 
 const calib = fn('tickCalib');
 assert.match(calib, /showArmOuterGuideCopy\(arm, 2\)/, 'calibration must keep the Step 2 instruction rather than an extra preparation screen');
+assert.equal((calib.match(/showArmOuterGuideCopy\(arm, 2\)/g) || []).length, 2, 'both stable and unstable calibration branches must retain Step 2');
+assert.doesNotMatch(calib, /T\['instrWait_'\+arm\]|T\['subWait_'\+arm\]/, 'calibration must never restore old waiting copy');
 const refresh = fn('refreshArmLanguageUI');
 assert.match(refresh, /phase === 'CALIB' \|\| phase === 'PRE_MEASURE_RECHECK'[\s\S]*showArmOuterGuideCopy\(arm, 2\)/, 'locale refresh must preserve Step 2 instruction during readiness');
 assert.match(source, /#test-screen\.arm-guide-measuring #action-dock\{display:none!important;\}/, 'measurement must hide the disabled confirmation button');
