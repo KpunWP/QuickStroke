@@ -4234,6 +4234,7 @@ function syncArmGuideMeasurementLayout() {
   if (measuring) {
     setArmGuideStage(arm, 3);
     showArmGuide();
+    showArmOuterGuideCopy(arm, 3);
   }
   setArmGuideMeasurementMode(measuring);
 }
@@ -4413,7 +4414,8 @@ function startMeasure() {
   addDevMarker(`MEASURE_${arm.toUpperCase()}_${currentDevProtocol().key.toUpperCase()}`);
   if ($('pose-guide')) $('pose-guide').style.display = 'none';
 
-  showArmOuterGuideCopy(arm, 3);
+  $('instr').textContent     = T.instrMeasure;
+  $('sub-instr').textContent = T.subMeasure;
   $('cd-wrap').style.display    = 'flex';
   $('drift-wrap').style.display = 'flex';
   $('cd-num').textContent       = MEASURE_SEC;
