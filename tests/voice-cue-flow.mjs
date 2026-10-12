@@ -30,7 +30,7 @@ assert.match(speech,/function speakSpeechCue\(text\)/);
 assert.match(speech,/function primeSpeechCue\(\)/);
 assert.match(speech,/for \(const count of \[3,2,1\]\)/);
 assert.match(speech,/const cueStatus = 'visual_only'/);
-assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:clamp(96px'), 'countdown should be large inside central icon');
+assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:112px'), 'countdown should be large inside central icon');
 assert.ok(speech.includes("$('mic-icon').textContent = String(count);"), 'each countdown digit should replace the mic icon');
 assert.ok(speech.includes("$('mic-icon').textContent       = '🎤';"), 'restore microphone graphic as recognition prepares');
 assert.match(speech,/phase = 'READY_CUE';[\s\S]*phase = 'RECORDING';[\s\S]*recordingStartedMs = null/);
@@ -43,6 +43,17 @@ const asrIndex=speech.indexOf("beginSpeechRecognition()", recordIndex);
 const audioReadyIndex=speech.indexOf("markSpeechRecognitionReady('audio_start')");
 assert.ok(cueIndex>=0 && recordIndex>cueIndex && asrIndex>recordIndex);
 assert.ok(audioReadyIndex>=0);
+
+// Speech instructional audio must be bundled before releasing Consent preload.
+const recordedAudio=fs.readFileSync("js/thai-recorded-audio.js","utf8");
+const voiceText='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
+assert.ok(recordedAudio.includes(voiceText), 'instruction must be mapped in recorded audio manifest');
+assert.ok(recordedAudio.includes('speech_02_instruction.mp3'));
+assert.ok(fs.existsSync("audio/th/speech_02_instruction.mp3"), 'approved instruction MP3 must be uploaded to GitHub before release');
+assert.match(speech,/function playSpeechInstructionBeforeCapture\(\)/);
+assert.match(speech,/await playSpeechInstructionBeforeCapture\(\)/);
+assert.match(speech,/await sleep\(1000\)/, 'countdown should show each large digit for a full second');
+assert.match(speech,/speech-countdown-active #freq-canvas\{display:none!important;\}/,'waveform should not overlap countdown');
 
 // Full-flow Face -> Arm transition navigates directly; the Arm page does not
 // attempt autoplay TTS before the participant's first Arm-page gesture.
