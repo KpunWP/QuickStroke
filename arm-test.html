@@ -1569,6 +1569,15 @@
     #test-screen.arm-guide-measuring #instr{font-size:22px!important;}
     #test-screen.arm-guide-measuring #sub-instr{font-size:14px!important;}
   }
+  /* JSSF Arm visual copy: keep each image card image-only; all instructions live below. */
+  #pose-guide .guide-step-copy{display:none!important;}
+  #pose-guide .guide-step-visual{height:min(37vh,315px);max-height:315px;}
+  #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-copy{display:none!important;}
+  #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{height:min(34vh,285px)!important;}
+  @media(max-height:760px){
+    #pose-guide .guide-step-visual{height:min(32vh,250px);}
+    #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{height:min(28vh,220px)!important;}
+  }
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261011-preload-ios-v3"></script>
@@ -4155,6 +4164,19 @@ function armGuideInstructionCopy(side) {
   };
 }
 
+function armOuterGuideCopy(side, step) {
+  const lang = currentLangCode();
+  if (lang === 'en') return step === 1 ? ['1 Start test', 'Keep the phone in your hand near your body as shown'] : step === 2 ? [`2 Raise your ${side} arm`, `Extend your ${side} arm forward as shown and hold still`] : ['3 Close your eyes – hold still', ''];
+  if (lang === 'ja') return step === 1 ? ['1 テスト開始', '図のようにスマートフォンを持ち、腕を体の近くに置く'] : step === 2 ? [`2 ${side === 'left' ? '左' : '右'}腕を上げる`, '図のように腕を前方に伸ばして静止してください'] : ['3 目を閉じて動かさない', ''];
+  const name = side === 'right' ? 'ขวา' : 'ซ้าย';
+  return step === 1 ? ['1 เริ่มทดสอบ', `ถือโทรศัพท์ด้วยมือ${name} วางแขนไว้ใกล้ตัวตามภาพ`] : step === 2 ? [`2 ยกแขน${name}`, `เหยียดแขน${name}ไปข้างหน้าตามภาพ และถือนิ่งๆ`] : ['3 หลับตา - ถือนิ่งๆ', ''];
+}
+function showArmOuterGuideCopy(side, step) {
+  const [heading, detail] = armOuterGuideCopy(side, step);
+  $('instr').textContent = heading;
+  $('sub-instr').textContent = detail;
+}
+
 function updateArmGuideInstructionCopy() {
   ['left','right'].forEach(side => {
     const copy = armGuideInstructionCopy(side);
@@ -4273,8 +4295,7 @@ function startWait() {
   $('pre-cd').style.display     = 'none';
   $('final-banner').style.display = 'none';
   hideWarn();
-  $('instr').textContent     = T['instrWait_'+arm];
-  $('sub-instr').textContent = T['subWait_'+arm];
+  showArmOuterGuideCopy(arm, 2);
   $('action-btn').disabled   = true;
   $('action-btn').className  = '';
   setArmGuideMeasurementMode(false);
@@ -4392,8 +4413,7 @@ function startMeasure() {
   addDevMarker(`MEASURE_${arm.toUpperCase()}_${currentDevProtocol().key.toUpperCase()}`);
   if ($('pose-guide')) $('pose-guide').style.display = 'none';
 
-  $('instr').textContent     = T.instrMeasure;
-  $('sub-instr').textContent = T.subMeasure;
+  showArmOuterGuideCopy(arm, 3);
   $('cd-wrap').style.display    = 'flex';
   $('drift-wrap').style.display = 'flex';
   $('cd-num').textContent       = MEASURE_SEC;
@@ -4522,6 +4542,8 @@ function finishArm() {
   if (arm==='left') {
     setArmGuideStage('right', 1);
     showArmGuide();
+    $('instr').textContent = 'ลดแขนลง';
+    $('sub-instr').textContent = 'เริ่มทดสอบแขนขวา';
     $('action-btn').textContent = armStartButtonText('right');
     $('action-btn').className   = '';
     $('action-btn').disabled    = false;
@@ -5116,6 +5138,7 @@ async function selectLang(code) {
   showArmGuide();
   observeArmGuideMeasurementLayout();
   actionBtn.textContent = armStartButtonText('left');
+  showArmOuterGuideCopy('left', 1);
   actionBtn.disabled = false;
   $('arm-understanding-card')?.classList.remove('show');
 
