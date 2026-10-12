@@ -4015,8 +4015,7 @@ function tickCalib() {
     stableCount = 0;
     if (!isWarnVisible()) {
       $('arm-circle').className  = 'arm-circle waiting';
-      $('instr').textContent     = T['instrWait_'+arm];
-      $('sub-instr').textContent = T['subWait_'+arm];
+      showArmOuterGuideCopy(arm, 2);
     }
   }
 }
