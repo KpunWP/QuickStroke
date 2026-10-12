@@ -145,6 +145,8 @@
     });
   }
   function addAudioTestControl() {
+    // Keep engineering playback controls out of Public and JSSF Research screens.
+    if (window.QuickStrokeDevMode?.isEnabled?.() !== true) return;
     // The recorded path is currently used primarily on Android browsers.
     // Always provide an audible, direct-gesture test when that path is selected,
     // so users can distinguish browser playback from an application prompt error.
