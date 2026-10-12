@@ -1569,6 +1569,8 @@
     #test-screen.arm-guide-measuring #instr{font-size:22px!important;}
     #test-screen.arm-guide-measuring #sub-instr{font-size:14px!important;}
   }
+  /* Hide confirmation controls only during active 10-second measurement. */
+  #test-screen.arm-guide-measuring #action-dock{display:none!important;}
   /* JSSF Arm visual copy: keep each image card image-only; all instructions live below. */
   #pose-guide .guide-step-copy{display:none!important;}
   #pose-guide .guide-step-visual{height:min(37vh,315px);max-height:315px;}
@@ -3949,8 +3951,7 @@ function tickCalib() {
     stableCount++;
     hideWarn();
     $('arm-circle').className  = 'arm-circle stable';
-    $('instr').textContent     = T.instrCalib;
-    $('sub-instr').textContent = T.subCalib;
+    showArmOuterGuideCopy(arm, 2);
     lastWarnKey = '';
 
     if (stableCount >= STABLE_HOLD) {
@@ -5054,14 +5055,10 @@ function refreshArmLanguageUI(){
 
   // Main instruction by current phase
   if (phase === 'IDLE' || phase === 'WAIT_VOICE' || phase === 'WAIT_SENSOR') {
-    $('instr').textContent = T['instrWait_' + arm];
-    $('sub-instr').textContent = T['subWait_' + arm];
+    showArmOuterGuideCopy(arm, phase === 'IDLE' ? 1 : 2);
     $('action-btn').textContent = armStartButtonText(arm);
   } else if (phase === 'CALIB' || phase === 'PRE_MEASURE_RECHECK') {
-    if (!isWarnVisible()) {
-      $('instr').textContent = T.instrCalib;
-      $('sub-instr').textContent = T.subCalib;
-    }
+    if (!isWarnVisible()) showArmOuterGuideCopy(arm, 2);
   } else if (phase === 'READINESS_ERROR') {
     const message = readinessMessage(readinessInvalidReason || 'sensor_no_samples');
     $('warn-title').textContent = message.title;
