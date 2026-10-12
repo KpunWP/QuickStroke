@@ -903,8 +903,13 @@
   }
 
   /* Large, visual-only 3-2-1 cue in the existing central microphone artwork. */
-  #mic-circle.speech-countdown{width:clamp(150px,44vw,190px)!important;height:clamp(150px,44vw,190px)!important;}
-  #mic-circle.speech-countdown #mic-icon{font-size:clamp(96px,29vw,132px)!important;font-weight:900!important;line-height:1!important;font-variant-numeric:tabular-nums;color:#1464c9;}
+  #test-screen.speech-countdown-active .mic-box{width:100%!important;height:200px!important;margin:8px auto!important;display:flex!important;justify-content:center!important;align-items:center!important;position:relative!important;}
+  #test-screen.speech-countdown-active #freq-canvas{display:none!important;}
+  #mic-circle.speech-countdown{position:relative!important;margin:0 auto!important;width:168px!important;height:168px!important;flex:0 0 168px!important;border-radius:50%!important;box-shadow:0 9px 28px rgba(25,91,170,.12)!important;background:#fff!important;border:3px solid #2b7de9!important;}
+  #mic-circle.speech-countdown #mic-icon{font-size:112px!important;font-weight:900!important;line-height:1!important;font-variant-numeric:tabular-nums;color:#1464c9;}
+  #test-screen.speech-countdown-active #transcript-box{display:none!important;}
+  #test-screen.speech-countdown-active #hint-text{font-size:19px!important;margin:0 auto!important;color:#145ab3!important;}
+  @media(max-height:760px){#test-screen.speech-countdown-active .mic-box{height:172px!important;}#mic-circle.speech-countdown{width:148px!important;height:148px!important;flex-basis:148px!important;}#mic-circle.speech-countdown #mic-icon{font-size:98px!important;}}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261011-preload-ios-v3"></script>
@@ -3919,6 +3924,7 @@ function runLoop() {
       $('mic-circle').className       = 'mic-circle calibrating';
       $('mic-icon').textContent       = '3';
       $('mic-circle').classList.add('speech-countdown');
+      $('test-screen').classList.add('speech-countdown-active');
       $('hint-text').classList.remove('speak-now');
       $('hint-text').textContent      = T.preparePrompt;
       $('action-btn').textContent     = T.calibrating;
@@ -3935,9 +3941,9 @@ function runLoop() {
         for (const count of [3,2,1]) {
           if (phase !== 'READY_CUE') return;
           $('mic-icon').textContent = String(count);
-          $('hint-text').textContent = T.preparePrompt;
+          $('hint-text').textContent = currentLangShort() === 'th' ? 'ยังไม่ต้องพูด' : T.preparePrompt;
           $('transcript-box').textContent = T.preparePrompt;
-          await sleep(550);
+          await sleep(1000);
         }
         const cueStatus = 'visual_only';
         if (phase !== 'READY_CUE') return;
@@ -3950,6 +3956,7 @@ function runLoop() {
         // Android still has to hand the microphone from WebAudio to Web Speech.
         // The visible "เริ่มพูดได้" state is exposed only from ASR onaudiostart.
         phase = 'RECORDING';
+        $('test-screen').classList.remove('speech-countdown-active');
         recordingStartedMs = null;
         $('mic-circle').className       = 'mic-circle calibrating';
         $('mic-icon').textContent       = '🎤';
