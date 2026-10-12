@@ -3014,6 +3014,28 @@ async function acquireFreshMicStream(permLang) {
   throw err;
 }
 
+function playVisualCountdownBeep() {
+  // Low-level, nonverbal cue; only after microphone calibration completes.
+  // Do not create a new AudioContext or alter navigator.audioSession.
+  const ctx=audioCtx;
+  if (!ctx || ctx.state!=='running' || !ctx.createOscillator || !ctx.createGain) return false;
+  try {
+    const osc=ctx.createOscillator(),gain=ctx.createGain();
+    const t=ctx.currentTime;
+    osc.type='sine';
+    osc.frequency.setValueAtTime(720,t);
+    gain.gain.setValueAtTime(0.0001,t);
+    gain.gain.linearRampToValueAtTime(0.035,t+0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001,t+0.13);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t+0.14);
+    osc.onended=()=>{try{osc.disconnect();gain.disconnect();}catch(_){}};
+    return true;
+  } catch (_) {return false;}
+}
+
 async function startRecording(forceDirectMic = false, preauthorizedStream = null) {
   const startToken = ++audioStartToken;
   clearResultReleaseTimer();
@@ -3969,6 +3991,7 @@ function runLoop() {
         for (const count of [3,2,1]) {
           if (phase !== 'READY_CUE') return;
           $('mic-icon').textContent = String(count);
+          playVisualCountdownBeep();
           $('hint-text').textContent = String(T?.langCode || '').toLowerCase().startsWith('th') ? 'ยังไม่ต้องพูด' : T.preparePrompt;
           $('transcript-box').textContent = T.preparePrompt;
           await sleep(1000);
