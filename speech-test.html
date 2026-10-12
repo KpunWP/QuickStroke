@@ -3941,7 +3941,7 @@ function runLoop() {
         for (const count of [3,2,1]) {
           if (phase !== 'READY_CUE') return;
           $('mic-icon').textContent = String(count);
-          $('hint-text').textContent = currentLangShort() === 'th' ? 'ยังไม่ต้องพูด' : T.preparePrompt;
+          $('hint-text').textContent = String(T?.langCode || '').toLowerCase().startsWith('th') ? 'ยังไม่ต้องพูด' : T.preparePrompt;
           $('transcript-box').textContent = T.preparePrompt;
           await sleep(1000);
         }
