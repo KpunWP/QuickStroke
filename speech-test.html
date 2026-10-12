@@ -1516,17 +1516,28 @@ async function recoverDeadMic() {
   });
   setPendingSpeechAttempt('technical_recovery', recoveryFrom, 'DEAD_MIC_DETECTED');
 
+  if (IS_IOS) {
+    // Safari may require a fresh participant gesture to recover hardware
+    // capture; repeated automatic getUserMedia calls only add failed attempts.
+    await stopAll(true);
+    if (recoveryToken !== audioStartToken || document.hidden) return;
+    deadMicAttempt = 0;
+    finishSpeechInvalid('DEAD_MIC_DETECTED', {
+      message: 'Microphone delivered digital silence; tap Retry to reacquire',
+      qualityFlags: ['DEAD_MIC_DETECTED']
+    });
+    return;
+  }
+
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent = T.micReconnecting
     .replace('{attempt}', String(deadMicAttempt))
     .replace('{max}', String(DEAD_MIC_MAX_ATTEMPT));
 
-  // ถึงจุดนี้ = pipeline ตายจริง ต้องปิดหมด (full release) แล้วรอนานขึ้นให้ iOS reset audio session
   await stopAll(true);
-  const waitMs = 1500 + deadMicAttempt * 1500; // 3s → 4.5s → 6s → 7.5s
+  const waitMs = 1500 + deadMicAttempt * 1500;
   await sleep(waitMs);
   if (recoveryToken !== audioStartToken || document.hidden) return;
-  DBG('🔧 RECOVERY', `เริ่มรอบใหม่หลังรอ ${waitMs}ms`);
   startRecording(true);
 }
 
@@ -3044,7 +3055,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 
   // On iOS keep the old pipeline temporarily so it can be health-checked.
   // Other platforms fully release before every new attempt.
-  await stopAll(KEEP_MIC_ALIVE ? false : true);
+  await stopAll(IS_IOS && forceDirectMic ? true : (KEEP_MIC_ALIVE ? false : true));
   if (startToken !== audioStartToken) return;
   DBG('CLEANUP DONE', 'previous ASR/session cleanup completed');
 
@@ -4971,8 +4982,8 @@ function finishSpeechInvalid(reasonCode, details = {}) {
     'WEB_AUDIO_UNAVAILABLE',
     'DEAD_MIC_RECOVERY_FAILED'
   ].includes(reasonCode);
-  stopAll(mustReleaseImmediately ? true : (KEEP_MIC_ALIVE ? false : true));
-  if (!mustReleaseImmediately) scheduleResultMicRelease();
+  stopAll(IS_IOS ? true : (mustReleaseImmediately ? true : (KEEP_MIC_ALIVE ? false : true)));
+  if (!IS_IOS && !mustReleaseImmediately) scheduleResultMicRelease();
 }
 
 function evaluateSpeech(text, confidence) {
@@ -5393,8 +5404,8 @@ function evaluateSpeech(text, confidence) {
     `quality flags: ${qualityFlags.join(', ') || 'none'}`
   ].join('\n');
 
-  stopAll(KEEP_MIC_ALIVE ? false : true);
-  scheduleResultMicRelease();
+  stopAll(IS_IOS ? true : (KEEP_MIC_ALIVE ? false : true));
+  if (!IS_IOS) scheduleResultMicRelease();
 
   requestAnimationFrame(() => {
     if (rb && typeof rb.scrollIntoView === 'function') {
