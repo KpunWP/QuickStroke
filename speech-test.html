@@ -2714,6 +2714,15 @@ async function playSpeechInstructionBeforeCapture() {
   if (!recorded?.fileFor?.(message)) return 'missing';
   $('hint-text').textContent=message;
   $('transcript-box').textContent=message;
+  // The instruction is playback-only: use the media speaker route before
+  // switching to a capture-compatible session in startRecording().
+  if (IS_IOS) {
+    try {
+      if (navigator.audioSession && 'type' in navigator.audioSession && !hasLiveAudioTrack(streamRef)) {
+        navigator.audioSession.type='playback';
+      }
+    } catch (_) {}
+  }
   const status=await recorded.play(message,{timeoutMs:11000});
   if (status==='ended') await sleep(180);
   return status;
@@ -2765,7 +2774,11 @@ async function handleAction() {
       beginSpeechModuleRun('user_retry');
       actionBtn.disabled = true;
       actionBtn.textContent = T.calibrating;
-      await playSpeechInstructionBeforeCapture();
+      // iOS keeps the microphone pipeline alive between attempts.
+      // Playing an MP3 over that live play-and-record session can reroute
+      // the reused capture stream and cause digital silence on retry.
+      // Keep the on-screen instruction, but skip system playback on iOS retries.
+      if (!IS_IOS) await playSpeechInstructionBeforeCapture();
       await startRecording(true);
     } finally {
       retryStarting = false;
@@ -3256,7 +3269,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
                 resetUI();
                 beginSpeechModuleRun('user_retry');
                 captureSpeechPermissionRuntime(result, 'fast_permissions_ui');
-                await playSpeechInstructionBeforeCapture();
+                if (!IS_IOS) await playSpeechInstructionBeforeCapture();
                 await startRecording(true);
               } finally {
                 retryStarting = false;
