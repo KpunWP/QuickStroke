@@ -16,6 +16,11 @@ assert.match(arm,/กดยืนยันใช้แขนขวา/);
 
 // Step 1 instructions are on-demand, never unsolicited when navigating from Face.
 assert.match(arm,/function playArmStepOneGuide\(\)/);
+assert.match(arm,/function attemptAutoArmStepOneVoice\(\)/);
+assert.match(arm,/armInitialCueAttempted=true/);
+assert.match(arm,/attemptAutoArmStepOneVoice\(\);/);
+assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
+
 assert.match(arm,/id="arm-listen-btn"/);
 assert.match(arm,/function armStepOneVoice\(side\)/);
 assert.match(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
@@ -36,6 +41,11 @@ assert.match(speech,/function speechCueText\(\)/);
 assert.match(speech,/function speakSpeechCue\(text\)/);
 assert.match(speech,/function primeSpeechCue\(\)/);
 assert.match(speech,/for \(const count of \[3,2,1\]\)/);
+assert.match(speech,/function playVisualCountdownBeep\(\)/);
+assert.match(speech,/ctx\.state!=='running'/);
+assert.match(speech,/gain\.gain\.exponentialRampToValueAtTime\(0\.0001,t\+0\.13\)/);
+assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*playVisualCountdownBeep\(\);/);
+
 assert.match(speech,/const cueStatus = 'visual_only'/);
 assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:112px'), 'countdown should be large inside central icon');
 assert.ok(speech.includes("$('mic-icon').textContent = String(count);"), 'each countdown digit should replace the mic icon');
