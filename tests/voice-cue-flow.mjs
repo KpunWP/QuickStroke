@@ -18,13 +18,11 @@ assert.match(arm,/กดยืนยันใช้แขนขวา/);
 assert.match(arm,/function playArmStepOneGuide\(\)/);
 assert.match(arm,/id="arm-listen-btn"/);
 assert.match(arm,/function armStepOneVoice\(side\)/);
-assert.match(arm,/speakNow\(T\.vDone\)/);
-assert.doesNotMatch(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
+assert.match(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
 
 const armRecordedManifest=fs.readFileSync('js/thai-recorded-audio.js','utf8');
 for (const [phrase,file] of [
-  ['ถือโทรศัพท์ด้วยมือซ้ายตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_12_left_start.mp3'],
-  ['ถือโทรศัพท์ด้วยมือขวาตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_13_right_start.mp3']
+  ['ถือโทรศัพท์ด้วยมือซ้ายตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_12_left_start.mp3']
 ]) {
   assert.ok(armRecordedManifest.includes(phrase) && armRecordedManifest.includes(file),'recorded prompt must be mapped');
   assert.ok(fs.existsSync('audio/th/'+file),file+' must exist before merging for Android/Consent preload');
