@@ -30,7 +30,7 @@ assert.match(speech,/function speakSpeechCue\(text\)/);
 assert.match(speech,/function primeSpeechCue\(\)/);
 assert.match(speech,/for \(const count of \[3,2,1\]\)/);
 assert.match(speech,/const cueStatus = 'visual_only'/);
-assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:clamp(96px'), 'countdown should be large inside central icon');
+assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:112px'), 'countdown should be large inside central icon');
 assert.ok(speech.includes("$('mic-icon').textContent = String(count);"), 'each countdown digit should replace the mic icon');
 assert.ok(speech.includes("$('mic-icon').textContent       = '🎤';"), 'restore microphone graphic as recognition prepares');
 assert.match(speech,/phase = 'READY_CUE';[\s\S]*phase = 'RECORDING';[\s\S]*recordingStartedMs = null/);
