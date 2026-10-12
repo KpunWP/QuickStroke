@@ -40,13 +40,19 @@ assert.match(handle, /phase === 'RETRY_ARM'[\s\S]*setArmGuideStage\(arm, 2\)/, '
 const wait = fn('startWait');
 assert.match(wait, /setArmGuideStage\(arm, 2\);[\s\S]*showArmGuide\(\)/, 'instruction/readiness must keep current side on Step 2');
 
+const calib = fn('tickCalib');
+assert.match(calib, /showArmOuterGuideCopy\(arm, 2\)/, 'calibration must keep the Step 2 instruction rather than an extra preparation screen');
+const refresh = fn('refreshArmLanguageUI');
+assert.match(refresh, /phase === 'CALIB' \|\| phase === 'PRE_MEASURE_RECHECK'[\s\S]*showArmOuterGuideCopy\(arm, 2\)/, 'locale refresh must preserve Step 2 instruction during readiness');
+assert.match(source, /#test-screen\.arm-guide-measuring #action-dock\{display:none!important;\}/, 'measurement must hide the disabled confirmation button');
+
 const measure = fn('startMeasure');
 const syncLayout = fn('syncArmGuideMeasurementLayout');
 assert.match(syncLayout, /phase === 'MEASURE'[\s\S]*countdown\?\.style\.display === 'flex'[\s\S]*setArmGuideStage\(arm, 3\);[\s\S]*showArmGuide\(\)/, 'countdown presentation must switch to Step 3 without touching measurement logic');
 assert.match(measure, /pose-guide[^\n]*display\s*=\s*['"]none['"]/, 'frozen measurement line remains present while presentation CSS overrides it');
 assert.match(source, /#pose-guide\{display:block!important;/, 'guide presentation must override the legacy inline hide');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3[\s\S]*display:flex!important/, 'measurement must keep Step 3 visible');
-assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-copy\{display:block!important;\}/, 'Step 3 HTML instruction must remain visible during measurement');
+assert.match(source, /#test-screen\.arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-copy\{display:none!important;\}/, 'Step 3 image card must not duplicate the outer instruction');
 assert.match(source, /arm-guide-measuring #pose-guide \.guide-step\.step-3 \.guide-step-visual[\s\S]*object-fit:contain!important/, 'measurement Step 3 must show the full dedicated image');
 
 const retest = fn('showArmRetest');
