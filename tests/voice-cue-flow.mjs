@@ -21,15 +21,15 @@ assert.match(arm,/function armStepOneVoice\(side\)/);
 assert.match(arm,/speakNow\(T\.vDone\)/);
 assert.doesNotMatch(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
 
-const recordedAudio=fs.readFileSync('js/thai-recorded-audio.js','utf8');
+const armRecordedManifest=fs.readFileSync('js/thai-recorded-audio.js','utf8');
 for (const [phrase,file] of [
   ['ถือโทรศัพท์ด้วยมือซ้ายตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_12_left_start.mp3'],
   ['ถือโทรศัพท์ด้วยมือขวาตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_13_right_start.mp3']
 ]) {
-  assert.ok(recordedAudio.includes(phrase) && recordedAudio.includes(file),'recorded prompt must be mapped');
+  assert.ok(armRecordedManifest.includes(phrase) && armRecordedManifest.includes(file),'recorded prompt must be mapped');
   assert.ok(fs.existsSync('audio/th/'+file),file+' must exist before merging for Android/Consent preload');
 }
-assert.match(recordedAudio,/QuickStrokeDevMode\?\.isEnabled\?\.\(\) !== true/,'debug sound-test button only in Dev');
+assert.match(armRecordedManifest,/QuickStrokeDevMode\?\.isEnabled\?\.\(\) !== true/,'debug sound-test button only in Dev');
 
 // Speech: the pre-recognition phase uses visual 3-2-1 instead of TTS,
 // and "speak now" appears only after SpeechRecognition confirms audio capture.
