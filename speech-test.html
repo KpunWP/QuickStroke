@@ -1481,6 +1481,19 @@ async function recoverDeadMic() {
   DBG('☠️ DEAD MIC', `stream เงียบสนิท — กู้คืนครั้งที่ ${deadMicAttempt}/${DEAD_MIC_MAX_ATTEMPT}`);
   phase = 'IDLE'; // หยุด runLoop รอบนี้
 
+  if (IS_IOS) {
+    // Make this one failed attempt, not multiple automatic retries. Completing
+    // via finishSpeechInvalid preserves Research lifecycle exactly once.
+    deadMicAttempt = 0;
+    await stopAll(true);
+    if (recoveryToken !== audioStartToken || document.hidden) return;
+    finishSpeechInvalid('DEAD_MIC_DETECTED', {
+      message: 'Digital silence detected; tap Retry to reacquire mic',
+      qualityFlags: ['DEAD_MIC_DETECTED']
+    });
+    return;
+  }
+
   if (deadMicAttempt > DEAD_MIC_MAX_ATTEMPT) {
     deadMicAttempt = 0;
     await stopAll(true);
@@ -1515,19 +1528,6 @@ async function recoverDeadMic() {
     completionReasonCode:'DEAD_MIC_DETECTED', selectedForModuleResult:false
   });
   setPendingSpeechAttempt('technical_recovery', recoveryFrom, 'DEAD_MIC_DETECTED');
-
-  if (IS_IOS) {
-    // Safari may require a fresh participant gesture to recover hardware
-    // capture; repeated automatic getUserMedia calls only add failed attempts.
-    await stopAll(true);
-    if (recoveryToken !== audioStartToken || document.hidden) return;
-    deadMicAttempt = 0;
-    finishSpeechInvalid('DEAD_MIC_DETECTED', {
-      message: 'Microphone delivered digital silence; tap Retry to reacquire',
-      qualityFlags: ['DEAD_MIC_DETECTED']
-    });
-    return;
-  }
 
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent = T.micReconnecting
