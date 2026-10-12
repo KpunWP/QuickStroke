@@ -902,6 +902,9 @@
     font-size:clamp(21px,5.8vw,25px)!important;
   }
 
+  /* Large, visual-only 3-2-1 cue in the existing central microphone artwork. */
+  #mic-circle.speech-countdown{width:clamp(150px,44vw,190px)!important;height:clamp(150px,44vw,190px)!important;}
+  #mic-circle.speech-countdown #mic-icon{font-size:clamp(96px,29vw,132px)!important;font-weight:900!important;line-height:1!important;font-variant-numeric:tabular-nums;color:#1464c9;}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261011-preload-ios-v3"></script>
@@ -3914,7 +3917,8 @@ function runLoop() {
       // only after the cue completes (plus a short echo-tail margin).
       phase = 'READY_CUE';
       $('mic-circle').className       = 'mic-circle calibrating';
-      $('mic-icon').textContent       = '🔊';
+      $('mic-icon').textContent       = '3';
+      $('mic-circle').classList.add('speech-countdown');
       $('hint-text').classList.remove('speak-now');
       $('hint-text').textContent      = T.preparePrompt;
       $('action-btn').textContent     = T.calibrating;
@@ -3930,8 +3934,9 @@ function runLoop() {
         // Actual permission to speak is still gated on ASR onaudiostart.
         for (const count of [3,2,1]) {
           if (phase !== 'READY_CUE') return;
-          $('hint-text').textContent = 'เตรียมพูด ' + count;
-          $('transcript-box').textContent = 'เตรียมพูด ' + count;
+          $('mic-icon').textContent = String(count);
+          $('hint-text').textContent = T.preparePrompt;
+          $('transcript-box').textContent = T.preparePrompt;
           await sleep(550);
         }
         const cueStatus = 'visual_only';
