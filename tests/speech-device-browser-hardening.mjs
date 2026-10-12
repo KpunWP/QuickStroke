@@ -41,6 +41,18 @@ assert.equal(cfg.deadMicEnergyMin,0.00001);
 assert.equal(cfg.deadMicMaxAttempts,4);
 console.log("PASS: iOS retry/dead-mic operational settings are explicit");
 
+// Regression: a live iOS capture pipeline must not be interrupted by a
+// new instruction MP3 on retry; first-use playback uses speaker routing.
+const instruction=speech.slice(speech.indexOf('async function playSpeechInstructionBeforeCapture()'),speech.indexOf('async function handleAction()'));
+assert.match(instruction,/navigator\.audioSession\.type='playback'/);
+assert.match(instruction,/!hasLiveAudioTrack\(streamRef\)/);
+const retry=speech.slice(speech.indexOf("else if (phase === 'DONE')"),speech.indexOf('// ── SNR Gate:'));
+assert.match(retry,/if \(!IS_IOS\) await playSpeechInstructionBeforeCapture\(\)/);
+const recovery=speech.slice(speech.indexOf("captureSpeechPermissionRuntime(result, 'fast_permissions_ui')"),speech.indexOf("captureSpeechPermissionRuntime(result, 'fast_permissions_ui')")+270);
+assert.match(recovery,/if \(!IS_IOS\) await playSpeechInstructionBeforeCapture\(\)/);
+console.log('PASS: iOS retry preserves active audio session and first-use cue selects playback route');
+
+
 const mapFn=extractFunction(speech,"mapMicErrorReason");
 const mapCtx={};
 vm.createContext(mapCtx);
