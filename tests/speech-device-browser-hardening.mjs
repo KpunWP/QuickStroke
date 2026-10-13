@@ -130,6 +130,16 @@ const firstSpeechStart=speech.slice(speech.indexOf("if (phase === 'IDLE')"),spee
 assert.ok(firstSpeechStart.indexOf('await playSpeechInstructionBeforeCapture();') < firstSpeechStart.indexOf('await ensureMicDisclosureBeforeFirstUse();'), 'first-use voice must finish before iOS opens a microphone stream');
 assert.ok(firstSpeechStart.indexOf('await ensureMicDisclosureBeforeFirstUse();') < firstSpeechStart.indexOf('await startRecording(false, firstUseStream);'), 'capture should use the stream from the disclosure gesture');
 console.log("PASS: first microphone permission request stays inside the QuickStroke disclosure user gesture");
+const firstStart=speech.slice(speech.indexOf("if (phase === 'IDLE')"),speech.indexOf("else if (phase === 'RECORDING')"));
+assert.match(firstStart,/let firstUseStage='instruction'/);
+assert.match(firstStart,/firstUseStage='disclosure'/);
+assert.match(firstStart,/firstUseStage='capture'/);
+assert.match(firstStart,/FIRST_USE_DISCLOSURE_FAILED/);
+assert.match(firstStart,/FIRST_USE_CAPTURE_UNHANDLED/);
+assert.match(firstStart,/mapMicErrorReason\(error\)/);
+assert.doesNotMatch(firstStart,/finishSpeechInvalid\('I18N_LOAD_FAILED'/);
+console.log("PASS: first-use failures preserve stage-specific diagnostics rather than mislabeling microphone failures as locale failures");
+
 
 
 assert.match(speech,/function prepareSpeechCaptureAudioSession\(\)[\s\S]*navigator\.audioSession\.type = 'play-and-record'/);
