@@ -2748,18 +2748,28 @@ async function handleAction() {
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
     beginSpeechModuleRun('initial_start');
+    let firstUseStage='instruction';
     try {
-      // Finish the instruction while capture has not started. On iOS,
-      // switching audioSession to playback after getUserMedia can invalidate
-      // the first live stream (first attempt fails, retry then works).
-      await playSpeechInstructionBeforeCapture();
+      // A failed instruction must not prevent microphone authorization.
+      try { await playSpeechInstructionBeforeCapture(); }
+      catch (error) { queueSpeechTechnicalDiagnostic('FIRST_USE_INSTRUCTION_FAILED'); }
+      firstUseStage='disclosure';
       const firstUseStream = await ensureMicDisclosureBeforeFirstUse();
+      firstUseStage='capture';
       await startRecording(false, firstUseStream);
     } catch (error) {
+      // Keep permission/capture failures separate from locale loading errors.
+      // No message, recording, identifiers or microphone samples are uploaded.
+      queueSpeechTechnicalDiagnostic(firstUseStage === 'disclosure'
+        ? 'FIRST_USE_DISCLOSURE_FAILED'
+        : 'FIRST_USE_CAPTURE_UNHANDLED');
       if (phase !== 'DONE') {
-        finishSpeechInvalid('I18N_LOAD_FAILED', {
-          message: error?.message || String(error),
-          errorName: error?.name || null
+        const reason=firstUseStage === 'disclosure'
+          ? mapMicErrorReason(error)
+          : 'MICROPHONE_START_FAILED';
+        finishSpeechInvalid(reason, {
+          errorName: error?.name || null,
+          firstUseStage
         });
       }
     } finally {
