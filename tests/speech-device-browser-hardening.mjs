@@ -126,6 +126,9 @@ assert.match(speech,/function ensureMicDisclosureBeforeFirstUse\(\)[\s\S]*allowB
 assert.match(speech,/async function startRecording\(forceDirectMic = false, preauthorizedStream = null\)/);
 assert.match(speech,/preauthorizedStream && hasLiveAudioTrack\(preauthorizedStream\)[\s\S]*streamRef = preauthorizedStream/);
 assert.match(speech,/const firstUseStream = await ensureMicDisclosureBeforeFirstUse\(\);[\s\S]*await startRecording\(false, firstUseStream\)/);
+const firstSpeechStart=speech.slice(speech.indexOf("if (phase === 'IDLE')"),speech.indexOf("else if (phase === 'RECORDING')"));
+assert.ok(firstSpeechStart.indexOf('await playSpeechInstructionBeforeCapture();') < firstSpeechStart.indexOf('await ensureMicDisclosureBeforeFirstUse();'), 'first-use voice must finish before iOS opens a microphone stream');
+assert.ok(firstSpeechStart.indexOf('await ensureMicDisclosureBeforeFirstUse();') < firstSpeechStart.indexOf('await startRecording(false, firstUseStream);'), 'capture should use the stream from the disclosure gesture');
 console.log("PASS: first microphone permission request stays inside the QuickStroke disclosure user gesture");
 
 
