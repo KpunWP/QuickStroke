@@ -94,16 +94,16 @@ assert.match(iosBranch,/finishSpeechInvalid\('DEAD_MIC_DETECTED'/);
 assert.doesNotMatch(iosBranch,/startRecording\(/);
 assert.doesNotMatch(iosBranch,/finalizeCanonicalSpeechAttempt\(/);
 assert.match(speech,/await stopAll\(IS_IOS && forceDirectMic \? true :/);
-assert.match(speech,/void releaseMicAfterSpeechResult\(KEEP_MIC_ALIVE \? false : true\)/);
+assert.match(speech,/void releaseMicAfterSpeechResult\(false\)/);
 assert.match(speech,/if \(!IS_IOS\) scheduleResultMicRelease\(\)/);
 console.log("PASS: iOS speech result releases mic and dead mic requires explicit Retry gesture");
 const releaseGate=extractFunction(speech,'releaseMicAfterSpeechResult');
 assert.match(releaseGate,/iosResultMicReleasePending = true/);
 assert.match(releaseGate,/retryButton\.disabled = true/);
-assert.match(releaseGate,/stopAll\(true\)\.finally/);
+assert.match(releaseGate,/stopAll\(fullRelease\)\.finally/);
 assert.match(releaseGate,/iosResultMicReleasePending = false/);
 assert.match(speech,/if \(IS_IOS && iosResultMicReleasePending\) return;/);
-assert.match(speech,/void releaseMicAfterSpeechResult\(KEEP_MIC_ALIVE \? false : true\)/);
+assert.match(speech,/void releaseMicAfterSpeechResult\(false\)/);
 console.log('PASS: iOS Speech Retry waits for full mic cleanup before enabling user gesture');
 
 
@@ -155,14 +155,14 @@ assert.ok(firstDisclosure.indexOf('if (IS_IOS && (!audioCtx') < firstDisclosure.
 console.log('PASS: iPhone first-use context is prepared in user gesture and preserved for first capture');
 const iosRetryBlock=speech.slice(speech.indexOf("else if (phase === 'DONE')"),speech.indexOf("// ── SNR Gate:"));
 assert.match(iosRetryBlock,/if \(IS_IOS\) \{/);
-assert.match(iosRetryBlock,/audioCtx = new RetryAudioContext\(\)/);
-assert.match(iosRetryBlock,/const retryStreamRequest = navigator\.mediaDevices\.getUserMedia\(/);
-assert.match(iosRetryBlock,/await startRecording\(false, retryStream\)/);
-assert.match(iosRetryBlock,/IOS_RETRY_CAPTURE_START_FAILED/);
-assert.ok(iosRetryBlock.indexOf("audioCtx = new RetryAudioContext()") < iosRetryBlock.indexOf("navigator.mediaDevices.getUserMedia("));
-assert.ok(iosRetryBlock.indexOf("navigator.mediaDevices.getUserMedia(") < iosRetryBlock.indexOf("await waitForSpeechMicStep("));
-assert.ok(iosRetryBlock.indexOf("beginSpeechModuleRun('user_retry')") < iosRetryBlock.indexOf("navigator.mediaDevices.getUserMedia("));
-console.log("PASS: iOS Retry capture is initialized synchronously from gesture before any awaited microphone work");
+assert.match(iosRetryBlock,/await startRecording\(false\)/);
+assert.doesNotMatch(iosRetryBlock,/new RetryAudioContext/);
+assert.doesNotMatch(iosRetryBlock,/retryStreamRequest/);
+assert.match(speech,/const healthyReuse = await probeExistingAudioPipeline\(\)/);
+assert.match(speech,/if \(healthyReuse\) \{/);
+assert.match(speech,/await stopAll\(true\);[\s\S]*await sleep\(RETRY_FULL_RELEASE_WAIT_MS\)/);
+assert.match(speech,/void releaseMicAfterSpeechResult\(false\)/);
+console.log('PASS: iOS Retry probes preserved pipeline before rebuilding dead capture');
 
 
 const firstStart=speech.slice(speech.indexOf("if (phase === 'IDLE')"),speech.indexOf("else if (phase === 'RECORDING')"));
