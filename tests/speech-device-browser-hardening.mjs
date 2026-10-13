@@ -47,7 +47,8 @@ const instruction=speech.slice(speech.indexOf('async function playSpeechInstruct
 assert.match(instruction,/navigator\.audioSession\.type='playback'/);
 assert.match(instruction,/!hasLiveAudioTrack\(streamRef\)/);
 const retry=speech.slice(speech.indexOf("else if (phase === 'DONE')"),speech.indexOf('// ── SNR Gate:'));
-assert.match(retry,/if \(!IS_IOS\) await playSpeechInstructionBeforeCapture\(\)/);
+assert.match(retry,/if \(IS_IOS\) \{/);
+assert.match(retry,/await playSpeechInstructionBeforeCapture\(\);/);
 const recovery=speech.slice(speech.indexOf("captureSpeechPermissionRuntime(result, 'fast_permissions_ui')"),speech.indexOf("captureSpeechPermissionRuntime(result, 'fast_permissions_ui')")+270);
 assert.match(recovery,/if \(!IS_IOS\) await playSpeechInstructionBeforeCapture\(\)/);
 console.log('PASS: iOS retry preserves active audio session and first-use cue selects playback route');
@@ -136,6 +137,17 @@ assert.match(speech,/if \(!firstUsePreparedCtx\) audioCtx = new AudioContextClas
 const firstDisclosure=speech.slice(speech.indexOf('async function ensureMicDisclosureBeforeFirstUse()'),speech.indexOf('async function selectLang('));
 assert.ok(firstDisclosure.indexOf('if (IS_IOS && (!audioCtx') < firstDisclosure.indexOf('const request = navigator.mediaDevices.getUserMedia'), 'audio context must be initialized before first mic acquisition on iOS');
 console.log('PASS: iPhone first-use context is prepared in user gesture and preserved for first capture');
+const iosRetryBlock=speech.slice(speech.indexOf("else if (phase === 'DONE')"),speech.indexOf("// ── SNR Gate:"));
+assert.match(iosRetryBlock,/if \(IS_IOS\) \{/);
+assert.match(iosRetryBlock,/audioCtx = new RetryAudioContext\(\)/);
+assert.match(iosRetryBlock,/const retryStreamRequest = navigator\.mediaDevices\.getUserMedia\(/);
+assert.match(iosRetryBlock,/await startRecording\(false, retryStream\)/);
+assert.match(iosRetryBlock,/IOS_RETRY_CAPTURE_START_FAILED/);
+assert.ok(iosRetryBlock.indexOf("audioCtx = new RetryAudioContext()") < iosRetryBlock.indexOf("navigator.mediaDevices.getUserMedia("));
+assert.ok(iosRetryBlock.indexOf("navigator.mediaDevices.getUserMedia(") < iosRetryBlock.indexOf("await waitForSpeechMicStep("));
+assert.ok(iosRetryBlock.indexOf("beginSpeechModuleRun('user_retry')") < iosRetryBlock.indexOf("navigator.mediaDevices.getUserMedia("));
+console.log("PASS: iOS Retry capture is initialized synchronously from gesture before any awaited microphone work");
+
 
 const firstStart=speech.slice(speech.indexOf("if (phase === 'IDLE')"),speech.indexOf("else if (phase === 'RECORDING')"));
 assert.match(firstStart,/let firstUseStage='instruction'/);
