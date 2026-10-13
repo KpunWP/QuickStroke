@@ -13,7 +13,7 @@ assert.match(speech,/#test-screen\.speech-countdown-active #mid\{[\s\S]*?overflo
 assert.ok(speech.includes('padding-top:calc(112px + env(safe-area-inset-top))!important'));
 assert.match(speech,/justify-content:center!important/);
 const facePilot=fs.readFileSync('face-test.html','utf8');
-assert.match(facePilot,/body\\.result-visible #score-num\\{display:none!important;\\}/);
+assert.ok(facePilot.includes('body.result-visible #score-num{display:none!important;}'));
 assert.match(arm,/#test-screen:has\(#final-banner\[style\*="flex"\]\) #mid\{/);
 assert.match(arm,/padding-bottom:calc\(210px \+ env\(safe-area-inset-bottom\)\)!important/);
 assert.equal(th.speech?.accuracy || th.accuracy, 'ความถูกต้องของคำพูด');
