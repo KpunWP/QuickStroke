@@ -2844,25 +2844,10 @@ async function handleAction() {
       actionBtn.disabled = true;
       actionBtn.textContent = T.calibrating;
       if (IS_IOS) {
-        // Mirror the successful first-use gesture: prepare WebAudio and ask for
-        // capture synchronously from the Retry click, not after awaited cleanup.
-        // The previous result already schedules full release on iOS.
-        prepareSpeechCaptureAudioSession();
-        const RetryAudioContext = window.AudioContext || window.webkitAudioContext;
-        if (!RetryAudioContext) throw new Error('Web Audio API is not available');
-        if (audioCtx || streamRef || source || analyser) {
-          // Do not attach a fresh request to an incompletely released session.
-          throw new Error('Previous microphone session is still releasing');
-        }
-        audioCtx = new RetryAudioContext();
-        const retryStreamRequest = navigator.mediaDevices.getUserMedia({
-          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
-          video: false
-        });
-        const retryStream = await waitForSpeechMicStep(
-          retryStreamRequest, 'ios_retry_gesture_capture', 30000, audioStartToken
-        );
-        await startRecording(false, retryStream);
+        // Preserve the live WebAudio pipeline from the successful attempt.
+        // startRecording health-probes it and falls back to full release if
+        // digital silence is detected. Do not eagerly request another stream.
+        await startRecording(false);
       } else {
         await playSpeechInstructionBeforeCapture();
         await startRecording(true);
@@ -3137,8 +3122,8 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
   DBG_T0 = performance.now();
   DBG('START', `forceDirectMic=${forceDirectMic} phase=${phase} token=${startToken}`);
 
-  // On iOS keep the old pipeline temporarily so it can be health-checked.
-  // Other platforms fully release before every new attempt.
+  // On iOS keep the previous viable pipeline so Retry can health-probe it.
+  // Other platforms continue their established cleanup behavior.
   // A first-use context may already be initialized by the disclosure click.
   // Preserve it and the freshly authorized stream; never mistake it for stale
   // keep-alive resources. All other starts retain the existing cleanup.
@@ -3897,7 +3882,7 @@ function releaseMicAfterSpeechResult(fullRelease) {
   const retryButton = $('action-btn');
   if (retryButton) retryButton.disabled = true;
   // Release must complete before a new click starts the next AudioContext.
-  return stopAll(true).finally(() => {
+  return stopAll(fullRelease).finally(() => {
     iosResultMicReleasePending = false;
     if (phase === 'DONE' && retryButton) retryButton.disabled = false;
   });
@@ -5085,7 +5070,7 @@ function finishSpeechInvalid(reasonCode, details = {}) {
     'WEB_AUDIO_UNAVAILABLE',
     'DEAD_MIC_RECOVERY_FAILED'
   ].includes(reasonCode);
-  void releaseMicAfterSpeechResult(mustReleaseImmediately ? true : (KEEP_MIC_ALIVE ? false : true));
+  void releaseMicAfterSpeechResult(mustReleaseImmediately ? true : false);
   if (!IS_IOS && !mustReleaseImmediately) scheduleResultMicRelease();
 }
 
@@ -5507,7 +5492,7 @@ function evaluateSpeech(text, confidence) {
     `quality flags: ${qualityFlags.join(', ') || 'none'}`
   ].join('\n');
 
-  void releaseMicAfterSpeechResult(KEEP_MIC_ALIVE ? false : true);
+  void releaseMicAfterSpeechResult(false);
   if (!IS_IOS) scheduleResultMicRelease();
 
   requestAnimationFrame(() => {
