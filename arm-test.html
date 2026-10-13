@@ -1571,6 +1571,14 @@
   }
   /* Hide confirmation controls only during active 10-second measurement. */
   #test-screen.arm-guide-measuring #action-dock{display:none!important;}
+  #arm-intro{position:absolute;inset:0;z-index:70;background:#f2f6fc;display:flex;justify-content:center;align-items:center;padding:24px;text-align:center;}
+  #arm-intro[hidden]{display:none!important;}
+  .arm-intro-panel{width:min(100%,440px);background:white;border:1px solid #d7e3f3;border-radius:28px;padding:30px 22px;box-shadow:0 12px 32px #16376318;}
+  .arm-intro-icon{font-size:52px;margin-bottom:14px;}
+  .arm-intro-panel h1{font-size:clamp(25px,6vw,34px);margin:0 0 12px;color:#122640;}
+  .arm-intro-panel p{font-size:17px;line-height:1.7;color:#475569;margin:0 0 24px;}
+  #arm-intro-start{width:100%;min-height:56px;border:0;border-radius:18px;background:#176cd1;color:white;font-size:19px;font-weight:700;}
+  #arm-intro-start:disabled{opacity:.6;}
   /* JSSF Arm visual copy: keep each image card image-only; all instructions live below. */
   #pose-guide .guide-step-copy{display:none!important;}
   #pose-guide .guide-step-visual{height:min(37vh,315px);max-height:315px;}
@@ -1669,6 +1677,14 @@
 <script>QuickStrokeLanguages.renderPicker(document.currentScript.previousElementSibling);</script>
 </div>
 <div id="test-screen">
+<div id="arm-intro" role="group" aria-labelledby="arm-intro-title">
+ <div class="arm-intro-panel">
+  <div class="arm-intro-icon" aria-hidden="true">💪</div>
+  <h1 id="arm-intro-title">การทดสอบแขนตก</h1>
+  <p id="arm-intro-desc">ทดสอบแขนซ้ายและแขนขวาตามลำดับ ทำตามภาพและเสียงคำแนะนำ</p>
+  <button id="arm-intro-start" type="button" onclick="startArmFromIntro()" disabled>เริ่มการทดสอบแขน</button>
+ </div>
+</div>
 <div id="top-bar">
 <span aria-hidden="true" class="top-spacer"></span>
 <span class="top-label" id="top-lbl">FAST · Arm</span>
@@ -4196,6 +4212,25 @@ function armStepOneVoice(side) {
   return `ถือโทรศัพท์ด้วยมือ${side==='right'?'ขวา':'ซ้าย'}ตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ`;
 }
 let armInitialCueAttempted=false;
+function startArmFromIntro() {
+  const intro=$('arm-intro');
+  if (!intro || intro.hidden || phase!=='IDLE' || arm!=='left') return;
+  intro.hidden=true;
+  // Called synchronously from the participant's click, without awaiting
+  // locale loading or navigation. Safari retains the playback gesture.
+  attemptAutoArmStepOneVoice();
+}
+function renderArmIntroCopy() {
+  const code=currentLangCode();
+  const copy=code==='en'
+    ? ['Arm drift test','Test your left and right arms in order. Follow the illustrations and spoken guidance.','Start arm test']
+    : code==='ja'
+      ? ['腕の下がりを確認','左右の腕を順番に確認します。画像と音声の案内に従ってください。','腕のテストを開始']
+      : ['การทดสอบแขนตก','ทดสอบแขนซ้ายและแขนขวาตามลำดับ ทำตามภาพและเสียงคำแนะนำ','เริ่มการทดสอบแขน'];
+  $('arm-intro-title').textContent=copy[0];
+  $('arm-intro-desc').textContent=copy[1];
+  $('arm-intro-start').textContent=copy[2];
+}
 function attemptAutoArmStepOneVoice() {
   if (armInitialCueAttempted || phase!=='IDLE' || arm!=='left') return;
   armInitialCueAttempted=true;
@@ -5166,7 +5201,10 @@ async function selectLang(code) {
   showArmOuterGuideCopy('left', 1);
   actionBtn.disabled = false;
   $('arm-understanding-card')?.classList.remove('show');
-  attemptAutoArmStepOneVoice();
+  renderArmIntroCopy();
+  const intro=$('arm-intro');
+  if (intro) intro.hidden=false;
+  $('arm-intro-start').disabled=false;
 
 }
 

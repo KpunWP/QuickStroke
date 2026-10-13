@@ -20,6 +20,15 @@ assert.doesNotMatch(arm,/function playArmStepOneGuide\(\)/);
 assert.match(arm,/function attemptAutoArmStepOneVoice\(\)/);
 assert.match(arm,/armInitialCueAttempted=true/);
 assert.match(arm,/attemptAutoArmStepOneVoice\(\);/);
+assert.match(arm,/id="arm-intro"/);
+assert.match(arm,/id="arm-intro-start"/);
+assert.match(arm,/function startArmFromIntro\(\)/);
+const introClick=arm.slice(arm.indexOf('function startArmFromIntro()'),arm.indexOf('function renderArmIntroCopy()'));
+assert.match(introClick,/intro\.hidden=true;[\s\S]*attemptAutoArmStepOneVoice\(\)/);
+const armLang=arm.slice(arm.indexOf('async function selectLang(code)'),arm.indexOf('function handleArmFastFlow()'));
+assert.match(armLang,/renderArmIntroCopy\(\)/);
+assert.doesNotMatch(armLang,/attemptAutoArmStepOneVoice\(\)/);
+
 assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
 
 assert.match(arm,/function armStepOneVoice\(side\)/);
