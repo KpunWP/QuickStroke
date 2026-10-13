@@ -6,6 +6,13 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const face=fs.readFileSync("face-test.html","utf8");
 const result=fs.readFileSync("result.html","utf8");
 const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
+assert.match(speech,/#test-screen\.speech-countdown-active #speech-status-row\{display:none!important;\}/);
+assert.match(speech,/#test-screen\.speech-countdown-active #action-btn\{display:none!important;\}/);
+assert.match(speech,/#test-screen\.speech-countdown-active #mid\{[\s\S]*?overflow-y:auto!important/);
+assert.match(arm,/#test-screen:has\(#final-banner\[style\*="flex"\]\) #mid\{/);
+assert.match(arm,/padding-bottom:calc\(210px \+ env\(safe-area-inset-bottom\)\)!important/);
+assert.equal(th.speech?.accuracy || th.accuracy, 'ความถูกต้องของคำพูด');
+
 assert.match(speech,/#domain-rate-row\{display:none!important;\}/);
 assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, true\)/);
 assert.match(speech,/setDomainStatus\('phrase', phraseStatusClass, phraseStatusText, true\)/);
