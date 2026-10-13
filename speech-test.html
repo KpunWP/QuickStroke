@@ -1451,7 +1451,8 @@ function resetDomainSummary() {
 }
 let T = null;
 let phase = 'IDLE'; // IDLE | CALIBRATING | READY_CUE | RECORDING | RETRYING | DONE
-let retryStarting = false; // กันการกดทดสอบซ้ำซ้อนระหว่างขอไมค์ใหม่
+let retryStarting = false;
+let iosResultMicReleasePending = false; // กันการกดทดสอบซ้ำซ้อนระหว่างขอไมค์ใหม่
 let automaticValidityRetries = 0;
 let speechAttemptNo = 0;
 let speechAttemptHistory = [];
@@ -2824,6 +2825,7 @@ async function handleAction() {
     evaluateSpeech('__manual__', 0);
   }
   else if (phase === 'DONE') {
+    if (IS_IOS && iosResultMicReleasePending) return;
     // User-requested module retry creates a new test_attempt in the same
     // screening_session. The previous payload remains in research history.
     retryStarting = true;
@@ -3883,6 +3885,18 @@ async function releaseCurrentAudioResources(fullRelease = !KEEP_MIC_ALIVE) {
 
   // FIX: เพิ่มจาก 350 → 1000ms ให้ OS สลับ audio session เสร็จจริงก่อนรอบใหม่
   if (hadResources) await sleep(1000);
+}
+
+function releaseMicAfterSpeechResult(fullRelease) {
+  if (!IS_IOS) return stopAll(fullRelease);
+  iosResultMicReleasePending = true;
+  const retryButton = $('action-btn');
+  if (retryButton) retryButton.disabled = true;
+  // Release must complete before a new click starts the next AudioContext.
+  return stopAll(true).finally(() => {
+    iosResultMicReleasePending = false;
+    if (phase === 'DONE' && retryButton) retryButton.disabled = false;
+  });
 }
 
 function stopAll(fullRelease) {
@@ -5067,7 +5081,7 @@ function finishSpeechInvalid(reasonCode, details = {}) {
     'WEB_AUDIO_UNAVAILABLE',
     'DEAD_MIC_RECOVERY_FAILED'
   ].includes(reasonCode);
-  stopAll(IS_IOS ? true : (mustReleaseImmediately ? true : (KEEP_MIC_ALIVE ? false : true)));
+  void releaseMicAfterSpeechResult(mustReleaseImmediately ? true : (KEEP_MIC_ALIVE ? false : true));
   if (!IS_IOS && !mustReleaseImmediately) scheduleResultMicRelease();
 }
 
@@ -5489,7 +5503,7 @@ function evaluateSpeech(text, confidence) {
     `quality flags: ${qualityFlags.join(', ') || 'none'}`
   ].join('\n');
 
-  stopAll(IS_IOS ? true : (KEEP_MIC_ALIVE ? false : true));
+  void releaseMicAfterSpeechResult(KEEP_MIC_ALIVE ? false : true);
   if (!IS_IOS) scheduleResultMicRelease();
 
   requestAnimationFrame(() => {
