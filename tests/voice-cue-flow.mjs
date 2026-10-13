@@ -7,22 +7,23 @@ const face=fs.readFileSync("face-test.html","utf8");
 const result=fs.readFileSync("result.html","utf8");
 const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
 
-// Arm: the initial screen is intentionally silent. The visible button
-// "ยืนยันแขนซ้ายและเริ่ม" is the instruction; TTS begins only after a user gesture.
+// Arm: Step 1 makes one best-effort automatic audio attempt on entrance.
+// Confirmation remains usable if the browser blocks playback.
 assert.doesNotMatch(arm,/กดยืนยันใช้แขนซ้าย/);
 assert.doesNotMatch(arm,/armSideConfirmationVoice/);
 assert.match(arm,/function rightArmConfirmationVoice\(\)/);
 assert.match(arm,/กดยืนยันใช้แขนขวา/);
 
-// Step 1 instructions are on-demand, never unsolicited when navigating from Face.
-assert.match(arm,/function playArmStepOneGuide\(\)/);
+// No manual audio test button in Arm Step 1.
+assert.doesNotMatch(arm,/id="arm-listen-btn"/);
+assert.doesNotMatch(arm,/function playArmStepOneGuide\(\)/);
 assert.match(arm,/function attemptAutoArmStepOneVoice\(\)/);
 assert.match(arm,/armInitialCueAttempted=true/);
 assert.match(arm,/attemptAutoArmStepOneVoice\(\);/);
 assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
 
-assert.match(arm,/id="arm-listen-btn"/);
 assert.match(arm,/function armStepOneVoice\(side\)/);
+assert.match(arm,/setArmTtsStatus\('initial-auto-'\+status\)/);
 assert.match(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
 
 const armRecordedManifest=fs.readFileSync('js/thai-recorded-audio.js','utf8');

@@ -1571,8 +1571,6 @@
   }
   /* Hide confirmation controls only during active 10-second measurement. */
   #test-screen.arm-guide-measuring #action-dock{display:none!important;}
-  #arm-listen-btn{display:none;margin:12px auto 0;padding:11px 17px;min-height:44px;border-radius:16px;border:1px solid #77abe9;background:#fff;color:#175caa;font:700 16px 'IBM Plex Sans Thai',system-ui,sans-serif;}
-  #arm-listen-btn.show{display:block;}
   /* JSSF Arm visual copy: keep each image card image-only; all instructions live below. */
   #pose-guide .guide-step-copy{display:none!important;}
   #pose-guide .guide-step-visual{height:min(37vh,315px);max-height:315px;}
@@ -1720,7 +1718,6 @@
 </div>
 </div>
 </div>
-<button id="arm-listen-btn" type="button" onclick="playArmStepOneGuide()" aria-label="ฟังคำแนะนำเริ่มทดสอบแขน">🔊 ฟังคำแนะนำ</button>
 <div id="arm-hold-cue" aria-live="polite"></div>
 </div>
 <div id="warn-banner"><span class="warn-title" id="warn-title"></span><span class="warn-sub" id="warn-sub"></span></div>
@@ -4198,26 +4195,28 @@ function armStepOneVoice(side) {
   if (code==='ja') return `図のようにスマートフォンを${side==='left'?'左':'右'}手で持ち、確認を押してテストを開始してください。`;
   return `ถือโทรศัพท์ด้วยมือ${side==='right'?'ขวา':'ซ้าย'}ตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ`;
 }
-function playArmStepOneGuide() {
-  const guide=$('pose-guide');
-  const side=guide?.dataset.guideSide;
-  if (side !== 'left' || guide.dataset.guideStep!=='1' || phase !== 'IDLE') return;
-  const clip=armStepOneVoice(side);
-  // Direct user gesture preserves mobile playback authorization; never autoplay.
-  speak(clip);
-}
 let armInitialCueAttempted=false;
 function attemptAutoArmStepOneVoice() {
   if (armInitialCueAttempted || phase!=='IDLE' || arm!=='left') return;
   armInitialCueAttempted=true;
-  // Best effort only. Mobile browsers may reject media playback after
-  // navigation; keep the listen and confirm buttons available.
+  // One automatic attempt on entrance to Step 1. Browsers can block media
+  // autoplay after page navigation; never hold up the confirmation flow.
   const phrase=armStepOneVoice('left');
   if (window.QuickStrokeThaiRecorded?.use(currentLangCode()) && window.QuickStrokeThaiRecorded.fileFor?.(phrase)) {
-    void window.QuickStrokeThaiRecorded.play(phrase,{timeoutMs:8000}).catch(()=>{});
+    void window.QuickStrokeThaiRecorded.play(phrase,{timeoutMs:8000})
+      .then(status => {
+        setArmTtsStatus('initial-auto-'+status);
+        if (status === 'missing' || status === 'error' || status === 'timeout') {
+          reportArmTts('TTS_ERROR','prompt',status,'th-TH','step1_autoplay_'+status,'arm-step1-auto','recorded_audio','th-TH');
+        }
+      })
+      .catch(error => {
+        setArmTtsStatus('initial-auto-error');
+        reportArmTts('TTS_ERROR','prompt','error','th-TH',String(error?.name || 'playback_error'),'arm-step1-auto','recorded_audio','th-TH');
+      });
     return;
   }
-  try { speak(phrase); } catch (_) {}
+  try { speak(phrase); } catch (error) { setArmTtsStatus('initial-auto-error'); }
 }
 function setArmGuideStage(side, step) {
   const guide = $('pose-guide');
@@ -4226,8 +4225,6 @@ function setArmGuideStage(side, step) {
   const safeStep = [1,2,3].includes(Number(step)) ? Number(step) : 1;
   guide.dataset.guideSide = safeSide;
   guide.dataset.guideStep = String(safeStep);
-  const listen=$('arm-listen-btn');
-  if (listen) listen.classList.toggle('show',safeStep===1 && safeSide==='left');
   updatePoseGuide();
 }
 
