@@ -2749,8 +2749,11 @@ async function handleAction() {
     actionBtn.disabled = true;
     beginSpeechModuleRun('initial_start');
     try {
-      const firstUseStream = await ensureMicDisclosureBeforeFirstUse();
+      // Finish the instruction while capture has not started. On iOS,
+      // switching audioSession to playback after getUserMedia can invalidate
+      // the first live stream (first attempt fails, retry then works).
       await playSpeechInstructionBeforeCapture();
+      const firstUseStream = await ensureMicDisclosureBeforeFirstUse();
       await startRecording(false, firstUseStream);
     } catch (error) {
       if (phase !== 'DONE') {
