@@ -47,7 +47,8 @@ const instruction=speech.slice(speech.indexOf('async function playSpeechInstruct
 assert.match(instruction,/navigator\.audioSession\.type='playback'/);
 assert.match(instruction,/!hasLiveAudioTrack\(streamRef\)/);
 const retry=speech.slice(speech.indexOf("else if (phase === 'DONE')"),speech.indexOf('// ── SNR Gate:'));
-assert.match(retry,/if \(!IS_IOS\) await playSpeechInstructionBeforeCapture\(\)/);
+assert.match(retry,/if \(IS_IOS\) \{/);
+assert.match(retry,/await playSpeechInstructionBeforeCapture\(\);/);
 const recovery=speech.slice(speech.indexOf("captureSpeechPermissionRuntime(result, 'fast_permissions_ui')"),speech.indexOf("captureSpeechPermissionRuntime(result, 'fast_permissions_ui')")+270);
 assert.match(recovery,/if \(!IS_IOS\) await playSpeechInstructionBeforeCapture\(\)/);
 console.log('PASS: iOS retry preserves active audio session and first-use cue selects playback route');
