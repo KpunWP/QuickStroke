@@ -91,7 +91,7 @@ assert.match(speech,/for \(const count of \[3,2,1\]\)/);
 assert.match(speech,/function playVisualCountdownBeep\(\)/);
 assert.match(speech,/ctx\.state!=='running'/);
 assert.match(speech,/gain\.gain\.exponentialRampToValueAtTime\(0\.0001,t\+0\.13\)/);
-assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*playVisualCountdownBeep\(\);/);
+assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*if \(!SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\);/);
 
 assert.match(speech,/const cueStatus = 'visual_only'/);
 assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:112px'), 'countdown should be large inside central icon');
