@@ -846,6 +846,9 @@
     width:100%;display:none;flex-direction:column;gap:8px;margin-top:10px;
   }
   #domain-quality-row[hidden]{display:none!important;}
+  /* Pilot output: phrase observation + technical quality only. Retain the rate
+     DOM and all calculations for research compatibility, never show it as a result. */
+  #domain-rate-row{display:none!important;}
   .domain-row{
     min-height:46px;display:flex;align-items:center;justify-content:space-between;gap:12px;
     padding:10px 12px;border-radius:14px;background:#F5F8FB;border:1px solid #E1E8EF;
@@ -5262,7 +5265,7 @@ function evaluateSpeech(text, confidence) {
   $('result-details-toggle').style.display = 'block';
   setDomainStatus('phrase', phraseStatusClass, phraseStatusText, true);
   setDomainStatus('rate', rateStatusClass, rateStatusText, true);
-  setDomainStatus('quality', qualityStatusClass, qualityStatusText, technicalQualityStatus === 'limited');
+  setDomainStatus('quality', qualityStatusClass, qualityStatusText, true);
   setSpeechResultDetailsExpanded(false);
 
   // Keep the top status cards short and consistent with the result banner.

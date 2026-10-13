@@ -6,6 +6,12 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const face=fs.readFileSync("face-test.html","utf8");
 const result=fs.readFileSync("result.html","utf8");
 const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
+assert.match(speech,/#domain-rate-row\{display:none!important;\}/);
+assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, true\)/);
+assert.match(speech,/setDomainStatus\('phrase', phraseStatusClass, phraseStatusText, true\)/);
+assert.match(speech,/id="domain-rate-row"/);
+assert.match(speech,/id="result-details-toggle"/);
+
  
 // Pilot UI hides historical metric bars without deleting research/measurement DOM.
 assert.match(speech,/#metrics-box,\s*#test-screen\.done\.result-details-open #metrics-box\{display:none!important;\}/);
