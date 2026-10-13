@@ -90,6 +90,15 @@ assert.match(speech,/await stopAll\(IS_IOS && forceDirectMic \? true :/);
 assert.match(speech,/stopAll\(IS_IOS \? true : \(KEEP_MIC_ALIVE \? false : true\)\)/);
 assert.match(speech,/if \(!IS_IOS\) scheduleResultMicRelease\(\)/);
 console.log("PASS: iOS speech result releases mic and dead mic requires explicit Retry gesture");
+const releaseGate=extractFunction(speech,'releaseMicAfterSpeechResult');
+assert.match(releaseGate,/iosResultMicReleasePending = true/);
+assert.match(releaseGate,/retryButton\.disabled = true/);
+assert.match(releaseGate,/stopAll\(true\)\.finally/);
+assert.match(releaseGate,/iosResultMicReleasePending = false/);
+assert.match(speech,/if \(IS_IOS && iosResultMicReleasePending\) return;/);
+assert.match(speech,/void releaseMicAfterSpeechResult\(KEEP_MIC_ALIVE \? false : true\)/);
+console.log('PASS: iOS Speech Retry waits for full mic cleanup before enabling user gesture');
+
 
 
 assert.match(speech,/if \(ANDROID_EXCLUSIVE_ASR\) \{[\s\S]*await releaseAcousticCaptureForExclusiveAsr\(\)/);
