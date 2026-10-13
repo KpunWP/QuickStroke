@@ -29,10 +29,10 @@ assert.match(arm,/#test-screen\.arm-intro-visible #action-dock\{display:none!imp
 assert.match(introClick,/classList\.remove\('arm-intro-visible'\)/);
 assert.match(introClick,/confirm\.disabled=false/);
 assert.match(arm,/if \(!\$\('arm-intro'\)\?\.hidden\) return;/);
-assert.match(armLang,/classList\.add\('arm-intro-visible'\)/);
 
 const armLang=arm.slice(arm.indexOf('async function selectLang(code)'),arm.indexOf('function handleArmFastFlow()'));
 assert.match(armLang,/renderArmIntroCopy\(\)/);
+assert.match(armLang,/classList\.add\('arm-intro-visible'\)/);
 assert.doesNotMatch(armLang,/attemptAutoArmStepOneVoice\(\)/);
 
 assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
