@@ -2595,7 +2595,7 @@ async function ensureMicDisclosureBeforeFirstUse() {
       // iOS may switch back to playback when priming TTS, which makes a
       // subsequent getUserMedia fail with incompatible audio-session category.
       // The actual Speech ready cue is visual; do not prime TTS before capture.
-      if (!IS_IOS) primeSpeechCue();
+      if (!IS_IOS && !SPEECH_SILENT_START_TRIAL) primeSpeechCue();
       // IMPORTANT: invoke getUserMedia immediately from this user gesture.
       // iOS/Safari may suppress the native permission sheet if async cleanup,
       // locale work or AudioContext setup runs before the request.
@@ -2758,7 +2758,11 @@ function resetUI() {
   resetSpeechCards();
 }
 
+// Controlled diagnostic: disable Speech's own output, including the opening
+// instruction and countdown beeps, while retaining visual start/ASR timing.
+const SPEECH_SILENT_START_TRIAL = true;
 async function playSpeechInstructionBeforeCapture() {
+  if (SPEECH_SILENT_START_TRIAL) return 'silent_trial';
   if (!String(T?.langCode || '').toLowerCase().startsWith('th')) return 'skipped';
   const recorded=window.QuickStrokeThaiRecorded;
   const message='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
@@ -2783,7 +2787,7 @@ async function handleAction() {
   if (retryStarting) return;
 
   if (phase === 'IDLE') {
-    primeSpeechCue();
+    if (!SPEECH_SILENT_START_TRIAL) primeSpeechCue();
     retryStarting = true;
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
@@ -4101,7 +4105,7 @@ function runLoop() {
         for (const count of [3,2,1]) {
           if (phase !== 'READY_CUE') return;
           $('mic-icon').textContent = String(count);
-          playVisualCountdownBeep();
+          if (!SPEECH_SILENT_START_TRIAL) playVisualCountdownBeep();
           $('hint-text').textContent = String(T?.langCode || '').toLowerCase().startsWith('th') ? 'ยังไม่ต้องพูด' : T.preparePrompt;
           $('transcript-box').textContent = T.preparePrompt;
           await sleep(1000);
