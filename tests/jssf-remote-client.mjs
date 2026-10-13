@@ -197,7 +197,7 @@ assert.match(read("js/thai-recorded-audio.js"),/await cache\.put\(url,fresh\)/);
 assert.match(read("jssf-consent.html"),/await audioClient\.prepareAll/);
 assert.match(read("jssf-consent.html"),/audioReady && !storageUnavailable/);
 assert.match(read("speech-test.html"),/navigator\.audioSession\.type = 'play-and-record'/);
-assert.match(read("speech-test.html"),/if \(!IS_IOS\) primeSpeechCue\(\)/);
+assert.match(read("speech-test.html"),/if \(!IS_IOS && !SPEECH_SILENT_START_TRIAL\) primeSpeechCue\(\)/);
 
 assert.match(read("js/thai-recorded-audio.js"),/id='quickstroke-audio-test'/);
 assert.match(read("js/thai-recorded-audio.js"),/void play\('หน้าตรงและอยู่นิ่ง'\)/);
