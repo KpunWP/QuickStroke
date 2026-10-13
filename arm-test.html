@@ -1437,6 +1437,16 @@
   }
 
 
+  /* Result content scrolls clear of the fixed two-button action dock.
+     Active sensor measurement retains its existing fixed countdown layout. */
+  #test-screen:has(#final-banner[style*="flex"]) #mid{
+    overflow-y:auto!important;
+    justify-content:flex-start!important;
+    padding-bottom:calc(210px + env(safe-area-inset-bottom))!important;
+  }
+  #test-screen:has(#final-banner[style*="flex"]) #final-banner{
+    margin-bottom:calc(155px + env(safe-area-inset-bottom))!important;
+  }
   /* QUICKSTROKE ARM FINAL ACTIONS — equal left/right buttons */
   #action-dock{
     position:absolute;
