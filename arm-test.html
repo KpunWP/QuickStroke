@@ -4796,6 +4796,7 @@ function handleBtn() {
     arm = 'left';
     setArmGuideStage('left', 2);
     showArmGuide();
+    showArmOuterGuideCopy('left', 2);
     confirmCurrentArmSide('explicit_start_button');
     // Prime TTS immediately inside the original user gesture. On iOS, doing this
     // only after awaiting sensor permission can cause the first spoken prompt to
@@ -4836,6 +4837,7 @@ function handleBtn() {
     arm = 'right';
     setArmGuideStage('right', 2);
     showArmGuide();
+    showArmOuterGuideCopy('right', 2);
     clearArmSideConfirmation();
     confirmCurrentArmSide('explicit_next_arm_button');
     $('action-btn').disabled = true;
@@ -4844,6 +4846,7 @@ function handleBtn() {
   } else if (phase === 'RETRY_ARM') {
     setArmGuideStage(arm, 2);
     showArmGuide();
+    showArmOuterGuideCopy(arm, 2);
     clearArmSideConfirmation();
     confirmCurrentArmSide('explicit_retry_button');
     $('action-btn').disabled = true;
