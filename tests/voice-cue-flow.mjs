@@ -6,6 +6,14 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const face=fs.readFileSync("face-test.html","utf8");
 const result=fs.readFileSync("result.html","utf8");
 const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
+ 
+// Pilot UI hides historical metric bars without deleting research/measurement DOM.
+assert.match(speech,/#metrics-box,\s*#test-screen\.done\.result-details-open #metrics-box\{display:none!important;\}/);
+assert.match(speech,/#speech-card-rate\{display:none!important;\}/);
+for(const id of ['metrics-box','val-word','val-rate','val-stab','bar-word','bar-rate','bar-stab']) {
+  assert.ok(speech.includes('id="'+id+'"'), 'retain metric node for measurement and persistence: '+id);
+}
+
 
 // Arm: Step 1 makes one best-effort automatic audio attempt on entrance.
 // Confirmation remains usable if the browser blocks playback.
