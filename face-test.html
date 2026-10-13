@@ -3368,7 +3368,7 @@ function applyFaceLang(){
       if (sl && saved.riskLevel) sl.textContent = saved.riskLevel==='invalid'?FL.resultInvalid:(saved.riskLevel==='ok'?FL.resultOk:saved.riskLevel==='warn'?FL.resultWarn:FL.resultBad);
       const sn = scoreNum;
       if (sn && saved.riskLevel==='invalid') sn.textContent = FL.resultInvalid;
-      else if (sn && typeof saved.score==='number') sn.textContent = saved.riskLevel==='ok' ? FL.faceDone : FL.faceAbnormal;
+      else if (sn && typeof saved.score==='number') sn.textContent = saved.score + ' ' + FL.resultScore;
     } catch(e){}
   }
 
@@ -4880,10 +4880,7 @@ function saveAndShow(score, riskLevel, breakdown){
     msg: criticalFired ? FL.critical : (ok?FL.faceDone:FL.faceAbnormal), showReset:true, showScore:true,
     pulse: riskLevel==='bad'
   });
-  // The numeric score remains in the persisted research payload, but the
-  // public pilot result must not imply clinical confidence or probability.
-  scoreNum.textContent = ok ? FL.faceDone : FL.faceAbnormal;
-  scoreNum.style.color='#fff';
+  scoreNum.textContent = score + ' ' + FL.resultScore; scoreNum.style.color='#fff';
   const sl=document.getElementById('score-label');
   if(sl){
     sl.textContent = ok?FL.resultOk:(riskLevel==='warn'?FL.resultWarn:FL.resultBad);
