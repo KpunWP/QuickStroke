@@ -10,6 +10,7 @@ const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
 assert.match(speech,/#test-screen\.speech-countdown-active #speech-status-row\{display:none!important;\}/);
 assert.match(speech,/#test-screen\.speech-countdown-active #action-btn\{display:none!important;\}/);
 assert.match(speech,/#test-screen\.speech-countdown-active #mid\{[\s\S]*?overflow-y:auto!important/);
+assert.match(speech,/padding-top:clamp\(170px,24vh,220px\)!important/);
 assert.match(arm,/#test-screen:has\(#final-banner\[style\*="flex"\]\) #mid\{/);
 assert.match(arm,/padding-bottom:calc\(210px \+ env\(safe-area-inset-bottom\)\)!important/);
 assert.equal(th.speech?.accuracy || th.accuracy, 'ความถูกต้องของคำพูด');
