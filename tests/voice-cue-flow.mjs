@@ -38,6 +38,12 @@ assert.doesNotMatch(armLang,/attemptAutoArmStepOneVoice\(\)/);
 assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
 
 assert.match(arm,/function armStepOneVoice\(side\)/);
+for (const [side,copy] of [['left',"'left'"],['right',"'right'"]]) {
+  const transition=arm.slice(arm.indexOf("function handleBtn()"),arm.indexOf("function handleBtn()")+4800);
+  assert.ok(transition.includes("setArmGuideStage("+copy+", 2);\\n    showArmGuide();\\n    showArmOuterGuideCopy("+copy+", 2);".replaceAll('\\n','\n')), side+' step 2 copy must change with image');
+}
+assert.match(arm,/setArmGuideStage\(arm, 2\);\s*showArmGuide\(\);\s*showArmOuterGuideCopy\(arm, 2\)/);
+
 assert.match(arm,/setArmTtsStatus\('initial-auto-'\+status\)/);
 assert.match(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
 
