@@ -25,6 +25,12 @@ assert.match(arm,/id="arm-intro-start"/);
 assert.match(arm,/function startArmFromIntro\(\)/);
 const introClick=arm.slice(arm.indexOf('function startArmFromIntro()'),arm.indexOf('function renderArmIntroCopy()'));
 assert.match(introClick,/intro\.hidden=true;[\s\S]*attemptAutoArmStepOneVoice\(\)/);
+assert.match(arm,/#test-screen\.arm-intro-visible #action-dock\{display:none!important;\}/);
+assert.match(introClick,/classList\.remove\('arm-intro-visible'\)/);
+assert.match(introClick,/confirm\.disabled=false/);
+assert.match(arm,/if \(!\$\('arm-intro'\)\?\.hidden\) return;/);
+assert.match(armLang,/classList\.add\('arm-intro-visible'\)/);
+
 const armLang=arm.slice(arm.indexOf('async function selectLang(code)'),arm.indexOf('function handleArmFastFlow()'));
 assert.match(armLang,/renderArmIntroCopy\(\)/);
 assert.doesNotMatch(armLang,/attemptAutoArmStepOneVoice\(\)/);
