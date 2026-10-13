@@ -919,10 +919,12 @@
      action button colliding with the countdown or target phrase. */
   #test-screen.speech-countdown-active #speech-status-row{display:none!important;}
   #test-screen.speech-countdown-active #mid{
-    padding-top:clamp(20px,5vh,55px)!important;
-    padding-bottom:calc(125px + env(safe-area-inset-bottom))!important;
+    /* The header occupies the top of the viewport, even with the status row hidden.
+       Preserve its clearance; the earlier 20px override clipped the ring. */
+    padding-top:calc(112px + env(safe-area-inset-top))!important;
+    padding-bottom:calc(28px + env(safe-area-inset-bottom))!important;
     overflow-y:auto!important;
-    justify-content:flex-start!important;
+    justify-content:center!important;
     gap:clamp(18px,4vh,34px)!important;
   }
   #test-screen.speech-countdown-active #action-btn{display:none!important;}
