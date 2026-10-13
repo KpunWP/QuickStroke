@@ -921,10 +921,10 @@
   #test-screen.speech-countdown-active #mid{
     /* The header occupies the top of the viewport, even with the status row hidden.
        Preserve its clearance; the earlier 20px override clipped the ring. */
-    padding-top:clamp(170px,24vh,220px)!important;
-    padding-bottom:calc(98px + env(safe-area-inset-bottom))!important;
+    padding-top:calc(112px + env(safe-area-inset-top))!important;
+    padding-bottom:calc(28px + env(safe-area-inset-bottom))!important;
     overflow-y:auto!important;
-    justify-content:flex-start!important;
+    justify-content:center!important;
     gap:clamp(18px,4vh,34px)!important;
   }
   #test-screen.speech-countdown-active #action-btn{display:none!important;}
