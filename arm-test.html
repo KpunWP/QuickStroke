@@ -1573,6 +1573,7 @@
   #test-screen.arm-guide-measuring #action-dock{display:none!important;}
   #arm-intro{position:absolute;inset:0;z-index:70;background:#f2f6fc;display:flex;justify-content:center;align-items:center;padding:24px;text-align:center;}
   #arm-intro[hidden]{display:none!important;}
+  #test-screen.arm-intro-visible #action-dock{display:none!important;}
   .arm-intro-panel{width:min(100%,440px);background:white;border:1px solid #d7e3f3;border-radius:28px;padding:30px 22px;box-shadow:0 12px 32px #16376318;}
   .arm-intro-icon{font-size:52px;margin-bottom:14px;}
   .arm-intro-panel h1{font-size:clamp(25px,6vw,34px);margin:0 0 12px;color:#122640;}
@@ -4216,6 +4217,9 @@ function startArmFromIntro() {
   const intro=$('arm-intro');
   if (!intro || intro.hidden || phase!=='IDLE' || arm!=='left') return;
   intro.hidden=true;
+  $('test-screen')?.classList.remove('arm-intro-visible');
+  const confirm=$('action-btn');
+  if (confirm) { confirm.disabled=false; confirm.textContent=armStartButtonText('left'); }
   // Called synchronously from the participant's click, without awaiting
   // locale loading or navigation. Safari retains the playback gesture.
   attemptAutoArmStepOneVoice();
@@ -4784,6 +4788,8 @@ function showFinal() {
 }
 
 function handleBtn() {
+  // Intro is the only actionable control until Start Arm Test is pressed.
+  if (!$('arm-intro')?.hidden) return;
   initAudio();
 
   if (phase === 'IDLE') {
@@ -5204,6 +5210,7 @@ async function selectLang(code) {
   renderArmIntroCopy();
   const intro=$('arm-intro');
   if (intro) intro.hidden=false;
+  $('test-screen')?.classList.add('arm-intro-visible');
   $('arm-intro-start').disabled=false;
 
 }
