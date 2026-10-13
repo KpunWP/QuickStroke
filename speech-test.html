@@ -830,6 +830,16 @@
   }
 
 
+  /* JSSF pilot: keep metric DOM nodes for calculations and research, not visual UI.
+     Suppress the inactive speed status tile and legacy progress bars at all phases,
+     including expanded results. Clinical metrics are not modified by these rules. */
+  #metrics-box,
+  #test-screen.done.result-details-open #metrics-box{display:none!important;}
+  #speech-card-rate{display:none!important;}
+  #speech-status-row #speech-card-word{flex:1 1 100%;min-width:0;}
+  #speech-status-row{grid-template-columns:minmax(0,1fr)!important;}
+  #mid{gap:clamp(14px,2.7vh,25px);}
+  .word-display{max-width:calc(100% - 18px);text-align:center;}
   /* QUICKSTROKE SPEECH OBSERVATION RESULT — v1.7.0 */
   .rb-score{display:none!important;}
   #domain-summary{
