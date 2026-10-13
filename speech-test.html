@@ -915,6 +915,19 @@
     font-size:clamp(21px,5.8vw,25px)!important;
   }
 
+  /* Focused countdown: no overlaid status/metric controls and no fixed
+     action button colliding with the countdown or target phrase. */
+  #test-screen.speech-countdown-active #speech-status-row{display:none!important;}
+  #test-screen.speech-countdown-active #mid{
+    padding-top:clamp(20px,5vh,55px)!important;
+    padding-bottom:calc(125px + env(safe-area-inset-bottom))!important;
+    overflow-y:auto!important;
+    justify-content:flex-start!important;
+    gap:clamp(18px,4vh,34px)!important;
+  }
+  #test-screen.speech-countdown-active #action-btn{display:none!important;}
+  #test-screen.speech-countdown-active #result-banner,
+  #test-screen.speech-countdown-active #domain-summary{display:none!important;}
   /* Large, visual-only 3-2-1 cue in the existing central microphone artwork. */
   #test-screen.speech-countdown-active .mic-box{width:100%!important;height:200px!important;margin:8px auto!important;display:flex!important;justify-content:center!important;align-items:center!important;position:relative!important;}
   #test-screen.speech-countdown-active #freq-canvas{display:none!important;}
