@@ -2580,6 +2580,17 @@ async function ensureMicDisclosureBeforeFirstUse() {
       allowBtn.textContent = S.checking;
       const requestedAt = new Date().toISOString();
       prepareSpeechCaptureAudioSession();
+      // Match the working Retry path: initialize WebAudio before acquiring the
+      // microphone, inside the disclosure's user gesture. Do not await resume.
+      if (IS_IOS && (!audioCtx || audioCtx.state === 'closed')) {
+        try {
+          const Ctx=window.AudioContext || window.webkitAudioContext;
+          if (Ctx) audioCtx=new Ctx();
+        } catch (error) {
+          queueSpeechTechnicalDiagnostic('FIRST_USE_AUDIO_CONTEXT_CREATE_FAILED');
+          audioCtx=null;
+        }
+      }
       const request = navigator.mediaDevices.getUserMedia({
         audio: {
           echoCancellation: true,
@@ -3068,7 +3079,14 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 
   // On iOS keep the old pipeline temporarily so it can be health-checked.
   // Other platforms fully release before every new attempt.
-  await stopAll(IS_IOS && forceDirectMic ? true : (KEEP_MIC_ALIVE ? false : true));
+  // A first-use context may already be initialized by the disclosure click.
+  // Preserve it and the freshly authorized stream; never mistake it for stale
+  // keep-alive resources. All other starts retain the existing cleanup.
+  const firstUsePreparedCtx=IS_IOS && !forceDirectMic && !!preauthorizedStream &&
+    audioCtx && audioCtx.state!=='closed' && !streamRef && !source && !analyser;
+  if (!firstUsePreparedCtx) {
+    await stopAll(IS_IOS && forceDirectMic ? true : (KEEP_MIC_ALIVE ? false : true));
+  }
   if (startToken !== audioStartToken) return;
   DBG('CLEANUP DONE', 'previous ASR/session cleanup completed');
 
@@ -3141,7 +3159,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 
     // An incomplete old pipeline cannot be probed safely. Release it before
     // creating a new AudioContext/MediaStream pair.
-    if (KEEP_MIC_ALIVE && (audioCtx || streamRef || source || analyser)) {
+    if (KEEP_MIC_ALIVE && !firstUsePreparedCtx && (audioCtx || streamRef || source || analyser)) {
       await stopAll(true);
       if (startToken !== audioStartToken) return;
       await sleep(RETRY_FULL_RELEASE_WAIT_MS);
@@ -3154,8 +3172,8 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     const AudioContextClass = window.AudioContext || window.webkitAudioContext;
     if (!AudioContextClass) throw new Error('Web Audio API is not available');
 
-    audioCtx = new AudioContextClass();
-    DBG('AUDIOCTX created', `state=${audioCtx.state}`);
+    if (!firstUsePreparedCtx) audioCtx = new AudioContextClass();
+    DBG('AUDIOCTX created', `state=${audioCtx.state} preparedFirstUse=${!!firstUsePreparedCtx}`);
     // Never await resume() before acquiring the microphone. On affected iOS
     // Safari builds that promise can remain pending until capture begins.
     // The post-stream resume below is still bounded by waitForSpeechMicStep.

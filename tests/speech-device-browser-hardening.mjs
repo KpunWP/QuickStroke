@@ -130,6 +130,13 @@ const firstSpeechStart=speech.slice(speech.indexOf("if (phase === 'IDLE')"),spee
 assert.ok(firstSpeechStart.indexOf('await playSpeechInstructionBeforeCapture();') < firstSpeechStart.indexOf('await ensureMicDisclosureBeforeFirstUse();'), 'first-use voice must finish before iOS opens a microphone stream');
 assert.ok(firstSpeechStart.indexOf('await ensureMicDisclosureBeforeFirstUse();') < firstSpeechStart.indexOf('await startRecording(false, firstUseStream);'), 'capture should use the stream from the disclosure gesture');
 console.log("PASS: first microphone permission request stays inside the QuickStroke disclosure user gesture");
+assert.match(speech,/const firstUsePreparedCtx=IS_IOS && !forceDirectMic && !!preauthorizedStream/);
+assert.match(speech,/if \(!firstUsePreparedCtx\) \{/);
+assert.match(speech,/if \(!firstUsePreparedCtx\) audioCtx = new AudioContextClass\(\)/);
+const firstDisclosure=speech.slice(speech.indexOf('async function ensureMicDisclosureBeforeFirstUse()'),speech.indexOf('async function selectLang('));
+assert.ok(firstDisclosure.indexOf('if (IS_IOS && (!audioCtx') < firstDisclosure.indexOf('const request = navigator.mediaDevices.getUserMedia'), 'audio context must be initialized before first mic acquisition on iOS');
+console.log('PASS: iPhone first-use context is prepared in user gesture and preserved for first capture');
+
 const firstStart=speech.slice(speech.indexOf("if (phase === 'IDLE')"),speech.indexOf("else if (phase === 'RECORDING')"));
 assert.match(firstStart,/let firstUseStage='instruction'/);
 assert.match(firstStart,/firstUseStage='disclosure'/);
