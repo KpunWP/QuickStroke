@@ -2837,12 +2837,38 @@ async function handleAction() {
       beginSpeechModuleRun('user_retry');
       actionBtn.disabled = true;
       actionBtn.textContent = T.calibrating;
-      // iOS keeps the microphone pipeline alive between attempts.
-      // Playing an MP3 over that live play-and-record session can reroute
-      // the reused capture stream and cause digital silence on retry.
-      // Keep the on-screen instruction, but skip system playback on iOS retries.
-      if (!IS_IOS) await playSpeechInstructionBeforeCapture();
-      await startRecording(true);
+      if (IS_IOS) {
+        // Mirror the successful first-use gesture: prepare WebAudio and ask for
+        // capture synchronously from the Retry click, not after awaited cleanup.
+        // The previous result already schedules full release on iOS.
+        prepareSpeechCaptureAudioSession();
+        const RetryAudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!RetryAudioContext) throw new Error('Web Audio API is not available');
+        if (audioCtx || streamRef || source || analyser) {
+          // Do not attach a fresh request to an incompletely released session.
+          throw new Error('Previous microphone session is still releasing');
+        }
+        audioCtx = new RetryAudioContext();
+        const retryStreamRequest = navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: false, autoGainControl: false },
+          video: false
+        });
+        const retryStream = await waitForSpeechMicStep(
+          retryStreamRequest, 'ios_retry_gesture_capture', 30000, audioStartToken
+        );
+        await startRecording(false, retryStream);
+      } else {
+        await playSpeechInstructionBeforeCapture();
+        await startRecording(true);
+      }
+    } catch (error) {
+      if (phase !== 'DONE') {
+        queueSpeechTechnicalDiagnostic('IOS_RETRY_CAPTURE_START_FAILED');
+        finishSpeechInvalid(mapMicErrorReason(error), {
+          errorName: error?.name || null,
+          firstUseStage: 'retry_capture'
+        });
+      }
     } finally {
       retryStarting = false;
       actionBtn.disabled = false;
