@@ -6,6 +6,10 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const face=fs.readFileSync("face-test.html","utf8");
 const result=fs.readFileSync("result.html","utf8");
 const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
+const face=fs.readFileSync("face-test.html","utf8");
+assert.doesNotMatch(face,/scoreNum\.textContent = score \+ ' ' \+ FL\.resultScore/);
+assert.match(face,/scoreNum\.textContent = ok \? FL\.faceDone : FL\.faceAbnormal/);
+
 assert.match(speech,/#test-screen\.speech-countdown-active #speech-status-row\{display:none!important;\}/);
 assert.match(speech,/#test-screen\.speech-countdown-active #action-btn\{display:none!important;\}/);
 assert.match(speech,/#test-screen\.speech-countdown-active #mid\{[\s\S]*?overflow-y:auto!important/);
