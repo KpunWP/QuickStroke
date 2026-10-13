@@ -10,7 +10,7 @@ const th=JSON.parse(fs.readFileSync("locales/th-TH/ui.json","utf8"));
 assert.match(speech,/#test-screen\.speech-countdown-active #speech-status-row\{display:none!important;\}/);
 assert.match(speech,/#test-screen\.speech-countdown-active #action-btn\{display:none!important;\}/);
 assert.match(speech,/#test-screen\.speech-countdown-active #mid\{[\s\S]*?overflow-y:auto!important/);
-assert.match(speech,/padding-top:calc\\(112px \\+ env\\(safe-area-inset-top\\)\\)!important/);
+assert.ok(speech.includes('padding-top:calc(112px + env(safe-area-inset-top))!important'));
 assert.match(speech,/justify-content:center!important/);
 const facePilot=fs.readFileSync('face-test.html','utf8');
 assert.match(facePilot,/body\\.result-visible #score-num\\{display:none!important;\\}/);
