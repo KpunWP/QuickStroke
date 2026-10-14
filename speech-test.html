@@ -2595,6 +2595,14 @@ window.downloadSpeechResearchJson = downloadSpeechResearchJson;
 window.copySpeechResearchJson = copySpeechResearchJson;
 
 async function ensureMicDisclosureBeforeFirstUse() {
+  // JSSF's research consent already discloses mic use. For the opt-in iPhone
+  // ASR-only trial, let Safari request the real microphone permission itself.
+  // This is not a permissions grant; Safari remains authoritative.
+  if (IOS_ASR_ONLY_TRIAL) {
+    micDisclosureAcknowledged = true;
+    micDisclosureAcknowledgedAt = new Date().toISOString();
+    return null;
+  }
   if (micDisclosureAcknowledged) return null;
   if (!window.FastPermissions?.getStrings) {
     throw new Error('Microphone privacy disclosure resources are unavailable');
