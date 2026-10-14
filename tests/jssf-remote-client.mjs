@@ -8,6 +8,17 @@ import { fileURLToPath } from "node:url";
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const read=file=>fs.readFileSync(path.join(root,file),"utf8");
 const client=read("js/jssf-remote-sync.js");
+const ingest=read("supabase/functions/jssf-remote-ingest/payload.mjs");
+const speechCodes=[
+  "IOS_REUSE_PROBE_STARTED","IOS_REUSE_PROBE_STABLE","IOS_REUSE_PROBE_UNSTABLE",
+  "IOS_REUSE_PIPELINE_ACCEPTED","IOS_REUSE_PIPELINE_REJECTED","IOS_CALIBRATION_DIGITAL_SILENCE"
+];
+for(const code of speechCodes) {
+  assert.ok(client.includes('"'+code+'"'),'client whitelist missing '+code);
+  assert.ok(ingest.includes('"'+code+'"'),'server whitelist missing '+code);
+}
+console.log("PASS: iOS pipeline diagnostic codes accepted by client and ingestion sanitizer");
+
 const config=read("config.js");
 const source=read("js/research-store.js");
 let networkCalls=0,dbOpens=0;
