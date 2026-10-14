@@ -1164,12 +1164,13 @@ if (IOS_TRIAL_PARAM === '1') sessionStorage.setItem('qs_ios_exclusive_asr_trial'
 if (IOS_TRIAL_PARAM === '0') sessionStorage.removeItem('qs_ios_exclusive_asr_trial');
 const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && (SPEECH_CFG.iosExclusiveAsrTrial === true ||
   IOS_TRIAL_PARAM === '1' || (IOS_TRIAL_PARAM !== '0' && sessionStorage.getItem('qs_ios_exclusive_asr_trial') === '1'));
-const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_EXCLUSIVE_ASR_TRIAL;
+const IOS_ASR_ONLY_TRIAL = IOS_EXCLUSIVE_ASR_TRIAL;
+const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_ASR_ONLY_TRIAL;
 if (IS_IOS) {
   document.addEventListener('DOMContentLoaded', () => {
     const label = document.createElement('div');
     label.id = 'ios-exclusive-asr-trial-status';
-    label.textContent = IOS_EXCLUSIVE_ASR_TRIAL ? 'iOS EXPERIMENT · EXCLUSIVE ASR' : 'iOS STANDARD · WEB AUDIO + ASR';
+    label.textContent = IOS_ASR_ONLY_TRIAL ? 'iOS EXPERIMENT · ASR ONLY' : 'iOS STANDARD · WEB AUDIO + ASR';
     label.style.cssText = 'position:fixed;bottom:6px;left:8px;z-index:9999;background:#19283b;color:white;padding:5px 8px;font:11px system-ui;border-radius:6px;pointer-events:none';
     document.body.appendChild(label);
   });
@@ -2625,6 +2626,13 @@ async function ensureMicDisclosureBeforeFirstUse() {
       // subsequent getUserMedia fail with incompatible audio-session category.
       // The actual Speech ready cue is visual; do not prime TTS before capture.
       if (!IS_IOS && !SPEECH_SILENT_START_TRIAL) primeSpeechCue();
+      if (IOS_ASR_ONLY_TRIAL) {
+        micDisclosureAcknowledged = true;
+        micDisclosureAcknowledgedAt = new Date().toISOString();
+        overlay.remove();
+        resolve(null); // ASR obtains its own permission: never request getUserMedia.
+        return;
+      }
       // IMPORTANT: invoke getUserMedia immediately from this user gesture.
       // iOS/Safari may suppress the native permission sheet if async cleanup,
       // locale work or AudioContext setup runs before the request.
@@ -3168,7 +3176,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
   clearResultReleaseTimer();
   DBG_T0 = performance.now();
   DBG('START', `forceDirectMic=${forceDirectMic} phase=${phase} token=${startToken}`);
-  if (IS_IOS) queueSpeechTechnicalDiagnostic(IOS_EXCLUSIVE_ASR_TRIAL ? 'IOS_EXCLUSIVE_TRIAL_ENABLED' : 'IOS_STANDARD_CAPTURE_ACTIVE');
+  if (IS_IOS) queueSpeechTechnicalDiagnostic(IOS_ASR_ONLY_TRIAL ? 'IOS_EXCLUSIVE_TRIAL_ENABLED' : 'IOS_STANDARD_CAPTURE_ACTIVE');
 
   // On iOS keep the previous viable pipeline so Retry can health-probe it.
   // Other platforms continue their established cleanup behavior.
@@ -3204,6 +3212,21 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     existingNav.onclick = null;
   }
 
+  if (IOS_ASR_ONLY_TRIAL) {
+    // No Web Audio calibration, getUserMedia, MediaStream or AudioContext at
+    // any point in the iPhone ASR-only diagnostic trial.
+    phase = 'RECORDING';
+    $('mic-circle').className = 'mic-circle calibrating';
+    $('mic-icon').textContent = '🎤';
+    $('hint-text').textContent = T.preparePrompt;
+    $('action-btn').disabled = true;
+    $('transcript-box').style.display = 'block';
+    $('transcript-box').textContent = T.preparePrompt;
+    window.MEASURED_NOISY = false;
+    queueSpeechTechnicalDiagnostic('IOS_ASR_ONLY_NO_PCM');
+    void beginSpeechRecognition();
+    return;
+  }
   phase = 'CALIBRATING';
   $('mic-circle').className         = 'mic-circle calibrating';
   $('mic-icon').textContent         = '🔇';
@@ -3868,7 +3891,7 @@ async function beginSpeechRecognition() {
 // ทำให้ session ทั้งก้อน corrupt → getUserMedia รอบถัดไปได้ stream เงียบตายทุกครั้ง
 // จนกว่า iOS จะ reset เอง (~1 นาที) → ทางแก้: บน iOS "ไม่ปล่อยไมค์เลย"
 // เปิดครั้งเดียวใช้ซ้ำทุกรอบ ปิดเฉพาะ ASR ระหว่างรอบ
-const KEEP_MIC_ALIVE = IS_IOS && (SPEECH_CFG.keepMicAliveOnIOS ?? true);
+const KEEP_MIC_ALIVE = IS_IOS && !IOS_ASR_ONLY_TRIAL && (SPEECH_CFG.keepMicAliveOnIOS ?? true);
 
 async function releaseCurrentAudioResources(fullRelease = !KEEP_MIC_ALIVE) {
   const hadResources = !!(
@@ -4465,6 +4488,7 @@ function speechRuntimeInfo() {
     keepMicAlive: KEEP_MIC_ALIVE,
     androidExclusiveAsr: ANDROID_EXCLUSIVE_ASR,
     iosExclusiveAsrTrial: IOS_EXCLUSIVE_ASR_TRIAL,
+    iosAsrOnlyTrial: IOS_ASR_ONLY_TRIAL,
     androidPhrasePauseMs: ANDROID_EXCLUSIVE_ASR ? ANDROID_PHRASE_PAUSE_MS : null,
     coarseRuntime: SPEECH_DATA_CONTRACT?.getCoarseRuntimeSnapshot?.() || null,
     language: T?.langCode || document.documentElement.lang || null,
@@ -5145,6 +5169,7 @@ function evaluateSpeech(text, confidence) {
   speechStartMs = timing.start;
   speechEndMs = timing.end;
   const hasVoice = !!(
+    (EXCLUSIVE_ASR_CAPTURE && normalizedText) ||
     asrSpeechStartMs ||
     micSpeechStartMs ||
     vowelEnergyBuf.length >= MIN_ENERGY_FRAMES ||

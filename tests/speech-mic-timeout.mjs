@@ -23,7 +23,7 @@ assert.match(asrShutdown,/oldRecognition\.abort\(\)/,'interrupted ASR still abor
 assert.match(html,/const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS/);
 assert.match(html,/IOS_EXCLUSIVE_TRIAL_ENABLED/);
 assert.match(html,/ios-exclusive-asr-trial-status/);
-assert.match(html,/const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR \|\| IOS_EXCLUSIVE_ASR_TRIAL/);
+assert.match(html,/const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR \|\| IOS_ASR_ONLY_TRIAL/);
 assert.match(html,/if \(EXCLUSIVE_ASR_CAPTURE\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(html,/acousticMetricsAvailable: !EXCLUSIVE_ASR_CAPTURE/);
 assert.match(html,/scoreUsableForResearch: !EXCLUSIVE_ASR_CAPTURE/);
@@ -38,7 +38,7 @@ function harness(kind){
  const stream={getTracks:()=>[{stop(){stopped++;}}]};
  const pending=new Promise(r=>lateResolve=r);
  const ctx={console,Promise,Error,Date,performance,setTimeout:(f,ms)=>setTimeout(f,Math.min(ms,10)),clearTimeout,
-  audioStartToken:0,IS_IOS:false,KEEP_MIC_ALIVE:true,DEBUG_ON:false,phase:'IDLE',speechAttemptNo:0,audioCtx:null,analyser:null,source:null,streamRef:null,
+  audioStartToken:0,IS_IOS:false,IOS_ASR_ONLY_TRIAL:false,KEEP_MIC_ALIVE:true,DEBUG_ON:false,phase:'IDLE',speechAttemptNo:0,audioCtx:null,analyser:null,source:null,streamRef:null,
   T:{preparePrompt:'prepare',calibrating:'preparing',noiseCalib:'noise',noiseMetric:'noise',rate:'rate',pending:'pending',btnRetry:'retry'},
   $:el,document:{getElementById:()=>null},sessionStorage:{getItem:()=> 'th'},
   clearResultReleaseTimer:noop,DBG:noop,DBG_TRACK:noop,ensureSpeechModuleRun:noop,beginSpeechCanonicalAttempt:noop,resetMeasurementState:noop,
@@ -79,3 +79,9 @@ for(const kind of ['resume','gum']){
  assert.equal((await result).name,'AbortError');assert.equal(h.stopped,1);
  console.log('PASS: superseded attempt cannot claim a late stream');
 }
+
+// iOS ASR-only trial never creates or reacquires WebAudio/MediaStream.
+assert.match(html,/const IOS_ASR_ONLY_TRIAL = IOS_EXCLUSIVE_ASR_TRIAL/);
+assert.match(html,/if \(IOS_ASR_ONLY_TRIAL\) \{[\s\S]*?IOS_ASR_ONLY_NO_PCM[\s\S]*?beginSpeechRecognition\(\);[\s\S]*?return;/);
+assert.match(html,/if \(IOS_ASR_ONLY_TRIAL\) \{[\s\S]*?resolve\(null\); \/\/ ASR obtains its own permission/);
+assert.match(html,/const KEEP_MIC_ALIVE = IS_IOS && !IOS_ASR_ONLY_TRIAL/);

@@ -79,7 +79,7 @@ assert.equal(
 );
 console.log("PASS: microphone permission/device/browser failures are deterministically classified");
 
-assert.match(speech,/const KEEP_MIC_ALIVE = IS_IOS && \(SPEECH_CFG\.keepMicAliveOnIOS \?\? true\)/);
+assert.match(speech,/const KEEP_MIC_ALIVE = IS_IOS && !IOS_ASR_ONLY_TRIAL && \(SPEECH_CFG\.keepMicAliveOnIOS \?\? true\)/);
 assert.match(speech,/const canProbeReuse = KEEP_MIC_ALIVE &&/);
 assert.match(speech,/const healthyReuse = await probeExistingAudioPipeline\(\)/);
 assert.match(speech,/consecutiveLiveSamples >= 2/);
