@@ -1499,7 +1499,6 @@ let animationFrameId = null;
 // แต่ส่งข้อมูลเสียงเป็นศูนย์ล้วน (digital silence) — ตรวจได้จากพลังงานจริงเท่านั้น
 let pipelineReadyMs = 0;     // เวลาที่ audio pipeline พร้อม (ไว้จับ timeout เงียบ)
 let sawRealSignal  = false;  // เคยเห็นสัญญาณจริงในรอบนี้หรือยัง
-let iosSilenceRevivalAttempted = false; // One bounded Web Audio graph rebind before reporting dead mic
 let deadMicAttempt = 0;      // จำนวนครั้งที่กู้คืนไมค์ตายติดต่อกัน
 const DEAD_MIC_SILENCE_MS  = SPEECH_CFG.deadMicSilenceMs ?? 2000;
 const DEAD_MIC_ENERGY_MIN  = SPEECH_CFG.deadMicEnergyMin ?? 0.00001;
@@ -1700,17 +1699,17 @@ function shutdownRecognition() {
   return new Promise(resolve => {
     let settled = false;
 
-    const finish = () => {
+    const finish = (timedOut = false) => {
       if (settled) return;
       settled = true;
-      if (IS_IOS) queueSpeechTechnicalDiagnostic('IOS_ASR_SHUTDOWN_FINISHED');
+      if (IS_IOS) queueSpeechTechnicalDiagnostic(timedOut ? 'IOS_ASR_SHUTDOWN_TIMEOUT' : 'IOS_ASR_SHUTDOWN_FINISHED');
       resolve();
     };
 
     // ปิด handler เดิมเพื่อไม่ให้ onend ของรอบเก่า restart ตัวเอง
     oldRecognition.onresult = null;
-    oldRecognition.onerror = finish;
-    oldRecognition.onend = finish;
+    oldRecognition.onerror = () => finish();
+    oldRecognition.onend = () => finish();
 
     try {
       if (wasStarted) oldRecognition.abort();
@@ -1720,7 +1719,7 @@ function shutdownRecognition() {
     }
 
     // บาง browser ไม่ยิง end หลัง abort จึงมี timeout กันค้าง
-    setTimeout(finish, 1200);
+    setTimeout(() => finish(true), 1200);
   });
 }
 
@@ -3212,7 +3211,6 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
         DBG('♻️ REUSE PIPELINE', `health check passed (audioCtx=${audioCtx.state})`);
         pipelineReadyMs = performance.now();
         sawRealSignal   = false;
-        iosSilenceRevivalAttempted = false;
         calibStartMs    = performance.now();
         runLoop();
         return;
@@ -3348,7 +3346,6 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     // เริ่มนับเวลาเฝ้าดู stream เงียบ (iOS dead-mic detection)
     pipelineReadyMs = performance.now();
     sawRealSignal   = false;
-        iosSilenceRevivalAttempted = false;
 
     calibStartMs = performance.now();
     runLoop();
@@ -4006,66 +4003,9 @@ function runLoop() {
     }
   } else if (!sawRealSignal && pipelineReadyMs && (nowMs - pipelineReadyMs) > DEAD_MIC_SILENCE_MS) {
     if (IS_IOS) queueSpeechTechnicalDiagnostic('IOS_CALIBRATION_DIGITAL_SILENCE');
-    // Rebuild only the Web Audio graph on the existing live microphone track.
-    // The prior suspend/resume-only approach did not recover iOS silence in
-    // device tests on 2026-10-14. Do not request a second microphone stream
-    // without another user gesture, and never treat silence as valid audio.
-    if (IS_IOS && !iosSilenceRevivalAttempted && hasLiveAudioTrack(streamRef)) {
-      iosSilenceRevivalAttempted = true;
-      queueSpeechTechnicalDiagnostic('IOS_GRAPH_REBIND_STARTED');
-      const token = audioStartToken;
-      const oldCtx = audioCtx;
-      const oldSource = source;
-      phase = 'REVIVING';
-      void (async () => {
-        let replacement = null;
-        try {
-          try { oldSource?.disconnect(); } catch (_) {}
-          source = null;
-          analyser = null;
-          if (oldCtx && oldCtx.state !== 'closed') {
-            await waitForSpeechMicStep(oldCtx.close(), 'silence_close_old_context', 3000, token);
-          }
-          if (token !== audioStartToken || document.hidden || !hasLiveAudioTrack(streamRef)) return;
-          prepareSpeechCaptureAudioSession();
-          const Ctx = window.AudioContext || window.webkitAudioContext;
-          replacement = new Ctx();
-          if (replacement.state !== 'running') {
-            await waitForSpeechMicStep(replacement.resume(), 'silence_resume_new_context', 3000, token);
-          }
-          if (token !== audioStartToken || document.hidden) return;
-          if (!hasLiveAudioTrack(streamRef) || replacement.state !== 'running') {
-            throw new Error('Rebound capture graph not ready');
-          }
-          const nextAnalyser = replacement.createAnalyser();
-          nextAnalyser.fftSize = 1024;
-          nextAnalyser.smoothingTimeConstant = 0.2;
-          const nextSource = replacement.createMediaStreamSource(streamRef);
-          nextSource.connect(nextAnalyser);
-          queueSpeechTechnicalDiagnostic('IOS_GRAPH_REBIND_READY');
-          audioCtx = replacement;
-          source = nextSource;
-          analyser = nextAnalyser;
-          replacement = null;
-          phase = 'CALIBRATING';
-          sawRealSignal = false;
-          pipelineReadyMs = performance.now();
-          calibStartMs = pipelineReadyMs;
-          runLoop();
-          return;
-        } catch (error) {
-          queueSpeechTechnicalDiagnostic('IOS_GRAPH_REBIND_FAILED');
-          DBG('SILENCE GRAPH REBIND FAILED', error?.message || String(error));
-        } finally {
-          if (replacement) {
-            try { await replacement.close(); } catch (_) {}
-          }
-        }
-        if (token === audioStartToken && !document.hidden) void recoverDeadMic();
-      })();
-      return;
-    }
-    // Repeated digital silence after the bounded revival remains invalid.
+    // Rebinding a fresh Web Audio graph did not restore samples on iPhone Safari.
+    // Do not repeat failed suspend/resume or graph-rebind experiments here.
+    // Preserve the invalid result and release resources before user-triggered retry.
     recoverDeadMic();
     return; // หยุด loop รอบนี้ ให้ recovery จัดการต่อ
   }
