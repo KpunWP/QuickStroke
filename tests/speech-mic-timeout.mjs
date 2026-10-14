@@ -12,6 +12,12 @@ const automaticRetry=html.slice(html.indexOf('function scheduleAutomaticValidity
 assert.match(automaticRetry,/startRecording\(IS_IOS \? false : true\)/,'preserve iOS capture on automatic retry');
 assert.match(html,/await startRecording\(false\)/,'manual iOS retry retains microphone pipeline');
 
+// iOS completed capture should stop ASR gracefully while interruptions still abort.
+const asrShutdown=html.slice(html.indexOf('function shutdownRecognition()'),html.indexOf('function resetRecognitionEngine()'));
+assert.match(asrShutdown,/IS_IOS && phase === 'DONE' && typeof oldRecognition\.stop === 'function'/,'completed iOS ASR must stop gracefully');
+assert.match(asrShutdown,/oldRecognition\.stop\(\)/,'graceful ASR stop');
+assert.match(asrShutdown,/oldRecognition\.abort\(\)/,'interrupted ASR still aborts');
+
 const helper=html.slice(html.indexOf('function waitForSpeechMicStep('),html.indexOf('async function probeExistingAudioPipeline('));
 const start=html.slice(html.indexOf('async function startRecording('),html.indexOf('async function releaseAcousticCaptureForExclusiveAsr('));
 const mapping=html.slice(html.indexOf('function mapMicErrorReason('),html.indexOf('function prepareSpeechCaptureAudioSession('));
