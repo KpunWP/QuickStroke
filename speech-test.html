@@ -3004,20 +3004,38 @@ async function probeExistingAudioPipeline(durationMs = REUSE_HEALTH_PROBE_MS) {
   const samples = new Uint8Array(analyser.fftSize || 1024);
   const until = performance.now() + Math.max(150, durationMs);
   let peakDeviation = 0;
+  let lastDeviation = 0;
+  let liveSamples = 0;
+  let consecutiveLiveSamples = 0;
+  let firstLiveAt = 0;
+  let lastLiveAt = 0;
 
+  // Do not accept a single transient from the first analyser frame.
+  // Continue sampling across the existing probe window; do NOT change
+  // the digital-silence threshold or the 2-second runtime dead-mic gate.
   while (performance.now() < until) {
     analyser.getByteTimeDomainData(samples);
     let sum = 0;
     for (let i = 0; i < samples.length; i++) {
       sum += Math.abs(samples[i] - 128) / 128;
     }
-    peakDeviation = Math.max(peakDeviation, sum / samples.length);
-    if (peakDeviation > REUSE_ENERGY_MIN) return true;
+    lastDeviation = sum / samples.length;
+    peakDeviation = Math.max(peakDeviation, lastDeviation);
+    if (lastDeviation > REUSE_ENERGY_MIN) {
+      liveSamples++;
+      consecutiveLiveSamples++;
+      if (!firstLiveAt) firstLiveAt = performance.now();
+      lastLiveAt = performance.now();
+    } else {
+      consecutiveLiveSamples = 0;
+    }
     await sleep(45);
   }
-
-  DBG('PIPELINE HEALTH FAIL', `deviation=${peakDeviation.toFixed(8)}`);
-  return false;
+  const healthy = consecutiveLiveSamples >= 2 &&
+    lastLiveAt - firstLiveAt >= 90 && lastDeviation > REUSE_ENERGY_MIN;
+  DBG('PIPELINE HEALTH', `healthy=${healthy} liveFrames=${liveSamples} peak=${peakDeviation.toFixed(8)} last=${lastDeviation.toFixed(8)}`);
+  if (IS_IOS) queueSpeechTechnicalDiagnostic(healthy ? 'IOS_REUSE_PROBE_STABLE' : 'IOS_REUSE_PROBE_UNSTABLE');
+  return healthy;
 }
 
 function mapMicErrorReason(error) {
@@ -3182,10 +3200,12 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
       analyser && source && hasLiveAudioTrack(streamRef);
 
     if (canProbeReuse) {
+      queueSpeechTechnicalDiagnostic('IOS_REUSE_PROBE_STARTED');
       const healthyReuse = await probeExistingAudioPipeline();
       if (startToken !== audioStartToken) return;
 
       if (healthyReuse) {
+        queueSpeechTechnicalDiagnostic('IOS_REUSE_PIPELINE_ACCEPTED');
         DBG('♻️ REUSE PIPELINE', `health check passed (audioCtx=${audioCtx.state})`);
         pipelineReadyMs = performance.now();
         sawRealSignal   = false;
@@ -3194,6 +3214,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
         return;
       }
 
+      queueSpeechTechnicalDiagnostic('IOS_REUSE_PIPELINE_REJECTED');
       DBG('♻️ REUSE REJECTED', 'old session is live but not delivering signal');
       $('transcript-box').textContent = T.micSessionReset;
       await stopAll(true);
@@ -3979,6 +4000,7 @@ function runLoop() {
       DBG('✅ MIC ALIVE', `time-domain signal=${micSignalEnergy.toFixed(8)} after ${((nowMs - pipelineReadyMs)/1000).toFixed(2)}s`);
     }
   } else if (!sawRealSignal && pipelineReadyMs && (nowMs - pipelineReadyMs) > DEAD_MIC_SILENCE_MS) {
+    if (IS_IOS) queueSpeechTechnicalDiagnostic('IOS_CALIBRATION_DIGITAL_SILENCE');
     // เงียบสนิท (ศูนย์ล้วน) เกิน 2 วิหลัง pipeline พร้อม = iOS คืน stream ตาย
     recoverDeadMic();
     return; // หยุด loop รอบนี้ ให้ recovery จัดการต่อ
