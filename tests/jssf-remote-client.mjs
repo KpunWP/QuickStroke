@@ -11,7 +11,8 @@ const client=read("js/jssf-remote-sync.js");
 const ingest=read("supabase/functions/jssf-remote-ingest/payload.mjs");
 const speechCodes=[
   "IOS_REUSE_PROBE_STARTED","IOS_REUSE_PROBE_STABLE","IOS_REUSE_PROBE_UNSTABLE",
-  "IOS_REUSE_PIPELINE_ACCEPTED","IOS_REUSE_PIPELINE_REJECTED","IOS_CALIBRATION_DIGITAL_SILENCE"
+  "IOS_REUSE_PIPELINE_ACCEPTED","IOS_REUSE_PIPELINE_REJECTED","IOS_CALIBRATION_DIGITAL_SILENCE",
+  "IOS_ASR_SHUTDOWN_STARTED","IOS_ASR_SHUTDOWN_FINISHED","IOS_GRAPH_REBIND_STARTED","IOS_GRAPH_REBIND_READY","IOS_GRAPH_REBIND_FAILED"
 ];
 for(const code of speechCodes) {
   assert.ok(client.includes('"'+code+'"'),'client whitelist missing '+code);
