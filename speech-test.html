@@ -4965,7 +4965,10 @@ function scheduleAutomaticValidityRetry(reasonCode, details = {}) {
     setTimeout(() => {
       if (phase !== 'RETRYING') return;
       phase = 'IDLE';
-      startRecording(true);
+      // Match manual iOS Retry: keep the authorized capture track and
+      // health-probe it. Forcing a new getUserMedia here first tears down
+      // the still-live iOS pipeline and can leave subsequent captures silent.
+      startRecording(IS_IOS ? false : true);
     }, AUTO_VALIDITY_RETRY_DELAY_MS);
   });
   return true;

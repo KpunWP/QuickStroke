@@ -6,6 +6,12 @@ assert.doesNotMatch(html,/iosSilenceRevivalAttempted|replacement\.createMediaStr
 assert.match(html,/IOS_ASR_SHUTDOWN_TIMEOUT/,'distinguish timed-out ASR shutdown');
 assert.match(html,/recoverDeadMic\(\)/,'preserve digital-silence invalidation');
 
+// Automatic validity retry must follow the same iOS keep-alive policy as a
+// manual retry, rather than forcing a fresh getUserMedia after releasing it.
+const automaticRetry=html.slice(html.indexOf('function scheduleAutomaticValidityRetry('),html.indexOf('function finishSpeechInvalid('));
+assert.match(automaticRetry,/startRecording\(IS_IOS \? false : true\)/,'preserve iOS capture on automatic retry');
+assert.match(html,/await startRecording\(false\)/,'manual iOS retry retains microphone pipeline');
+
 const helper=html.slice(html.indexOf('function waitForSpeechMicStep('),html.indexOf('async function probeExistingAudioPipeline('));
 const start=html.slice(html.indexOf('async function startRecording('),html.indexOf('async function releaseAcousticCaptureForExclusiveAsr('));
 const mapping=html.slice(html.indexOf('function mapMicErrorReason('),html.indexOf('function prepareSpeechCaptureAudioSession('));
