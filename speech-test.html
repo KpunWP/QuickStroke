@@ -1156,6 +1156,9 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
 const ANDROID_EXCLUSIVE_ASR = IS_ANDROID && (SPEECH_CFG.androidExclusiveAsr ?? true);
+// Research-only opt-in; default iOS production and clinical policy remain unchanged.
+const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && (SPEECH_CFG.iosExclusiveAsrTrial === true || new URLSearchParams(location.search).get('iosExclusiveAsrTrial') === '1');
+const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_EXCLUSIVE_ASR_TRIAL;
 const ANDROID_PHRASE_PAUSE_MS = SPEECH_CFG.androidPhrasePauseMs ?? 1800;
 const ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG.androidRecognitionSafetyMs ?? 12000;
 const SPEECH_DATA_CONTRACT = window.QuickStrokeDataContract || null;
@@ -1832,7 +1835,7 @@ function seedSpeechEnergyFromPreRoll(startMs) {
 
 function resolveSpeechTiming(nowMs = performance.now()) {
   const recordingFloor = recordingStartedMs || currentAttemptPerformanceStartedAt || nowMs;
-  const useAcousticTimingForScoring = !ANDROID_EXCLUSIVE_ASR;
+  const useAcousticTimingForScoring = !EXCLUSIVE_ASR_CAPTURE;
   let start = null;
   let end = null;
   let startSource = null;
@@ -2215,7 +2218,7 @@ function currentSpeechQualityFlags() {
     event.attemptNo === Math.max(1, speechAttemptNo) && event.type === 'result'
   );
   if (hasAsrResult && !asrFinalReceived) flags.push('ASR_INTERIM_ONLY');
-  if (ANDROID_EXCLUSIVE_ASR) flags.push('ACOUSTIC_METRICS_UNAVAILABLE');
+  if (EXCLUSIVE_ASR_CAPTURE) flags.push('ACOUSTIC_METRICS_UNAVAILABLE');
   else if (hasAsrResult && vowelEnergyBuf.length < MIN_ENERGY_FRAMES) flags.push('INSUFFICIENT_ENERGY_FRAMES');
   if (lastAsrErrorCode) flags.push('ASR_RUNTIME_ERROR');
   if (speechPersistenceErrors.length) flags.push('STORAGE_WRITE_FAILED');
@@ -3431,7 +3434,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
 }
 
 async function releaseAcousticCaptureForExclusiveAsr() {
-  if (!ANDROID_EXCLUSIVE_ASR) return;
+  if (!EXCLUSIVE_ASR_CAPTURE) return;
   const oldSource = source;
   source = null;
   if (oldSource) {
@@ -3457,8 +3460,8 @@ async function releaseAcousticCaptureForExclusiveAsr() {
       await Promise.race([oldAudioCtx.close(), sleep(1600)]);
     } catch (error) {}
   }
-  // Give Android/Chromium a short exclusive handoff window before Web Speech
-  // requests the microphone. This avoids dual capture contention seen on POCO F6.
+  // Give the browser a bounded exclusive handoff window before Web Speech
+  // requests the microphone; iOS opt-in is research-only.
   await sleep(450);
 }
 
@@ -4153,7 +4156,7 @@ function runLoop() {
 
         // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
         window.MEASURED_NOISY = false;
-        if (ANDROID_EXCLUSIVE_ASR) {
+        if (EXCLUSIVE_ASR_CAPTURE) {
           await releaseAcousticCaptureForExclusiveAsr();
           if (phase !== 'RECORDING') return;
           void beginSpeechRecognition();
@@ -4444,6 +4447,7 @@ function speechRuntimeInfo() {
     isAndroid: IS_ANDROID,
     keepMicAlive: KEEP_MIC_ALIVE,
     androidExclusiveAsr: ANDROID_EXCLUSIVE_ASR,
+    iosExclusiveAsrTrial: IOS_EXCLUSIVE_ASR_TRIAL,
     androidPhrasePauseMs: ANDROID_EXCLUSIVE_ASR ? ANDROID_PHRASE_PAUSE_MS : null,
     coarseRuntime: SPEECH_DATA_CONTRACT?.getCoarseRuntimeSnapshot?.() || null,
     language: T?.langCode || document.documentElement.lang || null,
@@ -5147,7 +5151,7 @@ function evaluateSpeech(text, confidence) {
   // a technical VAD/calibration limitation rather than a failed speech task.
   // Keep phrase observation evaluable, mark rate/quality as limited, and retain
   // INSUFFICIENT_ENERGY_FRAMES as a quality flag instead of invalidating.
-  else if (!ANDROID_EXCLUSIVE_ASR && vowelEnergyBuf.length < MIN_ENERGY_FRAMES && !wordMatched) invalidReasonCode = 'INSUFFICIENT_ENERGY_FRAMES';
+  else if (!EXCLUSIVE_ASR_CAPTURE && vowelEnergyBuf.length < MIN_ENERGY_FRAMES && !wordMatched) invalidReasonCode = 'INSUFFICIENT_ENERGY_FRAMES';
 
   const invalidDetails = {
     transcript: (isManual || noSpeechApi) ? '' : String(text || ''),
@@ -5224,12 +5228,12 @@ function evaluateSpeech(text, confidence) {
   // establish whether it is clinically useful. Android exclusive-ASR mode
   // deliberately releases WebAudio before speech, so these acoustic metrics are
   // unavailable rather than fabricated from incomplete samples.
-  const stabScore = ANDROID_EXCLUSIVE_ASR ? null : calcStab(vowelEnergyBuf);
+  const stabScore = EXCLUSIVE_ASR_CAPTURE ? null : calcStab(vowelEnergyBuf);
   const stabLabel = Number.isFinite(stabScore) ? `${stabScore}%` : '—';
 
   // 4. Technical quality is independent from the speech observations.
-  const speechEnergy = ANDROID_EXCLUSIVE_ASR ? null : calcSpeechEnergy(vowelEnergyBuf);
-  const snrDb = ANDROID_EXCLUSIVE_ASR ? null : calcSnrDb(speechEnergy, noiseFloor);
+  const speechEnergy = EXCLUSIVE_ASR_CAPTURE ? null : calcSpeechEnergy(vowelEnergyBuf);
+  const snrDb = EXCLUSIVE_ASR_CAPTURE ? null : calcSnrDb(speechEnergy, noiseFloor);
   const snrLow = snrDb !== null && snrDb < SNR_WARN_DB;
   window.MEASURED_NOISY = snrLow;
 
@@ -5388,8 +5392,8 @@ function evaluateSpeech(text, confidence) {
     status: technicalQualityStatus,
     flags: uniqueQualityFlags,
     limitingFlags: qualityLimitingFlags,
-    scoreUsableForResearch: !ANDROID_EXCLUSIVE_ASR,
-    acousticMetricsAvailable: !ANDROID_EXCLUSIVE_ASR
+    scoreUsableForResearch: !EXCLUSIVE_ASR_CAPTURE,
+    acousticMetricsAvailable: !EXCLUSIVE_ASR_CAPTURE
   };
   const researchMetrics = {
     phraseMatchScore,

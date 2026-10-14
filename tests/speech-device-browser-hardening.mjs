@@ -116,9 +116,9 @@ console.log('PASS: iOS Speech Retry waits for full mic cleanup before enabling u
 
 
 
-assert.match(speech,/if \(ANDROID_EXCLUSIVE_ASR\) \{[\s\S]*await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(speech,/if \(EXCLUSIVE_ASR_CAPTURE\) \{[\s\S]*await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(speech,/oldStream\.getTracks\(\)\.forEach\(track => track\.stop\(\)\)/);
-assert.match(speech,/const useAcousticTimingForScoring = !ANDROID_EXCLUSIVE_ASR/);
+assert.match(speech,/const useAcousticTimingForScoring = !EXCLUSIVE_ASR_CAPTURE/);
 assert.doesNotMatch(speech,/ANDROID_CONCURRENT_PCM_PROBE|androidPcmProbe|buildAndroidPcmProbeTelemetry/);
 assert.match(speech,/ACOUSTIC_METRICS_UNAVAILABLE/);
 console.log("PASS: Android production path stays exclusive-ASR and concurrent PCM probe is removed");
