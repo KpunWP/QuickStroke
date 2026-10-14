@@ -2797,13 +2797,13 @@ function resetUI() {
 
 // Controlled diagnostic: disable Speech's own output, including the opening
 // instruction and countdown beeps, while retaining visual start/ASR timing.
-const SPEECH_SILENT_START_TRIAL = true;
+const SPEECH_SILENT_START_TRIAL = !IOS_ASR_ONLY_TRIAL;
 async function playSpeechInstructionBeforeCapture() {
   if (SPEECH_SILENT_START_TRIAL) return 'silent_trial';
   if (!String(T?.langCode || '').toLowerCase().startsWith('th')) return 'skipped';
   const recorded=window.QuickStrokeThaiRecorded;
   const message='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
-  if (!recorded?.fileFor?.(message)) return 'missing';
+  if (!recorded?.fileFor?.(message)) return IOS_ASR_ONLY_TRIAL ? await speakSpeechCue(message) : 'missing';
   $('hint-text').textContent=message;
   $('transcript-box').textContent=message;
   // The instruction is playback-only: use the media speaker route before
@@ -2824,7 +2824,7 @@ async function handleAction() {
   if (retryStarting) return;
 
   if (phase === 'IDLE') {
-    if (!SPEECH_SILENT_START_TRIAL) primeSpeechCue();
+    if (!SPEECH_SILENT_START_TRIAL && !IOS_ASR_ONLY_TRIAL) primeSpeechCue();
     retryStarting = true;
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
@@ -3171,6 +3171,28 @@ function playVisualCountdownBeep() {
   } catch (_) {return false;}
 }
 
+// Speaker-only synthesis: no AudioContext, no oscillator, no getUserMedia.
+// Timing and fallback stay visual if Safari blocks speech synthesis.
+async function playIosAsrOnlyCount(count) {
+  const synth=window.speechSynthesis;
+  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') { await sleep(900); return; }
+  await new Promise(resolve => {
+    let done=false;
+    const finish=()=>{if(done)return;done=true;resolve();};
+    try {
+      const utterance=new SpeechSynthesisUtterance(String(count));
+      utterance.lang=T?.langCode || 'th-TH';
+      utterance.rate=1.1;
+      utterance.volume=1;
+      utterance.onend=finish;
+      utterance.onerror=finish;
+      synth.speak(utterance);
+    } catch (_) { finish(); }
+    setTimeout(finish,900);
+  });
+  await sleep(180);
+}
+
 async function startRecording(forceDirectMic = false, preauthorizedStream = null) {
   const startToken = ++audioStartToken;
   clearResultReleaseTimer();
@@ -3215,16 +3237,33 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
   if (IOS_ASR_ONLY_TRIAL) {
     // No Web Audio calibration, getUserMedia, MediaStream or AudioContext at
     // any point in the iPhone ASR-only diagnostic trial.
-    phase = 'RECORDING';
-    $('mic-circle').className = 'mic-circle calibrating';
-    $('mic-icon').textContent = '🎤';
+    phase = 'READY_CUE';
+    $('mic-circle').className = 'mic-circle calibrating speech-countdown';
+    $('test-screen').classList.add('speech-countdown-active');
+    $('mic-icon').textContent = '3';
     $('hint-text').textContent = T.preparePrompt;
     $('action-btn').disabled = true;
     $('transcript-box').style.display = 'block';
     $('transcript-box').textContent = T.preparePrompt;
     window.MEASURED_NOISY = false;
     queueSpeechTechnicalDiagnostic('IOS_ASR_ONLY_NO_PCM');
-    void beginSpeechRecognition();
+    void (async () => {
+      for (const count of [3,2,1]) {
+        if (phase !== 'READY_CUE' || startToken !== audioStartToken) return;
+        $('mic-icon').textContent = String(count);
+        await playIosAsrOnlyCount(count);
+      }
+      if (phase !== 'READY_CUE' || startToken !== audioStartToken) return;
+      // Ensure speaker playback ends BEFORE Safari starts microphone ASR.
+      try { window.speechSynthesis?.cancel(); } catch (_) {}
+      await sleep(160);
+      if (phase !== 'READY_CUE' || startToken !== audioStartToken) return;
+      phase = 'RECORDING';
+      $('test-screen').classList.remove('speech-countdown-active');
+      $('mic-circle').className = 'mic-circle calibrating';
+      $('mic-icon').textContent = '🎤';
+      void beginSpeechRecognition();
+    })();
     return;
   }
   phase = 'CALIBRATING';
@@ -5577,6 +5616,8 @@ function evaluateSpeech(text, confidence) {
 
   void releaseMicAfterSpeechResult(false);
   if (!IS_IOS) scheduleResultMicRelease();
+  // Completion audio is output-only and runs after recognition has ended.
+  if (IOS_ASR_ONLY_TRIAL) void speakSpeechCue('จบการทดสอบ ขอบคุณค่ะ');
 
   requestAnimationFrame(() => {
     if (rb && typeof rb.scrollIntoView === 'function') {
