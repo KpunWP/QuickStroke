@@ -3224,13 +3224,17 @@ async function playIosCountdownBeep() {
     if(!iosBeepSrc)iosBeepSrc=iosCountdownBeepUrl();
     const player=new Audio(iosBeepSrc);
     player.volume=0.55;
-    await Promise.race([
-      new Promise(resolve=>{player.onended=resolve;player.onerror=resolve;
-        player.play().catch(resolve);}),
-      sleep(300)
+    const outcome=await Promise.race([
+      new Promise(resolve=>{
+        player.onended=()=>resolve('ended');
+        player.onerror=()=>resolve('error');
+        Promise.resolve(player.play()).catch(()=>resolve('blocked'));
+      }),
+      sleep(380).then(()=> 'timeout')
     ]);
     player.pause();
-  } catch (_) {}
+    return outcome;
+  } catch (_) { return 'error'; }
 }
 
 async function startIosAsrReadyCue(runId, startToken, onTimeout) {
@@ -3241,14 +3245,16 @@ async function startIosAsrReadyCue(runId, startToken, onTimeout) {
   $('transcript-box').textContent='เตรียมพูด';
   // ASR already owns the mic (including the iOS permission sheet). Keep
   // playback and its transcription out of the research measurement window.
-  await speakSpeechCue('เตรียมพูด');
+  const preparePlayback=await speakSpeechCue('เตรียมพูด');
+  if(preparePlayback !== 'ended') queueSpeechTechnicalDiagnostic('IOS_CUE_PREPARE_PLAYBACK_FAILED');
   if(phase !== 'RECORDING' || runId !== recognitionRunId || startToken !== audioStartToken)return;
   $('mic-circle').className='mic-circle calibrating speech-countdown';
   $('test-screen').classList.add('speech-countdown-active');
   for(const count of [3,2,1]){
     if(phase !== 'RECORDING' || runId !== recognitionRunId || startToken !== audioStartToken)return;
     $('mic-icon').textContent=String(count);
-    await playIosCountdownBeep();
+    const beepPlayback=await playIosCountdownBeep();
+    if(beepPlayback !== 'ended') queueSpeechTechnicalDiagnostic('IOS_CUE_BEEP_PLAYBACK_FAILED');
     await sleep(700);
   }
   if(phase !== 'RECORDING' || runId !== recognitionRunId || startToken !== audioStartToken)return;
@@ -3256,6 +3262,7 @@ async function startIosAsrReadyCue(runId, startToken, onTimeout) {
   iosAsrCueInProgress=false;
   iosAsrCueReleased=true;
   markSpeechRecognitionReady('after_ios_countdown');
+  queueSpeechTechnicalDiagnostic('IOS_CUE_COUNTDOWN_COMPLETE');
   // Start the ASR measurement timeout only after the participant is invited to speak.
   recognitionSafetyTimer=setTimeout(()=>{
     if(phase==='RECORDING' && iosAsrCueReleased && runId===recognitionRunId) onTimeout();
