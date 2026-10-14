@@ -18,6 +18,14 @@ assert.match(asrShutdown,/IS_IOS && phase === 'DONE' && typeof oldRecognition\.s
 assert.match(asrShutdown,/oldRecognition\.stop\(\)/,'graceful ASR stop');
 assert.match(asrShutdown,/oldRecognition\.abort\(\)/,'interrupted ASR still aborts');
 
+// Research-only iOS exclusive audio handoff must be disabled by default and
+// expose missing acoustic metrics instead of fabricating speech measurements.
+assert.match(html,/const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && SPEECH_CFG\.iosExclusiveAsrTrial === true/);
+assert.match(html,/const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR \|\| IOS_EXCLUSIVE_ASR_TRIAL/);
+assert.match(html,/if \(EXCLUSIVE_ASR_CAPTURE\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(html,/acousticMetricsAvailable: !EXCLUSIVE_ASR_CAPTURE/);
+assert.match(html,/scoreUsableForResearch: !EXCLUSIVE_ASR_CAPTURE/);
+
 const helper=html.slice(html.indexOf('function waitForSpeechMicStep('),html.indexOf('async function probeExistingAudioPipeline('));
 const start=html.slice(html.indexOf('async function startRecording('),html.indexOf('async function releaseAcousticCaptureForExclusiveAsr('));
 const mapping=html.slice(html.indexOf('function mapMicErrorReason('),html.indexOf('function prepareSpeechCaptureAudioSession('));
