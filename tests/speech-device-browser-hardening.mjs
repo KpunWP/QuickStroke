@@ -111,7 +111,7 @@ assert.match(releaseGate,/retryButton\.disabled = true/);
 assert.match(releaseGate,/stopAll\(fullRelease\)\.finally/);
 assert.match(releaseGate,/iosResultMicReleasePending = false/);
 assert.match(speech,/if \(IS_IOS && iosResultMicReleasePending\) return;/);
-assert.match(speech,/void releaseMicAfterSpeechResult\(false\)/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(false\)/);
 console.log('PASS: iOS Speech Retry waits for full mic cleanup before enabling user gesture');
 
 
@@ -169,7 +169,7 @@ assert.doesNotMatch(iosRetryBlock,/retryStreamRequest/);
 assert.match(speech,/const healthyReuse = await probeExistingAudioPipeline\(\)/);
 assert.match(speech,/if \(healthyReuse\) \{/);
 assert.match(speech,/await stopAll\(true\);[\s\S]*await sleep\(RETRY_FULL_RELEASE_WAIT_MS\)/);
-assert.match(speech,/void releaseMicAfterSpeechResult\(false\)/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(false\)/);
 console.log('PASS: iOS Retry probes preserved pipeline before rebuilding dead capture');
 
 
