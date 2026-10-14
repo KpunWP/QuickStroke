@@ -1157,7 +1157,7 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
 const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
 const ANDROID_EXCLUSIVE_ASR = IS_ANDROID && (SPEECH_CFG.androidExclusiveAsr ?? true);
 // Research-only opt-in; default iOS production and clinical policy remain unchanged.
-const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && SPEECH_CFG.iosExclusiveAsrTrial === true;
+const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && (SPEECH_CFG.iosExclusiveAsrTrial === true || new URLSearchParams(location.search).get('iosExclusiveAsrTrial') === '1');
 const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_EXCLUSIVE_ASR_TRIAL;
 const ANDROID_PHRASE_PAUSE_MS = SPEECH_CFG.androidPhrasePauseMs ?? 1800;
 const ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG.androidRecognitionSafetyMs ?? 12000;
