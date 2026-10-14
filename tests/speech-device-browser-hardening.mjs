@@ -46,7 +46,7 @@ console.log("PASS: iOS retry/dead-mic operational settings are explicit");
 const instruction=speech.slice(speech.indexOf('async function playSpeechInstructionBeforeCapture()'),speech.indexOf('async function handleAction()'));
 assert.match(speech,/const SPEECH_SILENT_START_TRIAL = !IOS_ASR_ONLY_TRIAL/);
 assert.match(instruction,/if \(SPEECH_SILENT_START_TRIAL\) return 'silent_trial'/);
-assert.match(speech,/if \(!SPEECH_SILENT_START_TRIAL\) primeSpeechCue\(\)/);
+assert.match(speech,/if \(!SPEECH_SILENT_START_TRIAL && !IOS_ASR_ONLY_TRIAL\) primeSpeechCue\(\)/);
 assert.match(speech,/if \(!IS_IOS && !SPEECH_SILENT_START_TRIAL\) primeSpeechCue\(\)/);
 assert.match(speech,/if \(!SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\)/);
 console.log('PASS: silent Speech trial disables app cues while preserving visual countdown');
