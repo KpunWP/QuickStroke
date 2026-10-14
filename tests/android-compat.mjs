@@ -84,7 +84,7 @@ assert.match(speech,/const ANDROID_EXCLUSIVE_ASR = IS_ANDROID/);
 assert.match(speech,/releaseAcousticCaptureForExclusiveAsr/);
 assert.match(speech,/oldStream\.getTracks\(\)\.forEach\(track => track\.stop\(\)\)/);
 assert.match(speech,/await sleep\(450\)/);
-assert.match(speech,/if \(ANDROID_EXCLUSIVE_ASR\) flags\.push\('ACOUSTIC_METRICS_UNAVAILABLE'\)/);
+assert.match(speech,/if \(EXCLUSIVE_ASR_CAPTURE\) flags\.push\('ACOUSTIC_METRICS_UNAVAILABLE'\)/);
 assert.match(speech,/const stabScore = ANDROID_EXCLUSIVE_ASR \? null/);
 assert.match(speech,/const snrDb = ANDROID_EXCLUSIVE_ASR \? null/);
 assert.match(speech,/legacyWeightedScore = Number\.isFinite\(stabScore\)/);
