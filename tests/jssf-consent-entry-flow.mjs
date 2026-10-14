@@ -20,7 +20,7 @@ function element(id){
   };
 }
 
-function harness({resumeSession=null,storageAvailable=true,storageThrows=false,ready=false,initialContext=null,userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Safari"}={}){
+function harness({resumeSession=null,storageAvailable=true,storageThrows=false,ready=false,initialContext=null,trial=false,userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit Safari"}={}){
   const ids=[
     "age-confirmation","consent-confirmation","start-testing","collection-state","audio-preparation-state","retry-audio-preparation",
     "recruitment-badge","recruitment-notice","release-status-heading","consent-version-state",
@@ -93,7 +93,7 @@ function harness({resumeSession=null,storageAvailable=true,storageThrows=false,r
       }
     },
     location:{
-      href:"https://quickstroke.vercel.app/jssf-consent.html",
+      href:"https://quickstroke.vercel.app/jssf-consent.html"+(trial?"?iosExclusiveAsrTrial=1":""),
       origin:"https://quickstroke.vercel.app"
     }
   };
@@ -105,7 +105,8 @@ function harness({resumeSession=null,storageAvailable=true,storageThrows=false,r
   };
   const sessionStorage={
     setItem:(k,v)=>sessionValues.set(k,v),
-    getItem:k=>sessionValues.get(k)||null
+    getItem:k=>sessionValues.get(k)||null,
+    removeItem:k=>sessionValues.delete(k)
   };
   const navigator={userAgent};
   new Function("window","document","sessionStorage","console","navigator",source)(window,document,sessionStorage,console,navigator);
@@ -266,4 +267,17 @@ for(const options of [{storageAvailable:false},{storageThrows:true}]){
   assert.equal(h.elements["resume-testing"].hidden,true);
   assert.equal(h.elements["start-testing"].textContent,"เริ่มทดสอบใหม่");
   console.log("PASS: finalized local session offers fresh start without a misleading resume button");
+}
+
+{
+  const h=harness({ready:true,trial:true});
+  h.elements["age-confirmation"].checked=true;
+  h.elements["consent-confirmation"].checked=true;
+  await h.elements["age-confirmation"].fire("change");
+  await h.elements["start-testing"].fire("click");
+  assert.equal(h.calls.created,1);
+  assert.equal(h.calls.enrolled,1);
+  assert.equal(h.window.location.href,"./speech-test.html?iosExclusiveAsrTrial=1");
+  assert.equal(h.sessionValues.get("qs_ios_exclusive_asr_trial"),"1");
+  console.log("PASS: iOS Speech experiment uses consented remote enrollment and routes directly to trial");
 }
