@@ -2713,6 +2713,7 @@ async function selectLang(requestedCode) {
 
   const { code, messages } = loaded;
   T = messages;
+  if (IOS_ASR_ONLY_TRIAL && String(T?.langCode || '').toLowerCase().startsWith('th')) T = {...T,preparePrompt:'เตรียมพูด'};
   document.documentElement.lang = T.langCode || SPEECH_LOCALE_MAP[code];
   document.title = T.topTitle;
 
@@ -2802,7 +2803,9 @@ async function playSpeechInstructionBeforeCapture() {
   if (SPEECH_SILENT_START_TRIAL) return 'silent_trial';
   if (!String(T?.langCode || '').toLowerCase().startsWith('th')) return 'skipped';
   const recorded=window.QuickStrokeThaiRecorded;
-  const message='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
+  const message=IOS_ASR_ONLY_TRIAL ? 'เตรียมพูด' : 'เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
+  $('hint-text').textContent=message;
+  $('transcript-box').textContent=message;
   if (!recorded?.fileFor?.(message)) return IOS_ASR_ONLY_TRIAL ? await speakSpeechCue(message) : 'missing';
   $('hint-text').textContent=message;
   $('transcript-box').textContent=message;
