@@ -4030,7 +4030,10 @@ function runLoop() {
           if (replacement.state !== 'running') {
             await waitForSpeechMicStep(replacement.resume(), 'silence_resume_new_context', 3000, token);
           }
-          if (token !== audioStartToken || document.hidden || !hasLiveAudioTrack(streamRef) || replacement.state !== 'running') return;
+          if (token !== audioStartToken || document.hidden) return;
+          if (!hasLiveAudioTrack(streamRef) || replacement.state !== 'running') {
+            throw new Error('Rebound capture graph not ready');
+          }
           const nextAnalyser = replacement.createAnalyser();
           nextAnalyser.fftSize = 1024;
           nextAnalyser.smoothingTimeConstant = 0.2;
