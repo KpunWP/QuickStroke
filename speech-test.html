@@ -1690,6 +1690,7 @@ function shutdownRecognition() {
 
   const oldRecognition = recognition;
   const wasStarted = recognitionStarted;
+  if (IS_IOS && oldRecognition) queueSpeechTechnicalDiagnostic('IOS_ASR_SHUTDOWN_STARTED');
 
   recognition = null;
   recognitionStarted = false;
@@ -1702,6 +1703,7 @@ function shutdownRecognition() {
     const finish = () => {
       if (settled) return;
       settled = true;
+      if (IS_IOS) queueSpeechTechnicalDiagnostic('IOS_ASR_SHUTDOWN_FINISHED');
       resolve();
     };
 
@@ -4010,6 +4012,7 @@ function runLoop() {
     // without another user gesture, and never treat silence as valid audio.
     if (IS_IOS && !iosSilenceRevivalAttempted && hasLiveAudioTrack(streamRef)) {
       iosSilenceRevivalAttempted = true;
+      queueSpeechTechnicalDiagnostic('IOS_GRAPH_REBIND_STARTED');
       const token = audioStartToken;
       const oldCtx = audioCtx;
       const oldSource = source;
@@ -4039,6 +4042,7 @@ function runLoop() {
           nextAnalyser.smoothingTimeConstant = 0.2;
           const nextSource = replacement.createMediaStreamSource(streamRef);
           nextSource.connect(nextAnalyser);
+          queueSpeechTechnicalDiagnostic('IOS_GRAPH_REBIND_READY');
           audioCtx = replacement;
           source = nextSource;
           analyser = nextAnalyser;
@@ -4050,6 +4054,7 @@ function runLoop() {
           runLoop();
           return;
         } catch (error) {
+          queueSpeechTechnicalDiagnostic('IOS_GRAPH_REBIND_FAILED');
           DBG('SILENCE GRAPH REBIND FAILED', error?.message || String(error));
         } finally {
           if (replacement) {
