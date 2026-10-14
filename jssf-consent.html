@@ -414,6 +414,29 @@
     applyReleaseState();
   }
 
+  // Explicit diagnostic entry: valid JSSF consent/session, Speech only.
+  // Not part of the regular three-module participant flow.
+  const speechTrialRequested = new URL(window.location.href).searchParams.get("iosExclusiveAsrTrial")==="1"
+    && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  if(speechTrialRequested && typeof document.createElement==="function"){
+    const diagnosticNote=document.createElement("div");
+    diagnosticNote.className="box";
+    diagnosticNote.id="ios-trial-consent-note";
+    diagnosticNote.setAttribute("role","note");
+    diagnosticNote.textContent="โหมดทดสอบทางเทคนิค iPhone: หลังยินยอมจะเปิด Speech โดยตรง เพื่อทดสอบการแยกไมโครโฟนจาก ASR ไม่ใช่การทดสอบ JSSF ครบทั้ง 3 ขั้นตอน";
+    document.querySelector?.("#consent-content")?.prepend(diagnosticNote);
+  }
+  function trialTarget(){
+    return "./speech-test.html?iosExclusiveAsrTrial=1";
+  }
+  function configureTrialNavigation(){
+    if(speechTrialRequested){
+      sessionStorage.setItem("qs_ios_exclusive_asr_trial","1");
+    } else {
+      sessionStorage.removeItem("qs_ios_exclusive_asr_trial");
+    }
+  }
+
   function resumeTarget(bundle){
     const completed=new Set((bundle?.moduleRuns||[])
       .filter(run=>run?.moduleRunStatus==="completed")
@@ -483,7 +506,8 @@
       // outbox was unavailable. Upload failure must not block local resume.
       await remote.recoverCompleted?.().catch(()=>null);
       await remote.flush?.().catch(()=>null);
-      window.location.href=resumeTarget(resumeBundle);
+      configureTrialNavigation();
+      window.location.href=speechTrialRequested?trialTarget():resumeTarget(resumeBundle);
     }catch(error){
       console.error("JSSF resume failed.",error);
       if(isStorageAccessError(error)){ showStorageWarning(); return; }
@@ -509,8 +533,9 @@
       // in Thai regardless of a language left over from an earlier app session.
       // Participants can still change TH/EN/JA from the test pages afterwards.
       sessionStorage.setItem("fast_lang","th");
-      state.textContent="ลงทะเบียนสำเร็จ กำลังเปิดการทดสอบ Face…";
-      window.location.href="./face-test.html";
+      configureTrialNavigation();
+      state.textContent=speechTrialRequested?"ลงทะเบียนสำเร็จ กำลังเปิด Speech โหมดทดลอง…":"ลงทะเบียนสำเร็จ กำลังเปิดการทดสอบ Face…";
+      window.location.href=speechTrialRequested?trialTarget():"./face-test.html";
     }catch(error){
       console.error("JSSF enrollment failed.",error);
       if(isStorageAccessError(error)){ showStorageWarning(); return; }

@@ -134,7 +134,7 @@ assert.match(consent,/ผู้ทดสอบทางไกล|บุคคล
 assert.match(consent,/disabled aria-disabled="true"/);
 assert.match(consent,/function releaseReady\(\)/);
 assert.match(consent,/remote\?\.featureReady\?\.\(\)===true/);
-assert.match(consent,/await remote\.enroll\(\)/);
+assert.ok(consent.includes('window.location.href=speechTrialRequested?trialTarget():"./face-test.html"'));
 assert.match(consent,/listWithdrawableEnrollments/);
 assert.match(consent,/getRemoteResumeBundle/);
 assert.match(consent,/restoreScreeningContext/);
@@ -173,7 +173,8 @@ assert.match(consent,/activeNonRemoteContext\(context\)/);
 assert.match(consent,/jssf_consent_setup_rollback/);
 assert.match(consent,/sessionStorage\.setItem\("fast_mode","full"\)/);
 assert.match(consent,/store\.addScreeningSession/);
-assert.match(consent,/await remote\.enroll\(\)[\s\S]*window\.location\.href="\.\/face-test\.html"/);
+assert.ok(consent.includes('window.location.href=speechTrialRequested?trialTarget():"./face-test.html"'));
+assert.ok(consent.includes('speechTrialRequested?trialTarget():resumeTarget(resumeBundle)'));
 const withdrawal=read("jssf-withdraw.html");
 assert.match(withdrawal,/listWithdrawableEnrollments/);
 assert.match(withdrawal,/requestWithdrawal\(selected\.clientSessionId\)/);
