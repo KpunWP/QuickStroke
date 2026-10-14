@@ -5614,10 +5614,16 @@ function evaluateSpeech(text, confidence) {
     `quality flags: ${qualityFlags.join(', ') || 'none'}`
   ].join('\n');
 
-  void releaseMicAfterSpeechResult(false);
+  const finishedAudioToken = audioStartToken;
+  const cleanupAfterResult = releaseMicAfterSpeechResult(false);
   if (!IS_IOS) scheduleResultMicRelease();
-  // Completion audio is output-only and runs after recognition has ended.
-  if (IOS_ASR_ONLY_TRIAL) void speakSpeechCue('จบการทดสอบ ขอบคุณค่ะ');
+  // Do not play output over a live ASR engine or on a newly started retry.
+  if (IOS_ASR_ONLY_TRIAL) {
+    void cleanupAfterResult.then(() => {
+      if (phase === 'DONE' && audioStartToken === finishedAudioToken)
+        return speakSpeechCue('จบการทดสอบ ขอบคุณค่ะ');
+    }).catch(() => {});
+  }
 
   requestAnimationFrame(() => {
     if (rb && typeof rb.scrollIntoView === 'function') {
