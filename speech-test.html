@@ -1712,8 +1712,16 @@ function shutdownRecognition() {
     oldRecognition.onend = () => finish();
 
     try {
-      if (wasStarted) oldRecognition.abort();
-      else finish();
+      if (wasStarted) {
+        // A completed iOS attempt normally has a usable transcript already.
+        // Graceful stop avoids forcibly aborting Safari's shared capture session
+        // before the next manual Retry. Interrupted attempts still abort.
+        if (IS_IOS && phase === 'DONE' && typeof oldRecognition.stop === 'function') {
+          oldRecognition.stop();
+        } else {
+          oldRecognition.abort();
+        }
+      } else finish();
     } catch (error) {
       finish();
     }
