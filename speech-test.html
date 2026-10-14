@@ -2843,7 +2843,7 @@ async function handleAction() {
     let firstUseStage='instruction';
     try {
       // A failed instruction must not prevent microphone authorization.
-      try { if(IOS_ASR_ONLY_TRIAL) { $('hint-text').textContent='เตรียมพูด'; $('transcript-box').textContent='เตรียมพูด'; await speakSpeechCue('เตรียมพูด'); } else await playSpeechInstructionBeforeCapture(); }
+      try { if(!IOS_ASR_ONLY_TRIAL) await playSpeechInstructionBeforeCapture(); }
       catch (error) { queueSpeechTechnicalDiagnostic('FIRST_USE_INSTRUCTION_FAILED'); }
       firstUseStage='disclosure';
       const firstUseStream = await ensureMicDisclosureBeforeFirstUse();
@@ -3259,6 +3259,19 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     window.MEASURED_NOISY=false;
     queueSpeechTechnicalDiagnostic('IOS_ASR_ONLY_NO_PCM');
     void (async()=>{
+      // Hold the preparation message visibly, even when speech synthesis is
+      // blocked by iOS. Keep the full cue before mic/ASR acquisition.
+      const prepareStart=performance.now();
+      $('mic-icon').textContent='🎤';
+      $('hint-text').textContent='เตรียมพูด';
+      $('transcript-box').textContent='เตรียมพูด';
+      const prepareStatus=await speakSpeechCue('เตรียมพูด');
+      if(prepareStatus!=='ended') queueSpeechTechnicalDiagnostic('IOS_CUE_PREPARE_PLAYBACK_FAILED');
+      if(phase!=='READY_CUE'||startToken!==audioStartToken)return;
+      const remain=Math.max(0,1200-(performance.now()-prepareStart));
+      if(remain)await sleep(remain);
+      if(phase!=='READY_CUE'||startToken!==audioStartToken)return;
+
       for(const count of [3,2,1]){
         if(phase!=='READY_CUE'||startToken!==audioStartToken)return;
         $('mic-icon').textContent=String(count);
