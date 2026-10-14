@@ -19,7 +19,7 @@ assert.match(arm,/padding-bottom:calc\(210px \+ env\(safe-area-inset-bottom\)\)!
 assert.equal(th.speech?.accuracy || th.accuracy, 'ความถูกต้องของคำพูด');
 
 assert.match(speech,/#domain-rate-row\{display:none!important;\}/);
-assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, true\)/);
+assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, !IOS_ASR_ONLY_TRIAL\)/);
 assert.match(speech,/setDomainStatus\('phrase', phraseStatusClass, phraseStatusText, true\)/);
 assert.match(speech,/id="domain-rate-row"/);
 assert.match(speech,/id="result-details-toggle"/);
