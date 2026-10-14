@@ -1157,8 +1157,24 @@ const IS_IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) ||
 const IS_ANDROID = /Android/i.test(navigator.userAgent || '');
 const ANDROID_EXCLUSIVE_ASR = IS_ANDROID && (SPEECH_CFG.androidExclusiveAsr ?? true);
 // Research-only opt-in; default iOS production and clinical policy remain unchanged.
-const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && (SPEECH_CFG.iosExclusiveAsrTrial === true || new URLSearchParams(location.search).get('iosExclusiveAsrTrial') === '1');
+// Persist only within this Safari tab so same-tab navigation cannot silently
+// turn an explicit experiment back into the default capture mode.
+const IOS_TRIAL_PARAM = new URLSearchParams(location.search).get('iosExclusiveAsrTrial');
+if (IOS_TRIAL_PARAM === '1') sessionStorage.setItem('qs_ios_exclusive_asr_trial', '1');
+if (IOS_TRIAL_PARAM === '0') sessionStorage.removeItem('qs_ios_exclusive_asr_trial');
+const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && (SPEECH_CFG.iosExclusiveAsrTrial === true ||
+  IOS_TRIAL_PARAM === '1' || (IOS_TRIAL_PARAM !== '0' && sessionStorage.getItem('qs_ios_exclusive_asr_trial') === '1'));
 const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_EXCLUSIVE_ASR_TRIAL;
+if (IS_IOS) {
+  document.addEventListener('DOMContentLoaded', () => {
+    const label = document.createElement('div');
+    label.id = 'ios-exclusive-asr-trial-status';
+    label.textContent = IOS_EXCLUSIVE_ASR_TRIAL ? 'iOS EXPERIMENT · EXCLUSIVE ASR' : 'iOS STANDARD · WEB AUDIO + ASR';
+    label.style.cssText = 'position:fixed;bottom:6px;left:8px;z-index:9999;background:#19283b;color:white;padding:5px 8px;font:11px system-ui;border-radius:6px;pointer-events:none';
+    document.body.appendChild(label);
+  });
+}
+
 const ANDROID_PHRASE_PAUSE_MS = SPEECH_CFG.androidPhrasePauseMs ?? 1800;
 const ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG.androidRecognitionSafetyMs ?? 12000;
 const SPEECH_DATA_CONTRACT = window.QuickStrokeDataContract || null;
@@ -3152,6 +3168,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
   clearResultReleaseTimer();
   DBG_T0 = performance.now();
   DBG('START', `forceDirectMic=${forceDirectMic} phase=${phase} token=${startToken}`);
+  if (IS_IOS) queueSpeechTechnicalDiagnostic(IOS_EXCLUSIVE_ASR_TRIAL ? 'IOS_EXCLUSIVE_TRIAL_ENABLED' : 'IOS_STANDARD_CAPTURE_ACTIVE');
 
   // On iOS keep the previous viable pipeline so Retry can health-probe it.
   // Other platforms continue their established cleanup behavior.
