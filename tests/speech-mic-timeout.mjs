@@ -85,3 +85,20 @@ assert.match(html,/const IOS_ASR_ONLY_TRIAL = IOS_EXCLUSIVE_ASR_TRIAL/);
 assert.match(html,/if \(IOS_ASR_ONLY_TRIAL\) \{[\s\S]*?IOS_ASR_ONLY_NO_PCM[\s\S]*?beginSpeechRecognition\(\);[\s\S]*?return;/);
 assert.match(html,/if \(IOS_ASR_ONLY_TRIAL\) \{[\s\S]*?resolve\(null\); \/\/ ASR obtains its own permission/);
 assert.match(html,/const KEEP_MIC_ALIVE = IS_IOS && !IOS_ASR_ONLY_TRIAL/);
+
+// iPhone ASR-only consent: Safari microphone permission comes BEFORE the
+// spoken prepare/countdown, and ASR stays open throughout.
+const asrOnlyStart=html.slice(html.indexOf('async function startRecording('),html.indexOf("phase = 'CALIBRATING';",html.indexOf('async function startRecording(')));
+assert.match(asrOnlyStart,/if \(IOS_ASR_ONLY_TRIAL\) \{[\s\S]*?phase='RECORDING'/);
+assert.match(asrOnlyStart,/hint-text'\)\.textContent='เตรียมพูด'/);
+assert.match(asrOnlyStart,/void beginSpeechRecognition\(\)/);
+assert.doesNotMatch(asrOnlyStart,/playIosAsrOnlyCount\(/);
+assert.match(html,/recognition\.onaudiostart = \(\) => \{[\s\S]*?startIosAsrReadyCue\(runId, audioStartToken/);
+assert.match(html,/async function startIosAsrReadyCue\(runId, startToken, onTimeout\)/);
+assert.match(html,/await speakSpeechCue\('เตรียมพูด'\)/);
+assert.match(html,/for\(const count of \[3,2,1\]\)/);
+assert.match(html,/await playIosCountdownBeep\(\)/);
+assert.match(html,/if \(IOS_ASR_ONLY_TRIAL && !iosAsrCueReleased\) return;/);
+assert.match(html,/markSpeechRecognitionReady\('after_ios_countdown'\)/);
+assert.match(html,/if \(!IOS_ASR_ONLY_TRIAL\) recognitionSafetyTimer = setTimeout/);
+assert.ok(html.includes('if(!IOS_ASR_ONLY_TRIAL) await playSpeechInstructionBeforeCapture();'));
