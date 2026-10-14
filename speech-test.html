@@ -5430,11 +5430,17 @@ function evaluateSpeech(text, confidence) {
   $('rb-title').style.color = col;
   $('rb-score').textContent = '';
   $('rb-sub').textContent = sub;
+  if (IOS_ASR_ONLY_TRIAL) {
+    $('hint-text').classList.remove('speak-now');
+    $('hint-text').textContent = 'จบการทดสอบ';
+  }
   $('domain-summary').style.display = 'flex';
   $('result-details-toggle').style.display = 'block';
   setDomainStatus('phrase', phraseStatusClass, phraseStatusText, true);
   setDomainStatus('rate', rateStatusClass, rateStatusText, true);
-  setDomainStatus('quality', qualityStatusClass, qualityStatusText, true);
+  // ASR-only cannot measure SNR/PCM: retain research flags, omit confusing
+  // user-facing "ข้อมูลเสียง" row entirely in this experimental presentation.
+  setDomainStatus('quality', qualityStatusClass, qualityStatusText, !IOS_ASR_ONLY_TRIAL);
   setSpeechResultDetailsExpanded(false);
 
   // Keep the top status cards short and consistent with the result banner.
