@@ -1499,7 +1499,7 @@ let animationFrameId = null;
 // แต่ส่งข้อมูลเสียงเป็นศูนย์ล้วน (digital silence) — ตรวจได้จากพลังงานจริงเท่านั้น
 let pipelineReadyMs = 0;     // เวลาที่ audio pipeline พร้อม (ไว้จับ timeout เงียบ)
 let sawRealSignal  = false;  // เคยเห็นสัญญาณจริงในรอบนี้หรือยัง
-let iosSilenceRevivalAttempted = false; // One bounded Web Audio resume before reporting dead mic
+let iosSilenceRevivalAttempted = false; // One bounded Web Audio graph rebind before reporting dead mic
 let deadMicAttempt = 0;      // จำนวนครั้งที่กู้คืนไมค์ตายติดต่อกัน
 const DEAD_MIC_SILENCE_MS  = SPEECH_CFG.deadMicSilenceMs ?? 2000;
 const DEAD_MIC_ENERGY_MIN  = SPEECH_CFG.deadMicEnergyMin ?? 0.00001;
@@ -4004,29 +4004,54 @@ function runLoop() {
     }
   } else if (!sawRealSignal && pipelineReadyMs && (nowMs - pipelineReadyMs) > DEAD_MIC_SILENCE_MS) {
     if (IS_IOS) queueSpeechTechnicalDiagnostic('IOS_CALIBRATION_DIGITAL_SILENCE');
-    // Some iOS audio sessions briefly stop delivering Web Audio samples after
-    // ASR releases focus. Attempt one bounded same-context restart before
-    // declaring a dead mic; keep the original energy and silence thresholds.
-    if (IS_IOS && !iosSilenceRevivalAttempted && audioCtx?.state === 'running') {
+    // Rebuild only the Web Audio graph on the existing live microphone track.
+    // The prior suspend/resume-only approach did not recover iOS silence in
+    // device tests on 2026-10-14. Do not request a second microphone stream
+    // without another user gesture, and never treat silence as valid audio.
+    if (IS_IOS && !iosSilenceRevivalAttempted && hasLiveAudioTrack(streamRef)) {
       iosSilenceRevivalAttempted = true;
       const token = audioStartToken;
+      const oldCtx = audioCtx;
+      const oldSource = source;
       phase = 'REVIVING';
       void (async () => {
+        let replacement = null;
         try {
-          await waitForSpeechMicStep(audioCtx.suspend(), 'silence_context_suspend', 3000, token);
-          if (token !== audioStartToken || document.hidden) return;
-          await waitForSpeechMicStep(audioCtx.resume(), 'silence_context_resume', 3000, token);
-          if (token !== audioStartToken || document.hidden) return;
-          if (audioCtx.state === 'running' && hasLiveAudioTrack(streamRef)) {
-            phase = 'CALIBRATING';
-            sawRealSignal = false;
-            pipelineReadyMs = performance.now();
-            calibStartMs = pipelineReadyMs;
-            runLoop();
-            return;
+          try { oldSource?.disconnect(); } catch (_) {}
+          source = null;
+          analyser = null;
+          if (oldCtx && oldCtx.state !== 'closed') {
+            await waitForSpeechMicStep(oldCtx.close(), 'silence_close_old_context', 3000, token);
           }
+          if (token !== audioStartToken || document.hidden || !hasLiveAudioTrack(streamRef)) return;
+          prepareSpeechCaptureAudioSession();
+          const Ctx = window.AudioContext || window.webkitAudioContext;
+          replacement = new Ctx();
+          if (replacement.state !== 'running') {
+            await waitForSpeechMicStep(replacement.resume(), 'silence_resume_new_context', 3000, token);
+          }
+          if (token !== audioStartToken || document.hidden || !hasLiveAudioTrack(streamRef) || replacement.state !== 'running') return;
+          const nextAnalyser = replacement.createAnalyser();
+          nextAnalyser.fftSize = 1024;
+          nextAnalyser.smoothingTimeConstant = 0.2;
+          const nextSource = replacement.createMediaStreamSource(streamRef);
+          nextSource.connect(nextAnalyser);
+          audioCtx = replacement;
+          source = nextSource;
+          analyser = nextAnalyser;
+          replacement = null;
+          phase = 'CALIBRATING';
+          sawRealSignal = false;
+          pipelineReadyMs = performance.now();
+          calibStartMs = pipelineReadyMs;
+          runLoop();
+          return;
         } catch (error) {
-          DBG('SILENCE REVIVAL FAILED', error?.message || String(error));
+          DBG('SILENCE GRAPH REBIND FAILED', error?.message || String(error));
+        } finally {
+          if (replacement) {
+            try { await replacement.close(); } catch (_) {}
+          }
         }
         if (token === audioStartToken && !document.hidden) void recoverDeadMic();
       })();
