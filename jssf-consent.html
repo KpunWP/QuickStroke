@@ -416,15 +416,15 @@
 
   // Explicit diagnostic entry: valid JSSF consent/session, Speech only.
   // Not part of the regular three-module participant flow.
-  const speechTrialRequested = new URLSearchParams(location.search).get("iosExclusiveAsrTrial")==="1"
+  const speechTrialRequested = new URL(window.location.href).searchParams.get("iosExclusiveAsrTrial")==="1"
     && /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  if(speechTrialRequested){
+  if(speechTrialRequested && typeof document.createElement==="function"){
     const diagnosticNote=document.createElement("div");
     diagnosticNote.className="box";
     diagnosticNote.id="ios-trial-consent-note";
     diagnosticNote.setAttribute("role","note");
     diagnosticNote.textContent="โหมดทดสอบทางเทคนิค iPhone: หลังยินยอมจะเปิด Speech โดยตรง เพื่อทดสอบการแยกไมโครโฟนจาก ASR ไม่ใช่การทดสอบ JSSF ครบทั้ง 3 ขั้นตอน";
-    document.querySelector("#consent-content")?.prepend(diagnosticNote);
+    document.querySelector?.("#consent-content")?.prepend(diagnosticNote);
   }
   function trialTarget(){
     return "./speech-test.html?iosExclusiveAsrTrial=1";
