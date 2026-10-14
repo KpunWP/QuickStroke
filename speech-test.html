@@ -2835,7 +2835,7 @@ async function handleAction() {
     let firstUseStage='instruction';
     try {
       // A failed instruction must not prevent microphone authorization.
-      try { if(!IOS_ASR_ONLY_TRIAL) await playSpeechInstructionBeforeCapture(); }
+      try { if(IOS_ASR_ONLY_TRIAL) { $('hint-text').textContent='เตรียมพูด'; $('transcript-box').textContent='เตรียมพูด'; await speakSpeechCue('เตรียมพูด'); } else await playSpeechInstructionBeforeCapture(); }
       catch (error) { queueSpeechTechnicalDiagnostic('FIRST_USE_INSTRUCTION_FAILED'); }
       firstUseStage='disclosure';
       const firstUseStream = await ensureMicDisclosureBeforeFirstUse();
@@ -3196,79 +3196,6 @@ async function playIosAsrOnlyCount(count) {
   await sleep(180);
 }
 
-let iosAsrCueInProgress = false;
-let iosAsrCueStarted = false;
-let iosAsrCueReleased = false;
-
-// Small prerecorded-format WAV synthesized as bytes, played by HTMLAudioElement.
-// Intentionally never uses AudioContext / getUserMedia.
-function iosCountdownBeepUrl() {
-  const sampleRate=8000, count=960, size=44+count*2, bytes=new Uint8Array(size);
-  const view=new DataView(bytes.buffer);
-  const write=(p,value)=>{for(let i=0;i<value.length;i++)bytes[p+i]=value.charCodeAt(i);};
-  write(0,'RIFF');view.setUint32(4,size-8,true);write(8,'WAVE');write(12,'fmt ');
-  view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
-  view.setUint32(24,sampleRate,true);view.setUint32(28,sampleRate*2,true);
-  view.setUint16(32,2,true);view.setUint16(34,16,true);write(36,'data');
-  view.setUint32(40,count*2,true);
-  for(let i=0;i<count;i++){
-    const envelope=Math.min(1,i/90,(count-i)/90);
-    view.setInt16(44+i*2,Math.round(3600*envelope*Math.sin(2*Math.PI*660*i/sampleRate)),true);
-  }
-  let binary='';for(const byte of bytes)binary+=String.fromCharCode(byte);
-  return 'data:audio/wav;base64,'+btoa(binary);
-}
-let iosBeepSrc=null;
-async function playIosCountdownBeep() {
-  try {
-    if(!iosBeepSrc)iosBeepSrc=iosCountdownBeepUrl();
-    const player=new Audio(iosBeepSrc);
-    player.volume=0.55;
-    const outcome=await Promise.race([
-      new Promise(resolve=>{
-        player.onended=()=>resolve('ended');
-        player.onerror=()=>resolve('error');
-        Promise.resolve(player.play()).catch(()=>resolve('blocked'));
-      }),
-      sleep(380).then(()=> 'timeout')
-    ]);
-    player.pause();
-    return outcome;
-  } catch (_) { return 'error'; }
-}
-
-async function startIosAsrReadyCue(runId, startToken, onTimeout) {
-  if (!IOS_ASR_ONLY_TRIAL || iosAsrCueStarted || phase !== 'RECORDING') return;
-  iosAsrCueStarted=true;
-  iosAsrCueInProgress=true;
-  $('hint-text').textContent='เตรียมพูด';
-  $('transcript-box').textContent='เตรียมพูด';
-  // ASR already owns the mic (including the iOS permission sheet). Keep
-  // playback and its transcription out of the research measurement window.
-  const preparePlayback=await speakSpeechCue('เตรียมพูด');
-  if(preparePlayback !== 'ended') queueSpeechTechnicalDiagnostic('IOS_CUE_PREPARE_PLAYBACK_FAILED');
-  if(phase !== 'RECORDING' || runId !== recognitionRunId || startToken !== audioStartToken)return;
-  $('mic-circle').className='mic-circle calibrating speech-countdown';
-  $('test-screen').classList.add('speech-countdown-active');
-  for(const count of [3,2,1]){
-    if(phase !== 'RECORDING' || runId !== recognitionRunId || startToken !== audioStartToken)return;
-    $('mic-icon').textContent=String(count);
-    const beepPlayback=await playIosCountdownBeep();
-    if(beepPlayback !== 'ended') queueSpeechTechnicalDiagnostic('IOS_CUE_BEEP_PLAYBACK_FAILED');
-    await sleep(700);
-  }
-  if(phase !== 'RECORDING' || runId !== recognitionRunId || startToken !== audioStartToken)return;
-  $('test-screen').classList.remove('speech-countdown-active');
-  iosAsrCueInProgress=false;
-  iosAsrCueReleased=true;
-  markSpeechRecognitionReady('after_ios_countdown');
-  queueSpeechTechnicalDiagnostic('IOS_CUE_COUNTDOWN_COMPLETE');
-  // Start the ASR measurement timeout only after the participant is invited to speak.
-  recognitionSafetyTimer=setTimeout(()=>{
-    if(phase==='RECORDING' && iosAsrCueReleased && runId===recognitionRunId) onTimeout();
-  },RECOGNITION_SAFETY_MS);
-}
-
 async function startRecording(forceDirectMic = false, preauthorizedStream = null) {
   const startToken = ++audioStartToken;
   clearResultReleaseTimer();
@@ -3299,9 +3226,6 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
   lastAsrErrorCode = null;
   confidenceWasImputed = false;
   asrFinalReceived = false;
-  iosAsrCueStarted=false;
-  iosAsrCueInProgress=false;
-  iosAsrCueReleased=false;
 
   if ($('test-screen')) $('test-screen').classList.remove('done', 'result-details-open');
 
@@ -3314,18 +3238,34 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
   }
 
   if (IOS_ASR_ONLY_TRIAL) {
-    // Ask Safari for ASR microphone permission BEFORE any countdown.
-    // No AudioContext or getUserMedia is created.
-    phase='RECORDING';
-    $('mic-circle').className='mic-circle calibrating';
-    $('mic-icon').textContent='🎤';
+    // Restore proven speaker-only countdown BEFORE starting ASR.
+    // Crucially there is no WebAudio, getUserMedia or capture stream.
+    phase='READY_CUE';
+    $('hint-text').classList.remove('speak-now');
     $('hint-text').textContent='เตรียมพูด';
-    $('action-btn').disabled=true;
     $('transcript-box').style.display='block';
     $('transcript-box').textContent='เตรียมพูด';
+    $('action-btn').disabled=true;
+    $('mic-circle').className='mic-circle calibrating speech-countdown';
+    $('test-screen').classList.add('speech-countdown-active');
     window.MEASURED_NOISY=false;
     queueSpeechTechnicalDiagnostic('IOS_ASR_ONLY_NO_PCM');
-    void beginSpeechRecognition();
+    void (async()=>{
+      for(const count of [3,2,1]){
+        if(phase!=='READY_CUE'||startToken!==audioStartToken)return;
+        $('mic-icon').textContent=String(count);
+        await playIosAsrOnlyCount(count);
+      }
+      if(phase!=='READY_CUE'||startToken!==audioStartToken)return;
+      try { window.speechSynthesis?.cancel(); } catch (_) {}
+      await sleep(160);
+      if(phase!=='READY_CUE'||startToken!==audioStartToken)return;
+      $('test-screen').classList.remove('speech-countdown-active');
+      $('mic-circle').className='mic-circle calibrating';
+      $('mic-icon').textContent='🎤';
+      phase='RECORDING';
+      void beginSpeechRecognition();
+    })();
     return;
   }
   phase = 'CALIBRATING';
@@ -3662,7 +3602,7 @@ function speechTranscriptMatchesAcceptedPhrase(value) {
 }
 
 function markSpeechRecognitionReady(source = 'audio_start') {
-  if (phase !== 'RECORDING' || recordingStartedMs || (IOS_ASR_ONLY_TRIAL && !iosAsrCueReleased)) return;
+  if (phase !== 'RECORDING' || recordingStartedMs) return;
   recordingStartedMs = performance.now();
   if (recognitionReadyFallbackTimer) {
     clearTimeout(recognitionReadyFallbackTimer);
@@ -3705,7 +3645,7 @@ async function beginSpeechRecognition() {
       DBG('ASR onstart', 'engine เริ่มทำงานแล้ว');
       appendAsrObservation('start');
       if (recognitionReadyFallbackTimer) clearTimeout(recognitionReadyFallbackTimer);
-      if (!IOS_ASR_ONLY_TRIAL) recognitionReadyFallbackTimer = setTimeout(() => {
+      recognitionReadyFallbackTimer = setTimeout(() => {
         if (runId === recognitionRunId && phase === 'RECORDING' && !recordingStartedMs) {
           markSpeechRecognitionReady('onstart_timeout_fallback');
         }
@@ -3715,8 +3655,7 @@ async function beginSpeechRecognition() {
       queueSpeechTechnicalDiagnostic('ASR_AUDIO_STARTED');
       DBG('ASR onaudiostart', '🎤 engine เริ่มรับ audio แล้ว');
       appendAsrObservation('audio_start');
-      if (IOS_ASR_ONLY_TRIAL) void startIosAsrReadyCue(runId, audioStartToken, ()=>finishWith(bestTranscript || '',bestConfidence));
-      else markSpeechRecognitionReady('audio_start');
+      markSpeechRecognitionReady('audio_start');
     };
     recognition.onaudioend = () => {
       DBG('ASR onaudioend', 'engine หยุดรับ audio');
@@ -3727,7 +3666,6 @@ async function beginSpeechRecognition() {
       appendAsrObservation('sound_start');
     };
     recognition.onspeechstart = () => {
-      if (IOS_ASR_ONLY_TRIAL && !iosAsrCueReleased) return;
       const eventMs = performance.now();
       // Android Chrome may close and restart SpeechRecognition after a short
       // pause. Preserve the first onset across those internal restarts so
@@ -3744,7 +3682,6 @@ async function beginSpeechRecognition() {
       });
     };
     recognition.onspeechend = () => {
-      if (IOS_ASR_ONLY_TRIAL && !iosAsrCueReleased) return;
       asrSpeechEndMs = performance.now();
       DBG('ASR onspeechend', `end=${(asrSpeechEndMs-currentAttemptPerformanceStartedAt).toFixed(1)}ms`);
       appendAsrObservation('speech_end', {
@@ -3797,7 +3734,6 @@ async function beginSpeechRecognition() {
     };
 
     recognition.onresult = (e) => {
-      if (IOS_ASR_ONLY_TRIAL && !iosAsrCueReleased) return;
       DBG('ASR onresult', `results=${e.results.length}`);
       if (!isCurrentRun()) return;
       gotResult = true;
@@ -3974,7 +3910,7 @@ async function beginSpeechRecognition() {
     startRecognitionSafely(0);
 
     // กันกรณี engine ไม่คืน event เลย: ให้จบหลัง 8 วิ แต่ใช้ VAD duration ได้
-    if (!IOS_ASR_ONLY_TRIAL) recognitionSafetyTimer = setTimeout(() => {
+    recognitionSafetyTimer = setTimeout(() => {
       if (isCurrentRun()) finishWith(bestTranscript || '', bestConfidence);
     }, ANDROID_EXCLUSIVE_ASR ? ANDROID_RECOGNITION_SAFETY_MS : RECOGNITION_SAFETY_MS);
   } else {
