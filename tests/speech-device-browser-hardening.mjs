@@ -82,6 +82,14 @@ console.log("PASS: microphone permission/device/browser failures are determinist
 assert.match(speech,/const KEEP_MIC_ALIVE = IS_IOS && \(SPEECH_CFG\.keepMicAliveOnIOS \?\? true\)/);
 assert.match(speech,/const canProbeReuse = KEEP_MIC_ALIVE &&/);
 assert.match(speech,/const healthyReuse = await probeExistingAudioPipeline\(\)/);
+assert.match(speech,/consecutiveLiveSamples >= 2/);
+assert.match(speech,/lastLiveAt - firstLiveAt >= 90/);
+assert.match(speech,/lastDeviation > REUSE_ENERGY_MIN/);
+assert.match(speech,/IOS_REUSE_PROBE_STABLE/);
+assert.match(speech,/IOS_REUSE_PROBE_UNSTABLE/);
+assert.match(speech,/IOS_CALIBRATION_DIGITAL_SILENCE/);
+assert.match(speech,/IOS_REUSE_PIPELINE_REJECTED/);
+
 assert.match(speech,/await stopAll\(true\);[\s\S]*await sleep\(RETRY_FULL_RELEASE_WAIT_MS\)/);
 console.log("PASS: iOS keep-alive is health-probed before reuse and stale pipelines are fully rebuilt");
 
