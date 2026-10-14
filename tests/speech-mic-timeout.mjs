@@ -101,4 +101,4 @@ assert.match(html,/await playIosCountdownBeep\(\)/);
 assert.match(html,/if \(IOS_ASR_ONLY_TRIAL && !iosAsrCueReleased\) return;/);
 assert.match(html,/markSpeechRecognitionReady\('after_ios_countdown'\)/);
 assert.match(html,/if \(!IOS_ASR_ONLY_TRIAL\) recognitionSafetyTimer = setTimeout/);
-assert.match(html,/if \(!IOS_ASR_ONLY_TRIAL\) await playSpeechInstructionBeforeCapture\(\)/);
+assert.ok(html.includes('if(!IOS_ASR_ONLY_TRIAL) await playSpeechInstructionBeforeCapture();'));
