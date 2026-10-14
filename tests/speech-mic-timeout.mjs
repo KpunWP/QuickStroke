@@ -79,3 +79,9 @@ for(const kind of ['resume','gum']){
  assert.equal((await result).name,'AbortError');assert.equal(h.stopped,1);
  console.log('PASS: superseded attempt cannot claim a late stream');
 }
+
+// iOS ASR-only trial never creates or reacquires WebAudio/MediaStream.
+assert.match(html,/const IOS_ASR_ONLY_TRIAL = IOS_EXCLUSIVE_ASR_TRIAL/);
+assert.match(html,/if \(IOS_ASR_ONLY_TRIAL\) \{[\s\S]*?IOS_ASR_ONLY_NO_PCM[\s\S]*?beginSpeechRecognition\(\);[\s\S]*?return;/);
+assert.match(html,/if \(IOS_ASR_ONLY_TRIAL\) \{[\s\S]*?resolve\(null\); \/\/ ASR obtains its own permission/);
+assert.match(html,/const KEEP_MIC_ALIVE = IS_IOS && !IOS_ASR_ONLY_TRIAL/);
