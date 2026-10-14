@@ -38,7 +38,7 @@ function harness(kind){
  const stream={getTracks:()=>[{stop(){stopped++;}}]};
  const pending=new Promise(r=>lateResolve=r);
  const ctx={console,Promise,Error,Date,performance,setTimeout:(f,ms)=>setTimeout(f,Math.min(ms,10)),clearTimeout,
-  audioStartToken:0,IS_IOS:false,KEEP_MIC_ALIVE:true,DEBUG_ON:false,phase:'IDLE',speechAttemptNo:0,audioCtx:null,analyser:null,source:null,streamRef:null,
+  audioStartToken:0,IS_IOS:false,IOS_ASR_ONLY_TRIAL:false,KEEP_MIC_ALIVE:true,DEBUG_ON:false,phase:'IDLE',speechAttemptNo:0,audioCtx:null,analyser:null,source:null,streamRef:null,
   T:{preparePrompt:'prepare',calibrating:'preparing',noiseCalib:'noise',noiseMetric:'noise',rate:'rate',pending:'pending',btnRetry:'retry'},
   $:el,document:{getElementById:()=>null},sessionStorage:{getItem:()=> 'th'},
   clearResultReleaseTimer:noop,DBG:noop,DBG_TRACK:noop,ensureSpeechModuleRun:noop,beginSpeechCanonicalAttempt:noop,resetMeasurementState:noop,
