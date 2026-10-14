@@ -1499,6 +1499,7 @@ let animationFrameId = null;
 // แต่ส่งข้อมูลเสียงเป็นศูนย์ล้วน (digital silence) — ตรวจได้จากพลังงานจริงเท่านั้น
 let pipelineReadyMs = 0;     // เวลาที่ audio pipeline พร้อม (ไว้จับ timeout เงียบ)
 let sawRealSignal  = false;  // เคยเห็นสัญญาณจริงในรอบนี้หรือยัง
+let iosSilenceRevivalAttempted = false; // One bounded Web Audio resume before reporting dead mic
 let deadMicAttempt = 0;      // จำนวนครั้งที่กู้คืนไมค์ตายติดต่อกัน
 const DEAD_MIC_SILENCE_MS  = SPEECH_CFG.deadMicSilenceMs ?? 2000;
 const DEAD_MIC_ENERGY_MIN  = SPEECH_CFG.deadMicEnergyMin ?? 0.00001;
@@ -3209,6 +3210,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
         DBG('♻️ REUSE PIPELINE', `health check passed (audioCtx=${audioCtx.state})`);
         pipelineReadyMs = performance.now();
         sawRealSignal   = false;
+        iosSilenceRevivalAttempted = false;
         calibStartMs    = performance.now();
         runLoop();
         return;
@@ -3344,6 +3346,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     // เริ่มนับเวลาเฝ้าดู stream เงียบ (iOS dead-mic detection)
     pipelineReadyMs = performance.now();
     sawRealSignal   = false;
+        iosSilenceRevivalAttempted = false;
 
     calibStartMs = performance.now();
     runLoop();
@@ -4001,7 +4004,35 @@ function runLoop() {
     }
   } else if (!sawRealSignal && pipelineReadyMs && (nowMs - pipelineReadyMs) > DEAD_MIC_SILENCE_MS) {
     if (IS_IOS) queueSpeechTechnicalDiagnostic('IOS_CALIBRATION_DIGITAL_SILENCE');
-    // เงียบสนิท (ศูนย์ล้วน) เกิน 2 วิหลัง pipeline พร้อม = iOS คืน stream ตาย
+    // Some iOS audio sessions briefly stop delivering Web Audio samples after
+    // ASR releases focus. Attempt one bounded same-context restart before
+    // declaring a dead mic; keep the original energy and silence thresholds.
+    if (IS_IOS && !iosSilenceRevivalAttempted && audioCtx?.state === 'running') {
+      iosSilenceRevivalAttempted = true;
+      const token = audioStartToken;
+      phase = 'REVIVING';
+      void (async () => {
+        try {
+          await waitForSpeechMicStep(audioCtx.suspend(), 'silence_context_suspend', 3000, token);
+          if (token !== audioStartToken || document.hidden) return;
+          await waitForSpeechMicStep(audioCtx.resume(), 'silence_context_resume', 3000, token);
+          if (token !== audioStartToken || document.hidden) return;
+          if (audioCtx.state === 'running' && hasLiveAudioTrack(streamRef)) {
+            phase = 'CALIBRATING';
+            sawRealSignal = false;
+            pipelineReadyMs = performance.now();
+            calibStartMs = pipelineReadyMs;
+            runLoop();
+            return;
+          }
+        } catch (error) {
+          DBG('SILENCE REVIVAL FAILED', error?.message || String(error));
+        }
+        if (token === audioStartToken && !document.hidden) void recoverDeadMic();
+      })();
+      return;
+    }
+    // Repeated digital silence after the bounded revival remains invalid.
     recoverDeadMic();
     return; // หยุด loop รอบนี้ ให้ recovery จัดการต่อ
   }

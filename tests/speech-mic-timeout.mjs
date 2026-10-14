@@ -2,6 +2,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const html=fs.readFileSync(new URL('../speech-test.html',import.meta.url),'utf8');
+assert.match(html,/iosSilenceRevivalAttempted = true;/,'iOS silence revival must be bounded to one attempt');
+assert.match(html,/await waitForSpeechMicStep\(audioCtx\.suspend\(\), 'silence_context_suspend', 3000, token\)/,'revival suspend must be bounded');
+assert.match(html,/await waitForSpeechMicStep\(audioCtx\.resume\(\), 'silence_context_resume', 3000, token\)/,'revival resume must be bounded');
+assert.match(html,/Repeated digital silence after the bounded revival remains invalid/,'persistent silence cannot be treated as valid audio');
+
 const helper=html.slice(html.indexOf('function waitForSpeechMicStep('),html.indexOf('async function probeExistingAudioPipeline('));
 const start=html.slice(html.indexOf('async function startRecording('),html.indexOf('async function releaseAcousticCaptureForExclusiveAsr('));
 const mapping=html.slice(html.indexOf('function mapMicErrorReason('),html.indexOf('function prepareSpeechCaptureAudioSession('));
