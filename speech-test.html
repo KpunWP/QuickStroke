@@ -3233,7 +3233,7 @@ async function playIosCountdownBeep() {
   } catch (_) {}
 }
 
-async function startIosAsrReadyCue(runId, startToken) {
+async function startIosAsrReadyCue(runId, startToken, onTimeout) {
   if (!IOS_ASR_ONLY_TRIAL || iosAsrCueStarted || phase !== 'RECORDING') return;
   iosAsrCueStarted=true;
   iosAsrCueInProgress=true;
@@ -3258,9 +3258,7 @@ async function startIosAsrReadyCue(runId, startToken) {
   markSpeechRecognitionReady('after_ios_countdown');
   // Start the ASR measurement timeout only after the participant is invited to speak.
   recognitionSafetyTimer=setTimeout(()=>{
-    if(phase==='RECORDING' && iosAsrCueReleased) {
-      try { recognition?.stop(); } catch (_) {}
-    }
+    if(phase==='RECORDING' && iosAsrCueReleased && runId===recognitionRunId) onTimeout();
   },RECOGNITION_SAFETY_MS);
 }
 
@@ -3710,7 +3708,7 @@ async function beginSpeechRecognition() {
       queueSpeechTechnicalDiagnostic('ASR_AUDIO_STARTED');
       DBG('ASR onaudiostart', '🎤 engine เริ่มรับ audio แล้ว');
       appendAsrObservation('audio_start');
-      if (IOS_ASR_ONLY_TRIAL) void startIosAsrReadyCue(runId, audioStartToken);
+      if (IOS_ASR_ONLY_TRIAL) void startIosAsrReadyCue(runId, audioStartToken, ()=>finishWith(bestTranscript || '',bestConfidence));
       else markSpeechRecognitionReady('audio_start');
     };
     recognition.onaudioend = () => {
