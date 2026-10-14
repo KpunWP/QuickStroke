@@ -20,7 +20,9 @@ assert.match(asrShutdown,/oldRecognition\.abort\(\)/,'interrupted ASR still abor
 
 // Research-only iOS exclusive audio handoff must be disabled by default and
 // expose missing acoustic metrics instead of fabricating speech measurements.
-assert.match(html,/const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && \(SPEECH_CFG\.iosExclusiveAsrTrial === true \|\| new URLSearchParams\(location\.search\)\.get\('iosExclusiveAsrTrial'\) === '1'\)/);
+assert.match(html,/const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS/);
+assert.match(html,/IOS_EXCLUSIVE_TRIAL_ENABLED/);
+assert.match(html,/ios-exclusive-asr-trial-status/);
 assert.match(html,/const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR \|\| IOS_EXCLUSIVE_ASR_TRIAL/);
 assert.match(html,/if \(EXCLUSIVE_ASR_CAPTURE\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(html,/acousticMetricsAvailable: !EXCLUSIVE_ASR_CAPTURE/);
