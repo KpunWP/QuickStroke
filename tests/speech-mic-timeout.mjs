@@ -2,11 +2,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 const html=fs.readFileSync(new URL('../speech-test.html',import.meta.url),'utf8');
-assert.match(html,/iosSilenceRevivalAttempted = true;/,'iOS silence revival must be bounded to one attempt');
-assert.match(html,/await waitForSpeechMicStep\(oldCtx\.close\(\), 'silence_close_old_context', 3000, token\)/,'old iOS audio graph must close with timeout');
-assert.match(html,/await waitForSpeechMicStep\(replacement\.resume\(\), 'silence_resume_new_context', 3000, token\)/,'replacement graph must resume with timeout');
-assert.match(html,/Repeated digital silence after the bounded revival remains invalid/,'persistent silence cannot be treated as valid audio');
-assert.match(html,/replacement\.createMediaStreamSource\(streamRef\)/,'reuse the already authorized microphone track');
+assert.doesNotMatch(html,/iosSilenceRevivalAttempted|replacement\.createMediaStreamSource\(streamRef\)/,'remove obsolete graph revival');
+assert.match(html,/IOS_ASR_SHUTDOWN_TIMEOUT/,'distinguish timed-out ASR shutdown');
+assert.match(html,/recoverDeadMic\(\)/,'preserve digital-silence invalidation');
 
 const helper=html.slice(html.indexOf('function waitForSpeechMicStep('),html.indexOf('async function probeExistingAudioPipeline('));
 const start=html.slice(html.indexOf('async function startRecording('),html.indexOf('async function releaseAcousticCaptureForExclusiveAsr('));
