@@ -3192,37 +3192,40 @@ function playVisualCountdownBeep() {
 // tones. Starting three separate Audio elements could play only the first
 // tone on retries, after the initial user gesture has expired.
 let iosCountdownBeepSrc=null;
-let iosCountdownPlayer=null;
 function createIosCountdownBeepSrc() {
-  const rate=16000, gap=13600, toneLength=4800, frames=gap*2+toneLength;
-  const bytes=new Uint8Array(44+frames*2),view=new DataView(bytes.buffer);
+  const rate=16000, n=3200, bytes=new Uint8Array(44+n*2), view=new DataView(bytes.buffer);
   const put=(p,str)=>{for(let i=0;i<str.length;i++)bytes[p+i]=str.charCodeAt(i);};
   put(0,'RIFF');view.setUint32(4,bytes.length-8,true);put(8,'WAVE');put(12,'fmt ');
   view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
   view.setUint32(24,rate,true);view.setUint32(28,rate*2,true);
   view.setUint16(32,2,true);view.setUint16(34,16,true);put(36,'data');
-  view.setUint32(40,frames*2,true);
-  for(let k=0;k<3;k++)for(let i=0;i<toneLength;i++){
-    const env=Math.min(1,i/280,(toneLength-i)/450);
-    view.setInt16(44+(k*gap+i)*2,Math.round(26000*env*Math.sin(2*Math.PI*880*i/rate)),true);
+  view.setUint32(40,n*2,true);
+  for(let i=0;i<n;i++){
+    const env=Math.min(1,i/180,(n-i)/320);
+    view.setInt16(44+i*2,Math.round(9000*env*Math.sin(2*Math.PI*880*i/rate)),true);
   }
   let binary='';for(let i=0;i<bytes.length;i++)binary+=String.fromCharCode(bytes[i]);
   return 'data:audio/wav;base64,'+btoa(binary);
 }
-function playIosThreeBeepCountdown() {
+async function playIosAsrOnlyCount(count) {
+  // Never fall back to spoken numbers: a late audio 'timeout' can fire
+  // while the beep is audible, producing two simultaneous countdown cues.
   try {
     if(!iosCountdownBeepSrc)iosCountdownBeepSrc=createIosCountdownBeepSrc();
-    iosCountdownPlayer?.pause();
     const player=new Audio(iosCountdownBeepSrc);
-    iosCountdownPlayer=player;
-    player.volume=1;
-    Promise.resolve(player.play()).catch(()=>{});
+    player.volume=0.8;
+    await Promise.race([
+      new Promise(resolve=>{
+        player.onended=resolve;
+        player.onerror=resolve;
+        Promise.resolve(player.play()).catch(resolve);
+      }),
+      sleep(500)
+    ]);
+    player.pause();
   } catch (_) {}
-}
-async function playIosAsrOnlyCount(count) {
-  if(count===3)playIosThreeBeepCountdown();
-  // Audio has three embedded tones; never start a second player for 2 or 1.
-  await sleep(850);
+  // Keep visual countdown pacing even if Safari blocks audio.
+  await sleep(650);
 }
 
 async function startRecording(forceDirectMic = false, preauthorizedStream = null) {
