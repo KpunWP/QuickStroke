@@ -3192,6 +3192,7 @@ function playVisualCountdownBeep() {
 // tones. Starting three separate Audio elements could play only the first
 // tone on retries, after the initial user gesture has expired.
 let iosCountdownBeepSrc=null;
+let iosCountdownBeepPlayer=null;
 function createIosCountdownBeepSrc() {
   const rate=16000, n=3200, bytes=new Uint8Array(44+n*2), view=new DataView(bytes.buffer);
   const put=(p,str)=>{for(let i=0;i<str.length;i++)bytes[p+i]=str.charCodeAt(i);};
@@ -3208,23 +3209,32 @@ function createIosCountdownBeepSrc() {
   return 'data:audio/wav;base64,'+btoa(binary);
 }
 async function playIosAsrOnlyCount(count) {
-  // Never fall back to spoken numbers: a late audio 'timeout' can fire
-  // while the beep is audible, producing two simultaneous countdown cues.
+  // Reuse one media element for the entire visual countdown, including retry.
+  // Never run a continuous audio clip into the following ASR session.
+  let status='error';
   try {
     if(!iosCountdownBeepSrc)iosCountdownBeepSrc=createIosCountdownBeepSrc();
-    const player=new Audio(iosCountdownBeepSrc);
-    player.volume=0.8;
-    await Promise.race([
+    if(!iosCountdownBeepPlayer){
+      iosCountdownBeepPlayer=new Audio(iosCountdownBeepSrc);
+      iosCountdownBeepPlayer.preload='auto';
+    }
+    const player=iosCountdownBeepPlayer;
+    player.pause();
+    player.currentTime=0;
+    player.volume=1;
+    status=await Promise.race([
       new Promise(resolve=>{
-        player.onended=resolve;
-        player.onerror=resolve;
-        Promise.resolve(player.play()).catch(resolve);
+        player.onended=()=>resolve('ended');
+        player.onerror=()=>resolve('error');
+        Promise.resolve(player.play()).catch(()=>resolve('blocked'));
       }),
-      sleep(500)
+      sleep(500).then(()=> 'timeout')
     ]);
     player.pause();
-  } catch (_) {}
-  // Keep visual countdown pacing even if Safari blocks audio.
+  } catch (_) { status='error'; }
+  // No TTS fallback: previous attempts caused the spoken count to overlap beeps.
+  // Keep the visual sequence moving if Safari denies a playback.
+  DBG('IOS BEEP', 'count='+count+' status='+status);
   await sleep(650);
 }
 
