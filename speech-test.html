@@ -1286,7 +1286,7 @@ function speechCuePlan(value, requestedLang) {
   // Do not change protocol language when the Android/Samsung voice list lacks Thai.
   // The visible Thai instruction remains authoritative until a recorded-Thai
   // fallback is bundled and validated.
-  if (short === 'th' && same.length === 0) {
+  if (short === 'th' && same.length === 0 && !IOS_ASR_ONLY_TRIAL) {
     return {text:'',lang:requested,voice:null,deliveryMode:'visual_only'};
   }
   return {
