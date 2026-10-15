@@ -3205,34 +3205,24 @@ function createIosCountdownBeepSrc() {
   return 'data:audio/wav;base64,'+btoa(binary);
 }
 async function playIosAsrOnlyCount(count) {
+  // Never fall back to spoken numbers: a late audio 'timeout' can fire
+  // while the beep is audible, producing two simultaneous countdown cues.
   try {
     if(!iosCountdownBeepSrc)iosCountdownBeepSrc=createIosCountdownBeepSrc();
     const player=new Audio(iosCountdownBeepSrc);
     player.volume=0.8;
-    const status=await Promise.race([
+    await Promise.race([
       new Promise(resolve=>{
-        player.onended=()=>resolve('ended');
-        player.onerror=()=>resolve('error');
-        Promise.resolve(player.play()).catch(()=>resolve('blocked'));
+        player.onended=resolve;
+        player.onerror=resolve;
+        Promise.resolve(player.play()).catch(resolve);
       }),
-      sleep(700).then(()=> 'timeout')
+      sleep(500)
     ]);
     player.pause();
-    if(status==='ended'){await sleep(650);return;}
   } catch (_) {}
-  // If iOS rejects HTMLAudio playback, retain the working spoken countdown.
-  const synth=window.speechSynthesis;
-  if(!synth||typeof SpeechSynthesisUtterance==='undefined'){await sleep(900);return;}
-  await new Promise(resolve=>{
-    let done=false;const finish=()=>{if(done)return;done=true;resolve();};
-    try{
-      const utterance=new SpeechSynthesisUtterance(String(count));
-      utterance.lang=T?.langCode||'th-TH';utterance.rate=1.1;utterance.volume=1;
-      utterance.onend=finish;utterance.onerror=finish;synth.speak(utterance);
-    }catch(_){finish();}
-    setTimeout(finish,900);
-  });
-  await sleep(180);
+  // Keep visual countdown pacing even if Safari blocks audio.
+  await sleep(650);
 }
 
 async function startRecording(forceDirectMic = false, preauthorizedStream = null) {
