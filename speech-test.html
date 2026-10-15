@@ -3220,7 +3220,11 @@ async function playIosAsrOnlyCount(count) {
     }
     const player=iosCountdownBeepPlayer;
     player.pause();
-    player.currentTime=0;
+    // Safari can throw InvalidStateError when seeking before WAV metadata loads.
+    // A newly constructed player already starts at time zero.
+    if (player.readyState >= 1) {
+      try { player.currentTime=0; } catch (_) { /* Play without seeking. */ }
+    }
     player.volume=1;
     status=await Promise.race([
       new Promise(resolve=>{
