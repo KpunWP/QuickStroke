@@ -92,7 +92,8 @@ assert.match(asrOnlyStart,/if \(IOS_ASR_ONLY_TRIAL\) \{[\s\S]*?phase='READY_CUE'
 assert.match(asrOnlyStart,/hint-text'\)\.textContent='เตรียมพูด'/);
 assert.match(asrOnlyStart,/await playIosAsrOnlyCount\(count\)/);
 assert.match(asrOnlyStart,/phase='RECORDING';[\s\S]*?void beginSpeechRecognition\(\)/);
-assert.match(html,/await speakSpeechCue\('เตรียมพูด'\)/);
+assert.match(html,/iosInitialPreparePromise = speakSpeechCue\('เตรียมพูด'\)/);
+assert.match(html,/await \(iosInitialPreparePromise \|\| speakSpeechCue\('เตรียมพูด'\)\)/);
 assert.doesNotMatch(html,/startIosAsrReadyCue/);
 assert.doesNotMatch(html,/iosCountdownBeepUrl/);
 assert.match(html,/recognition\.onaudiostart = \(\) => \{[\s\S]*?markSpeechRecognitionReady\('audio_start'\)/);

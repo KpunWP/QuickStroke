@@ -2831,6 +2831,7 @@ async function playSpeechInstructionBeforeCapture() {
   return status;
 }
 
+let iosInitialPreparePromise = null;
 async function handleAction() {
   if (retryStarting) return;
 
@@ -2839,6 +2840,7 @@ async function handleAction() {
     retryStarting = true;
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
+    if (IOS_ASR_ONLY_TRIAL) iosInitialPreparePromise = speakSpeechCue('เตรียมพูด');
     beginSpeechModuleRun('initial_start');
     let firstUseStage='instruction';
     try {
@@ -3265,7 +3267,8 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
       $('mic-icon').textContent='🎤';
       $('hint-text').textContent='เตรียมพูด';
       $('transcript-box').textContent='เตรียมพูด';
-      const prepareStatus=await speakSpeechCue('เตรียมพูด');
+      const prepareStatus=await (iosInitialPreparePromise || speakSpeechCue('เตรียมพูด'));
+      iosInitialPreparePromise=null;
       if(prepareStatus!=='ended') queueSpeechTechnicalDiagnostic('IOS_CUE_PREPARE_PLAYBACK_FAILED');
       if(phase!=='READY_CUE'||startToken!==audioStartToken)return;
       const remain=Math.max(0,1200-(performance.now()-prepareStart));
