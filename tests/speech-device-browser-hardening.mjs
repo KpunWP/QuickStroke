@@ -33,6 +33,12 @@ vm.createContext(configCtx);
 vm.runInContext(configSource,configCtx);
 const cfg=configCtx.QS_CONFIG.thresholds.speech;
 
+assert.match(speech,/const IOS_JSSF_ASR_ONLY = IS_IOS && IOS_TRIAL_PARAM !== '0'/);
+assert.match(speech,/sessionStorage\.getItem\('qs_jssf_ios_asr_only'\) === '1'/);
+assert.match(speech,/if \(IOS_JSSF_ASR_ONLY\) sessionStorage\.removeItem\('qs_jssf_ios_asr_only'\)/);
+assert.match(speech,/iOS JSSF · ASR ONLY/);
+console.log("PASS: consented JSSF iPhone Speech consumes one-shot ASR-only routing flag");
+
 assert.equal(cfg.keepMicAliveOnIOS,true);
 assert.equal(cfg.reuseHealthProbeMs,450);
 assert.equal(cfg.retryFullReleaseWaitMs,1200);
