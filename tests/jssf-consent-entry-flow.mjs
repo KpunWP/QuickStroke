@@ -158,6 +158,8 @@ function harness({resumeSession=null,storageAvailable=true,storageThrows=false,r
   assert.equal(h.sessionValues.get("fast_mode"),"full");
   assert.equal(h.sessionValues.get("fast_lang"),"th");
   assert.equal(h.window.location.href,"./face-test.html");
+  assert.equal(h.sessionValues.get("qs_jssf_ios_asr_only"),"1");
+  assert.equal(h.sessionValues.has("qs_ios_exclusive_asr_trial"),false);
   const stored=[...h.storedSessions.values()][0];
   assert.equal(stored.appMode,"research");
   assert.equal(stored.researchMetadata.researchProfile,"community_remote_qr");
