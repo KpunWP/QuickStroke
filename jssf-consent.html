@@ -416,8 +416,12 @@
 
   // Explicit diagnostic entry: valid JSSF consent/session, Speech only.
   // Not part of the regular three-module participant flow.
+  function isIOSDevice(){
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent||"")
+      || (navigator.platform==="MacIntel" && navigator.maxTouchPoints>1);
+  }
   const speechTrialRequested = new URL(window.location.href).searchParams.get("iosExclusiveAsrTrial")==="1"
-    && /iPhone|iPad|iPod/i.test(navigator.userAgent);
+    && isIOSDevice();
   if(speechTrialRequested && typeof document.createElement==="function"){
     const diagnosticNote=document.createElement("div");
     diagnosticNote.className="box";
@@ -432,9 +436,14 @@
   function configureTrialNavigation(){
     if(speechTrialRequested){
       sessionStorage.setItem("qs_ios_exclusive_asr_trial","1");
-    } else {
-      sessionStorage.removeItem("qs_ios_exclusive_asr_trial");
+      sessionStorage.removeItem("qs_jssf_ios_asr_only");
+      return;
     }
+    sessionStorage.removeItem("qs_ios_exclusive_asr_trial");
+    // The ordinary, consented JSSF flow keeps its Face -> Arm -> Speech order.
+    // On iOS only, mark this tab so Speech uses the ASR-only capture path.
+    if(isIOSDevice()) sessionStorage.setItem("qs_jssf_ios_asr_only","1");
+    else sessionStorage.removeItem("qs_jssf_ios_asr_only");
   }
 
   function resumeTarget(bundle){
