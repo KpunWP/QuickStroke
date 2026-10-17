@@ -454,7 +454,7 @@
        ["face","arm","speech"].every(name=>completed.has(name))) return "./result.html";
     if(!completed.has("face")) return "./face-test.html";
     if(!completed.has("arm")) return "./arm-test.html";
-    return "./speech-test.html";
+    return isIOSDevice() ? "./speech-test.html?iosJssfAsrOnly=1" : "./speech-test.html";
   }
 
   async function prepareJssfAudio() {

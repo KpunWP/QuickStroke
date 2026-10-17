@@ -73,7 +73,7 @@ assert.match(updateGuide, /currentArmGuideSide\(\)/, 'guide side must be indepen
 const flow = fn('handleArmFastFlow');
 assert.match(flow, /const speechMissing = !sessionStorage\.getItem\('fast_speech'\)/, 'Arm flow must detect an untested Speech module');
 assert.match(flow, /mode === 'full' && \(!returningFromResultRetry \|\| speechMissing\)/, 'full flow Arm retry must continue to missing Speech');
-assert.match(flow, /window\.location\.href\s*=\s*['"]speech-test\.html['"]/, 'completed full flow must still go to Speech');
+assert.match(flow, /window\.location\.href\s*=\s*isIOSJssfRoute[\s\S]*speech-test\.html\?iosJssfAsrOnly=1[\s\S]*speech-test\.html/, 'completed full flow must still go to Speech and carry the iOS ASR-only route marker');
 
 const th = fs.readFileSync(new URL('../locales/th-TH/ui.json', import.meta.url), 'utf8');
 const en = fs.readFileSync(new URL('../locales/en-US/ui.json', import.meta.url), 'utf8');

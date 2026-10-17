@@ -7,6 +7,8 @@ import { fileURLToPath } from "node:url";
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),"..");
 const speech=fs.readFileSync(path.join(root,"speech-test.html"),"utf8");
 const configSource=fs.readFileSync(path.join(root,"config.js"),"utf8");
+const arm=fs.readFileSync(path.join(root,"arm-test.html"),"utf8");
+const consent=fs.readFileSync(path.join(root,"jssf-consent.html"),"utf8");
 
 function extractFunction(source,name){
   const start=source.indexOf("function "+name);
@@ -33,11 +35,21 @@ vm.createContext(configCtx);
 vm.runInContext(configSource,configCtx);
 const cfg=configCtx.QS_CONFIG.thresholds.speech;
 
-assert.match(speech,/const IOS_JSSF_ASR_ONLY = IS_IOS && IOS_TRIAL_PARAM !== '0'/);
+assert.match(speech,/const IOS_JSSF_ASR_ONLY = IS_IOS && isConsentedJssfSpeech && IOS_TRIAL_PARAM !== '0'/);
+assert.match(speech,/iosJssfContext.appMode === 'research'/);
+assert.match(speech,/iosJssfContext.researchMetadata\?\.researchProfile === 'community_remote_qr'/);
+assert.match(speech,/iosJssfContext.researchMetadata\?\.consentStatus === 'consented'/);
+assert.match(arm,/armContext\?\.appMode === 'research'/);
+assert.match(arm,/armContext\?\.researchMetadata\?\.researchProfile === 'community_remote_qr'/);
+assert.match(arm,/armContext\?\.researchMetadata\?\.consentStatus === 'consented'/);
+console.log('PASS: Public/Dev sessions cannot be rerouted into JSSF-only iOS Speech');
+assert.match(speech,/new URLSearchParams\(location\.search\)\.get\('iosJssfAsrOnly'\) === '1'/);
 assert.match(speech,/sessionStorage\.getItem\('qs_jssf_ios_asr_only'\) === '1'/);
+assert.match(arm,/speech-test\.html\?iosJssfAsrOnly=1/);
+assert.match(consent,/speech-test\.html\?iosJssfAsrOnly=1/);
 assert.match(speech,/if \(IOS_JSSF_ASR_ONLY\) sessionStorage\.removeItem\('qs_jssf_ios_asr_only'\)/);
 assert.match(speech,/iOS JSSF · ASR ONLY/);
-console.log("PASS: consented JSSF iPhone Speech consumes one-shot ASR-only routing flag");
+console.log("PASS: iPhone JSSF ASR-only route survives Arm → Speech and direct resume navigation");
 
 assert.equal(cfg.keepMicAliveOnIOS,true);
 assert.equal(cfg.reuseHealthProbeMs,450);

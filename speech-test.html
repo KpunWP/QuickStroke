@@ -1167,8 +1167,14 @@ if (IOS_TRIAL_PARAM === '0') {
 }
 // Normal JSSF consent sets this one-shot tab flag before Face -> Arm -> Speech.
 // Consume it on entry so unrelated later app visits do not inherit ASR-only.
-const IOS_JSSF_ASR_ONLY = IS_IOS && IOS_TRIAL_PARAM !== '0' &&
-  sessionStorage.getItem('qs_jssf_ios_asr_only') === '1';
+// Route hints are not sufficient authorization to change Public/Dev capture.
+const iosJssfContext = window.QuickStrokeDataContract?.getSessionContext?.() || {};
+const isConsentedJssfSpeech = iosJssfContext.appMode === 'research' &&
+  iosJssfContext.researchMetadata?.researchProfile === 'community_remote_qr' &&
+  iosJssfContext.researchMetadata?.consentStatus === 'consented';
+const IOS_JSSF_ASR_ONLY = IS_IOS && isConsentedJssfSpeech && IOS_TRIAL_PARAM !== '0' &&
+  (new URLSearchParams(location.search).get('iosJssfAsrOnly') === '1' ||
+   sessionStorage.getItem('qs_jssf_ios_asr_only') === '1');
 if (IOS_JSSF_ASR_ONLY) sessionStorage.removeItem('qs_jssf_ios_asr_only');
 const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && IOS_TRIAL_PARAM !== '0' &&
   (SPEECH_CFG.iosExclusiveAsrTrial === true || IOS_TRIAL_PARAM === '1' ||
