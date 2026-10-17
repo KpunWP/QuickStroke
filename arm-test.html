@@ -5259,8 +5259,13 @@ function handleArmFastFlow() {
       btn.onclick = async () => {
         btn.disabled = true;
         await flushArmResearchPersistence();
-        const isIOSJssfRoute = /iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
-          (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const armContext = getArmScreeningContext();
+        const isConsentedJssfArm = armContext?.appMode === 'research' &&
+          armContext?.researchMetadata?.researchProfile === 'community_remote_qr' &&
+          armContext?.researchMetadata?.consentStatus === 'consented';
+        const isIOSJssfRoute = isConsentedJssfArm &&
+          (/iPhone|iPad|iPod/i.test(navigator.userAgent || '') ||
+           (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1));
         window.location.href = isIOSJssfRoute
           ? 'speech-test.html?iosJssfAsrOnly=1'
           : 'speech-test.html';
