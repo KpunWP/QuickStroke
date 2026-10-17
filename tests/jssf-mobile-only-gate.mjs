@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 const consent=fs.readFileSync("jssf-consent.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 
-assert.match(config,/buildId:\s*"20261016-jssf-ios-asr-route-fix-v1"/);
+assert.match(config,/buildId:\s*"20261017-jssf-completion-voice-once-v1"/);
 assert.match(consent,/function mobilePhoneEligibility\(\)/);
 assert.match(consent,/navigator\.userAgentData\?\.mobile/);
 assert.match(consent,/iPhone\|iPod/);

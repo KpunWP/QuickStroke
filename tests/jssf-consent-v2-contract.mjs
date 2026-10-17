@@ -31,8 +31,8 @@ assert.match(consent,/ค่าความไม่สมมาตรของ�
 assert.match(consent,/ไม่ส่งภาพใบหน้าดิบ วิดีโอ เฟรมภาพดิบ หรือพิกัดจุดบนใบหน้าแบบรายเฟรม/);
 console.log("PASS: consent v4 explicitly discloses bounded derived Face telemetry and exclusions");
 
-assert.match(sw,/Offline-Ready Face \+ Speech Edition \(v94\)/);
-assert.match(sw,/const CACHE_NAME = "quickstroke-pwa-v94"/);
+assert.match(sw,/Offline-Ready Face \+ Speech Edition \(v95\)/);
+assert.match(sw,/const CACHE_NAME = "quickstroke-pwa-v95"/);
 assert.match(sw,/\/jssf-consent\.html/);
 assert.match(sw,/\/config\.js/);
 console.log("PASS: service worker cache generation is bumped for coordinated consent/config refresh");

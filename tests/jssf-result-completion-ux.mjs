@@ -6,8 +6,8 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261016-jssf-ios-asr-route-fix-v1"/);
-assert.match(sw,/quickstroke-pwa-v94/);
+assert.match(config,/buildId:\s*"20261017-jssf-completion-voice-once-v1"/);
+assert.match(sw,/quickstroke-pwa-v95/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);
 assert.match(result,/ส่งผลและจบการทดสอบ/);
@@ -20,6 +20,13 @@ assert.match(result,/return \{ lang:'th-TH', done:'จบการทดสอ�
 assert.doesNotMatch(result,/กำลังส่งผล กรุณารอสักครู่ค่ะ/);
 assert.match(result,/สามารถปิดหน้านี้ได้/);
 assert.match(result,/speakJssfCompletionOnce/);
+// Speech finishes only its module; JSSF completion thanks belong to a successfully
+// finalized session (not a successful Speech attempt, which can be retried).
+assert.match(speech,/return speakSpeechCue\('ทดสอบการพูดเสร็จแล้ว'\)/);
+assert.doesNotMatch(speech,/จบการทดสอบ ขอบคุณค่ะ/);
+assert.match(result,/speakJssfCompletionOnce\(session\.screeningSessionId\)/);
+const finalizeJssf = result.slice(result.indexOf('async function finalizeCurrentResearchSession()'), result.indexOf('async function renderResearchFinalization('));
+assert.ok(finalizeJssf.indexOf('await RESULT_RESEARCH_STORE.finalizeResearchSession(') < finalizeJssf.indexOf('speakJssfCompletionOnce(session.screeningSessionId)'), 'do not thank the participant before finalization');
 assert.match(result,/primeJssfCompletionSpeech/);
 assert.match(result,/submitAndFinalizeJssf/);
 assert.match(result,/utterance\.onstart = \(\) => \{[\s\S]*sessionStorage\.setItem\(key, '1'\)/);
