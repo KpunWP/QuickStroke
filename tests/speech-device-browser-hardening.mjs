@@ -35,7 +35,14 @@ vm.createContext(configCtx);
 vm.runInContext(configSource,configCtx);
 const cfg=configCtx.QS_CONFIG.thresholds.speech;
 
-assert.match(speech,/const IOS_JSSF_ASR_ONLY = IS_IOS && IOS_TRIAL_PARAM !== '0'/);
+assert.match(speech,/const IOS_JSSF_ASR_ONLY = IS_IOS && isConsentedJssfSpeech && IOS_TRIAL_PARAM !== '0'/);
+assert.match(speech,/iosJssfContext.appMode === 'research'/);
+assert.match(speech,/iosJssfContext.researchMetadata\?\.researchProfile === 'community_remote_qr'/);
+assert.match(speech,/iosJssfContext.researchMetadata\?\.consentStatus === 'consented'/);
+assert.match(arm,/armContext\?\.appMode === 'research'/);
+assert.match(arm,/armContext\?\.researchMetadata\?\.researchProfile === 'community_remote_qr'/);
+assert.match(arm,/armContext\?\.researchMetadata\?\.consentStatus === 'consented'/);
+console.log('PASS: Public/Dev sessions cannot be rerouted into JSSF-only iOS Speech');
 assert.match(speech,/new URLSearchParams\(location\.search\)\.get\('iosJssfAsrOnly'\) === '1'/);
 assert.match(speech,/sessionStorage\.getItem\('qs_jssf_ios_asr_only'\) === '1'/);
 assert.match(arm,/speech-test\.html\?iosJssfAsrOnly=1/);
