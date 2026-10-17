@@ -5675,7 +5675,7 @@ function evaluateSpeech(text, confidence) {
   if (IOS_ASR_ONLY_TRIAL) {
     void cleanupAfterResult.then(() => {
       if (phase === 'DONE' && audioStartToken === finishedAudioToken)
-        return speakSpeechCue('จบการทดสอบ ขอบคุณค่ะ');
+        return speakSpeechCue('ทดสอบการพูดเสร็จแล้ว');
     }).catch(() => {});
   }
 
