@@ -22,6 +22,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg
           command -v ffmpeg
           command -v ffprobe
           for name in speech_03_prepare_short speech_04_count_three speech_05_count_two speech_06_count_one speech_07_module_complete; do
