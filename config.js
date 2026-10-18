@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.29",
-  buildId: "20261018-jssf-platform-audio-priority-v1",
-  configVersion: "quickstroke-config-1.0.29",
+  version: "1.0.30",
+  buildId: "20261018-jssf-speech-ready-exact-target-v1",
+  configVersion: "quickstroke-config-1.0.30",
 
   // Approved pilot policy: 18+ with 90-day primary DB retention and named
   // withdrawal/privacy contacts. Collection remains fail-closed until the
@@ -245,15 +245,15 @@ window.QS_CONFIG = {
 
     speech: {
       // Version identifiers stored with every Speech result.
-      version: "speech-prepilot-1.9.0",
-      algorithmVersion: "speech-browser-asr-1.5.0",
+      version: "speech-prepilot-1.9.1",
+      algorithmVersion: "speech-browser-asr-1.6.0",
       resultSchemaVersion: "speech-result-1.4.2",
       researchPayloadVersion: "speech-research-0.5.2",
 
       // Speech phrase scoring v1.1:
       // - browser ASR confidence is stored as a raw observation only
       // - phrase score comes from normalized transcript similarity against accepted variants
-      // - an exact accepted variant receives 100
+      // - consented JSSF requires the full target; Public/Dev retain legacy variants
       phraseScoringPolicy: "normalized_levenshtein_similarity",
       asrConfidencePolicy: "raw_observation_only",
 
@@ -261,7 +261,7 @@ window.QS_CONFIG = {
       // - phrase observation is the only Speech-domain input to the screening decision
       // - speech rate remains an exploratory research variable and is not user-scored
       // - technical quality is surfaced separately and does not become a rate alert
-      // - interim-only ASR with coverage below 0.60 is indeterminate, not a phrase alert
+      // - JSSF proper-substring ASR capture is an invalid attempt eligible for one retry
       decisionPolicy: "phrase_only_observation_rate_research_v1",
       phraseAlertPolicy: "exact_variant_no_alert_else_attention",
       rateReferencePolicy: "research_only_not_used_for_decision",
