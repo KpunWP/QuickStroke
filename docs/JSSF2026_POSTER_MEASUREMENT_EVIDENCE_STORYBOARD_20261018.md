@@ -60,3 +60,9 @@ Source: production Supabase project `pzzjfnfwppdeketjdhfo`, public.jssf_remote_s
 
 ## Change policy
 This is a document-only research-branch change. **No changes to production, JSSF Consent, database schema, clinical thresholds or public app.** A future code change requires inspect → research branch → testing/CI → reviewed PR before merge.
+
+## Additional exploratory checks, 2026-10-18 (read-only)
+- Arm: **155 left-arm attempts (144 valid)** and **142 right-arm attempts (139 valid)**; median valid phone-drift **0.720° left** vs **0.675° right**, 90th percentile **3.604° left** vs **2.933° right**. These are descriptive unpaired attempt summaries, **not proof of left/right equivalence or reliability**. Future chart: session-paired valid measurements, then check device/build and interval consistency.
+- Speech: Android Chrome **33/33 valid attempts**, Android Samsung Internet **2/2**, iOS Chrome **2/3**, iOS Safari **153/238**. Android subsamples are small and builds/retries differ; **do not** infer intrinsic OS reliability without stratification. Highlight quality as a research question.
+- Non-valid Speech attempt reason codes (counts are attempts, not volunteers): `DEAD_MIC_DETECTED` **45**; `NO_VOICE` **14**; `I18N_LOAD_FAILED` **5**; `VOICE_NOT_RECOGNIZED` **5**; other reasons less frequent. Reason codes are client-derived technical classifications requiring independent failure review.
+- Face non-valid attempt reasons include `INSUFFICIENT_VALID_FRAMES` **8**, `NO_FACE_TIMEOUT` **5**, and `NO_SMILE_DETECTED` **2**. Arm non-valid reasons include `UNCERTAIN_MOVEMENT` **13**. These support evidence of quality-control gating, not clinical accuracy.
