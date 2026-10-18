@@ -1,4 +1,4 @@
-/* QuickStroke Service Worker — Offline-Ready Face + Speech Edition (v101)
+/* QuickStroke Service Worker — Offline-Ready Face + Speech Edition (v102)
  *
  * กลยุทธ์:
  * - HTML: network-first พร้อม timeout 3 วินาที
@@ -7,7 +7,7 @@
  * - JS / JSON / รูปภาพ: stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v101";
+const CACHE_NAME = "quickstroke-pwa-v102";
 const CACHE_PREFIX = "quickstroke-pwa-";
 
 const CORE_SHELL = [
@@ -19,6 +19,7 @@ const CORE_SHELL = [
   "/arm-test.html",
   "/speech-test.html",
   "/result.html",
+  "/presenter-demo.html",
   "/config.js",
   "/js/app-mode.js",
   "/js/research-policy.js",
