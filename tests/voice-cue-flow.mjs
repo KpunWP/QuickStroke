@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
+import { createHash } from 'node:crypto';
 
 const arm=fs.readFileSync("arm-test.html","utf8");
 const speech=fs.readFileSync("speech-test.html","utf8");
@@ -63,7 +64,7 @@ assert.match(armLang,/classList\.add\('arm-intro-visible'\)/);
 assert.doesNotMatch(armLang,/attemptAutoArmStepOneVoice\(\)/);
 
 assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
-assert.ok(arm.includes('window.QuickStrokeThaiRecorded?.use(currentLangCode()) && window.QuickStrokeThaiRecorded.fileFor?.(txt)'));
+assert.match(arm,/canRecorded && \(forceRecorded \|\| \(!skipRecorded && recorded\.use\(currentLangCode\(\)\)\)\)/);
 assert.match(speech,/const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL/);
 assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, false\)/);
 
@@ -78,12 +79,26 @@ assert.match(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
 
 const armRecordedManifest=fs.readFileSync('js/thai-recorded-audio.js','utf8');
 for (const [phrase,file] of [
-  ['ถือโทรศัพท์ด้วยมือซ้ายตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_12_left_start.mp3']
+  ['ถือโทรศัพท์ด้วยมือซ้ายตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ','arm_12_left_start.mp3'],
+  ['กดยืนยันใช้แขนขวา','arm_13_confirm_right.mp3']
 ]) {
   assert.ok(armRecordedManifest.includes(phrase) && armRecordedManifest.includes(file),'recorded prompt must be mapped');
   assert.ok(fs.existsSync('audio/th/'+file),file+' must exist before merging for Android/Consent preload');
 }
 assert.match(armRecordedManifest,/QuickStrokeDevMode\?\.isEnabled\?\.\(\) !== true/,'debug sound-test button only in Dev');
+
+// The exact participant recording must survive binary Git upload and remain
+// a playable MP3; text-only manifest tests would miss a corrupted asset.
+const rightArmClip=fs.readFileSync('audio/th/arm_13_confirm_right.mp3');
+const gitBlobHash=createHash('sha1').update('blob '+rightArmClip.length+'\\0').update(rightArmClip).digest('hex');
+assert.equal(gitBlobHash,'a0f7fe42fd1adb167accc158538b506a11a50ee0');
+assert.ok(rightArmClip.length>7000 && rightArmClip.subarray(0,3).toString()==='ID3');
+assert.match(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
+assert.match(arm,/if\(pilotFallback && !forceRecorded && status!=='ended' && status!=='cancelled'\)/);
+assert.match(face,/function speakFace\(txt, opts=\{\}\)/);
+assert.match(speech,/return speakSpeechNative\(value\)\.then\(status=>/);
+assert.match(result,/const prefersRecorded=!!\(canRecorded && recorded\?\.use\(LANG\)\)/);
+
 
 // Speech: the pre-recognition phase uses visual 3-2-1 instead of TTS,
 // and "speak now" appears only after SpeechRecognition confirms audio capture.
@@ -129,7 +144,7 @@ const voiceText='เตรียมพูดตามข้อความบน
 // updated MP3 manifest rather than reusing the obsolete Ogg manifest.
 for (const path of ['jssf-consent.html','face-test.html','arm-test.html','speech-test.html','result.html']) {
   const html=fs.readFileSync(path,'utf8');
-  assert.ok(html.includes('thai-recorded-audio.js?v=20261018-jssf-mp3-compat-v1'), 'stale audio JS URL: '+path);
+  assert.ok(html.includes('thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1'), 'stale audio JS URL: '+path);
   assert.ok(!html.includes('thai-recorded-audio.js?v=20261018-jssf-android-spoken-cues-v1'), 'old Ogg route remains: '+path);
 }
 
@@ -150,7 +165,7 @@ for (const [phrase,file] of approvedAndroidSpeechCues) {
   assert.ok(fs.existsSync('audio/th/'+file), 'approved participant audio missing: '+file);
   assert.ok(fs.statSync('audio/th/'+file).size > 3000, 'audio clip incomplete: '+file);
 }
-assert.match(speech,/ANDROID_JSSF_SPEECH_CUES && String\(T\?\.langCode \|\| ''\)\.toLowerCase\(\)\.startsWith\('th'\)/);
+assert.match(speech,/if \(ANDROID_JSSF_SPEECH_CUES && mapped\)/);
 assert.match(speech,/const result=await speakSpeechCue\(String\(count\)\)/);
 assert.match(speech,/await sleep\(Math\.max\(0,1000-\(performance\.now\(\)-began\)\)\)/);
 assert.match(speech,/return speakSpeechCue\('ทดสอบการพูดเสร็จแล้ว'\)/);
@@ -211,5 +226,21 @@ const nativeFirst=simulateAndroidAudioRoute([{lang:'th-TH'}],new Map());
 assert.equal(nativeFirst.use('th-TH'), false, 'a ready Thai voice may use native TTS');
 nativeFirst.setVoices([]);
 assert.equal(nativeFirst.use('th-TH'), false, 'temporary getVoices() loss cannot switch route back to recordings');
+
+
+// Override a matching Android or iOS voice list with consented JSSF context.
+function simulatedConsentRoute(ua, voices){
+  const sharedStorage={getItem(){return null;},setItem(){}};
+  const w={navigator:{userAgent:ua},location:{search:'',pathname:'/arm-test.html'},URLSearchParams,
+    sessionStorage:sharedStorage, document:{readyState:'loading',addEventListener(){}},
+    speechSynthesis:{getVoices(){return voices;}},
+    QuickStrokeDataContract:{getSessionContext(){return {appMode:'research',
+      researchMetadata:{researchProfile:'community_remote_qr',consentStatus:'consented'}}}}};
+  w.window=w;
+  vm.runInNewContext(recordedAudio,w);
+  return w.QuickStrokeThaiRecorded;
+}
+assert.equal(simulatedConsentRoute('Android Chrome',[{lang:'th-TH'}]).use('th-TH'),true,'Android JSSF always prefers recorded even with Thai TTS');
+assert.equal(simulatedConsentRoute('iPhone Safari',[{lang:'th-TH'}]).use('th-TH'),false,'iOS JSSF always prefers native TTS');
 
 console.log("PASS: first-use voice cues and JSSF retry history are deterministic");
