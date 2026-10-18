@@ -95,7 +95,17 @@ assert.match(speech,/for \(const count of \[3,2,1\]\)/);
 assert.match(speech,/function playVisualCountdownBeep\(\)/);
 assert.match(speech,/ctx\.state!=='running'/);
 assert.match(speech,/gain\.gain\.exponentialRampToValueAtTime\(0\.0001,t\+0\.13\)/);
-assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*if \(!IS_ANDROID && !SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\);/);
+assert.match(speech,/if \(ANDROID_JSSF_SPEECH_CUES\) \{\s*await playAndroidJssfSpokenCount\(count\)/);
+assert.match(speech,/const ANDROID_JSSF_SPEECH_CUES = IS_ANDROID && isConsentedJssfSpeech/);
+assert.match(speech,/if \(ANDROID_JSSF_SPEECH_CUES\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(speech,/if \(!ANDROID_JSSF_SPEECH_CUES\) await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(speech,/if \(IOS_ASR_ONLY_TRIAL \|\| ANDROID_JSSF_SPEECH_CUES\) \{\s*void cleanupAfterResult\.then/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES\)/);
+const androidCount=speech.slice(speech.indexOf("if (ANDROID_JSSF_SPEECH_CUES) {\n          await releaseAcousticCaptureForExclusiveAsr();"),speech.indexOf("const cueStatus = 'visual_only';",speech.indexOf("if (ANDROID_JSSF_SPEECH_CUES) {\n          await releaseAcousticCaptureForExclusiveAsr();")));
+assert.ok(androidCount.indexOf("await releaseAcousticCaptureForExclusiveAsr()")<androidCount.indexOf("await playAndroidJssfSpokenCount(count)"),'mic capture must stop before spoken count');
+assert.match(speech,/speakSpeechCue\('เตรียมพูด'\)/);
+assert.match(speech,/speakSpeechCue\('ทดสอบการพูดเสร็จแล้ว'\)/);
+
 
 assert.match(speech,/const cueStatus = 'visual_only'/);
 assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:112px'), 'countdown should be large inside central icon');
@@ -118,6 +128,25 @@ const voiceText='เตรียมพูดตามข้อความบน
 assert.ok(recordedAudio.includes(voiceText), 'instruction must be mapped in recorded audio manifest');
 assert.ok(recordedAudio.includes('speech_02_instruction.mp3'));
 assert.ok(fs.existsSync("audio/th/speech_02_instruction.mp3"), 'approved instruction MP3 must be uploaded to GitHub before release');
+
+// Require the participant-approved recordings before releasing JSSF Android.
+const approvedAndroidSpeechCues = [
+  ['เตรียมพูด', 'speech_03_prepare_short.ogg'],
+  ['3', 'speech_04_count_three.ogg'],
+  ['2', 'speech_05_count_two.ogg'],
+  ['1', 'speech_06_count_one.ogg'],
+  ['ทดสอบการพูดเสร็จแล้ว', 'speech_07_module_complete.ogg']
+];
+for (const [phrase,file] of approvedAndroidSpeechCues) {
+  assert.ok(recordedAudio.includes("'" + phrase + "':'" + file + "'"), 'manifest mismatch: '+phrase);
+  assert.ok(fs.existsSync('audio/th/'+file), 'approved participant audio missing: '+file);
+  assert.ok(fs.statSync('audio/th/'+file).size > 1000, 'audio clip incomplete: '+file);
+}
+assert.match(speech,/ANDROID_JSSF_SPEECH_CUES && String\(T\?\.langCode \|\| ''\)\.toLowerCase\(\)\.startsWith\('th'\)/);
+assert.match(speech,/const result=await speakSpeechCue\(String\(count\)\)/);
+assert.match(speech,/await sleep\(Math\.max\(0,1000-\(performance\.now\(\)-began\)\)\)/);
+assert.match(speech,/return speakSpeechCue\('ทดสอบการพูดเสร็จแล้ว'\)/);
+
 assert.match(speech,/function playSpeechInstructionBeforeCapture\(\)/);
 assert.match(speech,/await playSpeechInstructionBeforeCapture\(\)/);
 assert.match(speech,/await sleep\(1000\)/, 'countdown should show each large digit for a full second');

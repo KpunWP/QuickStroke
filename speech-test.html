@@ -940,7 +940,7 @@
   @media(max-height:760px){#test-screen.speech-countdown-active .mic-box{height:172px!important;}#mic-circle.speech-countdown{width:148px!important;height:148px!important;flex-basis:148px!important;}#mic-circle.speech-countdown #mic-icon{font-size:98px!important;}}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
-<script src="./js/thai-recorded-audio.js?v=20261012-speech-instruction-v1"></script>
+<script src="./js/thai-recorded-audio.js?v=20261018-jssf-android-spoken-cues-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
@@ -1180,6 +1180,8 @@ const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && IOS_TRIAL_PARAM !== '0' &&
   (SPEECH_CFG.iosExclusiveAsrTrial === true || IOS_TRIAL_PARAM === '1' ||
    sessionStorage.getItem('qs_ios_exclusive_asr_trial') === '1' || IOS_JSSF_ASR_ONLY);
 const IOS_ASR_ONLY_TRIAL = IOS_EXCLUSIVE_ASR_TRIAL;
+// Match iPhone's spoken JSSF Speech cues without changing Public or Dev routes.
+const ANDROID_JSSF_SPEECH_CUES = IS_ANDROID && isConsentedJssfSpeech;
 const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_ASR_ONLY_TRIAL;
 if (IS_IOS) {
   document.addEventListener('DOMContentLoaded', () => {
@@ -1353,7 +1355,16 @@ function primeSpeechCue() {
 
 function speakSpeechCue(text) {
   const value = String(text || '').trim();
-  if(window.QuickStrokeThaiRecorded?.use(T?.langCode)) return window.QuickStrokeThaiRecorded.play(value);
+  // Android JSSF uses the same five approved recordings from preparation
+  // through module completion. Do not switch voices when getVoices() changes.
+  if (ANDROID_JSSF_SPEECH_CUES && String(T?.langCode || '').toLowerCase().startsWith('th') &&
+      window.QuickStrokeThaiRecorded?.fileFor?.(value)) {
+    return window.QuickStrokeThaiRecorded.play(value);
+  }
+  if (window.QuickStrokeThaiRecorded?.use(T?.langCode) &&
+      window.QuickStrokeThaiRecorded.fileFor?.(value)) {
+    return window.QuickStrokeThaiRecorded.play(value);
+  }
   const lang = T?.langCode || document.documentElement.lang || 'th-TH';
   if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
     reportSpeechTts('TTS_UNAVAILABLE','ready','unsupported',lang,undefined,'speech-ready-unsupported');
@@ -2650,7 +2661,7 @@ async function ensureMicDisclosureBeforeFirstUse() {
       // iOS may switch back to playback when priming TTS, which makes a
       // subsequent getUserMedia fail with incompatible audio-session category.
       // The actual Speech ready cue is visual; do not prime TTS before capture.
-      if (!IS_IOS && !SPEECH_SILENT_START_TRIAL) primeSpeechCue();
+      if (!IS_IOS && !SPEECH_SILENT_START_TRIAL && !ANDROID_JSSF_SPEECH_CUES) primeSpeechCue();
       if (IOS_ASR_ONLY_TRIAL) {
         micDisclosureAcknowledged = true;
         micDisclosureAcknowledgedAt = new Date().toISOString();
@@ -2829,6 +2840,19 @@ async function playSpeechInstructionBeforeCapture() {
   if (SPEECH_SILENT_START_TRIAL) return 'silent_trial';
   if (!String(T?.langCode || '').toLowerCase().startsWith('th')) return 'skipped';
   const recorded=window.QuickStrokeThaiRecorded;
+  if (ANDROID_JSSF_SPEECH_CUES) {
+    $('hint-text').textContent='เตรียมพูด';
+    $('transcript-box').textContent='เตรียมพูด';
+    // Start TTS in the original tap, then wait until playback ends before
+    // opening a microphone. Some Samsung devices have no native Thai voice.
+    const shortStatus=await speakSpeechCue('เตรียมพูด');
+    if (shortStatus==='ended') { await sleep(180); return shortStatus; }
+    queueSpeechTechnicalDiagnostic('ANDROID_JSSF_SHORT_PREPARE_UNAVAILABLE');
+    // A long approved recording is safer than a silent instruction when the
+    // device lacks Thai TTS; new short MP3 assets are still required for parity.
+    const fallback='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
+    return recorded?.fileFor?.(fallback) ? recorded.play(fallback,{timeoutMs:11000}) : shortStatus;
+  }
   const message=IOS_ASR_ONLY_TRIAL ? 'เตรียมพูด' : 'เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
   $('hint-text').textContent=message;
   $('transcript-box').textContent=message;
@@ -2854,7 +2878,7 @@ async function handleAction() {
   if (retryStarting) return;
 
   if (phase === 'IDLE') {
-    if (!SPEECH_SILENT_START_TRIAL && !IOS_ASR_ONLY_TRIAL) primeSpeechCue();
+    if (!SPEECH_SILENT_START_TRIAL && !IOS_ASR_ONLY_TRIAL && !ANDROID_JSSF_SPEECH_CUES) primeSpeechCue();
     retryStarting = true;
     const actionBtn = $('action-btn');
     actionBtn.disabled = true;
@@ -3227,6 +3251,17 @@ async function playIosAsrOnlyCount(count) {
     setTimeout(finish,900);
   });
   await sleep(180);
+}
+
+// Android JSSF: each verified Thai MP3 is allowed to finish before ASR
+// acquires the mic. Keep the start of each spoken digit ~1s apart regardless
+// of the trimmed clip duration (rather than accumulating file-end silence).
+async function playAndroidJssfSpokenCount(count) {
+  const began=performance.now();
+  const result=await speakSpeechCue(String(count));
+  if (result!=='ended') queueSpeechTechnicalDiagnostic('ANDROID_JSSF_COUNTDOWN_AUDIO_UNAVAILABLE');
+  await sleep(Math.max(0,1000-(performance.now()-began)));
+  return result;
 }
 
 async function startRecording(forceDirectMic = false, preauthorizedStream = null) {
@@ -4248,24 +4283,33 @@ function runLoop() {
       drawWave(freqArr, N);
       animationFrameId = null;
 
+      const countdownToken = audioStartToken;
       void (async () => {
-        // A visual cue avoids routing synthesized speech over the microphone
-        // while Safari is handing off WebAudio and Web Speech capture.
+        // Android JSSF must release WebAudio's calibration stream before
+        // playing the spoken count, and must not start ASR until it finishes.
+        if (ANDROID_JSSF_SPEECH_CUES) {
+          await releaseAcousticCaptureForExclusiveAsr();
+          if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
+        }
         // Actual permission to speak is still gated on ASR onaudiostart.
         for (const count of [3,2,1]) {
-          if (phase !== 'READY_CUE') return;
+          if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
           $('mic-icon').textContent = String(count);
-          if (!IS_ANDROID && !SPEECH_SILENT_START_TRIAL) playVisualCountdownBeep();
+          if (ANDROID_JSSF_SPEECH_CUES) {
+            await playAndroidJssfSpokenCount(count);
+          } else if (!IS_ANDROID && !SPEECH_SILENT_START_TRIAL) {
+            playVisualCountdownBeep();
+          }
           $('hint-text').textContent = String(T?.langCode || '').toLowerCase().startsWith('th') ? 'ยังไม่ต้องพูด' : T.preparePrompt;
           $('transcript-box').textContent = T.preparePrompt;
-          await sleep(1000);
+          if (!ANDROID_JSSF_SPEECH_CUES) await sleep(1000);
         }
         const cueStatus = 'visual_only';
-        if (phase !== 'READY_CUE') return;
+        if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
         // Never leave the participant in a silent "ready" trap. If Safari still
         // refuses TTS after priming/retry, proceed with the visual cue immediately.
-        await sleep(cueStatus === 'ended' ? 180 : 80);
-        if (phase !== 'READY_CUE') return;
+        await sleep(ANDROID_JSSF_SPEECH_CUES ? 260 : (cueStatus === 'ended' ? 180 : 80));
+        if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
 
         // Enter the recognition phase, but do not tell the participant to speak yet.
         // Android still has to hand the microphone from WebAudio to Web Speech.
@@ -4285,7 +4329,7 @@ function runLoop() {
         // ติดธงว่าวัดในที่มี noise (สำหรับติดป้ายผลลัพธ์)
         window.MEASURED_NOISY = false;
         if (EXCLUSIVE_ASR_CAPTURE) {
-          await releaseAcousticCaptureForExclusiveAsr();
+          if (!ANDROID_JSSF_SPEECH_CUES) await releaseAcousticCaptureForExclusiveAsr();
           if (phase !== 'RECORDING') return;
           void beginSpeechRecognition();
           return;
@@ -5476,9 +5520,9 @@ function evaluateSpeech(text, confidence) {
   $('rb-title').style.color = col;
   $('rb-score').textContent = '';
   $('rb-sub').textContent = sub;
-  if (IOS_ASR_ONLY_TRIAL) {
+  if (IOS_ASR_ONLY_TRIAL || ANDROID_JSSF_SPEECH_CUES) {
     $('hint-text').classList.remove('speak-now');
-    $('hint-text').textContent = 'จบการทดสอบ';
+    $('hint-text').textContent = 'ทดสอบการพูดเสร็จแล้ว';
   }
   $('domain-summary').style.display = 'flex';
   $('result-details-toggle').style.display = 'block';
@@ -5670,10 +5714,12 @@ function evaluateSpeech(text, confidence) {
   ].join('\n');
 
   const finishedAudioToken = audioStartToken;
-  const cleanupAfterResult = releaseMicAfterSpeechResult(false);
+  // Android JSSF must also release its WebAudio mic before the closing cue;
+  // the general Android flow still uses its established release semantics.
+  const cleanupAfterResult = releaseMicAfterSpeechResult(ANDROID_JSSF_SPEECH_CUES);
   if (!IS_IOS) scheduleResultMicRelease();
   // Do not play output over a live ASR engine or on a newly started retry.
-  if (IOS_ASR_ONLY_TRIAL) {
+  if (IOS_ASR_ONLY_TRIAL || ANDROID_JSSF_SPEECH_CUES) {
     void cleanupAfterResult.then(() => {
       if (phase === 'DONE' && audioStartToken === finishedAudioToken)
         return speakSpeechCue('ทดสอบการพูดเสร็จแล้ว');

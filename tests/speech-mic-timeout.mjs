@@ -24,7 +24,8 @@ assert.match(html,/const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS/);
 assert.match(html,/IOS_EXCLUSIVE_TRIAL_ENABLED/);
 assert.match(html,/ios-exclusive-asr-trial-status/);
 assert.match(html,/const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR \|\| IOS_ASR_ONLY_TRIAL/);
-assert.match(html,/if \(EXCLUSIVE_ASR_CAPTURE\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(html,/if \(EXCLUSIVE_ASR_CAPTURE\) \{\s*if \(!ANDROID_JSSF_SPEECH_CUES\) await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(html,/if \(ANDROID_JSSF_SPEECH_CUES\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(html,/acousticMetricsAvailable: !EXCLUSIVE_ASR_CAPTURE/);
 assert.match(html,/scoreUsableForResearch: !EXCLUSIVE_ASR_CAPTURE/);
 

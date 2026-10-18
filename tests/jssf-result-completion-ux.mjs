@@ -6,8 +6,8 @@ const speech=fs.readFileSync("speech-test.html","utf8");
 const config=fs.readFileSync("config.js","utf8");
 const sw=fs.readFileSync("service-worker.js","utf8");
 
-assert.match(config,/buildId:\s*"20261018-jssf-android-cues-quality-v1"/);
-assert.match(sw,/quickstroke-pwa-v96/);
+assert.match(config,/buildId:\s*"20261018-jssf-android-spoken-count-v1"/);
+assert.match(sw,/quickstroke-pwa-v97/);
 assert.match(result,/id="jssf-submit-bar"/);
 assert.match(result,/id="jssf-submit-button"/);
 assert.match(result,/ส่งผลและจบการทดสอบ/);
