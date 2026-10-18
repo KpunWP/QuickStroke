@@ -2821,9 +2821,10 @@ function resetUI() {
   resetSpeechCards();
 }
 
-// Controlled diagnostic: disable Speech's own output, including the opening
-// instruction and countdown beeps, while retaining visual start/ASR timing.
-const SPEECH_SILENT_START_TRIAL = !IOS_ASR_ONLY_TRIAL;
+// The silent WebAudio diagnostic is limited to iOS STANDARD. Android exclusive-ASR
+// must play the approved Thai instruction fully BEFORE any capture starts.
+// The 3-2-1 countdown remains visual-only on Android.
+const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL;
 async function playSpeechInstructionBeforeCapture() {
   if (SPEECH_SILENT_START_TRIAL) return 'silent_trial';
   if (!String(T?.langCode || '').toLowerCase().startsWith('th')) return 'skipped';
@@ -5483,9 +5484,9 @@ function evaluateSpeech(text, confidence) {
   $('result-details-toggle').style.display = 'block';
   setDomainStatus('phrase', phraseStatusClass, phraseStatusText, true);
   setDomainStatus('rate', rateStatusClass, rateStatusText, true);
-  // ASR-only cannot measure SNR/PCM: retain research flags, omit confusing
-  // user-facing "ข้อมูลเสียง" row entirely in this experimental presentation.
-  setDomainStatus('quality', qualityStatusClass, qualityStatusText, !IOS_ASR_ONLY_TRIAL);
+  // Research quality flags are still persisted, but the participant-facing
+  // Speech result never labels an ASR-only limitation as a voice-quality warning.
+  setDomainStatus('quality', qualityStatusClass, qualityStatusText, false);
   setSpeechResultDetailsExpanded(false);
 
   // Keep the top status cards short and consistent with the result banner.
