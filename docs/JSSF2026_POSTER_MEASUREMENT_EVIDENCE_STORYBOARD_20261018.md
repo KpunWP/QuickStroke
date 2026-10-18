@@ -94,3 +94,25 @@ This is a document-only research-branch change. **No changes to production, JSSF
 7. *Path to responsible use*: clinical/patient-reference studies and optional ML, plus app demonstration and never-delay-care warning.
 
 **Visual guidance:** The first 15–20% of poster should juxtapose a concise human decision dilemma and one visually prominent phone/measurement hero. Keep emotionally engaging copy very short, so the scientific content remains the poster's visual focus. The Face/Arm/Speech signals and Pilot evidence dominate the middle. Safety/validation are distinct at the bottom.
+
+
+## Public science-fair entry point: name STROKE before the sensors
+**Visitor audience:** This is a mixed-discipline international student science fair, NOT a medical conference. A passing visitor may have no prior idea what QuickStroke is, what FAST means or why Face/Arm/Speech are connected. Avoid opening with technical terms or a generic three-sensor diagram without medical context.
+
+**Mandatory first-glance hierarchy (approximately 3–5 seconds to orient, design aspiration to test, not a measured outcome):**
+1. Make **STROKE** unmistakable in the main headline, with QuickStroke project identity immediately alongside.
+2. In one accessible sentence: a stroke is a time-critical medical emergency affecting the brain. No lengthy medical background.
+3. Display and briefly label the FAST warning-sign relationship: **Face drooping → Arm weakness → Speech difficulty → Time to seek emergency help**. Show that these are examples of sudden warning signs, not an exhaustive list.
+4. State the motivation: warning signs may be recognized yet remain uncertain or ambiguous in a real situation; indecision can delay seeking help. Do not claim everyone knows FAST.
+5. Only *then* introduce the accessible smartphone as a way to guide observation and support awareness/action; this is a research goal, **not a demonstrated reduction in hospital arrival time or clinically validated triage**.
+
+**Suggested upper-panel copy (draft, subject to design/edit):**
+- Title: **QUICKSTROKE — STROKE Warning Signs, One Smartphone**
+- Human hook: **Recognizing a warning sign is one thing. Deciding to act can be harder.**
+- Bridge: **Face drooping. Arm weakness. Speech difficulty. Time matters.**
+- Research prompt: **Can a smartphone guide observation of these signs and support faster decisions to seek care?** State this as a question/goal, not a proven impact.
+- Safety near QR: **Suspected stroke is an emergency: seek emergency medical care immediately. Do not wait for QuickStroke or use its results to rule out stroke.**
+
+**Art direction:** The top 15–20% of the physical poster must tell a non-medical visitor what condition this concerns before showing technical proof. A concise mini FAST explainer plus human dilemma bridges to a powerful, authentic Face Mesh / Arm Drift / Speech Recognition hero below. Avoid a dense medical textbook introduction, alarmist stock imagery and false reassurance. Test first-glance recognition on unfamiliar school students; ask them, without prompting, what the project is about and what they should do if symptoms are sudden.
+
+**Storyboard dependency:** Scene 1 explicitly identifies stroke and FACE/ARM/SPEECH warning signs; Scene 2 introduces the decision-support mission; Scene 3 shows the actual measurement techniques; Scenes 4–7 proceed with nonclinical evidence, limitations and future clinical study. Do not replace the overarching human impact with a technology-first opening.
