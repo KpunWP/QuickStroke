@@ -1357,7 +1357,8 @@ function speakSpeechCue(text) {
   const value = String(text || '').trim();
   // Unmapped short/count/end cues cannot be played through the MP3 manifest.
   // Use native speech where a matching Thai voice is available instead.
-  if(window.QuickStrokeThaiRecorded?.use(T?.langCode) && window.QuickStrokeThaiRecorded.fileFor?.(value))
+  if(window.QuickStrokeThaiRecorded?.use(T?.langCode) &&
+     (window.QuickStrokeThaiRecorded.fileFor?.(value) || !ANDROID_JSSF_SPEECH_CUES))
     return window.QuickStrokeThaiRecorded.play(value);
   const lang = T?.langCode || document.documentElement.lang || 'th-TH';
   if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
@@ -4306,16 +4307,17 @@ function runLoop() {
       drawWave(freqArr, N);
       animationFrameId = null;
 
+      const countdownToken = audioStartToken;
       void (async () => {
         // Android JSSF must release WebAudio's calibration stream before
         // playing the spoken count, and must not start ASR until it finishes.
         if (ANDROID_JSSF_SPEECH_CUES) {
           await releaseAcousticCaptureForExclusiveAsr();
-          if (phase !== 'READY_CUE') return;
+          if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
         }
         // Actual permission to speak is still gated on ASR onaudiostart.
         for (const count of [3,2,1]) {
-          if (phase !== 'READY_CUE') return;
+          if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
           $('mic-icon').textContent = String(count);
           if (ANDROID_JSSF_SPEECH_CUES) {
             await playAndroidJssfSpokenCount(count);
@@ -4327,11 +4329,11 @@ function runLoop() {
           if (!ANDROID_JSSF_SPEECH_CUES) await sleep(1000);
         }
         const cueStatus = 'visual_only';
-        if (phase !== 'READY_CUE') return;
+        if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
         // Never leave the participant in a silent "ready" trap. If Safari still
         // refuses TTS after priming/retry, proceed with the visual cue immediately.
         await sleep(ANDROID_JSSF_SPEECH_CUES ? 260 : (cueStatus === 'ended' ? 180 : 80));
-        if (phase !== 'READY_CUE') return;
+        if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
 
         // Enter the recognition phase, but do not tell the participant to speak yet.
         // Android still has to hand the microphone from WebAudio to Web Speech.
