@@ -1,8 +1,8 @@
 window.QS_CONFIG = {
   appName: "QuickStroke",
-  version: "1.0.24",
-  buildId: "20261017-jssf-completion-voice-once-v1",
-  configVersion: "quickstroke-config-1.0.24",
+  version: "1.0.25",
+  buildId: "20261018-jssf-android-cues-quality-v1",
+  configVersion: "quickstroke-config-1.0.25",
 
   // Approved pilot policy: 18+ with 90-day primary DB retention and named
   // withdrawal/privacy contacts. Collection remains fail-closed until the

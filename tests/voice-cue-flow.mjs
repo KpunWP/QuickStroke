@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import vm from "node:vm";
 
 const arm=fs.readFileSync("arm-test.html","utf8");
 const speech=fs.readFileSync("speech-test.html","utf8");
@@ -19,7 +20,7 @@ assert.match(arm,/padding-bottom:calc\(210px \+ env\(safe-area-inset-bottom\)\)!
 assert.equal(th.speech?.accuracy || th.accuracy, 'ความถูกต้องของคำพูด');
 
 assert.match(speech,/#domain-rate-row\{display:none!important;\}/);
-assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, !IOS_ASR_ONLY_TRIAL\)/);
+assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, false\)/);
 assert.match(speech,/setDomainStatus\('phrase', phraseStatusClass, phraseStatusText, true\)/);
 assert.match(speech,/id="domain-rate-row"/);
 assert.match(speech,/id="result-details-toggle"/);
@@ -62,6 +63,9 @@ assert.match(armLang,/classList\.add\('arm-intro-visible'\)/);
 assert.doesNotMatch(armLang,/attemptAutoArmStepOneVoice\(\)/);
 
 assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
+assert.ok(arm.includes('window.QuickStrokeThaiRecorded?.use(currentLangCode()) && window.QuickStrokeThaiRecorded.fileFor?.(txt)'));
+assert.match(speech,/const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL/);
+assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, false\)/);
 
 assert.match(arm,/function armStepOneVoice\(side\)/);
 const btnFlow=arm.slice(arm.indexOf("function handleBtn()"),arm.indexOf("function handleBtn()")+6000);
@@ -91,7 +95,7 @@ assert.match(speech,/for \(const count of \[3,2,1\]\)/);
 assert.match(speech,/function playVisualCountdownBeep\(\)/);
 assert.match(speech,/ctx\.state!=='running'/);
 assert.match(speech,/gain\.gain\.exponentialRampToValueAtTime\(0\.0001,t\+0\.13\)/);
-assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*if \(!SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\);/);
+assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*if \(!IS_ANDROID && !SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\);/);
 
 assert.match(speech,/const cueStatus = 'visual_only'/);
 assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:112px'), 'countdown should be large inside central icon');
@@ -135,5 +139,40 @@ assert.match(result,/historicalInvalidRetained/);
 assert.match(result,/invalidHistoryCount/);
 assert.match(result,/modulePriorInvalid/);
 assert.equal(th.result.modulePriorInvalid,"เคยประเมินไม่ได้และทดสอบซ้ำ {n} ครั้ง");
+
+// Android getVoices() may resolve between Face/Arm instructions. The chosen
+// mode must remain stable within this tab and after navigating to another HTML page.
+function simulateAndroidAudioRoute(initialVoices, storage) {
+  let voices = initialVoices;
+  const sharedStorage = {
+    getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+    setItem(key, value) { storage.set(key, String(value)); }
+  };
+  const browser = {
+    navigator: { userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel) Chrome/155 Mobile' },
+    location: { search:'' },
+    URLSearchParams,
+    sessionStorage:sharedStorage,
+    document:{ readyState:'loading', addEventListener(){} },
+    speechSynthesis:{ getVoices(){ return voices; } }
+  };
+  browser.window=browser;
+  vm.runInNewContext(recordedAudio, browser);
+  return {
+    use: browser.QuickStrokeThaiRecorded.use,
+    setVoices(next) { voices=next; }
+  };
+}
+const silentFirst = new Map();
+const early = simulateAndroidAudioRoute([], silentFirst);
+assert.equal(early.use('th-TH'), true, 'no Thai TTS available initially chooses recorded audio');
+early.setVoices([{lang:'th-TH'}]);
+assert.equal(early.use('th-TH'), true, 'late Thai voice arrival does not switch recordings to TTS mid-test');
+const navigated=simulateAndroidAudioRoute([{lang:'th-TH'}],silentFirst);
+assert.equal(navigated.use('th-TH'), true, 'navigation keeps the route chosen at consent');
+const nativeFirst=simulateAndroidAudioRoute([{lang:'th-TH'}],new Map());
+assert.equal(nativeFirst.use('th-TH'), false, 'a ready Thai voice may use native TTS');
+nativeFirst.setVoices([]);
+assert.equal(nativeFirst.use('th-TH'), false, 'temporary getVoices() loss cannot switch route back to recordings');
 
 console.log("PASS: first-use voice cues and JSSF retry history are deterministic");

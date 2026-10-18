@@ -2326,7 +2326,9 @@ function _drainQueue() {
   if (_speaking || !_voiceQ.length) return;
 
   const { txt, onDone } = _voiceQ.shift();
-  if (window.QuickStrokeThaiRecorded?.use(currentLangCode())) {
+  // Only use recorded playback for mapped phrases; an unmapped Arm cue
+  // must fall through to native TTS (or the existing visual-only fallback).
+  if (window.QuickStrokeThaiRecorded?.use(currentLangCode()) && window.QuickStrokeThaiRecorded.fileFor?.(txt)) {
     _speaking=true;
     const sequence=++_speechSequence;
     window.QuickStrokeThaiRecorded.play(txt).then(status=>{

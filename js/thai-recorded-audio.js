@@ -2,6 +2,8 @@
 (function () {
   'use strict';
   const KEY='quickstroke_audio_ab';
+  const ANDROID_ROUTE_KEY='quickstroke_android_th_audio_route_v1';
+  let androidAutoRoute=null;
   const q=new URLSearchParams(location.search).get('audio');
   if(q==='tts'||q==='recorded') {
     try { sessionStorage.setItem(KEY,q); } catch(_) {}
@@ -72,15 +74,26 @@
     if (!String(lang||'th').toLowerCase().startsWith('th')) return false;
     if(mode==='recorded') return true;
     if(mode==='tts') return false;
-    // Samsung Internet can advertise a Thai TTS voice but fail to produce
-    // audible prompts. Prefer the bundled Thai recordings on that browser.
-    if (String(navigator.userAgent||'').includes('SamsungBrowser/')) return true;
+    const ua=String(navigator.userAgent||'');
+    // getVoices() is asynchronous on Android. Choose the route only once per
+    // tab/session; otherwise the opening Arm MP3 can turn into a different TTS
+    // voice when the Thai voice list arrives a few seconds later.
+    if (/Android/i.test(ua)) {
+      if(androidAutoRoute===null){
+        try { androidAutoRoute=sessionStorage.getItem(ANDROID_ROUTE_KEY); } catch (_) {}
+        if(androidAutoRoute!=='tts' && androidAutoRoute!=='recorded'){
+          const voices=window.speechSynthesis?.getVoices?.() || [];
+          const hasThaiVoice=voices.some(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'));
+          androidAutoRoute=ua.includes('SamsungBrowser/') || !hasThaiVoice ? 'recorded' : 'tts';
+          try { sessionStorage.setItem(ANDROID_ROUTE_KEY,androidAutoRoute); } catch (_) {}
+        }
+      }
+      return androidAutoRoute==='recorded';
+    }
+    // iOS Safari delivers getVoices() asynchronously. Preserve native TTS.
+    if (/iPad|iPhone|iPod/i.test(ua)) return false;
     const voices=window.speechSynthesis?.getVoices?.() || [];
-    if (voices.some(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'))) return false;
-    // iOS can deliver its voice list asynchronously; keep the proven iOS TTS path.
-    if (/iPad|iPhone|iPod/i.test(navigator.userAgent||'')) return false;
-    // An absent Thai voice on Android (including Samsung) uses bundled audio.
-    return true;
+    return !voices.some(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'));
   }
   function fileFor(text) { return lookup.get(norm(alias[text]||text))||null; }
   function stop() {

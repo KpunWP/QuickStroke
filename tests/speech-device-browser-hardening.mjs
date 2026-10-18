@@ -62,11 +62,11 @@ console.log("PASS: iOS retry/dead-mic operational settings are explicit");
 // Regression: a live iOS capture pipeline must not be interrupted by a
 // new instruction MP3 on retry; first-use playback uses speaker routing.
 const instruction=speech.slice(speech.indexOf('async function playSpeechInstructionBeforeCapture()'),speech.indexOf('async function handleAction()'));
-assert.match(speech,/const SPEECH_SILENT_START_TRIAL = !IOS_ASR_ONLY_TRIAL/);
+assert.match(speech,/const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL/);
 assert.match(instruction,/if \(SPEECH_SILENT_START_TRIAL\) return 'silent_trial'/);
 assert.match(speech,/if \(!SPEECH_SILENT_START_TRIAL && !IOS_ASR_ONLY_TRIAL\) primeSpeechCue\(\)/);
 assert.match(speech,/if \(!IS_IOS && !SPEECH_SILENT_START_TRIAL\) primeSpeechCue\(\)/);
-assert.match(speech,/if \(!SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\)/);
+assert.match(speech,/if \(!IS_ANDROID && !SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\)/);
 console.log('PASS: silent Speech trial disables app cues while preserving visual countdown');
 
 assert.match(instruction,/navigator\.audioSession\.type='playback'/);
