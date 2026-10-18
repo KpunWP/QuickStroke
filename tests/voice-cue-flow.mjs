@@ -125,6 +125,14 @@ assert.ok(audioReadyIndex>=0);
 // Speech instructional audio must be bundled before releasing Consent preload.
 const recordedAudio=fs.readFileSync("js/thai-recorded-audio.js","utf8");
 const voiceText='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
+// The SW caches scripts independently of HTML. Every module must fetch the
+// updated MP3 manifest rather than reusing the obsolete Ogg manifest.
+for (const path of ['jssf-consent.html','face-test.html','arm-test.html','speech-test.html','result.html']) {
+  const html=fs.readFileSync(path,'utf8');
+  assert.ok(html.includes('thai-recorded-audio.js?v=20261018-jssf-mp3-compat-v1'), 'stale audio JS URL: '+path);
+  assert.ok(!html.includes('thai-recorded-audio.js?v=20261018-jssf-android-spoken-cues-v1'), 'old Ogg route remains: '+path);
+}
+
 assert.ok(recordedAudio.includes(voiceText), 'instruction must be mapped in recorded audio manifest');
 assert.ok(recordedAudio.includes('speech_02_instruction.mp3'));
 assert.ok(fs.existsSync("audio/th/speech_02_instruction.mp3"), 'approved instruction MP3 must be uploaded to GitHub before release');
