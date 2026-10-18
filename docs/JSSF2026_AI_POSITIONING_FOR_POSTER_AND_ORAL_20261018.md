@@ -45,3 +45,6 @@
 
 ## Coordination
 This document is a **shared reference on the Poster/Research branch**. Separate ChatGPT conversations do not receive new messages automatically. The presenter/oral editor should reopen this file and incorporate its decisions into the V3-derived slides and speaker notes. No changes to public production code, research consent, database, or medical cutoffs.
+
+## Privacy alignment (added 2026-10-18)
+Read [`JSSF2026_PRIVACY_BY_DESIGN_SHARED_POSITIONING_20261018.md`](./JSSF2026_PRIVACY_BY_DESIGN_SHARED_POSITIONING_20261018.md). AI is not only a marketing point: it must fit a **privacy-first architecture**. Face ML landmark analysis and phone IMU processing minimize raw-media transmission to the project's research backend; consented study uploads are bounded derived metrics. Browser SpeechRecognition may run remotely even without project-server raw audio uploads; **do not** imply the whole AI pipeline is on-device until speech is verified or redesigned. Treat verified on-device ASR as a future engineering requirement; show vendor/browser risks transparently in Oral, Poster, and Demo.
