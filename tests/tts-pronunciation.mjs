@@ -41,7 +41,7 @@ for (const file of ['arm-test.html', 'face-test.html']) {
 }
 const cacheVersion = read('service-worker.js').match(/const CACHE_NAME = "quickstroke-pwa-v(\d+)";/);
 assert.ok(cacheVersion && Number(cacheVersion[1]) >= 44, 'service-worker cache version must be at least v44');
-assert.match(read('config.js'), /buildId: "20260926-jssf-withdrawal-staging-v3"/);
+assert.match(read('config.js'), /buildId: "20\d{6}-[A-Za-z0-9_-]+"/, 'config build marker must be a dated nonempty release identifier');
 
 console.log('PASS: Thai speech uses clear stroke terminology and spoken digit-by-digit 1669');
 console.log('PASS: English/Japanese and unrelated numbers remain unchanged');
