@@ -66,3 +66,31 @@ This is a document-only research-branch change. **No changes to production, JSSF
 - Speech: Android Chrome **33/33 valid attempts**, Android Samsung Internet **2/2**, iOS Chrome **2/3**, iOS Safari **153/238**. Android subsamples are small and builds/retries differ; **do not** infer intrinsic OS reliability without stratification. Highlight quality as a research question.
 - Non-valid Speech attempt reason codes (counts are attempts, not volunteers): `DEAD_MIC_DETECTED` **45**; `NO_VOICE` **14**; `I18N_LOAD_FAILED` **5**; `VOICE_NOT_RECOGNIZED` **5**; other reasons less frequent. Reason codes are client-derived technical classifications requiring independent failure review.
 - Face non-valid attempt reasons include `INSUFFICIENT_VALID_FRAMES` **8**, `NO_FACE_TIMEOUT` **5**, and `NO_SMILE_DETECTED` **2**. Arm non-valid reasons include `UNCERTAIN_MOVEMENT` **13**. These support evidence of quality-control gating, not clinical accuracy.
+
+## Approved human-centered narrative (2026-10-18)
+**Purpose / user framing:** People may recognize a Face–Arm–Speech warning sign yet remain uncertain whether it is serious enough to seek care. This hesitation is the human problem; knowledge of FAST is not universal, so never claim 'everyone knows the signs'. QuickStroke's mission is to support awareness and a more structured, timely **decision to seek emergency medical care**, not to decide whether someone definitely has or does not have a stroke. The accessible instrument is the smartphone already in many people's pockets.
+
+**Central storyline (approved direction):** *Uncertain warning sign → need to act → accessible smartphone → guided Face/Arm/Speech observations → evidence-led engineering study → limits and path toward validation*. Use a **hybrid emotional/scientific hook**: a small, compelling human uncertainty statement immediately adjacent to a large authentic 3-modality measurement visualization. Avoid presenting a self-test as a required step before seeking care.
+
+**Potential English poster hook:**
+> "Is this a stroke warning sign—or something else?"  
+> "When warning signs are uncertain, deciding to act can be difficult."
+
+**Core mission statement (draft):**
+> "QuickStroke explores how a smartphone can guide observation of facial movement, arm-related phone motion, and speech tasks—supporting awareness and timely decisions to seek medical help, without claiming to diagnose or rule out stroke."
+
+**Safety guardrail (mandatory, clear, near use case/demo QR):**
+> "If stroke is suspected or sudden warning signs appear, call emergency services immediately. Do not delay seeking care to use this app. A normal-looking result cannot rule out stroke."
+
+**Do NOT claim**: measured reduction in decision time, increased timely hospital arrival, proven clinical triage effectiveness, patient diagnosis, or universal access. These remain potential benefits/research goals, not demonstrated Pilot outcomes. Current Pilot supports technical observations, data quality and nonclinical feasibility; objective requires real-world clinical evaluation to demonstrate decision impact.
+
+**Scene sequence change:**
+1. *Human uncertainty and urgency*: brief hook and explicit goal of early action; avoid alarming diagnoses.
+2. *Accessible scientific response*: one phone / Face+Arm+Speech / quality-checked measurements, with clear statement that this is not a diagnosis.
+3. *How signals are captured*: authentic Face mesh, actual phone drift orientation and trace, ASR transcript/coverage.
+4. *Pilot protocol*: nonclinical normal-adult volunteers, version and attempt caveats.
+5. *Measured technical evidence*: valid vs not-evaluable; actual distributions and controlled tests if verified.
+6. *What is and is not proven*: technical feasibility, sensor/runtime issues, no patient labels or diagnostic cutoffs.
+7. *Path to responsible use*: clinical/patient-reference studies and optional ML, plus app demonstration and never-delay-care warning.
+
+**Visual guidance:** The first 15–20% of poster should juxtapose a concise human decision dilemma and one visually prominent phone/measurement hero. Keep emotionally engaging copy very short, so the scientific content remains the poster's visual focus. The Face/Arm/Speech signals and Pilot evidence dominate the middle. Safety/validation are distinct at the bottom.
