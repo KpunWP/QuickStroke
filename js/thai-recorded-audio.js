@@ -81,6 +81,17 @@
   let player=null, active=null, token=0, unlocked=false;
   function use(lang) {
     if (!String(lang||'th').toLowerCase().startsWith('th')) return false;
+    // Apply the research pilot's platform-specific preference without altering
+    // legacy Public or Dev A/B preferences. MP3 playback remains a fallback
+    // capability on iOS, independently of this primary-route decision.
+    const ctx=window.QuickStrokeDataContract?.getSessionContext?.();
+    const consentedJssf=ctx?.appMode==='research' &&
+      ctx?.researchMetadata?.researchProfile==='community_remote_qr' &&
+      ctx?.researchMetadata?.consentStatus==='consented';
+    if (consentedJssf) {
+      if (/Android/i.test(navigator.userAgent||'')) return true;
+      if (/iPad|iPhone|iPod/i.test(navigator.userAgent||'')) return false;
+    }
     if(mode==='recorded') return true;
     if(mode==='tts') return false;
     const ua=String(navigator.userAgent||'');
