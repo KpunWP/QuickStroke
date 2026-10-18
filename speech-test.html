@@ -1355,11 +1355,16 @@ function primeSpeechCue() {
 
 function speakSpeechCue(text) {
   const value = String(text || '').trim();
-  // Unmapped short/count/end cues cannot be played through the MP3 manifest.
-  // Use native speech where a matching Thai voice is available instead.
-  if(window.QuickStrokeThaiRecorded?.use(T?.langCode) &&
-     (window.QuickStrokeThaiRecorded.fileFor?.(value) || !ANDROID_JSSF_SPEECH_CUES))
+  // Android JSSF uses the same five approved recordings from preparation
+  // through module completion. Do not switch voices when getVoices() changes.
+  if (ANDROID_JSSF_SPEECH_CUES && String(T?.langCode || '').toLowerCase().startsWith('th') &&
+      window.QuickStrokeThaiRecorded?.fileFor?.(value)) {
     return window.QuickStrokeThaiRecorded.play(value);
+  }
+  if (window.QuickStrokeThaiRecorded?.use(T?.langCode) &&
+      window.QuickStrokeThaiRecorded.fileFor?.(value)) {
+    return window.QuickStrokeThaiRecorded.play(value);
+  }
   const lang = T?.langCode || document.documentElement.lang || 'th-TH';
   if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
     reportSpeechTts('TTS_UNAVAILABLE','ready','unsupported',lang,undefined,'speech-ready-unsupported');
@@ -3248,43 +3253,14 @@ async function playIosAsrOnlyCount(count) {
   await sleep(180);
 }
 
-// Android JSSF: spoken digits finish before Web Speech owns the microphone.
-// Unlike the iPhone speaker-only route, Android releases the temporary
-// calibration stream first; if TTS is unavailable, the visual digit still works.
+// Android JSSF: each verified Thai MP3 is allowed to finish before ASR
+// acquires the mic. Keep the start of each spoken digit ~1s apart regardless
+// of the trimmed clip duration (rather than accumulating file-end silence).
 async function playAndroidJssfSpokenCount(count) {
-  const synth=window.speechSynthesis;
-  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') {
-    await sleep(1000);
-    return 'unsupported';
-  }
-  const result=await new Promise(resolve => {
-    let done=false;
-    let timer=null;
-    const finish=status=>{
-      if(done)return;
-      done=true;
-      if(timer)clearTimeout(timer);
-      if(status==='timeout')try{synth.cancel();}catch(_){}
-      resolve(status);
-    };
-    try {
-      const utterance=new SpeechSynthesisUtterance(String(count));
-      utterance.lang=T?.langCode || 'th-TH';
-      const voices=synth.getVoices?.() || [];
-      const same=voices.find(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith('th'));
-      if(same)utterance.voice=same;
-      utterance.rate=1.1;
-      utterance.volume=1;
-      utterance.onend=()=>finish('ended');
-      utterance.onerror=()=>finish('error');
-      synth.cancel();
-      synth.resume?.();
-      synth.speak(utterance);
-      timer=setTimeout(()=>finish('timeout'),1400);
-    } catch (_) { finish('error'); }
-  });
-  if (result!=='ended') queueSpeechTechnicalDiagnostic('ANDROID_JSSF_COUNTDOWN_TTS_UNAVAILABLE');
-  await sleep(160);
+  const began=performance.now();
+  const result=await speakSpeechCue(String(count));
+  if (result!=='ended') queueSpeechTechnicalDiagnostic('ANDROID_JSSF_COUNTDOWN_AUDIO_UNAVAILABLE');
+  await sleep(Math.max(0,1000-(performance.now()-began)));
   return result;
 }
 
