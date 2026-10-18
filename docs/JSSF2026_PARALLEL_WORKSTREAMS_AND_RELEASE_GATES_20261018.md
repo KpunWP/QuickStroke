@@ -44,3 +44,6 @@ Research/poster doc branch: research/jssf-2026-poster-demo-kickoff-20261018. Eng
 - Confirm printer size/specification and school/presenter names.
 - Formal permission to publish volunteer's face photo; otherwise use consenting staged model or schematic.
 - Whether phone/iPad can connect to external screen onsite is unknown; plan no-TV/no-WiFi fallback.
+
+## Editorial update — AI positioning (2026-10-18)
+Poster and Oral must show genuine AI use while keeping the project's core purpose: early human awareness and timely care-seeking for possible stroke warning signs. See [`JSSF2026_AI_POSITIONING_FOR_POSTER_AND_ORAL_20261018.md`](./JSSF2026_AI_POSITIONING_FOR_POSTER_AND_ORAL_20261018.md). Face uses ML-assisted landmark tracking; Speech uses browser ASR; Arm is IMU signal processing, **not a trained AI model**. Current multimodal decision logic is not a validated diagnostic AI classifier. This direction applies to the revised Poster Storyboard and the Oral deck based on `QuickStroke_Pitch_V3.pptx`. Other conversations must **re-read the shared document**; edits here do not directly message them.
