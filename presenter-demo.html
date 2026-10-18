@@ -133,8 +133,11 @@
       lang=code;document.documentElement.lang=LOCALE[code];
       document.querySelectorAll("[data-lang]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.lang===code)));
       [["subtitle","subtitle"],["safety","safety"],["begin","begin"],["face","face"],["arm","arm"],["speech","speech"],["voice","voice"],["standalone","standalone"],["frame-title","frame"],["panel-title","panel"],["explanation","explain"],["status-label","status"],["face-label","faceLabel"],["face-caption","faceCaption"],["arm-label","armLabel"],["arm-caption","armCaption"],["speech-expected-label","expected"],["speech-recognized-label","recognized"],["speech-caption","speechCaption"],["offline-note","offlineNote"]].forEach(x=>text(x[0],x[1]));
-      sessionStorage.setItem("fast_lang",code);
-      try{localStorage.setItem("quickstroke_locale",LOCALE[code])}catch(e){}
+      // A blocked Research/Dev tab must not have its saved locale altered.
+      if(safeDemoSession(sessionStorage)){
+        sessionStorage.setItem("fast_lang",code);
+        try{localStorage.setItem("quickstroke_locale",LOCALE[code])}catch(e){}
+      }
       if(started&&active)openModule(active);
       else if(!started)$("engine-status").textContent=COPY[lang].notStarted;
       refreshConnectivity();
@@ -157,6 +160,9 @@
       if(!started||!URLS[module]||!safeDemoSession(sessionStorage)){
         $("gate-error").textContent=COPY[lang].blocked;return;
       }
+      // Avoid Presenter voice-probe audio interfering with the original ASR.
+      if("speechSynthesis" in window)speechSynthesis.cancel();
+      $("voice").disabled=module==="speech";
       active=module;samples=[];epoch=performance.now();
       for(const id of ["face","arm","speech"])$(id+"-panel").hidden=id!==module;
       $("engine-status").textContent=COPY[lang].waiting;
