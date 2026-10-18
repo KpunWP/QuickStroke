@@ -29,11 +29,15 @@ assert.equal(pronounce(thaiSafetyPrompt, 'en-US'), thaiSafetyPrompt);
 assert.equal(pronounce(thaiSafetyPrompt, 'ja-JP'), thaiSafetyPrompt);
 
 for (const file of ['arm-test.html', 'face-test.html']) {
-  assert.match(
-    read(file),
-    /const spokenText = window\.QuickStrokeI18n\?\.prepareSpeechText\?\.\(txt, lang\) \?\? txt;[\s\S]*?new SpeechSynthesisUtterance\(spokenText\)/,
-    `${file}: TTS must use normalized speech rather than visual text`
-  );
+  const source=read(file);
+  // The current TTS architecture normalizes inside its speech plan, then
+  // builds the utterance from plan.text rather than a local spokenText variable.
+  const planName=file==='arm-test.html' ? 'armSpeechPlan' : 'faceSpeechPlan';
+  assert.ok(source.includes('function '+planName+'(txt, requestedLang)'),file+' should define its speech plan');
+  assert.match(source,/text:window\.QuickStrokeI18n\?\.prepareSpeechText\?\.\(txt, requestedLang\) \?\? txt/,
+    file+': TTS plan must normalize spoken Thai without modifying UI text');
+  assert.match(source,/new SpeechSynthesisUtterance\(plan\.text\)/,
+    file+': TTS utterance must use the normalized plan text');
 }
 const cacheVersion = read('service-worker.js').match(/const CACHE_NAME = "quickstroke-pwa-v(\d+)";/);
 assert.ok(cacheVersion && Number(cacheVersion[1]) >= 44, 'service-worker cache version must be at least v44');
