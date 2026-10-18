@@ -148,8 +148,8 @@ test('Face/Arm/Speech protected thresholds are unchanged from 1.0.20', () => {
   assert.deepEqual(comparableThresholds, comparableBaseline);
   assert.equal(newConfig.thresholds.speech.androidPhrasePauseMs, 1800);
   assert.equal(newConfig.thresholds.speech.androidRecognitionSafetyMs, 12000);
-  assert.equal(newConfig.thresholds.speech.version, 'speech-prepilot-1.9.0');
-  assert.equal(newConfig.thresholds.speech.algorithmVersion, 'speech-browser-asr-1.5.0');
+  assert.equal(newConfig.thresholds.speech.version, 'speech-prepilot-1.9.1');
+  assert.equal(newConfig.thresholds.speech.algorithmVersion, 'speech-browser-asr-1.6.0');
   assert.equal(newConfig.thresholds.speech.resultSchemaVersion, 'speech-result-1.4.2');
   assert.equal(newConfig.thresholds.speech.researchPayloadVersion, 'speech-research-0.5.2');
   assert.equal(newConfig.thresholds.speech.decisionPolicy, 'phrase_only_observation_rate_research_v1');
