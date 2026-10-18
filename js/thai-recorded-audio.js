@@ -27,11 +27,11 @@
     'อาจพบแขนตก หากสงสัยสโตรก โทร 1669 ทันที':'arm_11_alert.mp3',
     'เตรียมพูด รอจนหน้าจอแสดงว่าเริ่มพูดได้':'speech_01_prepare.mp3',
     'เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้':'speech_02_instruction.mp3',
-    'เตรียมพูด':'speech_03_prepare_short.mp3',
-    '3':'speech_04_count_three.mp3',
-    '2':'speech_05_count_two.mp3',
-    '1':'speech_06_count_one.mp3',
-    'ทดสอบการพูดเสร็จแล้ว':'speech_07_module_complete.mp3',
+    'เตรียมพูด':'speech_03_prepare_short.ogg',
+    '3':'speech_04_count_three.ogg',
+    '2':'speech_05_count_two.ogg',
+    '1':'speech_06_count_one.ogg',
+    'ทดสอบการพูดเสร็จแล้ว':'speech_07_module_complete.ogg',
     'จบการทดสอบ ขอบคุณค่ะ':'result_01_thanks.mp3'
   };
   const alias={'เตรียมพูด รอเสียงสัญญาณก่อนเริ่มพูด':'เตรียมพูด รอจนหน้าจอแสดงว่าเริ่มพูดได้',
