@@ -2216,7 +2216,7 @@ function speakFace(txt, opts={}){
   };
   if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') {
     reportFaceTts('TTS_UNAVAILABLE','prompt','unsupported',lang,undefined,'face-prompt-unsupported');
-    if(pilotFallback && route!=='recorded') playRecorded();
+    if(pilotFallback && route==='primary') playRecorded();
     return;
   }
   const now = Date.now();
