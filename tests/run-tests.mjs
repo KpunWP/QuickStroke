@@ -125,9 +125,9 @@ function extractFunction(source, name) {
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
 
-test('app version and policy versions are 1.0.29', () => {
+test('app version and policy versions are 1.0.30', () => {
   const c = loadCurrent();
-  assert.equal(c.QS_CONFIG.version, '1.0.29');
+  assert.equal(c.QS_CONFIG.version, '1.0.30');
   assert.equal(c.QuickStrokeDataContract.version, 'quickstroke-common-data-0.2.0');
   assert.equal(c.QuickStrokeResearchPolicy.selectionPolicyVersion, 'quickstroke-selection-policy-1.0.0');
 });
@@ -148,8 +148,8 @@ test('Face/Arm/Speech protected thresholds are unchanged from 1.0.20', () => {
   assert.deepEqual(comparableThresholds, comparableBaseline);
   assert.equal(newConfig.thresholds.speech.androidPhrasePauseMs, 1800);
   assert.equal(newConfig.thresholds.speech.androidRecognitionSafetyMs, 12000);
-  assert.equal(newConfig.thresholds.speech.version, 'speech-prepilot-1.9.0');
-  assert.equal(newConfig.thresholds.speech.algorithmVersion, 'speech-browser-asr-1.5.0');
+  assert.equal(newConfig.thresholds.speech.version, 'speech-prepilot-1.9.1');
+  assert.equal(newConfig.thresholds.speech.algorithmVersion, 'speech-browser-asr-1.6.0');
   assert.equal(newConfig.thresholds.speech.resultSchemaVersion, 'speech-result-1.4.2');
   assert.equal(newConfig.thresholds.speech.researchPayloadVersion, 'speech-research-0.5.2');
   assert.equal(newConfig.thresholds.speech.decisionPolicy, 'phrase_only_observation_rate_research_v1');
