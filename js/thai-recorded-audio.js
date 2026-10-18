@@ -41,7 +41,7 @@
   const lookup=new Map(Object.entries(manifest).map(([s,f])=>[norm(s),f]));
   // Consent warm-up: cache every required Thai prompt before the first module.
   // A completed fetch is verified as audio bytes, not merely preload='auto'.
-  const AUDIO_CACHE='quickstroke-jssf-th-audio-v2';
+  const AUDIO_CACHE='quickstroke-jssf-th-audio-v3';
   const REQUIRED_FILES=[...new Set(Object.values(manifest))];
   let preparePromise=null;
   function shouldPrepare() {
