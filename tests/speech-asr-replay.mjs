@@ -172,3 +172,65 @@ assert.match(
   /const sessionTranscript = ANDROID_EXCLUSIVE_ASR[\s\S]*mergeSpeechTranscriptList\(ordered\.map\(item => item\.text\)\)/
 );
 console.log("PASS: Android runtime uses deduplicating session aggregation while non-Android path remains unchanged");
+
+ // JSSF only: short accepted legacy variant must NOT pass as a complete phrase.
+ const thaiSpeech=JSON.parse(fs.readFileSync(path.join(root,'locales/th-TH/ui.json'),'utf8')).speech;
+ function replayPhrasePolicy(isConsentedJssfSpeech){
+   const ctx={T:thaiSpeech,isConsentedJssfSpeech,normalizeSpeechText};
+   vm.createContext(ctx);
+   vm.runInContext(
+     extractFunction(speech,'acceptedSpeechPhrases')+'\n'+
+     extractFunction(speech,'speechTranscriptMatchesAcceptedPhrase')+'\n'+
+     extractFunction(speech,'isIncompleteJssfTargetPhrase')+'\n'+
+     'this.match=speechTranscriptMatchesAcceptedPhrase;this.incomplete=isIncompleteJssfTargetPhrase;this.variants=acceptedSpeechPhrases();',
+     ctx
+   );
+   return ctx;
+ }
+ const pilot=replayPhrasePolicy(true),legacy=replayPhrasePolicy(false);
+ assert.equal(pilot.match('วันนี้ท้องฟ้าแจ่มใส'),true);
+ assert.equal(pilot.match('ท้องฟ้าแจ่มใส'),false,'missing วันนี้ must never pass JSSF');
+ assert.equal(pilot.incomplete('ท้องฟ้าแจ่มใส'),true,'missing prefix eligible for retry');
+ assert.equal(pilot.incomplete('วันนี้ท้องฟ้า'),true,'missing suffix eligible for retry');
+ assert.equal(pilot.incomplete('วันนี้ท้องฟ้าครึ้ม'),false,'different spoken phrase remains an observation, not partial capture');
+ assert.equal(legacy.match('ท้องฟ้าแจ่มใส'),true,'legacy Public/Dev accepted variants unchanged');
+ assert.deepEqual(Array.from(pilot.variants),[thaiSpeech.target]);
+ console.log('PASS: JSSF full-target-only scoring, partial retry, and Public/Dev legacy isolation');
+
+ // Exercise real onstart/onaudiostart readiness callbacks under virtual time.
+ const onstartBody=speech.match(/recognition\.onstart = \(\) => \{([\s\S]*?)\n    \};\n    recognition\.onaudiostart =/);
+ const audiostartBody=speech.match(/recognition\.onaudiostart = \(\) => \{([\s\S]*?)\n    \};\n    recognition\.onaudioend =/);
+ assert.ok(onstartBody&&audiostartBody,'ASR start and audio-start handlers must remain accessible');
+ function replayReady(platformAndroid,sendAudioStart){
+   const state={ready:[],failure:[],timeouts:[],diagnostics:[],notes:[]};
+   const ctx={
+     recognition:{},recognitionRunId:1,runId:1,phase:'RECORDING',
+     recordingStartedMs:null,ANDROID_JSSF_SPEECH_CUES:platformAndroid,
+     recognitionReadyFallbackTimer:null,
+     queueSpeechTechnicalDiagnostic:v=>state.diagnostics.push(v),
+     appendAsrObservation:v=>state.notes.push(v),
+     DBG:()=>{},
+     clearTimeout:()=>{},
+     setTimeout:(fn,ms)=>{state.timeouts.push({fn,ms});return 1;},
+     finishSpeechInvalid:(code,details)=>{state.failure.push({code,details});ctx.phase='DONE';},
+     markSpeechRecognitionReady:source=>{state.ready.push(source);ctx.recordingStartedMs=123;}
+   };
+   vm.createContext(ctx);
+   vm.runInContext('recognition.onstart=()=>{'+onstartBody[1]+'};recognition.onaudiostart=()=>{'+audiostartBody[1]+'};',ctx);
+   ctx.recognition.onstart();
+   if(sendAudioStart)ctx.recognition.onaudiostart();
+   assert.equal(state.timeouts.length,1);
+   state.timeouts[0].fn();
+   return state;
+ }
+ assert.deepEqual(replayReady(true,false).ready,[],'Android must not display ready from an onstart timeout');
+ assert.equal(replayReady(true,false).failure[0].code,'MICROPHONE_START_FAILED','no audio capture must surface as retryable technical failure');
+ assert.deepEqual(replayReady(true,true).ready,['audio_start'],'Android speak-now appears only after actual capture readiness');
+ assert.equal(replayReady(true,true).failure.length,0,'successful mic start never times out');
+ assert.deepEqual(replayReady(false,false).ready,['onstart_timeout_fallback'],'non-JSSF legacy fallback remains');
+ console.log('PASS: virtual Android mic-ready event gates spoken instructions while legacy remains isolated');
+
+ assert.match(speech,/isIncompleteJssfTargetPhrase\(text\)\) invalidReasonCode = 'INCOMPLETE_TARGET_PHRASE'/);
+ assert.match(speech,/isConsentedJssfSpeech && reasonCode === 'INCOMPLETE_TARGET_PHRASE'/);
+ assert.match(speech,/acceptedVariants: \[\.\.\.acceptedSpeechPhrases\(\)\]/);
+ assert.match(configSource,/algorithmVersion: "speech-browser-asr-1\.6\.0"/);
