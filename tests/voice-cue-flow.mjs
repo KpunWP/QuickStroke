@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import vm from "node:vm";
 
 const arm=fs.readFileSync("arm-test.html","utf8");
 const speech=fs.readFileSync("speech-test.html","utf8");
@@ -138,5 +139,40 @@ assert.match(result,/historicalInvalidRetained/);
 assert.match(result,/invalidHistoryCount/);
 assert.match(result,/modulePriorInvalid/);
 assert.equal(th.result.modulePriorInvalid,"เคยประเมินไม่ได้และทดสอบซ้ำ {n} ครั้ง");
+
+// Android getVoices() may resolve between Face/Arm instructions. The chosen
+// mode must remain stable within this tab and after navigating to another HTML page.
+function simulateAndroidAudioRoute(initialVoices, storage) {
+  let voices = initialVoices;
+  const sharedStorage = {
+    getItem(key) { return storage.has(key) ? storage.get(key) : null; },
+    setItem(key, value) { storage.set(key, String(value)); }
+  };
+  const browser = {
+    navigator: { userAgent: 'Mozilla/5.0 (Linux; Android 15; Pixel) Chrome/155 Mobile' },
+    location: { search:'' },
+    URLSearchParams,
+    sessionStorage:sharedStorage,
+    document:{ readyState:'loading', addEventListener(){} },
+    speechSynthesis:{ getVoices(){ return voices; } }
+  };
+  browser.window=browser;
+  vm.runInNewContext(recordedAudio, browser);
+  return {
+    use: browser.QuickStrokeThaiRecorded.use,
+    setVoices(next) { voices=next; }
+  };
+}
+const silentFirst = new Map();
+const early = simulateAndroidAudioRoute([], silentFirst);
+assert.equal(early.use('th-TH'), true, 'no Thai TTS available initially chooses recorded audio');
+early.setVoices([{lang:'th-TH'}]);
+assert.equal(early.use('th-TH'), true, 'late Thai voice arrival does not switch recordings to TTS mid-test');
+const navigated=simulateAndroidAudioRoute([{lang:'th-TH'}],silentFirst);
+assert.equal(navigated.use('th-TH'), true, 'navigation keeps the route chosen at consent');
+const nativeFirst=simulateAndroidAudioRoute([{lang:'th-TH'}],new Map());
+assert.equal(nativeFirst.use('th-TH'), false, 'a ready Thai voice may use native TTS');
+nativeFirst.setVoices([]);
+assert.equal(nativeFirst.use('th-TH'), false, 'temporary getVoices() loss cannot switch route back to recordings');
 
 console.log("PASS: first-use voice cues and JSSF retry history are deterministic");
