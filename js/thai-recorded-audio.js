@@ -79,16 +79,16 @@
     catch(error){preparePromise=null;throw error;}
   }
   let player=null, active=null, token=0, unlocked=false;
-  function use(lang) {
-    if (!String(lang||'th').toLowerCase().startsWith('th')) return false;
-    // Apply the research pilot's platform-specific preference without altering
-    // legacy Public or Dev A/B preferences. MP3 playback remains a fallback
-    // capability on iOS, independently of this primary-route decision.
+  function isConsentedJssf() {
     const ctx=window.QuickStrokeDataContract?.getSessionContext?.();
-    const consentedJssf=ctx?.appMode==='research' &&
+    return ctx?.appMode==='research' &&
       ctx?.researchMetadata?.researchProfile==='community_remote_qr' &&
       ctx?.researchMetadata?.consentStatus==='consented';
-    if (consentedJssf) {
+  }
+  function use(lang) {
+    if (!String(lang||'th').toLowerCase().startsWith('th')) return false;
+    // Apply pilot platform priority only to consented JSSF; preserve Public/Dev.
+    if (isConsentedJssf()) {
       if (/Android/i.test(navigator.userAgent||'')) return true;
       if (/iPad|iPhone|iPod/i.test(navigator.userAgent||'')) return false;
     }
@@ -210,5 +210,5 @@
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addAudioTestControl,{once:true});
   else addAudioTestControl();
-  window.QuickStrokeThaiRecorded={mode,use,fileFor,play,stop,unlock,prepareAll,shouldPrepare};
+  window.QuickStrokeThaiRecorded={mode,use,isConsentedJssf,fileFor,play,stop,unlock,prepareAll,shouldPrepare};
 })();
