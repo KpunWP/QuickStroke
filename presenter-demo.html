@@ -30,7 +30,40 @@
     #drift-chart{width:100%;height:210px;border:1px solid #dde7f0;border-radius:9px}
     #expected,#recognized{white-space:pre-wrap;overflow-wrap:anywhere}
     footer{font-size:12px;color:#52667e;padding:12px 0}
-    @media(max-width:850px){.layout{display:flex;flex-direction:column}iframe{height:74vh;min-height:470px}header strong{font-size:18px}}
+
+    /* Presenter V2: preserve the original test at almost full viewport size.
+       Technical explanation is opt-in and never constrains the measurement engine. */
+    body{overflow:hidden}
+    header{height:46px;padding:5px max(8px,env(safe-area-inset-right));flex-wrap:nowrap;gap:6px}
+    header strong{font-size:13px;white-space:nowrap}
+    header small{display:none}
+    nav{gap:3px}
+    nav button{padding:7px 9px;font-size:12px;border-radius:8px}
+    main{max-width:none;width:100%;padding:0;height:calc(100dvh - 46px)}
+    .controls{height:51px;min-height:51px;gap:5px;flex-wrap:nowrap;overflow-x:auto;margin:0;padding:5px 7px;background:#fff;border-bottom:1px solid #d6e0ec}
+    .controls button,.controls a{flex:0 0 auto;padding:9px 10px;border-radius:8px;font-size:12px;white-space:nowrap}
+    .controls #begin{flex:1}
+    .controls #technical{background:#e2ebf3;color:#1c3955}
+    .controls #standalone{margin-left:auto}
+    .controls [hidden]{display:none!important}
+    .layout{display:block;width:100%;height:calc(100% - 51px)}
+    .frame-card{height:100%;border:0;border-radius:0}
+    .frame-head{display:none}
+    iframe{display:block;width:100%;height:100%;min-height:0;border:0}
+    .notice,#online,footer{display:none}
+    #gate-error{position:fixed;z-index:101;top:99px;left:9px;right:9px;margin:0;padding:0;background:#fff6e4;border-radius:7px}
+    #gate-error:not(:empty){padding:12px;box-shadow:0 3px 24px #0013}
+    .readout{position:fixed;z-index:100;left:8px;right:8px;bottom:max(8px,env(safe-area-inset-bottom));max-width:480px;max-height:min(58dvh,590px);overflow-y:auto;padding:15px;border-radius:16px;box-shadow:0 10px 48px #0016}
+    .readout[hidden]{display:none!important}
+    .readout h2{font-size:17px;margin-bottom:5px}
+    .readout .muted{font-size:13px}
+    .readout .value{font-size:16px}
+    .readout .controls{height:auto;background:none;padding:0;border:0;margin:8px 0}
+    .readout .notice,.readout footer{display:block;font-size:12px}
+    .readout footer{padding:10px 0}
+    @media(min-width:760px){.readout{left:auto;right:14px;max-width:450px}}
+    @media(max-width:385px){header strong{font-size:11px}nav button{padding:6px;font-size:11px}.controls button,.controls a{padding:8px;font-size:11px}}
+
   </style>
 </head>
 <body>
@@ -43,23 +76,24 @@
     </nav>
   </header>
   <main>
-    <div class="notice" id="safety">Engineering illustration, not a diagnosis. A result cannot rule out stroke. Demo sessions must never be enrolled in the JSSF pilot.</div>
     <div class="controls">
       <button type="button" id="begin">Begin fresh public-ephemeral demo</button>
       <button type="button" id="face" disabled>Face Mesh</button>
       <button type="button" id="arm" disabled>Arm Drift</button>
       <button type="button" id="speech" disabled>Speech ASR</button>
-      <button type="button" id="voice" class="light">Check TTS voice</button>
-      <a id="standalone" class="light" href="#" target="_blank" rel="noopener" aria-disabled="true">Open module on phone</a>
+      <a id="standalone" class="light" href="#" target="_blank" rel="noopener" aria-disabled="true">Open full screen</a>
+      <button type="button" id="technical" aria-controls="technical-panel" aria-expanded="false">Details</button>
     </div>
     <p id="gate-error" role="alert" aria-live="assertive"></p>
-    <p id="online" class="muted" role="status" aria-live="polite"></p>
     <div class="layout">
       <section class="frame-card" aria-label="Original QuickStroke measurement engine">
         <div class="frame-head" id="frame-title">Original engine · choose a module</div>
         <iframe id="engine-frame" title="Original QuickStroke engine" allow="camera; microphone; accelerometer; gyroscope" referrerpolicy="same-origin"></iframe>
       </section>
-      <section class="readout" aria-live="polite">
+      <section class="readout" id="technical-panel" aria-label="Optional technical explanations" aria-live="polite" hidden>
+        <div class="notice" id="safety">Engineering illustration, not a diagnosis. A result cannot rule out stroke. Demo sessions must never be enrolled in the JSSF pilot.</div>
+        <div class="controls"><button type="button" id="voice" class="light">Check TTS voice</button></div>
+        <p id="online" class="muted" role="status" aria-live="polite"></p>
         <h2 id="panel-title">Live technical explanation</h2>
         <p class="muted" id="explanation">The camera, phone orientation sensor and speech recognition are processed by the existing test pages. The presenter panel reads only what those pages display.</p>
         <div class="measurement">
@@ -79,17 +113,17 @@
           <label id="speech-recognized-label" style="margin-top:12px">Browser recognition / status</label><div class="value" id="recognized">—</div>
           <p class="muted" id="speech-caption">Browser SpeechRecognition may use a network service and is not guaranteed in Airplane Mode. No audio is recorded by this presenter panel.</p>
         </div>
+        <footer id="offline-note">First access needs Internet. Install and precache the PWA online before an airplane-mode rehearsal; test the camera, motion sensor and speech features separately. If an iframe blocks iOS permissions, open the module directly on the phone.</footer>
       </section>
     </div>
-    <footer id="offline-note">First access needs Internet. Install and precache the PWA online before an airplane-mode rehearsal; test the camera, motion sensor and speech features separately. If an iframe blocks iOS permissions, open the module directly on the phone.</footer>
   </main>
   <script>
     "use strict";
     // No analytics, network uploads, Research APIs or JSSF enrollment on this page.
     const COPY={
-      en:{subtitle:"Presenter technical demo · separate from Research/Dev",safety:"Engineering illustration, not a diagnosis. A result cannot rule out stroke. Demo sessions must never be enrolled in the JSSF pilot.",begin:"Begin fresh public-ephemeral demo",face:"Face Mesh",arm:"Arm Drift",speech:"Speech ASR",voice:"Check TTS voice",standalone:"Open module on phone",frame:"Original engine · choose a module",panel:"Live technical explanation",explain:"The camera, phone orientation sensor and speech recognition are processed by the existing test pages. The presenter panel reads only what those pages display.",status:"Engine status",notStarted:"Not started",faceLabel:"Camera / face tracking",waiting:"Waiting for camera",faceCaption:"The original MediaPipe page draws mesh landmarks on the video. A running camera alone does not mean a face was reliably tracked.",armLabel:"Displayed phone drift (degrees)",armCaption:"Live display samples only, not a clinical arm-strength measurement. No trace is uploaded or saved.",expected:"Expected phrase (from original test)",recognized:"Browser recognition / status",speechCaption:"Browser SpeechRecognition may use a network service and is not guaranteed in Airplane Mode. No audio is recorded by this presenter panel.",offlineNote:"First access needs Internet. Install and precache the PWA online before an airplane-mode rehearsal; test the camera, motion sensor and speech features separately. If an iframe blocks iOS permissions, open the module directly on the phone.",blocked:"An existing Research/Dev session was detected. This demo cannot open in the same tab. Close it and open a new private browser session; do not reuse a JSSF consent tab.",ready:"Public-ephemeral demo ready. Choose Face, Arm or Speech.",outside:"The embedded test navigated outside the selected engine. Choose a module again.",loaded:"Existing engine loaded",online:"Browser online",offline:"Browser reports offline",sw:"Service Worker controlling page (cache completeness still requires offline testing)",swMissing:"No active Service Worker controller",speechUnavailable:"SpeechRecognition API unavailable in this browser",noVoice:"No matching TTS voice installed/available on this device",voiceStarted:"TTS voice started",voiceError:"TTS could not play; read visual instructions instead"},
-      ja:{subtitle:"発表者用技術デモ · 研究/開発モードとは別",safety:"技術デモであり、診断ではありません。正常に見えても脳卒中を否定できません。デモ情報はJSSF研究に送信しません。",begin:"新しいデモを開始（研究データなし）",face:"顔メッシュ",arm:"腕の傾き",speech:"音声認識",voice:"音声案内を確認",standalone:"スマホで直接開く",frame:"既存エンジン · 項目を選択",panel:"技術説明（ライブ）",explain:"測定は既存の各テストページで実行し、この画面では表示値だけを読み取ります。",status:"エンジン状態",notStarted:"未開始",faceLabel:"カメラ・顔追跡",waiting:"カメラ待機中",faceCaption:"既存のMediaPipeが顔のランドマークを描画します。カメラが動作しても追跡品質は保証されません。",armLabel:"画面表示の端末角度変化（度）",armCaption:"端末の動きであり、筋力の直接測定ではありません。グラフは保存・送信しません。",expected:"お手本の文章",recognized:"ブラウザーの認識結果・状態",speechCaption:"音声認識は通信が必要な場合があります。機内モードでの動作は保証されません。",offlineNote:"初回アクセスはネット接続が必要です。事前にPWAをキャッシュし、実機で機内モードを確認してください。iOSのiframeで許可できない場合、スマホで直接開いてください。",blocked:"研究/開発セッションが残っています。このタブではデモを開始できません。別のプライベートブラウザーで開いてください。",ready:"研究データなしのデモ準備完了。項目を選んでください。",outside:"画面がテスト外に移動しました。もう一度選択してください。",loaded:"既存のエンジンを読み込みました",online:"オンライン",offline:"オフライン表示",sw:"Service Worker制御中（オフライン確認は別途必要）",swMissing:"Service Workerは未制御",speechUnavailable:"このブラウザーでは音声認識を利用できません",noVoice:"この言語の音声が見つかりません",voiceStarted:"音声再生を開始しました",voiceError:"音声を再生できません。画面の文字をご利用ください"},
-      th:{subtitle:"เดโมเชิงเทคนิคสำหรับผู้นำเสนอ · แยกจาก Research/Dev",safety:"เดโมแสดงการทำงาน ไม่ใช่การวินิจฉัย ผลปกติไม่สามารถยืนยันว่าไม่เป็นสโตรก และข้อมูลเดโมต้องไม่ถูกส่งเข้า JSSF Pilot",begin:"เริ่มเดโมใหม่ (Public ชั่วคราว)",face:"ตาข่ายใบหน้า",arm:"กราฟแขน",speech:"การรู้จำเสียง",voice:"ตรวจเสียง TTS",standalone:"เปิดโมดูลบนโทรศัพท์",frame:"เอนจินเดิม · เลือกโมดูล",panel:"คำอธิบายเชิงเทคนิคแบบสด",explain:"ใช้หน้าทดสอบและเอนจิน Face/Arm/Speech เดิม แผงผู้นำเสนออ่านเฉพาะข้อมูลที่หน้านั้นแสดง",status:"สถานะเอนจิน",notStarted:"ยังไม่เริ่ม",faceLabel:"กล้องและการติดตามใบหน้า",waiting:"รอกล้อง",faceCaption:"หน้า MediaPipe เดิมแสดง Face Mesh การเปิดกล้องได้ไม่ได้แปลว่าติดตามใบหน้าได้ถูกต้องเสมอ",armLabel:"มุมเคลื่อนของโทรศัพท์ที่แสดง (องศา)",armCaption:"กราฟแสดงการเปลี่ยนมุมโทรศัพท์ ไม่ใช่แรงกล้ามเนื้อโดยตรง ไม่บันทึกหรือส่งข้อมูล",expected:"ประโยคที่ต้องพูดจากหน้าทดสอบ",recognized:"ผลการรู้จำและสถานะ",speechCaption:"SpeechRecognition อาจต้องใช้อินเทอร์เน็ต ไม่รับประกันว่าใช้ได้ใน Airplane Mode",offlineNote:"เข้าเว็บครั้งแรกต้องใช้อินเทอร์เน็ต ต้องโหลด PWA และทดสอบโหมดเครื่องบินกับอุปกรณ์จริง หาก iframe ขอสิทธิ์บน iOS ไม่ได้ ให้เปิดโมดูลโดยตรงบนโทรศัพท์",blocked:"พบ Research/Dev session ค้างอยู่ ห้ามเปิดเดโมในแท็บเดียวกัน กรุณาเปิดหน้าต่างส่วนตัวใหม่ ไม่ใช้แท็บที่มี JSSF Consent",ready:"เริ่มเดโมแบบ Public ชั่วคราวแล้ว เลือก Face, Arm หรือ Speech",outside:"หน้าทดสอบออกนอกเอนจินที่เลือก โปรดเลือกโมดูลอีกครั้ง",loaded:"โหลดเอนจินเดิมแล้ว",online:"เบราว์เซอร์แจ้งว่าออนไลน์",offline:"เบราว์เซอร์แจ้งว่าออฟไลน์",sw:"Service Worker ควบคุมหน้านี้แล้ว (ยังต้องทดสอบ offline จริง)",swMissing:"ยังไม่มี Service Worker ควบคุม",speechUnavailable:"เบราว์เซอร์นี้ไม่มี SpeechRecognition",noVoice:"ไม่พบเสียง TTS ที่ตรงกับภาษานี้",voiceStarted:"เริ่มเล่นเสียง TTS แล้ว",voiceError:"เล่นเสียง TTS ไม่ได้ โปรดอ่านข้อความแทน"}
+      en:{subtitle:"Presenter technical demo · separate from Research/Dev",safety:"Engineering illustration, not a diagnosis. A result cannot rule out stroke. Demo sessions must never be enrolled in the JSSF pilot.",begin:"Begin fresh public-ephemeral demo",face:"Face Mesh",arm:"Arm Drift",speech:"Speech ASR",voice:"Check TTS voice",standalone:"Open full screen",frame:"Original engine · choose a module",panel:"Live technical explanation",explain:"The camera, phone orientation sensor and speech recognition are processed by the existing test pages. The presenter panel reads only what those pages display.",status:"Engine status",notStarted:"Not started",faceLabel:"Camera / face tracking",waiting:"Waiting for camera",faceCaption:"The original MediaPipe page draws mesh landmarks on the video. A running camera alone does not mean a face was reliably tracked.",armLabel:"Displayed phone drift (degrees)",armCaption:"Live display samples only, not a clinical arm-strength measurement. No trace is uploaded or saved.",expected:"Expected phrase (from original test)",recognized:"Browser recognition / status",speechCaption:"Browser SpeechRecognition may use a network service and is not guaranteed in Airplane Mode. No audio is recorded by this presenter panel.",offlineNote:"First access needs Internet. Install and precache the PWA online before an airplane-mode rehearsal; test the camera, motion sensor and speech features separately. If an iframe blocks iOS permissions, open the module directly on the phone.",blocked:"An existing Research/Dev session was detected. This demo cannot open in the same tab. Close it and open a new private browser session; do not reuse a JSSF consent tab.",ready:"Public-ephemeral demo ready. Choose Face, Arm or Speech.",outside:"The embedded test navigated outside the selected engine. Choose a module again.",loaded:"Existing engine loaded",online:"Browser online",offline:"Browser reports offline",sw:"Service Worker controlling page (cache completeness still requires offline testing)",swMissing:"No active Service Worker controller",speechUnavailable:"SpeechRecognition API unavailable in this browser",noVoice:"No matching TTS voice installed/available on this device",voiceStarted:"TTS voice started",voiceError:"TTS could not play; read visual instructions instead"},
+      ja:{subtitle:"発表者用技術デモ · 研究/開発モードとは別",safety:"技術デモであり、診断ではありません。正常に見えても脳卒中を否定できません。デモ情報はJSSF研究に送信しません。",begin:"新しいデモを開始（研究データなし）",face:"顔メッシュ",arm:"腕の傾き",speech:"音声認識",voice:"音声案内を確認",standalone:"全画面で開く",frame:"既存エンジン · 項目を選択",panel:"技術説明（ライブ）",explain:"測定は既存の各テストページで実行し、この画面では表示値だけを読み取ります。",status:"エンジン状態",notStarted:"未開始",faceLabel:"カメラ・顔追跡",waiting:"カメラ待機中",faceCaption:"既存のMediaPipeが顔のランドマークを描画します。カメラが動作しても追跡品質は保証されません。",armLabel:"画面表示の端末角度変化（度）",armCaption:"端末の動きであり、筋力の直接測定ではありません。グラフは保存・送信しません。",expected:"お手本の文章",recognized:"ブラウザーの認識結果・状態",speechCaption:"音声認識は通信が必要な場合があります。機内モードでの動作は保証されません。",offlineNote:"初回アクセスはネット接続が必要です。事前にPWAをキャッシュし、実機で機内モードを確認してください。iOSのiframeで許可できない場合、スマホで直接開いてください。",blocked:"研究/開発セッションが残っています。このタブではデモを開始できません。別のプライベートブラウザーで開いてください。",ready:"研究データなしのデモ準備完了。項目を選んでください。",outside:"画面がテスト外に移動しました。もう一度選択してください。",loaded:"既存のエンジンを読み込みました",online:"オンライン",offline:"オフライン表示",sw:"Service Worker制御中（オフライン確認は別途必要）",swMissing:"Service Workerは未制御",speechUnavailable:"このブラウザーでは音声認識を利用できません",noVoice:"この言語の音声が見つかりません",voiceStarted:"音声再生を開始しました",voiceError:"音声を再生できません。画面の文字をご利用ください"},
+      th:{subtitle:"เดโมเชิงเทคนิคสำหรับผู้นำเสนอ · แยกจาก Research/Dev",safety:"เดโมแสดงการทำงาน ไม่ใช่การวินิจฉัย ผลปกติไม่สามารถยืนยันว่าไม่เป็นสโตรก และข้อมูลเดโมต้องไม่ถูกส่งเข้า JSSF Pilot",begin:"เริ่มเดโมใหม่ (Public ชั่วคราว)",face:"ตาข่ายใบหน้า",arm:"กราฟแขน",speech:"การรู้จำเสียง",voice:"ตรวจเสียง TTS",standalone:"เปิดเต็มหน้าจอ",frame:"เอนจินเดิม · เลือกโมดูล",panel:"คำอธิบายเชิงเทคนิคแบบสด",explain:"ใช้หน้าทดสอบและเอนจิน Face/Arm/Speech เดิม แผงผู้นำเสนออ่านเฉพาะข้อมูลที่หน้านั้นแสดง",status:"สถานะเอนจิน",notStarted:"ยังไม่เริ่ม",faceLabel:"กล้องและการติดตามใบหน้า",waiting:"รอกล้อง",faceCaption:"หน้า MediaPipe เดิมแสดง Face Mesh การเปิดกล้องได้ไม่ได้แปลว่าติดตามใบหน้าได้ถูกต้องเสมอ",armLabel:"มุมเคลื่อนของโทรศัพท์ที่แสดง (องศา)",armCaption:"กราฟแสดงการเปลี่ยนมุมโทรศัพท์ ไม่ใช่แรงกล้ามเนื้อโดยตรง ไม่บันทึกหรือส่งข้อมูล",expected:"ประโยคที่ต้องพูดจากหน้าทดสอบ",recognized:"ผลการรู้จำและสถานะ",speechCaption:"SpeechRecognition อาจต้องใช้อินเทอร์เน็ต ไม่รับประกันว่าใช้ได้ใน Airplane Mode",offlineNote:"เข้าเว็บครั้งแรกต้องใช้อินเทอร์เน็ต ต้องโหลด PWA และทดสอบโหมดเครื่องบินกับอุปกรณ์จริง หาก iframe ขอสิทธิ์บน iOS ไม่ได้ ให้เปิดโมดูลโดยตรงบนโทรศัพท์",blocked:"พบ Research/Dev session ค้างอยู่ ห้ามเปิดเดโมในแท็บเดียวกัน กรุณาเปิดหน้าต่างส่วนตัวใหม่ ไม่ใช้แท็บที่มี JSSF Consent",ready:"เริ่มเดโมแบบ Public ชั่วคราวแล้ว เลือก Face, Arm หรือ Speech",outside:"หน้าทดสอบออกนอกเอนจินที่เลือก โปรดเลือกโมดูลอีกครั้ง",loaded:"โหลดเอนจินเดิมแล้ว",online:"เบราว์เซอร์แจ้งว่าออนไลน์",offline:"เบราว์เซอร์แจ้งว่าออฟไลน์",sw:"Service Worker ควบคุมหน้านี้แล้ว (ยังต้องทดสอบ offline จริง)",swMissing:"ยังไม่มี Service Worker ควบคุม",speechUnavailable:"เบราว์เซอร์นี้ไม่มี SpeechRecognition",noVoice:"ไม่พบเสียง TTS ที่ตรงกับภาษานี้",voiceStarted:"เริ่มเล่นเสียง TTS แล้ว",voiceError:"เล่นเสียง TTS ไม่ได้ โปรดอ่านข้อความแทน"}
     };
     const LOCALE={en:"en-US",ja:"ja-JP",th:"th-TH"};
     const URLS={face:"face-test.html?mode=public&mesh=1",arm:"arm-test.html?mode=public",speech:"speech-test.html?mode=public"};
@@ -138,6 +172,7 @@
         sessionStorage.setItem("fast_lang",code);
         try{localStorage.setItem("quickstroke_locale",LOCALE[code])}catch(e){}
       }
+      $("technical").textContent= $("technical-panel").hidden ? ({en:"Details",ja:"詳細",th:"รายละเอียด"}[lang]) : ({en:"Close",ja:"閉じる",th:"ปิด"}[lang]);
       if(started&&active)openModule(active);
       else if(!started)$("engine-status").textContent=COPY[lang].notStarted;
       refreshConnectivity();
@@ -153,6 +188,7 @@
       }
       resetPublicSession(sessionStorage);
       started=true;$("gate-error").textContent="";$("engine-status").textContent=COPY[lang].ready;
+      $("begin").hidden=true;
       for(const id of ["face","arm","speech"])$(id).disabled=false;
       openModule("face");
     }
@@ -257,6 +293,11 @@
     $("begin").addEventListener("click",begin);
     for(const module of ["face","arm","speech"])$(module).addEventListener("click",()=>openModule(module));
     $("voice").addEventListener("click",checkVoice);
+    $("technical").addEventListener("click",()=>{
+      const panel=$("technical-panel");panel.hidden=!panel.hidden;
+      $("technical").setAttribute("aria-expanded",String(!panel.hidden));
+      $("technical").textContent=panel.hidden?({en:"Details",ja:"詳細",th:"รายละเอียด"}[lang]):({en:"Close",ja:"閉じる",th:"ปิด"}[lang]);
+    });
     $("engine-frame").addEventListener("load",onFrameLoad);
     addEventListener("online",refreshConnectivity);addEventListener("offline",refreshConnectivity);
     addEventListener("pagehide",()=>{if("speechSynthesis" in window)speechSynthesis.cancel()});
