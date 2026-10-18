@@ -16,6 +16,13 @@ const script=presenter.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(script,"Presenter inline script exists");
 new vm.Script(script[1],{filename:"presenter-demo.inline.js"});
 assert.match(presenter,/<html lang="en">/);
+assert.match(presenter,/class="readout" id="technical-panel"[^>]* hidden>/,"Technical measurements must start hidden");
+assert.match(presenter,/\.readout\[hidden\]\{display:none!important\}/);
+assert.match(presenter,/iframe\{display:block;width:100%;height:100%;min-height:0;border:0\}/);
+assert.match(presenter,/id="technical" aria-controls="technical-panel" aria-expanded="false"/);
+assert.match(presenter,/panel\.hidden=!panel\.hidden/);
+assert.match(presenter,/id="standalone"[^>]*target="_blank"/);
+
 assert.match(presenter,/<iframe id="engine-frame"[^>]+allow="camera; microphone; accelerometer; gyroscope"/);
 assert.match(presenter,/id="gate-error" role="alert"/);
 assert.match(script[1],/if\(!safeDemoSession\(sessionStorage\)\)\s*\{[\s\S]*?return;/);
@@ -70,6 +77,15 @@ assert.match(speech,/id="transcript-box"/);
 assert.match(remote,/value\.appMode === "research"[\s\S]*?researchProfile === "community_remote_qr"[\s\S]*?consentStatus === "consented"/);
 assert.match(index,/id="combined-view"/);
 assert.match(index,/id="individual-view"/);
+const sharedLanguageLoader=index.indexOf('<script src="./js/languages.js?v=20260717-lang-v1"></script>');
+const firstPicker=index.indexOf('QuickStrokeLanguages.renderPicker(');
+assert.ok(sharedLanguageLoader>0&&firstPicker>0&&sharedLanguageLoader<firstPicker,
+  'Public language picker library must be loaded before inline picker initialization');
+assert.equal((index.match(/<script src="\.\/js\/languages\.js\?v=20260717-lang-v1"><\/script>/g)||[]).length,1,
+  'Load language-picker code exactly once');
+assert.match(index,/data-language-picker data-language-variant="compact"/);
+assert.match(index,/data-language-picker data-language-variant="native"/);
+
 assert.match(index,/body:not\(\.qs-technical-entry\) \.mode-zone/);
 assert.match(index,/body:not\(\.qs-technical-entry\) \.dev-zone/);
 assert.match(index,/body:not\(\.qs-technical-entry\) \.jssf-draft-zone/);
