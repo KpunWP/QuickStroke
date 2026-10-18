@@ -3245,21 +3245,30 @@ function playVisualCountdownBeep() {
 // tone on retries, after the initial user gesture has expired.
 async function playIosAsrOnlyCount(count) {
   const synth=window.speechSynthesis;
-  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') { await sleep(900); return; }
-  await new Promise(resolve => {
-    let done=false;
-    const finish=()=>{if(done)return;done=true;resolve();};
+  const pilotFallback=window.QuickStrokeThaiRecorded?.isConsentedJssf?.()===true;
+  const recorded=window.QuickStrokeThaiRecorded;
+  // The visual count remains available if both audio transports fail.
+  const nativeStatus=await new Promise(resolve=>{
+    if(!synth || typeof SpeechSynthesisUtterance==='undefined'){resolve('unsupported');return;}
+    let done=false,started=false;
+    const finish=status=>{if(done)return;done=true;resolve(status);};
     try {
       const utterance=new SpeechSynthesisUtterance(String(count));
       utterance.lang=T?.langCode || 'th-TH';
       utterance.rate=1.1;
       utterance.volume=1;
-      utterance.onend=finish;
-      utterance.onerror=finish;
+      utterance.onstart=()=>{started=true;};
+      utterance.onend=()=>finish('ended');
+      utterance.onerror=()=>finish('error');
       synth.speak(utterance);
-    } catch (_) { finish(); }
-    setTimeout(finish,900);
+    } catch (_) { finish('exception'); }
+    setTimeout(()=>{if(!done){try{synth.cancel();}catch(_){}finish(started?'timeout':'no_start');}},900);
   });
+  if(pilotFallback && nativeStatus!=='ended' && recorded?.fileFor?.(String(count))){
+    await recorded.play(String(count));
+  } else if(nativeStatus==='unsupported'){
+    await sleep(900);
+  }
   await sleep(180);
 }
 
