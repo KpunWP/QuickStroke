@@ -95,7 +95,17 @@ assert.match(speech,/for \(const count of \[3,2,1\]\)/);
 assert.match(speech,/function playVisualCountdownBeep\(\)/);
 assert.match(speech,/ctx\.state!=='running'/);
 assert.match(speech,/gain\.gain\.exponentialRampToValueAtTime\(0\.0001,t\+0\.13\)/);
-assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*if \(!IS_ANDROID && !SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\);/);
+assert.match(speech,/if \(ANDROID_JSSF_SPEECH_CUES\) \{\s*await playAndroidJssfSpokenCount\(count\)/);
+assert.match(speech,/const ANDROID_JSSF_SPEECH_CUES = IS_ANDROID && isConsentedJssfSpeech/);
+assert.match(speech,/if \(ANDROID_JSSF_SPEECH_CUES\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(speech,/if \(!ANDROID_JSSF_SPEECH_CUES\) await releaseAcousticCaptureForExclusiveAsr\(\)/);
+assert.match(speech,/if \(IOS_ASR_ONLY_TRIAL \|\| ANDROID_JSSF_SPEECH_CUES\) \{\s*void cleanupAfterResult\.then/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES\)/);
+const androidCount=speech.slice(speech.indexOf("if (ANDROID_JSSF_SPEECH_CUES) {\n          await releaseAcousticCaptureForExclusiveAsr();"),speech.indexOf("const cueStatus = 'visual_only';",speech.indexOf("if (ANDROID_JSSF_SPEECH_CUES) {\n          await releaseAcousticCaptureForExclusiveAsr();")));
+assert.ok(androidCount.indexOf("await releaseAcousticCaptureForExclusiveAsr()")<androidCount.indexOf("await playAndroidJssfSpokenCount(count)"),'mic capture must stop before spoken count');
+assert.match(speech,/speakSpeechCue\('เตรียมพูด'\)/);
+assert.match(speech,/speakSpeechCue\('ทดสอบการพูดเสร็จแล้ว'\)/);
+
 
 assert.match(speech,/const cueStatus = 'visual_only'/);
 assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:112px'), 'countdown should be large inside central icon');
