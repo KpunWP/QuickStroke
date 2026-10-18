@@ -3696,10 +3696,19 @@ function mergeSpeechTranscriptList(values) {
     .trim();
 }
 
+// Research-only full-phrase policy. Public/Dev continue using legacy variants.
+function acceptedSpeechPhrases() {
+  return isConsentedJssfSpeech && T?.target ? [T.target] : (T?.keywords || []);
+}
 function speechTranscriptMatchesAcceptedPhrase(value) {
-  const normalized = normalizeSpeechText(value);
-  if (!normalized) return false;
-  return (T?.keywords || []).map(normalizeSpeechText).filter(Boolean).includes(normalized);
+  const normalized=normalizeSpeechText(value);
+  return !!normalized && acceptedSpeechPhrases().map(normalizeSpeechText).filter(Boolean).includes(normalized);
+}
+function isIncompleteJssfTargetPhrase(value) {
+  if (!isConsentedJssfSpeech || !T?.target) return false;
+  const heard=normalizeSpeechText(value);
+  const full=normalizeSpeechText(T.target);
+  return !!heard && !!full && heard.length<full.length && full.includes(heard);
 }
 
 function markSpeechRecognitionReady(source = 'audio_start') {
@@ -3747,10 +3756,16 @@ async function beginSpeechRecognition() {
       appendAsrObservation('start');
       if (recognitionReadyFallbackTimer) clearTimeout(recognitionReadyFallbackTimer);
       recognitionReadyFallbackTimer = setTimeout(() => {
-        if (runId === recognitionRunId && phase === 'RECORDING' && !recordingStartedMs) {
+        if (runId !== recognitionRunId || phase !== 'RECORDING' || recordingStartedMs) return;
+        if (ANDROID_JSSF_SPEECH_CUES) {
+          // ASR onstart means service started, not that mic capture started.
+          // Never display "เริ่มพูดได้" without the audio_start event.
+          queueSpeechTechnicalDiagnostic('ASR_AUDIO_CAPTURE');
+          finishSpeechInvalid('MICROPHONE_START_FAILED', {message:'asr_audio_start_timeout'});
+        } else {
           markSpeechRecognitionReady('onstart_timeout_fallback');
         }
-      }, 900);
+      }, ANDROID_JSSF_SPEECH_CUES ? 4500 : 900);
     };
     recognition.onaudiostart = () => {
       queueSpeechTechnicalDiagnostic('ASR_AUDIO_STARTED');
@@ -3845,7 +3860,7 @@ async function beginSpeechRecognition() {
         let chosenText = '';
         let chosenConfidence = null;
         let chosenSimilarity = -1;
-        const acceptedVariantsForSelection = (T.keywords || [])
+        const acceptedVariantsForSelection = acceptedSpeechPhrases()
           .map(normalizeSpeechText)
           .filter(Boolean);
 
@@ -3860,7 +3875,7 @@ async function beginSpeechRecognition() {
             normalizeSpeechText(tx),
             acceptedVariantsForSelection
           );
-          // Clinical transcript selection is based on target-phrase similarity.
+          // Select the closest full target for consented JSSF, not a short variant.
           // Browser confidence is retained only as raw metadata.
           if (
             !chosenText ||
@@ -4790,7 +4805,7 @@ function makeSpeechResultPayload({
 
     stimulus: {
       targetPhrase: T?.target || null,
-      acceptedVariants: Array.isArray(T?.keywords) ? [...T.keywords] : [],
+      acceptedVariants: [...acceptedSpeechPhrases()],
       speechUnitCount: Number.isFinite(T?.syllables) ? T.syllables : null,
       speechUnitType: 'locale_defined_speech_unit',
       rateUnit: rateUnitLabel()
@@ -4803,7 +4818,8 @@ function makeSpeechResultPayload({
       noiseFloorCap: NOISE_FLOOR_CAP,
       normalMin: NORMAL_MIN,
       normalMax: NORMAL_MAX,
-      phraseScoringPolicy: SPEECH_CFG.phraseScoringPolicy || 'normalized_levenshtein_similarity',
+      phraseScoringPolicy: isConsentedJssfSpeech ? 'jssf_full_target_exact_v1'
+        : (SPEECH_CFG.phraseScoringPolicy || 'normalized_levenshtein_similarity'),
       asrConfidencePolicy: SPEECH_CFG.asrConfidencePolicy || 'raw_observation_only',
       snrWarnDb: SNR_WARN_DB,
       lowSnrPolicy: 'quality_flag_only',
@@ -4838,7 +4854,7 @@ function makeSpeechResultPayload({
     policy: {
       lowSnr: 'quality_flag_only',
       recognition: 'browser_default',
-      phraseScoring: 'normalized_levenshtein_similarity',
+      phraseScoring: isConsentedJssfSpeech ? 'jssf_full_target_exact_v1' : 'normalized_levenshtein_similarity',
       rateScoring: 'target_phrase_units_per_resolved_active_speech_duration',
       rateTiming: RATE_TIMING_POLICY,
       primaryDecision: SPEECH_DECISION_POLICY,
@@ -5125,7 +5141,8 @@ function appendSpeechAttempt(outcome, details = {}) {
 }
 
 function scheduleAutomaticValidityRetry(reasonCode, details = {}) {
-  const retryable = reasonCode === 'NO_VOICE' || reasonCode === 'VOICE_NOT_RECOGNIZED';
+  const retryable = reasonCode === 'NO_VOICE' || reasonCode === 'VOICE_NOT_RECOGNIZED' ||
+    (isConsentedJssfSpeech && reasonCode === 'INCOMPLETE_TARGET_PHRASE');
   if (!retryable || automaticValidityRetries >= AUTO_VALIDITY_RETRY_COUNT) return false;
 
   appendSpeechAttempt('invalid_retry', { invalidReasonCode: reasonCode, ...details });
@@ -5161,7 +5178,9 @@ function scheduleAutomaticValidityRetry(reasonCode, details = {}) {
   $('transcript-box').style.display = 'block';
   $('transcript-box').textContent = reasonCode === 'NO_VOICE'
     ? T.retryingNoVoice
-    : T.retryingNoText;
+    : reasonCode === 'INCOMPLETE_TARGET_PHRASE'
+      ? (T.retryingIncomplete || T.retryingNoText)
+      : T.retryingNoText;
   setSpeechCard('word', 'warn', T.accuracy, T.pending, '🔄');
   setSpeechCard('rate', '', T.rate, T.pending, '⏱️');
 
@@ -5309,7 +5328,7 @@ function finishSpeechInvalid(reasonCode, details = {}) {
 
 function evaluateSpeech(text, confidence) {
   const normalizedText = normalizeSpeechText(text);
-  const normalizedKeywords = (T.keywords || [])
+  const normalizedKeywords = acceptedSpeechPhrases()
     .map(normalizeSpeechText)
     .filter(Boolean);
   const wordMatched = !!normalizedText && normalizedKeywords.includes(normalizedText);
@@ -5339,6 +5358,9 @@ function evaluateSpeech(text, confidence) {
   else if (noSpeechApi) invalidReasonCode = 'SPEECH_RECOGNITION_UNAVAILABLE';
   else if (!hasVoice) invalidReasonCode = 'NO_VOICE';
   else if (!normalizedText) invalidReasonCode = 'VOICE_NOT_RECOGNIZED';
+  // An incomplete subset on consented JSSF is an ASR capture limitation;
+  // do not mark it "no alert" or label it a clinical abnormality.
+  else if (isIncompleteJssfTargetPhrase(text)) invalidReasonCode = 'INCOMPLETE_TARGET_PHRASE';
   else if (durSec < MIN_SPEECH_DURATION_SEC) invalidReasonCode = 'INSUFFICIENT_SPEECH_DURATION';
   // When browser ASR has produced a transcript, missing energy frames indicate
   // a technical VAD/calibration limitation rather than a failed speech task.
