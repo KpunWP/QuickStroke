@@ -125,9 +125,9 @@ function extractFunction(source, name) {
 const tests = [];
 function test(name, fn) { tests.push({ name, fn }); }
 
-test('app version and policy versions are 1.0.28', () => {
+test('app version and policy versions are 1.0.29', () => {
   const c = loadCurrent();
-  assert.equal(c.QS_CONFIG.version, '1.0.28');
+  assert.equal(c.QS_CONFIG.version, '1.0.29');
   assert.equal(c.QuickStrokeDataContract.version, 'quickstroke-common-data-0.2.0');
   assert.equal(c.QuickStrokeResearchPolicy.selectionPolicyVersion, 'quickstroke-selection-policy-1.0.0');
 });
