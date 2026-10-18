@@ -78,3 +78,17 @@ Correct A: “Not necessarily. Our app does not upload or store audio recordings
 - Medical safety: suspected stroke demands immediate emergency care; do not wait for an app.
 - Clinical accuracy not established; no “AI stroke detector” claim.
 - No policy change implied by this document. Confirm actual implementation at release/printing time.
+
+## Owner decision: split speech architecture for JSSF booth (2026-10-18)
+The user has agreed with the separate engineering/demo workstream to **experiment with Whisper running locally in the Presenter Technical Demo**, with the model/assets fetched and cached on the chosen demonstration device *before traveling*. The **Public Visitor App will retain its existing browser/service-backed SpeechRecognition** for fast startup, avoiding a large model download on visitors' phones.
+
+**This is a product / experimental-plan decision, NOT a claim that local Whisper is implemented, offline-verified, stable, or deployed.** Demo team owns a device/browser-specific proof: model weights and runtime assets truly cached; page restart after network disconnection; first-load and warmed-up latency; memory/thermal performance; ASR accuracy for selected languages; permission behavior; no external inference requests when fully offline; readable fallback if unsupported. Document the *exact tested device, browser, model and date*. Do not install/change Public Speech engine merely to facilitate the Presenter experiment.
+
+**Public visitor privacy disclosure:** Default Web Speech API recognition can use vendor-hosted processing, so a visitor's voice may leave their device for transcription. The QuickStroke *research* server still does not store raw recordings/transcripts, and Public remains nonresearch/ephemeral. But transparency must not claim “audio never leaves your device” for the public path. Check and if needed separately review/update the public microphone privacy notice before JSSF use. No silent “cloud fallback” in a demo labeled offline/local.
+
+**Cross-team presentation:** Label the two architectures separately:
+- `Presenter Tech Demo — experimental local Whisper (pending verification)`
+- `Public Visitor Mode — fast browser ASR; vendor processing may be remote`
+Poster/Oral may highlight **investigation of privacy-preserving local speech AI** as ongoing engineering, not a tested production promise. Keep the dominant message “no raw voice/image/video in QuickStroke research storage; only consented limited technical metrics.”
+
+**Cross-team follow-up:** Changes to the Public consent/disclosure or build must be handled by the app engineering track with appropriate tests/CI/review. Poster/Oral must check latest technical verification before printing or presenting.
