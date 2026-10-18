@@ -90,7 +90,7 @@ assert.match(armRecordedManifest,/QuickStrokeDevMode\?\.isEnabled\?\.\(\) !== tr
 // The exact participant recording must survive binary Git upload and remain
 // a playable MP3; text-only manifest tests would miss a corrupted asset.
 const rightArmClip=fs.readFileSync('audio/th/arm_13_confirm_right.mp3');
-const gitBlobHash=createHash('sha1').update('blob '+rightArmClip.length+'\\0').update(rightArmClip).digest('hex');
+const gitBlobHash=createHash('sha1').update('blob '+rightArmClip.length+String.fromCharCode(0)).update(rightArmClip).digest('hex');
 assert.equal(gitBlobHash,'a0f7fe42fd1adb167accc158538b506a11a50ee0');
 assert.ok(rightArmClip.length>7000 && rightArmClip.subarray(0,3).toString()==='ID3');
 assert.match(arm,/speak\(rightArmConfirmationVoice\(\)\)/);
