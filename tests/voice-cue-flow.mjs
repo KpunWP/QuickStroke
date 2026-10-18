@@ -63,7 +63,7 @@ assert.match(armLang,/classList\.add\('arm-intro-visible'\)/);
 assert.doesNotMatch(armLang,/attemptAutoArmStepOneVoice\(\)/);
 
 assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
-assert.match(arm,/QuickStrokeThaiRecorded\.use\(currentLangCode\(\)\) && window\.QuickStrokeThaiRecorded\.fileFor\?\.\(txt\)/);
+assert.ok(arm.includes('window.QuickStrokeThaiRecorded?.use(currentLangCode()) && window.QuickStrokeThaiRecorded.fileFor?.(txt)'));
 assert.match(speech,/const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL/);
 assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, false\)/);
 
