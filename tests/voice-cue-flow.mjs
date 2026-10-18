@@ -128,6 +128,25 @@ const voiceText='เตรียมพูดตามข้อความบน
 assert.ok(recordedAudio.includes(voiceText), 'instruction must be mapped in recorded audio manifest');
 assert.ok(recordedAudio.includes('speech_02_instruction.mp3'));
 assert.ok(fs.existsSync("audio/th/speech_02_instruction.mp3"), 'approved instruction MP3 must be uploaded to GitHub before release');
+
+// Require the participant-approved recordings before releasing JSSF Android.
+const approvedAndroidSpeechCues = [
+  ['เตรียมพูด', 'speech_03_prepare_short.mp3'],
+  ['3', 'speech_04_count_three.mp3'],
+  ['2', 'speech_05_count_two.mp3'],
+  ['1', 'speech_06_count_one.mp3'],
+  ['ทดสอบการพูดเสร็จแล้ว', 'speech_07_module_complete.mp3']
+];
+for (const [phrase,file] of approvedAndroidSpeechCues) {
+  assert.ok(recordedAudio.includes("'" + phrase + "':'" + file + "'"), 'manifest mismatch: '+phrase);
+  assert.ok(fs.existsSync('audio/th/'+file), 'approved participant audio missing: '+file);
+  assert.ok(fs.statSync('audio/th/'+file).size > 3000, 'audio clip incomplete: '+file);
+}
+assert.match(speech,/ANDROID_JSSF_SPEECH_CUES && String\(T\?\.langCode \|\| ''\)\.toLowerCase\(\)\.startsWith\('th'\)/);
+assert.match(speech,/const result=await speakSpeechCue\(String\(count\)\)/);
+assert.match(speech,/await sleep\(Math\.max\(0,1000-\(performance\.now\(\)-began\)\)\)/);
+assert.match(speech,/return speakSpeechCue\('ทดสอบการพูดเสร็จแล้ว'\)/);
+
 assert.match(speech,/function playSpeechInstructionBeforeCapture\(\)/);
 assert.match(speech,/await playSpeechInstructionBeforeCapture\(\)/);
 assert.match(speech,/await sleep\(1000\)/, 'countdown should show each large digit for a full second');
