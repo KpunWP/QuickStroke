@@ -14,6 +14,7 @@
     'หน้าตรงและอยู่นิ่ง':'face_01_rest.mp3',
     'ยิ้มกว้าง':'face_02_smile.mp3',
     'ถือโทรศัพท์ด้วยมือซ้ายตามภาพ แล้วกดยืนยันเพื่อเริ่มทดสอบ':'arm_12_left_start.mp3',
+    'กดยืนยันใช้แขนขวา':'arm_13_confirm_right.mp3',
     'เหยียดแขนซ้ายไปข้างหน้าตามภาพ และถือนิ่งๆ':'arm_01_left.mp3',
     'เหยียดแขนขวาไปข้างหน้าตามภาพ และถือนิ่งๆ':'arm_06_right.mp3',
     'เริ่มทดสอบ หลับตา และถือนิ่งๆ':'arm_02_start.mp3',
@@ -40,7 +41,7 @@
   const lookup=new Map(Object.entries(manifest).map(([s,f])=>[norm(s),f]));
   // Consent warm-up: cache every required Thai prompt before the first module.
   // A completed fetch is verified as audio bytes, not merely preload='auto'.
-  const AUDIO_CACHE='quickstroke-jssf-th-audio-v2';
+  const AUDIO_CACHE='quickstroke-jssf-th-audio-v3';
   const REQUIRED_FILES=[...new Set(Object.values(manifest))];
   let preparePromise=null;
   function shouldPrepare() {
@@ -79,8 +80,19 @@
     catch(error){preparePromise=null;throw error;}
   }
   let player=null, active=null, token=0, unlocked=false;
+  function isConsentedJssf() {
+    const ctx=window.QuickStrokeDataContract?.getSessionContext?.();
+    return ctx?.appMode==='research' &&
+      ctx?.researchMetadata?.researchProfile==='community_remote_qr' &&
+      ctx?.researchMetadata?.consentStatus==='consented';
+  }
   function use(lang) {
     if (!String(lang||'th').toLowerCase().startsWith('th')) return false;
+    // Apply pilot platform priority only to consented JSSF; preserve Public/Dev.
+    if (isConsentedJssf()) {
+      if (/Android/i.test(navigator.userAgent||'')) return true;
+      if (/iPad|iPhone|iPod/i.test(navigator.userAgent||'')) return false;
+    }
     if(mode==='recorded') return true;
     if(mode==='tts') return false;
     const ua=String(navigator.userAgent||'');
@@ -199,5 +211,5 @@
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',addAudioTestControl,{once:true});
   else addAudioTestControl();
-  window.QuickStrokeThaiRecorded={mode,use,fileFor,play,stop,unlock,prepareAll,shouldPrepare};
+  window.QuickStrokeThaiRecorded={mode,use,isConsentedJssf,fileFor,play,stop,unlock,prepareAll,shouldPrepare};
 })();

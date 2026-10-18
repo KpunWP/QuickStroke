@@ -1601,7 +1601,7 @@
   }
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
-<script src="./js/thai-recorded-audio.js?v=20261018-jssf-mp3-compat-v1"></script>
+<script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
@@ -2325,17 +2325,30 @@ function speak(txt, onDone) {
 function _drainQueue() {
   if (_speaking || !_voiceQ.length) return;
 
-  const { txt, onDone } = _voiceQ.shift();
-  // Only use recorded playback for mapped phrases; an unmapped Arm cue
-  // must fall through to native TTS (or the existing visual-only fallback).
-  if (window.QuickStrokeThaiRecorded?.use(currentLangCode()) && window.QuickStrokeThaiRecorded.fileFor?.(txt)) {
+  const { txt, onDone, skipRecorded=false, forceRecorded=false } = _voiceQ.shift();
+  const recorded=window.QuickStrokeThaiRecorded;
+  const canRecorded=!!recorded?.fileFor?.(txt);
+  const pilotFallback=recorded?.isConsentedJssf?.()===true;
+  // Android JSSF: MP3 is primary. On actual playback failure try Thai TTS
+  // once without repeating the same MP3. Public/Dev routing is unaffected.
+  if (canRecorded && (forceRecorded || (!skipRecorded && recorded.use(currentLangCode())))) {
     _speaking=true;
     const sequence=++_speechSequence;
-    window.QuickStrokeThaiRecorded.play(txt).then(status=>{
+    recorded.play(txt).then(status=>{
       if(sequence!==_speechSequence)return;
       _speaking=false;
       setArmTtsStatus('recorded-'+status);
-      onDone?.();
+      if(pilotFallback && !forceRecorded && status!=='ended' && status!=='cancelled'){
+        _voiceQ.unshift({txt,onDone,skipRecorded:true});
+      } else {
+        onDone?.();
+      }
+      _drainQueue();
+    }).catch(()=>{
+      if(sequence!==_speechSequence)return;
+      _speaking=false;
+      if(pilotFallback && !forceRecorded) _voiceQ.unshift({txt,onDone,skipRecorded:true});
+      else onDone?.();
       _drainQueue();
     });
     return;
@@ -2345,7 +2358,8 @@ function _drainQueue() {
   if (!synth || typeof SpeechSynthesisUtterance === 'undefined') {
     setArmTtsStatus('unsupported');
     reportArmTts('TTS_UNAVAILABLE','prompt','unsupported',lang,undefined,'arm-prompt-unsupported');
-    onDone && onDone();
+    if(pilotFallback && !skipRecorded && canRecorded) _voiceQ.unshift({txt,onDone,forceRecorded:true});
+    else onDone?.();
     _drainQueue();
     return;
   }
@@ -2363,7 +2377,14 @@ function _drainQueue() {
     if (overallGuard) clearTimeout(overallGuard);
     _speaking = false;
     setArmTtsStatus(status);
-    onDone && onDone();
+    // iOS JSSF: native Thai TTS is primary; a missing/failed voice attempts
+    // the matching MP3 once, never a second TTS. Android missing MP3 also
+    // reaches this branch, so a Samsung without Thai voice needs that asset.
+    if(pilotFallback && !skipRecorded && canRecorded && status!=='done'){
+      _voiceQ.unshift({txt,onDone,forceRecorded:true});
+    } else {
+      onDone?.();
+    }
     _drainQueue();
   };
 
@@ -4257,8 +4278,9 @@ function attemptAutoArmStepOneVoice() {
     void window.QuickStrokeThaiRecorded.play(phrase,{timeoutMs:8000})
       .then(status => {
         setArmTtsStatus('initial-auto-'+status);
-        if (status === 'missing' || status === 'error' || status === 'timeout') {
+        if (status !== 'ended' && status !== 'cancelled') {
           reportArmTts('TTS_ERROR','prompt',status,'th-TH','step1_autoplay_'+status,'arm-step1-auto','recorded_audio','th-TH');
+          if(window.QuickStrokeThaiRecorded?.isConsentedJssf?.()) { _voiceQ.push({txt:phrase,onDone:null,skipRecorded:true}); _drainQueue(); }
         }
       })
       .catch(error => {

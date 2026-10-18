@@ -1681,7 +1681,7 @@
 
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
-<script src="./js/thai-recorded-audio.js?v=20261018-jssf-mp3-compat-v1"></script>
+<script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
@@ -2201,8 +2201,22 @@ function speakFace(txt, opts={}){
   if (!txt) return;
   const code = getPreferredFaceLang();
   const lang = SPEAK_LANG[code] || 'th-TH';
+  const recorded=window.QuickStrokeThaiRecorded;
+  const pilotFallback=recorded?.isConsentedJssf?.()===true;
+  const canRecorded=!!recorded?.fileFor?.(txt);
+  const route=opts.route||'primary';
+  const playRecorded=()=>{
+    if (!canRecorded) return;
+    void recorded.play(txt).then(status=>{
+      // Only a consented JSSF Android primary can fail over to Thai TTS.
+      if(pilotFallback && route==='primary' && status!=='ended' && status!=='cancelled'){
+        speakFace(txt,{...opts,force:true,route:'tts'});
+      }
+    });
+  };
   if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') {
     reportFaceTts('TTS_UNAVAILABLE','prompt','unsupported',lang,undefined,'face-prompt-unsupported');
+    if(pilotFallback && route==='primary') playRecorded();
     return;
   }
   const now = Date.now();
@@ -2215,18 +2229,25 @@ function speakFace(txt, opts={}){
   if (!force && now - lastSpeechAt < minGap) return;
   if (!force && txt === lastSpeechText && now - lastSpeechAt < sameTextGap) return;
 
-  if (window.QuickStrokeThaiRecorded?.use(lang)) {
+  if (canRecorded && (route==='recorded' || (route==='primary' && recorded.use(lang)))) {
     lastSpeechAt = now;
     lastSpeechText = txt;
-    window.QuickStrokeThaiRecorded.play(txt);
+    playRecorded();
     return;
   }
+  const fallbackToRecording=()=>{
+    if(pilotFallback && route==='primary' && canRecorded){
+      try { speechSynthesis.cancel(); } catch (_) {}
+      speakFace(txt,{...opts,force:true,route:'recorded'});
+    }
+  };
   try {
     speechSynthesis.cancel();
     speechSynthesis.resume?.();
     const plan = faceSpeechPlan(txt, lang);
     if (plan.deliveryMode === 'visual_only') {
       reportFaceTts('TTS_UNAVAILABLE','prompt','unsupported',lang,'no_fallback_voice','face-prompt-visual-only','visual_only',lang);
+      fallbackToRecording();
       return;
     }
     const ut = new SpeechSynthesisUtterance(plan.text);
@@ -2236,6 +2257,12 @@ function speakFace(txt, opts={}){
     lastSpeechAt = now;
     lastSpeechText = txt;
     let started = false;
+    let failedOver = false;
+    const failOverOnce=()=>{
+      if(failedOver)return;
+      failedOver=true;
+      fallbackToRecording();
+    };
     ut.onstart = () => {
       started = true;
       reportFaceTts('TTS_PLAYBACK_STARTED','prompt','started',lang,undefined,'face-prompt-started-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
@@ -2243,6 +2270,7 @@ function speakFace(txt, opts={}){
     ut.onerror = event => {
       const err = String(event?.error || 'unknown').replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,64);
       reportFaceTts('TTS_ERROR','prompt','error',lang,err,'face-prompt-error-'+err+'-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
+      failOverOnce();
     };
     // Chrome/Android: speak() ทันทีหลัง cancel() บางครั้งเสียงหายทั้งประโยค
     // หน่วงสั้นๆ ให้ engine เคลียร์คิวก่อน → เสียง prompt มาครบ ไม่โดนกลืน
@@ -2250,14 +2278,19 @@ function speakFace(txt, opts={}){
       try {
         speechSynthesis.speak(ut);
         setTimeout(()=>{
-          if (!started) reportFaceTts('TTS_NO_START','prompt','no_start',lang,undefined,'face-prompt-no-start-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
+          if (!started) {
+            reportFaceTts('TTS_NO_START','prompt','no_start',lang,undefined,'face-prompt-no-start-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
+            failOverOnce();
+          }
         },1200);
       } catch(e){
         reportFaceTts('TTS_ERROR','prompt','error',lang,'speak_exception','face-prompt-exception');
+        failOverOnce();
       }
     }, 80);
   } catch(e){
     reportFaceTts('TTS_ERROR','prompt','error',lang,'setup_exception','face-prompt-setup-exception');
+    fallbackToRecording();
   }
 }
 

@@ -940,7 +940,7 @@
   @media(max-height:760px){#test-screen.speech-countdown-active .mic-box{height:172px!important;}#mic-circle.speech-countdown{width:148px!important;height:148px!important;flex-basis:148px!important;}#mic-circle.speech-countdown #mic-icon{font-size:98px!important;}}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
-<script src="./js/thai-recorded-audio.js?v=20261018-jssf-mp3-compat-v1"></script>
+<script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
 <script src="./js/data-contract.js?v=20260801-clinic-contract-v1"></script>
@@ -1355,16 +1355,26 @@ function primeSpeechCue() {
 
 function speakSpeechCue(text) {
   const value = String(text || '').trim();
-  // Android JSSF uses the same five approved recordings from preparation
-  // through module completion. Do not switch voices when getVoices() changes.
-  if (ANDROID_JSSF_SPEECH_CUES && String(T?.langCode || '').toLowerCase().startsWith('th') &&
-      window.QuickStrokeThaiRecorded?.fileFor?.(value)) {
-    return window.QuickStrokeThaiRecorded.play(value);
+  const recorded=window.QuickStrokeThaiRecorded;
+  const pilot=recorded?.isConsentedJssf?.()===true;
+  const mapped=!!recorded?.fileFor?.(value);
+  // Android JSSF: always try the approved MP3 first. Only an actual playback
+  // failure triggers native Thai TTS (outside microphone acquisition).
+  if (ANDROID_JSSF_SPEECH_CUES && mapped) {
+    return recorded.play(value).then(status=>
+      status==='ended' || status==='cancelled' ? status : speakSpeechNative(value)
+    );
   }
-  if (window.QuickStrokeThaiRecorded?.use(T?.langCode) &&
-      window.QuickStrokeThaiRecorded.fileFor?.(value)) {
-    return window.QuickStrokeThaiRecorded.play(value);
-  }
+  // Preserve the legacy Public/Dev recorded route.
+  if (recorded?.use(T?.langCode) && mapped) return recorded.play(value);
+  // iOS JSSF: native TTS first; on timeout/error/no Thai voice use the MP3.
+  return speakSpeechNative(value).then(status=>{
+    if(pilot && IS_IOS && mapped && status!=='ended' && status!=='cancelled')
+      return recorded.play(value);
+    return status;
+  });
+}
+function speakSpeechNative(value) {
   const lang = T?.langCode || document.documentElement.lang || 'th-TH';
   if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
     reportSpeechTts('TTS_UNAVAILABLE','ready','unsupported',lang,undefined,'speech-ready-unsupported');
@@ -3235,21 +3245,30 @@ function playVisualCountdownBeep() {
 // tone on retries, after the initial user gesture has expired.
 async function playIosAsrOnlyCount(count) {
   const synth=window.speechSynthesis;
-  if (!synth || typeof SpeechSynthesisUtterance === 'undefined') { await sleep(900); return; }
-  await new Promise(resolve => {
-    let done=false;
-    const finish=()=>{if(done)return;done=true;resolve();};
+  const pilotFallback=window.QuickStrokeThaiRecorded?.isConsentedJssf?.()===true;
+  const recorded=window.QuickStrokeThaiRecorded;
+  // The visual count remains available if both audio transports fail.
+  const nativeStatus=await new Promise(resolve=>{
+    if(!synth || typeof SpeechSynthesisUtterance==='undefined'){resolve('unsupported');return;}
+    let done=false,started=false;
+    const finish=status=>{if(done)return;done=true;resolve(status);};
     try {
       const utterance=new SpeechSynthesisUtterance(String(count));
       utterance.lang=T?.langCode || 'th-TH';
       utterance.rate=1.1;
       utterance.volume=1;
-      utterance.onend=finish;
-      utterance.onerror=finish;
+      utterance.onstart=()=>{started=true;};
+      utterance.onend=()=>finish('ended');
+      utterance.onerror=()=>finish('error');
       synth.speak(utterance);
-    } catch (_) { finish(); }
-    setTimeout(finish,900);
+    } catch (_) { finish('exception'); }
+    setTimeout(()=>{if(!done){try{synth.cancel();}catch(_){}finish(started?'timeout':'no_start');}},900);
   });
+  if(pilotFallback && nativeStatus!=='ended' && recorded?.fileFor?.(String(count))){
+    await recorded.play(String(count));
+  } else if(nativeStatus==='unsupported'){
+    await sleep(900);
+  }
   await sleep(180);
 }
 

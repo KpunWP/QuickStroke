@@ -885,7 +885,7 @@
   <script src="./js/languages.js?v=20260717-lang-v1"></script>
   <script src="./js/i18n.js">
   </script>
- <script src="./js/thai-recorded-audio.js?v=20261018-jssf-mp3-compat-v1"></script>
+ <script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
 </head>
  <body>
   <header>
@@ -2760,46 +2760,66 @@
      }
    }
 
+   const jssfCompletionAudioPending=new Set();
    function speakJssfCompletionOnce(sessionId) {
-     if (sessionId && window.QuickStrokeThaiRecorded?.use(LANG)) {
-       const key = 'quickstroke_jssf_completion_spoken_'+sessionId;
-       if (sessionStorage.getItem(key)!=='1') window.QuickStrokeThaiRecorded.play('จบการทดสอบ ขอบคุณค่ะ').then(status=>{if(status==='ended')sessionStorage.setItem(key,'1');});
-       return;
-     }
-     if (!sessionId || !('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
-     const key = `quickstroke_jssf_completion_spoken_${sessionId}`;
-     if (sessionStorage.getItem(key) === '1') return;
-     try {
-       const copy = jssfSpeechLocale();
-       const plan = jssfCompletionSpeechPlan(copy);
-       if (plan.deliveryMode === 'visual_only') return;
-       const utterance = new SpeechSynthesisUtterance(plan.text);
-       utterance.lang = plan.lang;
-       utterance.rate = 0.93;
-       utterance.volume = 1;
-       if (plan.voice) utterance.voice = plan.voice;
-       utterance.onstart = () => {
-         sessionStorage.setItem(key, '1');
-         JSSF_SPEECH_PRIMED = true;
-       };
-       utterance.onerror = (event) => {
-         console.warn('Unable to speak JSSF completion message.', event?.error || event);
-       };
-       if (JSSF_SPEECH_PRIMED) window.speechSynthesis.cancel();
-       prepareJssfPlaybackAudioSession();
-       // Match the Arm TTS launch pattern: let iOS finish switching back from
-       // capture/record routing before starting the audible completion prompt.
-       setTimeout(() => {
-         try {
-           prepareJssfPlaybackAudioSession();
-           window.speechSynthesis.speak(utterance);
-         } catch (error) {
-           console.warn('Unable to start JSSF completion speech.', error);
-         }
-       }, 240);
-     } catch (error) {
-       console.warn('Unable to speak JSSF completion message.', error);
-     }
+     if(!sessionId) return;
+     const key=`quickstroke_jssf_completion_spoken_${sessionId}`;
+     if(sessionStorage.getItem(key)==='1'||jssfCompletionAudioPending.has(sessionId))return;
+     const recorded=window.QuickStrokeThaiRecorded;
+     const text='จบการทดสอบ ขอบคุณค่ะ';
+     const canRecorded=!!recorded?.fileFor?.(text);
+     const pilot=recorded?.isConsentedJssf?.()===true;
+     const prefersRecorded=!!(canRecorded && recorded?.use(LANG));
+     // The terminal cue is after local finalize, never during ASR capture.
+     // A failure falls back once; no automatic second thank-you after success.
+     const playRecorded=async()=>{
+       if(!canRecorded)return false;
+       try{return (await recorded.play(text))==='ended';}
+       catch(_){return false;}
+     };
+     const playTts=()=>new Promise(resolve=>{
+       if(!('speechSynthesis' in window)||typeof window.SpeechSynthesisUtterance!=='function'){
+         resolve(false);return;
+       }
+       try{
+         const plan=jssfCompletionSpeechPlan(jssfSpeechLocale());
+         if(plan.deliveryMode==='visual_only'){resolve(false);return;}
+         let done=false,started=false;
+         const finish=ok=>{if(done)return;done=true;resolve(ok);};
+         const utterance=new SpeechSynthesisUtterance(plan.text);
+         utterance.lang=plan.lang;
+         utterance.rate=0.93;
+         utterance.volume=1;
+         if(plan.voice)utterance.voice=plan.voice;
+         utterance.onstart=()=>{started=true;JSSF_SPEECH_PRIMED=true;};
+         utterance.onend=()=>finish(true);
+         utterance.onerror=error=>{
+           console.warn('Unable to speak JSSF completion message.',error?.error||error);
+           finish(false);
+         };
+         if(JSSF_SPEECH_PRIMED)window.speechSynthesis.cancel();
+         prepareJssfPlaybackAudioSession();
+         setTimeout(()=>{
+           if(done)return;
+           try{prepareJssfPlaybackAudioSession();window.speechSynthesis.speak(utterance);}
+           catch(error){console.warn('Unable to start JSSF completion speech.',error);finish(false);}
+         },240);
+         // Some browsers omit speech events; avoid permanently suppressing
+         // a recorded fallback after a silent TTS no-start.
+         setTimeout(()=>{if(!started){try{window.speechSynthesis.cancel();}catch(_){}finish(false);}},2200);
+         setTimeout(()=>finish(false),Math.max(7000,plan.text.length*180));
+       }catch(error){
+         console.warn('Unable to speak JSSF completion message.',error);
+         resolve(false);
+       }
+     });
+     jssfCompletionAudioPending.add(sessionId);
+     void (async()=>{
+       const success=prefersRecorded
+         ? (await playRecorded() || (pilot && await playTts()))
+         : (await playTts() || (pilot && await playRecorded()));
+       if(success)sessionStorage.setItem(key,'1');
+     })().finally(()=>jssfCompletionAudioPending.delete(sessionId));
    }
 
    async function submitAndFinalizeJssf() {
