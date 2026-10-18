@@ -66,7 +66,7 @@ assert.match(speech,/const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_T
 assert.match(instruction,/if \(SPEECH_SILENT_START_TRIAL\) return 'silent_trial'/);
 assert.match(speech,/if \(!SPEECH_SILENT_START_TRIAL && !IOS_ASR_ONLY_TRIAL\) primeSpeechCue\(\)/);
 assert.match(speech,/if \(!IS_IOS && !SPEECH_SILENT_START_TRIAL\) primeSpeechCue\(\)/);
-assert.match(speech,/if \(!IS_ANDROID && !SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\)/);
+assert.match(speech,/else if \(!IS_ANDROID && !SPEECH_SILENT_START_TRIAL\) \{\s*playVisualCountdownBeep\(\)/);
 console.log('PASS: silent Speech trial disables app cues while preserving visual countdown');
 
 assert.match(instruction,/navigator\.audioSession\.type='playback'/);
