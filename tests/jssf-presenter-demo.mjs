@@ -70,6 +70,12 @@ assert.match(speech,/id="transcript-box"/);
 assert.match(remote,/value\.appMode === "research"[\s\S]*?researchProfile === "community_remote_qr"[\s\S]*?consentStatus === "consented"/);
 assert.match(index,/id="combined-view"/);
 assert.match(index,/id="individual-view"/);
+assert.match(index,/body:not\(\.qs-technical-entry\) \.mode-zone/);
+assert.match(index,/body:not\(\.qs-technical-entry\) \.dev-zone/);
+assert.match(index,/body:not\(\.qs-technical-entry\) \.jssf-draft-zone/);
+assert.match(index,/params.get\('tools'\) === '1'/);
+assert.match(index,/document.body.classList.toggle\('qs-technical-entry', technicalEntry\)/);
+
 assert.match(index,/prepareScreeningSession\('full'\)/);
 assert.match(index,/prepareScreeningSession\('individual'\)/);
 assert.match(result,/function moduleStatus\(name, d\) \{[\s\S]*?if \(!d\) return \{[\s\S]*?text: T\.notTested/);
