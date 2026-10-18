@@ -4255,7 +4255,7 @@ function runLoop() {
         for (const count of [3,2,1]) {
           if (phase !== 'READY_CUE') return;
           $('mic-icon').textContent = String(count);
-          if (!SPEECH_SILENT_START_TRIAL) playVisualCountdownBeep();
+          if (!IS_ANDROID && !SPEECH_SILENT_START_TRIAL) playVisualCountdownBeep();
           $('hint-text').textContent = String(T?.langCode || '').toLowerCase().startsWith('th') ? 'ยังไม่ต้องพูด' : T.preparePrompt;
           $('transcript-box').textContent = T.preparePrompt;
           await sleep(1000);
