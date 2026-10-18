@@ -1355,16 +1355,26 @@ function primeSpeechCue() {
 
 function speakSpeechCue(text) {
   const value = String(text || '').trim();
-  // Android JSSF uses the same five approved recordings from preparation
-  // through module completion. Do not switch voices when getVoices() changes.
-  if (ANDROID_JSSF_SPEECH_CUES && String(T?.langCode || '').toLowerCase().startsWith('th') &&
-      window.QuickStrokeThaiRecorded?.fileFor?.(value)) {
-    return window.QuickStrokeThaiRecorded.play(value);
+  const recorded=window.QuickStrokeThaiRecorded;
+  const pilot=recorded?.isConsentedJssf?.()===true;
+  const mapped=!!recorded?.fileFor?.(value);
+  // Android JSSF: always try the approved MP3 first. Only an actual playback
+  // failure triggers native Thai TTS (outside microphone acquisition).
+  if (ANDROID_JSSF_SPEECH_CUES && mapped) {
+    return recorded.play(value).then(status=>
+      status==='ended' || status==='cancelled' ? status : speakSpeechNative(value)
+    );
   }
-  if (window.QuickStrokeThaiRecorded?.use(T?.langCode) &&
-      window.QuickStrokeThaiRecorded.fileFor?.(value)) {
-    return window.QuickStrokeThaiRecorded.play(value);
-  }
+  // Preserve the legacy Public/Dev recorded route.
+  if (recorded?.use(T?.langCode) && mapped) return recorded.play(value);
+  // iOS JSSF: native TTS first; on timeout/error/no Thai voice use the MP3.
+  return speakSpeechNative(value).then(status=>{
+    if(pilot && IS_IOS && mapped && status!=='ended' && status!=='cancelled')
+      return recorded.play(value);
+    return status;
+  });
+}
+function speakSpeechNative(value) {
   const lang = T?.langCode || document.documentElement.lang || 'th-TH';
   if (!value || !window.speechSynthesis || typeof SpeechSynthesisUtterance === 'undefined') {
     reportSpeechTts('TTS_UNAVAILABLE','ready','unsupported',lang,undefined,'speech-ready-unsupported');
