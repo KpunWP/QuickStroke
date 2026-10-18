@@ -44,6 +44,10 @@
   const REQUIRED_FILES=[...new Set(Object.values(manifest))];
   let preparePromise=null;
   function shouldPrepare() {
+    // The consented Android JSSF Speech protocol always plays the five
+    // bundled recordings, even if this device has Thai TTS for Face/Arm.
+    // Preload them BEFORE the first participant action to avoid muted cues.
+    if (/Android/i.test(navigator.userAgent||'') && /\/jssf-consent\.html$/.test(location.pathname||'')) return true;
     if(mode==='tts') return false;
     if(mode==='recorded') return true;
     return /Android/i.test(navigator.userAgent||'') && use('th-TH');
