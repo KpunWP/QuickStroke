@@ -34,7 +34,7 @@ for (const file of ['arm-test.html', 'face-test.html']) {
   // builds the utterance from plan.text rather than a local spokenText variable.
   const planName=file==='arm-test.html' ? 'armSpeechPlan' : 'faceSpeechPlan';
   assert.ok(source.includes('function '+planName+'(txt, requestedLang)'),file+' should define its speech plan');
-  assert.match(source,/text:window\.QuickStrokeI18n\?\.prepareSpeechText\?\.\(txt, requestedLang\) \?\? txt/,
+  assert.match(source,/text:window\.QuickStrokeI18n\?\.prepareSpeechText\?\.\(txt, requested\) \?\? txt/,
     file+': TTS plan must normalize spoken Thai without modifying UI text');
   assert.match(source,/new SpeechSynthesisUtterance\(plan\.text\)/,
     file+': TTS utterance must use the normalized plan text');
