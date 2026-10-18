@@ -1,0 +1,45 @@
+name: Temporary JSSF MP3 asset conversion
+
+on:
+  push:
+    branches:
+      - research/jssf-android-mp3-audio-compat-20261018
+    paths:
+      - .github/workflows/jssf-audio-mp3-compat-temp.yml
+
+permissions:
+  contents: write
+
+jobs:
+  convert-audio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Convert existing approved clipped audio to broadly supported MP3
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v ffmpeg
+          command -v ffprobe
+          for name in speech_03_prepare_short speech_04_count_three speech_05_count_two speech_06_count_one speech_07_module_complete; do
+            input="audio/th/${name}.ogg"
+            output="audio/th/${name}.mp3"
+            test -s "$input"
+            ffmpeg -nostdin -hide_banner -loglevel error -y -i "$input" -map 0:a:0 -ac 1 -ar 24000 -c:a libmp3lame -b:a 48k "$output"
+            test -s "$output"
+            ffprobe -v error -select_streams a:0 -show_entries stream=codec_name -of default=nw=1 "$output" | grep -q 'codec_name=mp3'
+            echo "$output -> $(stat -c %s "$output") bytes"
+          done
+      - name: Commit MP3 assets only to the research branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add audio/th/speech_03_prepare_short.mp3 audio/th/speech_04_count_three.mp3 audio/th/speech_05_count_two.mp3 audio/th/speech_06_count_one.mp3 audio/th/speech_07_module_complete.mp3
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix(audio): convert approved JSSF short speech cues to compatible MP3'
+          git push origin "HEAD:refs/heads/research/jssf-android-mp3-audio-compat-20261018"
