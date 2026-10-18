@@ -19,7 +19,7 @@ assert.match(arm,/padding-bottom:calc\(210px \+ env\(safe-area-inset-bottom\)\)!
 assert.equal(th.speech?.accuracy || th.accuracy, 'ความถูกต้องของคำพูด');
 
 assert.match(speech,/#domain-rate-row\{display:none!important;\}/);
-assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, !IOS_ASR_ONLY_TRIAL\)/);
+assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, false\)/);
 assert.match(speech,/setDomainStatus\('phrase', phraseStatusClass, phraseStatusText, true\)/);
 assert.match(speech,/id="domain-rate-row"/);
 assert.match(speech,/id="result-details-toggle"/);
@@ -62,6 +62,9 @@ assert.match(armLang,/classList\.add\('arm-intro-visible'\)/);
 assert.doesNotMatch(armLang,/attemptAutoArmStepOneVoice\(\)/);
 
 assert.match(arm,/QuickStrokeThaiRecorded\.play\(phrase,\{timeoutMs:8000\}\)/);
+assert.match(arm,/QuickStrokeThaiRecorded\.use\(currentLangCode\(\)\) && window\.QuickStrokeThaiRecorded\.fileFor\?\.\(txt\)/);
+assert.match(speech,/const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL/);
+assert.match(speech,/setDomainStatus\('quality', qualityStatusClass, qualityStatusText, false\)/);
 
 assert.match(arm,/function armStepOneVoice\(side\)/);
 const btnFlow=arm.slice(arm.indexOf("function handleBtn()"),arm.indexOf("function handleBtn()")+6000);
@@ -91,7 +94,7 @@ assert.match(speech,/for \(const count of \[3,2,1\]\)/);
 assert.match(speech,/function playVisualCountdownBeep\(\)/);
 assert.match(speech,/ctx\.state!=='running'/);
 assert.match(speech,/gain\.gain\.exponentialRampToValueAtTime\(0\.0001,t\+0\.13\)/);
-assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*if \(!SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\);/);
+assert.match(speech,/\$\('mic-icon'\)\.textContent = String\(count\);\s*if \(!IS_ANDROID && !SPEECH_SILENT_START_TRIAL\) playVisualCountdownBeep\(\);/);
 
 assert.match(speech,/const cueStatus = 'visual_only'/);
 assert.ok(speech.includes('#mic-circle.speech-countdown #mic-icon{font-size:112px'), 'countdown should be large inside central icon');
