@@ -41,7 +41,12 @@ assert.match(closeSpeech,/if\(phase!=='DONE' \|\| audioStartToken!==finishedAudi
 assert.match(closeSpeech,/PUBLIC_TTS_COMPLETION_UNAVAILABLE/);
 assert.match(speech,/id="speech-voice-uat"/);
 assert.match(speech,/function playPublicSpeechUatCue\(\)/);
-assert.match(speech,/if \(!PUBLIC_SPEECH_TTS_TRIAL \|\| !\['IDLE','DONE'\]\.includes\(phase\)\) return/);
+assert.match(speech,/if \(!PUBLIC_SPEECH_TTS_TRIAL \|\| !\['IDLE','DONE'\]\.includes\(phase\) \|\| iosResultMicReleasePending\) return/);
+assert.match(speech,/function preparePublicSpeechPlaybackSession\(\)/);
+assert.match(speech,/navigator\.audioSession\.type='playback'/);
+assert.match(speech,/publicSpeechVoiceNotice\('preparing'\)/);
+assert.match(speech,/publicSpeechVoiceNotice\(status==='ended' \? 'played'/);
+assert.match(speech,/id="speech-voice-uat-status" hidden role="status"/);
 assert.match(result,/const PUBLIC_RESULT_TTS_TRIAL = APP_MODE_NAME === 'public'/);
 assert.match(result,/function playPublicResultTts\(\)/);
 assert.match(result,/if \(!PUBLIC_RESULT_TTS_TRIAL \|\| !isPublicResultSession\(\)\) return/);
