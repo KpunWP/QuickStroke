@@ -1002,6 +1002,8 @@
     </button>
     <button class="btn-secondary" id="secondary-action" type="button">
     </button>
+    <button class="btn-secondary" id="public-result-tts" type="button" hidden aria-label="Play completion voice">🔊</button>
+    <span id="public-result-tts-status" hidden aria-live="polite" style="font-size:12px;text-align:center"></span>
     <button class="btn-text" hidden="" id="retry-all" type="button">
     </button>
    </div>
@@ -1031,6 +1033,9 @@
    const RESULT_CONTRACT = window.QuickStrokeDataContract || null;
    const RESULT_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
    const APP_MODE_NAME = RESULT_APP_MODE?.resolveMode?.() || (window.QuickStrokeDevMode?.isEnabled?.() ? 'dev' : 'public');
+   const PUBLIC_RESULT_TTS_TRIAL = APP_MODE_NAME === 'public'
+     && sessionStorage.getItem('qs_public_tts_trial') === '1';
+   let publicResultAutoVoiceAttempted = false;
 
    function storedResultSessionModeHint() {
      const contractContext = RESULT_CONTRACT?.getSessionContext?.() || {};
@@ -2729,6 +2734,72 @@
      try { window.speechSynthesis?.resume?.(); } catch (_) {}
    }
 
+   // Public voice UAT: completion only, never verbalize a clinical
+   // conclusion or change participant/JSSF finalization behavior.
+   function playPublicResultTts() {
+     if (!PUBLIC_RESULT_TTS_TRIAL || !isPublicResultSession()) return;
+     const button=document.getElementById('public-result-tts');
+     const status=document.getElementById('public-result-tts-status');
+     if (!button || !status) return;
+     status.hidden=false;
+     const plan=jssfCompletionSpeechPlan(jssfSpeechLocale());
+     if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function'
+       || plan.deliveryMode === 'visual_only') {
+       status.textContent = LANG==='ja' ? '音声を利用できません' : LANG==='en' ? 'TTS voice unavailable' : 'ไม่มีเสียง TTS ภาษาไทยในเครื่อง';
+       return;
+     }
+     let started=false,finished=false;
+     try {
+       prepareJssfPlaybackAudioSession();
+       window.speechSynthesis.cancel();
+       const utterance=new SpeechSynthesisUtterance(plan.text);
+       utterance.lang=plan.lang;
+       utterance.rate=0.94;
+       utterance.volume=1;
+       if(plan.voice)utterance.voice=plan.voice;
+       utterance.onstart=()=>{
+         started=true;
+         status.textContent=LANG==='ja'?'音声再生中':LANG==='en'?'Speaking':'กำลังพูด';
+       };
+       utterance.onend=()=>{
+         finished=true;
+         status.textContent=LANG==='ja'?'音声テスト完了':LANG==='en'?'Voice played':'เล่นเสียงแล้ว';
+       };
+       utterance.onerror=()=>{
+         finished=true;
+         status.textContent=LANG==='ja'?'音声再生に失敗':LANG==='en'?'TTS playback failed':'เล่นเสียง TTS ไม่สำเร็จ';
+       };
+       status.textContent=LANG==='ja'?'音声を準備中':LANG==='en'?'Preparing voice':'กำลังเตรียมเสียง';
+       window.speechSynthesis.speak(utterance);
+       setTimeout(()=>{
+         if(!started && !finished)
+           status.textContent=LANG==='ja'?'音声が始まりません':LANG==='en'?'TTS did not start':'ระบบยังไม่เริ่มเล่นเสียง';
+       },2400);
+     }catch(error){
+       status.textContent=LANG==='ja'?'音声エラー':LANG==='en'?'TTS error':'เสียง TTS มีปัญหา';
+       console.warn('Public completion TTS failed',error);
+     }
+   }
+   function configurePublicResultTts() {
+     const button=document.getElementById('public-result-tts');
+     const status=document.getElementById('public-result-tts-status');
+     if(!button||!status)return;
+     const available=PUBLIC_RESULT_TTS_TRIAL && isPublicResultSession()
+       && CURRENT?.state!=='noData' && CURRENT?.state!=='incomplete';
+     button.hidden=!available;
+     if(!available){status.hidden=true;return;}
+     button.textContent=LANG==='ja'?'🔊 音声を再生':LANG==='en'?'🔊 Play voice':'🔊 ฟังเสียงจบการทดสอบ';
+     button.onclick=playPublicResultTts;
+     // An automatic attempt is best-effort: Safari may block autoplay across
+     // navigation. The visible replay control provides a fresh user gesture.
+     if(!publicResultAutoVoiceAttempted){
+       publicResultAutoVoiceAttempted=true;
+       setTimeout(()=>{
+         if(PUBLIC_RESULT_TTS_TRIAL && isPublicResultSession())playPublicResultTts();
+       },500);
+     }
+   }
+
    function primeJssfCompletionSpeech() {
      if (window.QuickStrokeThaiRecorded?.use(LANG)) return;
      if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
@@ -3126,6 +3197,7 @@
      renderDevDiagnostics(CURRENT);
      renderActions(CURRENT);
      applyJssfParticipantResultView(CURRENT);
+     configurePublicResultTts();
      void persistResultDecisionTrace(CURRENT);
 
      // Render the participant result first. Remote recovery/upload is durable
