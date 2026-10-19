@@ -138,6 +138,12 @@
   .combined-arrow{position:relative;z-index:1;display:flex;flex-shrink:0;color:#fff}
   .combined-arrow svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
 
+  .recent-result-btn{width:100%;min-height:46px;padding:9px 18px;border:0;
+    border-top:1px solid rgba(43,125,233,.14);background:#fff;color:var(--clinical-deep);
+    font-size:15px;font-weight:750;cursor:pointer}
+  .recent-result-btn[hidden]{display:none!important}
+  .recent-result-btn:active{background:var(--clinical-soft)}
+
   .individual-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));background:#fff}
   .module-choice{
     min-width:0;min-height:132px;padding:16px 7px 14px;border:0;border-right:1px solid rgba(27,42,58,.11);
@@ -411,6 +417,7 @@
               <svg viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
             </span>
           </button>
+          <button type="button" id="view-last-result" class="recent-result-btn" onclick="goResult()" hidden>ดูผลล่าสุด</button>
         </div>
 
         <div class="panel-view" id="individual-view" hidden>
@@ -1029,15 +1036,30 @@ function clearAbandonedPublicResultRetry() {
   if ((APP_MODE?.resolveMode?.() || 'public') === 'public')
     sessionStorage.removeItem('fast_pending_module_retry');
 }
+function shouldRestartCompletedPublicFull(mode, validCompleted) {
+  return mode === 'public' && validCompleted === MODULES.length;
+}
 async function handlePrimaryAction() {
   sessionStorage.setItem('fast_lang', lang);
+  const appMode = APP_MODE?.resolveMode?.() || 'public';
+  const fullComplete = screeningState.validCompleted === MODULES.length;
 
-  if (screeningState.validCompleted === MODULES.length) {
+  // Public primary action means "test full set" even after a prior complete
+  // screening. Keep Result as a separate explicit action. Research/Dev retain
+  // their previous post-completion behavior and session protocol.
+  if (fullComplete && !shouldRestartCompletedPublicFull(appMode, screeningState.validCompleted)) {
     goResult();
     return;
   }
 
   try {
+    if (shouldRestartCompletedPublicFull(appMode, screeningState.validCompleted)) {
+      const prior=DATA_CONTRACT.getSessionContext();
+      if (prior.screeningSessionId && prior.sessionStatus !== 'finalized') {
+        await finalizePersistedSession(prior, 'PUBLIC_FULL_RESTART');
+      }
+      await createFreshSessionForCurrentMode();
+    }
     clearAbandonedPublicResultRetry();
     await prepareScreeningSession('full');
     location.href = `${screeningState.nextModule}-test.html`;
@@ -1133,9 +1155,22 @@ function updateProgress() {
 
   if (heroSubtitle) heroSubtitle.textContent = getModuleListText();
 
+  const publicFullCompleted = shouldRestartCompletedPublicFull(
+    APP_MODE?.resolveMode?.() || 'public', validCompleted
+  );
+  const recentResultButton = document.getElementById('view-last-result');
+  if (recentResultButton) {
+    recentResultButton.hidden = !publicFullCompleted;
+    recentResultButton.textContent = tr('index.viewLastResult', 'ดูผลล่าสุด');
+  }
+
   if (validCompleted === MODULES.length) {
-    primaryLabel.textContent = tr('index.primaryComplete', 'ดูผล');
-    primaryMeta.textContent = tr('index.progress', 'เสร็จแล้ว {{done}}/3', { done:validCompleted });
+    primaryLabel.textContent = publicFullCompleted
+      ? tr('index.primaryRestart', 'ทดสอบทั้งหมดอีกครั้ง')
+      : tr('index.primaryComplete', 'ดูผล');
+    primaryMeta.textContent = publicFullCompleted
+      ? getModuleListText()
+      : tr('index.progress', 'เสร็จแล้ว {{done}}/3', { done:validCompleted });
   } else if (attemptedCount > 0) {
     primaryLabel.textContent = tr('index.primaryContinue', 'ทำต่อ');
     primaryMeta.textContent = tr('index.progress', 'เสร็จแล้ว {{done}}/3', { done:validCompleted });
