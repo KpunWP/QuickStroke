@@ -2,13 +2,13 @@
 **Oral Workstream C → temporary school briefing handoff**  
 **Prepared:** 19 October 2026. **Status:** cross-team editorial handoff, **NOT** a new slide deck, production release, or approval of JSSF Oral wording.  
 **Audience:** school director and other school teams; this is a short, persuasive example of QuickStroke, **not** the full JSSF scientific oral (15 min + 10 min Q&A).  
-**Repository:** KpunWP/QuickStroke; **branch:** \`research/jssf-2026-poster-demo-kickoff-20261018\`.
+**Repository:** KpunWP/QuickStroke; **branch:** `research/jssf-2026-poster-demo-kickoff-20261018`.
 
 ## 0. Strict separation / how the new chat should work
-- Use **the exact original \`QuickStroke_Pitch_V3.pptx\`** (nine slides, ~36.7 MB / 34.98 MiB) as the **ONLY deck base**. It is stored in **ChatGPT Library**, discoverable by exact filename, or obtainable as the separate original-base bundle supplied in Oral chat.
+- Use **the exact original `QuickStroke_Pitch_V3.pptx`** (nine slides, ~36.7 MB / 34.98 MiB) as the **ONLY deck base**. It is stored in **ChatGPT Library**, discoverable by exact filename, or obtainable as the separate original-base bundle supplied in Oral chat.
 - Preserve **animations, progressive reveals, original moving 4.5-hour numeral, colors, visual identity, major narrative**, and the old slide count as closely as possible.
 - The nine-slide deck has a **52.4-second embedded portrait MP4** and two original PNG media assets. **Video is a historical demo, not current UX/UI. Replace it with authentic current-build demo media if available; do not falsely present it as current.**
-- Original PPTX SHA-256: \`f8f63ceba1cea5bee823ad1c894d3e0293ef4070803fdaa88496781833522474\`; archive integrity was checked and all nine slides can be parsed. This does **not** certify Microsoft PowerPoint playback on the school's machine.
+- Original PPTX SHA-256: `f8f63ceba1cea5bee823ad1c894d3e0293ef4070803fdaa88496781833522474`; archive integrity was checked and all nine slides can be parsed. This does **not** certify Microsoft PowerPoint playback on the school's machine.
 - The earlier **18/19-slide Oral V1/V2/V3 generated files are NOT a starting point**. Some generated PPTX variants failed to open in PowerPoint; do not import their slide XML/animations into the school deck. The ongoing JSSF Oral design is a **separate workstream**, unchanged by this short-notice briefing.
 - Aim for **9–11 main slides**: original narrative, with **one or at most two** extra scientific/evidence slides, or equivalent condensed inserts. Avoid an 18-slide rebuild.
 - This handoff authorizes **no production app, research consent, threshold, schema, database, or original oral-deck changes**.
@@ -43,8 +43,8 @@
 ### Slide 3 — approved exact replacement
 - **Owner-selected wording (copy verbatim): “4.5 hours. A critical chance to dissolve the clot.”**
 - Preserve original staged:
-  - \`IN TIME\` → \`a better chance to\` → \`walk out of the hospital.\`
-  - \`TOO LATE\` → \`a greater risk of\` → \`lifelong disability, or death.\`
+  - `IN TIME` → `a better chance to` → `walk out of the hospital.`
+  - `TOO LATE` → `a greater risk of` → `lifelong disability, or death.`
 - Do NOT flatten this into a single sentence or remove duplicated-looking animation elements. Keep original 4.5 HOURS motion path.
 - **Decision status:** short replacement wording APPROVED. Whether to change the original heading “THE NUMBER THAT DECIDES EVERYTHING” is NOT decided.
 - Spoken medical qualifier (do **not** crowd slide): the 4.5-hour window pertains to **IV clot-dissolving treatment for selected eligible ischemic-stroke patients**, not all stroke types; some patients qualify for other treatments later, and emergency care must never be abandoned when time passes.
@@ -99,7 +99,7 @@
   - These are **repeated attempts**, *not independent people*, do **not** compare module rates as if gates were identical, and **never call them stroke-detection accuracy**.
   - In total 729 attempt events: Face 156, Arm 297, Speech 276. (Multiple arm tests/retries explain different denominators.)
   - Engineering-preflight **26 separate session records EXCLUDED**. App-version confounding: **124/136 sessions used app v1.0.21**. Speaker can say **“It works enough to let us study quality and failures—but real medical accuracy has not been tested.”** Clarify this is a simplified message, not a reliability-performance claim.
-- QA snapshot verified read-only in production Supabase \`quickstroke-jssf\` (project \`pzzjfnfwppdeketjdhfo\`) on **2026-10-19 20:17 ICT**; raw event statuses: Face valid 136 / invalid 16 / not evaluable 4; Arm 283 / 13 / 1; Speech 190 / 27 / 59. Update counts or freeze date when constructing actual briefing.
+- QA snapshot verified read-only in production Supabase `quickstroke-jssf` (project `pzzjfnfwppdeketjdhfo`) on **2026-10-19 20:17 ICT**; raw event statuses: Face valid 136 / invalid 16 / not evaluable 4; Arm 283 / 13 / 1; Speech 190 / 27 / 59. Update counts or freeze date when constructing actual briefing.
 - Source analysis: https://github.com/KpunWP/QuickStroke/blob/research/jssf-2026-poster-demo-kickoff-20261018/docs/JSSF2026_POSTER_MEASUREMENT_EVIDENCE_STORYBOARD_20261018.md
 - If limited to ONE research slide, combine R1 visual + only one careful pilot stat: **136 pilot session records; 121 completed**. Avoid dense chart.
 
@@ -120,18 +120,18 @@
 
 ## 5. Artwork and assets: real availability vs pending
 **AVAILABLE, verified in the Original Pitch V3:**
-- \`QuickStroke_Pitch_V3.pptx\` in ChatGPT **Library** (search exact title); original 9 slide designs, 6 animated slides and embedded original video.
-- Embedded \`ppt/media/media1.mp4\` **52.4 seconds** — *OLD UX/UI reference, replace before school presentation.*
-- \`ppt/media/image1.png\` (660×660) — original QR artwork; extracted file \`pitch_original_QR.png\` in user-provided Oral handoff bundle; test on a phone before showing.
-- \`ppt/media/image2.png\` (1080×1920) — original portrait/demo image; extracted \`pitch_original_demo_frame.png\` in handoff bundle; likely old UX/UI, **not contemporary evidence**.
-- \`JSSF_2026_QuickStroke_Research_Proposal.pdf\` in ChatGPT Library, included in bundled files; background proposal, not a source for fabricated final performance claims.
+- `QuickStroke_Pitch_V3.pptx` in ChatGPT **Library** (search exact title); original 9 slide designs, 6 animated slides and embedded original video.
+- Embedded `ppt/media/media1.mp4` **52.4 seconds** — *OLD UX/UI reference, replace before school presentation.*
+- `ppt/media/image1.png` (660×660) — original QR artwork; extracted file `pitch_original_QR.png` in user-provided Oral handoff bundle; test on a phone before showing.
+- `ppt/media/image2.png` (1080×1920) — original portrait/demo image; extracted `pitch_original_demo_frame.png` in handoff bundle; likely old UX/UI, **not contemporary evidence**.
+- `JSSF_2026_QuickStroke_Research_Proposal.pdf` in ChatGPT Library, included in bundled files; background proposal, not a source for fabricated final performance claims.
 
 **REFERENCES available in GitHub Research Branch; NOT deliverable slide artwork files:**
-- \`docs/JSSF2026_POSTER_SCENE03_TECH_ARTWORK_SPEC_V1_20261019.md\` — image/technical artwork spec.
-- \`docs/JSSF2026_POSTER_SCENE04_METHODS_AND_LAYOUT_V1_20261019.md\` — research-methods/layout spec.
-- \`docs/JSSF2026_POSTER_SCENE05_MEASURABLE_SIGNALS_V2_20261019.md\` — owner-approved *direction*, not final exported vector or charts.
-- \`docs/JSSF2026_POSTER_SCENE06_ENGINEERING_LESSONS_V1_20261019.md\` — engineering lessons working draft.
-- Scene 05 draft mentions \`QuickStroke_JSSF_Scene05_Measurable_Signals_v2.svg\`/\`.png\` generated **locally in a separate chat**, explicitly **not committed to GitHub**. Request files from Poster if needed; **do not pretend that they exist in repo**.
+- `docs/JSSF2026_POSTER_SCENE03_TECH_ARTWORK_SPEC_V1_20261019.md` — image/technical artwork spec.
+- `docs/JSSF2026_POSTER_SCENE04_METHODS_AND_LAYOUT_V1_20261019.md` — research-methods/layout spec.
+- `docs/JSSF2026_POSTER_SCENE05_MEASURABLE_SIGNALS_V2_20261019.md` — owner-approved *direction*, not final exported vector or charts.
+- `docs/JSSF2026_POSTER_SCENE06_ENGINEERING_LESSONS_V1_20261019.md` — engineering lessons working draft.
+- Scene 05 draft mentions `QuickStroke_JSSF_Scene05_Measurable_Signals_v2.svg`/`.png` generated **locally in a separate chat**, explicitly **not committed to GitHub**. Request files from Poster if needed; **do not pretend that they exist in repo**.
 - New current-build demo screenshots/video and rights-cleared Face Mesh visuals **not yet provided/verified**. Contact engineering/Demo; do not use volunteer face/audio material without explicit publication permission.
 
 ## 6. Speaker story for short school briefing (Thai explanation, English power words)
@@ -163,4 +163,4 @@ This is **not** a mandatory script: use short, natural oral Thai explanations fo
 - Return to ongoing JSSF Oral slide-by-slide discussion after the school emergency presentation; Slide 6 discussion remains **unapproved and paused**.
 
 ## 8. Copyable new-chat instruction
-> We are preparing an urgent QuickStroke presentation for the school director and other school teams on **Wed 21 Oct 2026, 10:00 Thailand time**. Read \`docs/JSSF2026_SCHOOL_DIRECTOR_20261021_ORAL_HANDOFF_20261019.md\` from branch \`research/jssf-2026-poster-demo-kickoff-20261018\`, plus Poster scene05/scene06 and AI/privacy docs. Use **QuickStroke_Pitch_V3.pptx from ChatGPT Library** as the original **9-slide animated** base, not the 18/19-slide Oral drafts. Keep close to 9 pages and add **no more than 1–2 simple research slides**. Incorporate only approved wording (especially Slide 3’s 4.5-hour sentence and Slide 5 Uncertainty→QuickStroke→Awareness); flag Slide 6 and slide 4 final statistic selection as pending. Replace obsolete demo media if a real current video arrives, otherwise use honestly labeled stills. Do not create clinical-performance claims. Work on a separate school-specific output; leave ongoing JSSF Oral unchanged. First propose a 10–11-slide outline, then create editable, PowerPoint-compatible PPTX and offline PDF after approval. Test opening in Microsoft PowerPoint before final delivery.
+> We are preparing an urgent QuickStroke presentation for the school director and other school teams on **Wed 21 Oct 2026, 10:00 Thailand time**. Read `docs/JSSF2026_SCHOOL_DIRECTOR_20261021_ORAL_HANDOFF_20261019.md` from branch `research/jssf-2026-poster-demo-kickoff-20261018`, plus Poster scene05/scene06 and AI/privacy docs. Use **QuickStroke_Pitch_V3.pptx from ChatGPT Library** as the original **9-slide animated** base, not the 18/19-slide Oral drafts. Keep close to 9 pages and add **no more than 1–2 simple research slides**. Incorporate only approved wording (especially Slide 3’s 4.5-hour sentence and Slide 5 Uncertainty→QuickStroke→Awareness); flag Slide 6 and slide 4 final statistic selection as pending. Replace obsolete demo media if a real current video arrives, otherwise use honestly labeled stills. Do not create clinical-performance claims. Work on a separate school-specific output; leave ongoing JSSF Oral unchanged. First propose a 10–11-slide outline, then create editable, PowerPoint-compatible PPTX and offline PDF after approval. Test opening in Microsoft PowerPoint before final delivery.
