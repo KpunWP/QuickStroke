@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 
 const read = p => fs.readFileSync(new URL('../' + p, import.meta.url), 'utf8');
 const index=read('index.html'), face=read('face-test.html'), arm=read('arm-test.html');
@@ -30,7 +31,29 @@ assert.match(index,/await prepareScreeningSession\('full'\);[\s\S]*location\.hre
 assert.match(index,/await prepareScreeningSession\('individual'\);[\s\S]*location\.href = \`\$\{moduleName\}-test\.html\`/);
 assert.match(face,/speakFace\(FL\.restVoice,\s*\{force:true\}\)/);
 assert.match(face,/speakFace\(FL\.smileVoice,\s*\{force:true\}\)/);
-assert.match(face,/if \(mode === 'full' && !returningFromResultRetry\)[\s\S]*?target = 'arm-test\.html'/);
+// Regression: Full used to skip Arm/Speech and jump straight to Result when
+// a stale or on-page Face retry was labeled "result_retry".
+const routeSource=face.match(/function decideFaceCompletionTarget\([^]*?\n\}/)?.[0];
+assert.ok(routeSource,'Face should expose a pure testable completion routing decision');
+const faceNext=vm.runInNewContext(routeSource+'\ndecideFaceCompletionTarget', {});
+const cases=[
+  ['fresh Full', 'full',false,false,false,'arm-test.html'],
+  ['stale Face result-retry Full', 'full',true,false,false,'arm-test.html'],
+  ['repeated Face Full without Arm', 'full',true,false,true,'arm-test.html'],
+  ['Full after Arm with missing Speech', 'full',true,true,false,'speech-test.html'],
+  ['Full after on-page reattempt with Arm done', 'full',false,true,false,'arm-test.html'],
+  ['completed Full explicit Result retry', 'full',true,true,true,'result.html'],
+  ['Individual', 'individual',false,false,false,'result.html']
+];
+for(const [name,mode,retry,armDone,speechDone,expected] of cases) {
+  assert.equal(faceNext(mode,retry,armDone,speechDone),expected,name);
+}
+assert.match(face,/const target = decideFaceCompletionTarget\(/[\s\S]*?Boolean\(sessionStorage\.getItem\('fast_arm'\)\),\s*Boolean\(sessionStorage\.getItem\('fast_speech'\)\)/);
+assert.match(face,/btn\.dataset\.nextPage=target/);
+assert.match(face,/navBtn\.textContent = faceCompletionNavLabel\(navBtn\.dataset\.nextPage/);
+assert.match(index,/function clearAbandonedPublicResultRetry\(\)[\s\S]*?resolveMode\?\.\(\) \|\| 'public'\) === 'public'/);
+for(const code of ['th-TH','en-US','ja-JP']) assert.ok(JSON.parse(read('locales/'+code+'/ui.json')).face.navSpeech);
+
 
 assert.match(arm,/function startWait\(\)[\s\S]*?speakNow\(T\['vWait_'\+arm\]/);
 assert.match(arm,/function startMeasure\(\)[\s\S]*?speak\(T\.vReady\)/);
