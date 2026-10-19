@@ -873,7 +873,10 @@
    body.jssf-participant-result.jssf-submit-visible main{padding-bottom:112px!important}
    .export-button{border:1.5px solid var(--line);background:#fff;color:var(--ink);flex:1 1 150px}
    .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
-  </style>
+  
+  /* Opt-in Public voice UAT controls never appear in ordinary or JSSF UI. */
+  #public-result-tts[hidden],#public-result-tts-status[hidden]{display:none!important;}
+</style>
   <script src="config.js?v=20261007-audio-fallback-v20">
   </script>
   <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
