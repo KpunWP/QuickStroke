@@ -26,3 +26,10 @@ Test actual device-delivered voice for Speech and Result while keeping the worki
 
 ## Release gate
 Do not promote experimental Public TTS to normal Public until iPhone and Android capture/retry results are collected. Do not change JSSF Research consent, audio route, pilot data, or stroke evaluation thresholds.
+
+## 2026-10-19 follow-up: completed Full round and Japanese Speech closing voice
+- User confirmation: on Public Home, an already completed Full round must not hijack the primary action into old Result. Main button now reads "Test All Again / ทดสอบทั้งหมดอีกครั้ง / 3項目をもう一度" and creates a fresh screening before Face. An explicit "View Last Result" button remains while prior results are present. Research/Dev retain previous protocols.
+- Public Japanese Speech closing text exists (`発話テストが終わりました。`), but Safari may not start queued speechSynthesis after ASR microphone release. Opt-in Public-only closing path now restores `navigator.audioSession.type='playback'`, resumes speechSynthesis, attempts auto-play after mic release, and shows a localized outcome/failure notice and manual playback fallback.
+- Do **not** assert this means automatic speech is reliable on all iPhones. No Japanese prerecorded fallback is bundled. Check `speechSynthesis.getVoices()` for an available Japanese voice if result says unavailable; speaker autoplay after cross-page navigation remains browser-controlled.
+- Result attempts a short completion TTS automatically and leaves a replay button visible if the device blocks auto-play. No diagnosis or result interpretation is spoken.
+- Mandatory device UAT: iPhone Safari JA Speech twice (first attempt and two retries), observe on-screen TTS notice. Compare Result automatic voice vs direct gesture replay. Keep normal Public and JSSF baseline unchanged until confirmed.
