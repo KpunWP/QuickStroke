@@ -940,7 +940,7 @@
   @media(max-height:760px){#test-screen.speech-countdown-active .mic-box{height:172px!important;}#mic-circle.speech-countdown{width:148px!important;height:148px!important;flex-basis:148px!important;}#mic-circle.speech-countdown #mic-icon{font-size:98px!important;}}
 
   /* Opt-in Public voice UAT controls never appear in ordinary or JSSF UI. */
-  #speech-voice-uat[hidden],#speech-voice-uat-status[hidden]{display:none!important;}
+  #speech-voice-uat[hidden],#speech-voice-uat-status[hidden],#public-countdown-audio-status[hidden]{display:none!important;}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
@@ -986,6 +986,7 @@
     <p class="hint-lbl" id="hint-text"></p>
     <button id="speech-voice-uat" type="button" hidden onclick="playPublicSpeechUatCue()" style="align-self:center;margin:0 auto 8px;padding:8px 16px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">🔊 <span id="speech-voice-uat-label">ฟังเสียง</span></button>
     <p id="speech-voice-uat-status" hidden role="status" aria-live="polite" style="font-size:12px;text-align:center;margin:0 14px 7px;color:var(--muted)"></p>
+    <p id="public-countdown-audio-status" hidden role="status" aria-live="polite" style="position:fixed;left:16px;right:16px;bottom:calc(80px + env(safe-area-inset-bottom));z-index:25;background:rgba(15,23,42,.92);color:#fff;padding:8px 12px;border-radius:10px;font-size:12px;text-align:center;pointer-events:none"></p>
     <h1 class="word-display" id="word-target"></h1>
     <div id="transcript-box"></div>
     <div id="metrics-box">
@@ -3353,6 +3354,33 @@ async function playIosAsrOnlyCount(count) {
 // NOT active. Keep the visible count and never let browser TTS hang a test.
 // This intentionally exercises iOS playback while the calibrated stream exists;
 // a device failure must remain confined to the opt-in Preview experiment.
+function publicCountdownSpeechWord(count) {
+  const lang=String(T?.langCode || '').toLowerCase();
+  const words=lang.startsWith('ja')
+    ? ['','一','二','三']
+    : lang.startsWith('en')
+      ? ['','One','Two','Three']
+      : ['','หนึ่ง','สอง','สาม'];
+  return words[count] || String(count);
+}
+function showPublicCountdownAudioStatus(count, status, backupBeep) {
+  if (!PUBLIC_SPEECH_TTS_TRIAL) return;
+  const el=$('public-countdown-audio-status');
+  if(!el)return;
+  const lang=String(T?.langCode || '').toLowerCase();
+  const reported=status==='ended' ? 'TTS ended' : 'TTS '+status;
+  const msg=lang.startsWith('ja')
+    ? '音声 '+count+': '+reported+(backupBeep?' · 代替音':'')
+    : lang.startsWith('en')
+      ? 'Count '+count+': '+reported+(backupBeep?' · fallback tone':'')
+      : 'เสียงเลข '+count+': '+reported+(backupBeep?' · ใช้เสียงสัญญาณแทน':'');
+  el.textContent=msg;
+  el.hidden=false;
+}
+// Public audio UAT only. iOS microphone capture and WebAudio calibration
+// are already running here; Safari may refuse TTS even if voices are present.
+// Avoid resetting the synthesizer before every digit. Never switch to
+// "playback" while a live microphone is being used or force-release it here.
 async function playPublicTtsCountdownDigit(count) {
   const startedAt=performance.now();
   const recorded=window.QuickStrokeThaiRecorded;
@@ -3364,9 +3392,9 @@ async function playPublicTtsCountdownDigit(count) {
     const finish=status=>{if(done)return;done=true;resolve(status);};
     let timer;
     try {
-      const u=new SpeechSynthesisUtterance(String(count));
+      const u=new SpeechSynthesisUtterance(publicCountdownSpeechWord(count));
       u.lang=T?.langCode || 'en-US';
-      u.rate=1.12;
+      u.rate=1.08;
       u.volume=1;
       const voices=synth.getVoices?.() || [];
       const short=String(u.lang).toLowerCase().split('-')[0];
@@ -3374,26 +3402,33 @@ async function playPublicTtsCountdownDigit(count) {
       u.onstart=()=>{started=true;};
       u.onend=()=>{clearTimeout(timer);finish('ended');};
       u.onerror=()=>{clearTimeout(timer);finish('error');};
-      synth.cancel();
+      // The prior implementation cancelled all speech before each digit,
+      // which can repeatedly reset the iOS audio route.
+      if(count===3)synth.cancel();
       synth.resume?.();
       synth.speak(u);
       timer=setTimeout(()=>{
         if(done)return;
         try{synth.cancel();}catch(_){}
         finish(started?'timeout':'no_start');
-      },1600);
+      },1800);
     }catch(_){clearTimeout(timer);finish('error');}
   });
   let status;
   if(isThai && recorded?.use(T?.langCode) && recorded?.fileFor?.(String(count))){
-    status=await recorded.play(String(count),{timeoutMs:1900});
+    status=await recorded.play(String(count),{timeoutMs:2000});
   } else {
     status=await native();
     if(isThai && status!=='ended' && recorded?.fileFor?.(String(count))) {
-      status=await recorded.play(String(count),{timeoutMs:1900});
+      status=await recorded.play(String(count),{timeoutMs:2000});
     }
   }
-  if(status!=='ended') queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COUNTDOWN_UNAVAILABLE');
+  // The fallback is a signal, NOT spoken digits. It does not change the
+  // microphone stream or the ASR/scoring paths. If this is also silent,
+  // the large visual 3-2-1 remains the authoritative cue.
+  const backupBeep=status!=='ended' && IS_IOS ? playVisualCountdownBeep() : false;
+  showPublicCountdownAudioStatus(count,status,backupBeep);
+  if(status!=='ended') queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COUNTDOWN_UNAVAILABLE_'+String(count));
   await sleep(Math.max(0,1000-(performance.now()-startedAt)));
   return status;
 }
@@ -4444,6 +4479,10 @@ function runLoop() {
       animationFrameId = null;
 
       const countdownToken = audioStartToken;
+      if (PUBLIC_SPEECH_TTS_TRIAL) {
+        const status=$('public-countdown-audio-status');
+        if(status){status.hidden=false;status.textContent='TTS 3–2–1: preparing';}
+      }
       void (async () => {
         // Android JSSF must release WebAudio's calibration stream before
         // playing the spoken count, and must not start ASR until it finishes.
@@ -4478,6 +4517,10 @@ function runLoop() {
         // The visible "เริ่มพูดได้" state is exposed only from ASR onaudiostart.
         phase = 'RECORDING';
         $('test-screen').classList.remove('speech-countdown-active');
+        if(PUBLIC_SPEECH_TTS_TRIAL) {
+          const status=$('public-countdown-audio-status');
+          if(status)setTimeout(()=>{status.hidden=true;},2400);
+        }
         recordingStartedMs = null;
         $('mic-circle').className       = 'mic-circle calibrating';
         $('mic-icon').textContent       = '🎤';
