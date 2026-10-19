@@ -53,8 +53,8 @@ assert.match(result,/void playRecorded\(\)/);
 assert.match(result,/const plan=jssfCompletionSpeechPlan\(jssfSpeechLocale\(\)\)/);
 assert.match(result,/if \(isRemoteJssf\) \{\s*showJssfTerminalState\(\);\s*speakJssfCompletionOnce\(session\.screeningSessionId\)/);
 console.log('PASS Public opt-in voice experiment isolated to Public TH/EN/JA');
-console.log('PASS English/Japanese Arm concise; opt-in spoken countdown; Speech completion after release; Result auto+replay+Thai fallback; JSSF unchanged');
-console.log('DEVICE UAT STILL REQUIRED: actual iOS/Android TTS playback and iOS mic retry after using Speech voice test');
+console.log('PASS English/Japanese Arm concise; opt-in spoken countdown; automatic Speech/Result completion; JSSF unchanged');
+console.log('DEVICE UAT STILL REQUIRED: actual iOS/Android TTS playback and Speech retries');
 
 // Regression for iPhone live-mic spoken countdown route in Public UAT:
 // number words are localized, the synthesizer is NOT reset between digits,
@@ -74,8 +74,7 @@ assert.ok(digitPlayer.startsWith('async function playPublicTtsCountdownDigit'));
 assert.match(digitPlayer,/if\(count===3\)synth\.cancel\(\)/,'only reset speech synthesis before first digit');
 assert.doesNotMatch(digitPlayer,/^\s*synth\.cancel\(\);/m,'never cancel before EVERY iPhone digit');
 assert.match(digitPlayer,/const backupBeep=status!=='ended' && IS_IOS \? playVisualCountdownBeep\(\) : false/);
-assert.match(speech,/if \(PUBLIC_SPEECH_TTS_TRIAL\) \{\s*const status=\$\('public-countdown-audio-status'\)/);
-console.log('PASS: iPhone 3-2-1 spoken number words, no repeated synthesizer reset, visible failure status and safe tone fallback');
+console.log('PASS: iPhone 3-2-1 spoken number words, no repeated synthesizer reset, safe tone fallback');
 
 
 assert.doesNotMatch(speech,/id="speech-voice-uat"|id="speech-voice-uat-status"|id="public-countdown-audio-status"/);
