@@ -595,6 +595,15 @@ const DATA_CONTRACT = window.QuickStrokeDataContract;
 const RESEARCH_STORE = window.QuickStrokeResearchStore;
 const DEV_MODE = window.QuickStrokeDevMode;
 const APP_MODE = window.QuickStrokeAppMode;
+// Public-only opt-in for live TTS device UAT. A normal Public/JSSF entry
+// never inherits the experimental Speech/audio behavior from a URL alone.
+const publicTtsQuery = new URLSearchParams(location.search).get('publicTtsTrial');
+if ((APP_MODE?.resolveMode?.() || 'public') === 'public') {
+  if (publicTtsQuery === '1') sessionStorage.setItem('qs_public_tts_trial', '1');
+  else if (publicTtsQuery === '0') sessionStorage.removeItem('qs_public_tts_trial');
+} else {
+  sessionStorage.removeItem('qs_public_tts_trial');
+}
 const RESEARCH_POLICY = window.QuickStrokeResearchPolicy;
 const LOCALE_MAP = window.QuickStrokeLanguages?.localeMap || Object.freeze({ th:'th-TH', en:'en-US', ja:'ja-JP' });
 
