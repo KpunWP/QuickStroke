@@ -100,8 +100,9 @@ assert.match(speech,/return speakSpeechNative\(value\)\.then\(status=>/);
 assert.match(result,/const prefersRecorded=!!\(canRecorded && recorded\?\.use\(LANG\)\)/);
 
 
-// Speech: the pre-recognition phase uses visual 3-2-1 instead of TTS,
-// and "speak now" appears only after SpeechRecognition confirms audio capture.
+// Ordinary Public retains the original visual countdown; only explicitly
+// opted-in Public TTS UAT speaks numbers before ASR starts. JSSF paths unchanged.
+// "Speak now" is still gated on SpeechRecognition confirming audio capture.
 assert.match(speech,/READY_CUE/);
 assert.match(speech,/function speechCueText\(\)/);
 assert.match(speech,/function speakSpeechCue\(text\)/);
@@ -115,7 +116,7 @@ assert.match(speech,/const ANDROID_JSSF_SPEECH_CUES = IS_ANDROID && isConsentedJ
 assert.match(speech,/if \(ANDROID_JSSF_SPEECH_CUES\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(speech,/if \(!ANDROID_JSSF_SPEECH_CUES\) await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(speech,/if \(IOS_ASR_ONLY_TRIAL \|\| ANDROID_JSSF_SPEECH_CUES\) \{\s*void cleanupAfterResult\.then/);
-assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES\)/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL\)/);
 const androidCount=speech.slice(speech.indexOf("if (ANDROID_JSSF_SPEECH_CUES) {\n          await releaseAcousticCaptureForExclusiveAsr();"),speech.indexOf("const cueStatus = 'visual_only';",speech.indexOf("if (ANDROID_JSSF_SPEECH_CUES) {\n          await releaseAcousticCaptureForExclusiveAsr();")));
 assert.ok(androidCount.indexOf("await releaseAcousticCaptureForExclusiveAsr()")<androidCount.indexOf("await playAndroidJssfSpokenCount(count)"),'mic capture must stop before spoken count');
 assert.match(speech,/speakSpeechCue\('เตรียมพูด'\)/);
