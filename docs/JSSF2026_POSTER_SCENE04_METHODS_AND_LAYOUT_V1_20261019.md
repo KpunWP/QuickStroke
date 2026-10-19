@@ -4,7 +4,7 @@
 
 ## Editorial mission
 Show **research design** rather than merely a website or polished Demo. Establish a testable question:
-> **Can smartphone-guided Face, Arm and Speech tasks reliably yield interpretable technical measurements in a remote, nonclinical pilot?**
+> **How frequently can smartphone-guided Face, Arm and Speech tasks yield technically evaluable measurements in a remote, nonclinical pilot?**
 
 **Important framing:** The pilot can investigate capture feasibility, completion, technical quality/evaluability, retries, metric distributions and browser/device issues. It does **not** establish clinical accuracy, sensitivity/specificity, diagnostic thresholds, true strength, dysarthria detection, or shortened care-seeking time.
 
@@ -13,7 +13,7 @@ Show **research design** rather than merely a website or polished Demo. Establis
 **Subheading:** `A NONCLINICAL SMARTPHONE PILOT`
 
 **Main paragraph (keep to ~39 words):**
-> Consenting adult volunteers (18+) completed guided Face, Arm and Speech tasks on their smartphones. We studied whether the system could collect usable measurements, how often tests needed retrying, and how technical quality varied across devices and browsers.
+> Consenting adult volunteers (18+) used their smartphones to attempt guided Face, Arm and Speech tasks. We studied whether the system could collect usable measurements, how often tasks needed retrying, and how technical quality varied across devices and browsers.
 
 **Methodological sentence below pipeline (~20 words):**
 > Per-attempt validity and quality were recorded separately. Our study measured technical feasibility—not medical diagnostic accuracy.
