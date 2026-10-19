@@ -1014,6 +1014,12 @@ function activateEmergencyCard(event) {
   window.location.href = 'tel:1669';
 }
 
+// A deliberate entry from Home is not a retry requested from Result.
+// Clear an abandoned Public retry marker before choosing a fresh Full/Individual route.
+function clearAbandonedPublicResultRetry() {
+  if ((APP_MODE?.resolveMode?.() || 'public') === 'public')
+    sessionStorage.removeItem('fast_pending_module_retry');
+}
 async function handlePrimaryAction() {
   sessionStorage.setItem('fast_lang', lang);
 
@@ -1023,6 +1029,7 @@ async function handlePrimaryAction() {
   }
 
   try {
+    clearAbandonedPublicResultRetry();
     await prepareScreeningSession('full');
     location.href = `${screeningState.nextModule}-test.html`;
   } catch (error) {
@@ -1043,6 +1050,7 @@ async function goTest(moduleName) {
   }
   sessionStorage.setItem('fast_lang', lang);
   try {
+    clearAbandonedPublicResultRetry();
     await prepareScreeningSession('individual');
     location.href = `${moduleName}-test.html`;
   } catch (error) {
