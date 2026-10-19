@@ -4,6 +4,11 @@ import fs from 'node:fs';
 const read = p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const index=read('index.html'),speech=read('speech-test.html'),result=read('result.html'),arm=read('arm-test.html');
 const ja=JSON.parse(read('locales/ja-JP/ui.json'));
+const en=JSON.parse(read('locales/en-US/ui.json'));
+for(const side of ['left','right']) {
+  assert.equal(en.arm['vWait_'+side], 'Raise your '+side+' arm forward and hold still.');
+  assert.ok(en.arm['vWait_'+side].length<55);
+}
 for(const side of ['left','right']) {
   assert.ok(ja.arm['vWait_'+side].length<=30,'Japanese '+side+' raise-arm voice must remain brief');
   assert.match(ja.arm['vWait_'+side],/腕を前に伸ばし/);
@@ -22,6 +27,18 @@ assert.ok(prep.indexOf('await speakSpeechCue(message)')>prep.indexOf('if (PUBLIC
 assert.ok(prep.indexOf('if (SPEECH_SILENT_START_TRIAL)')>prep.indexOf('await speakSpeechCue(message)'));
 assert.match(speech,/const firstUseStream = await ensureMicDisclosureBeforeFirstUse\(\);/);
 assert.match(speech,/if \(PUBLIC_SPEECH_TTS_TRIAL\)/);
+assert.match(speech,/async function playPublicTtsCountdownDigit\(count\)/);
+assert.match(speech,/await playPublicTtsCountdownDigit\(count\)/);
+assert.match(speech,/if \(!ANDROID_JSSF_SPEECH_CUES && !PUBLIC_SPEECH_TTS_TRIAL\) await sleep\(1000\)/);
+const trials=speech.slice(speech.indexOf("for (const count of [3,2,1])",speech.indexOf("async function playPublicTtsCountdownDigit")),speech.indexOf("const cueStatus = 'visual_only'",speech.indexOf("async function playPublicTtsCountdownDigit")));
+assert.ok(trials.indexOf('await playPublicTtsCountdownDigit(count)')>=0);
+assert.ok(trials.indexOf('await playPublicTtsCountdownDigit(count)')<trials.indexOf("const cueStatus") || !trials.includes("const cueStatus"));
+assert.match(speech,/releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL\)/);
+const closeSpeech=speech.slice(speech.indexOf("const cleanupAfterResult = releaseMicAfterSpeechResult("),speech.indexOf("requestAnimationFrame(() => {",speech.indexOf("const cleanupAfterResult = releaseMicAfterSpeechResult(")));
+assert.match(closeSpeech,/if \(PUBLIC_SPEECH_TTS_TRIAL\) \{/);
+assert.ok(closeSpeech.indexOf("void cleanupAfterResult.then")<closeSpeech.indexOf("speakSpeechCue(message)"));
+assert.match(closeSpeech,/if\(phase!=='DONE' \|\| audioStartToken!==finishedAudioToken\)return/);
+assert.match(closeSpeech,/PUBLIC_TTS_COMPLETION_UNAVAILABLE/);
 assert.match(speech,/id="speech-voice-uat"/);
 assert.match(speech,/function playPublicSpeechUatCue\(\)/);
 assert.match(speech,/if \(!PUBLIC_SPEECH_TTS_TRIAL \|\| !\['IDLE','DONE'\]\.includes\(phase\)\) return/);
@@ -32,8 +49,12 @@ assert.match(result,/id="public-result-tts" type="button" hidden/);
 assert.match(result,/button\.onclick=playPublicResultTts/);
 assert.match(result,/configurePublicResultTts\(\)/);
 assert.match(result,/utterance\.volume=1/);
+assert.match(result,/setTimeout\(\(\)=>\{\s*if\(PUBLIC_RESULT_TTS_TRIAL && isPublicResultSession\(\)\)playPublicResultTts\(\)/);
+assert.match(result,/const canRecorded=LANG==='th' && !!recorded\?\.fileFor\?\.\(thaiText\)/);
+assert.match(result,/void playRecorded\(\)/);
+assert.match(result,/button\.textContent=LANG==='ja'\?'🔊 音声を再生'/);
 assert.match(result,/const plan=jssfCompletionSpeechPlan\(jssfSpeechLocale\(\)\)/);
 assert.match(result,/if \(isRemoteJssf\) \{\s*showJssfTerminalState\(\);\s*speakJssfCompletionOnce\(session\.screeningSessionId\)/);
 console.log('PASS Public opt-in voice experiment isolated to Public TH/EN/JA');
-console.log('PASS Japanese Arm voice short; Speech TTS before mic; Result TTS replay; JSSF paths unchanged by trial');
+console.log('PASS English/Japanese Arm concise; opt-in spoken countdown; Speech completion after release; Result auto+replay+Thai fallback; JSSF unchanged');
 console.log('DEVICE UAT STILL REQUIRED: actual iOS/Android TTS playback and iOS mic retry after using Speech voice test');
