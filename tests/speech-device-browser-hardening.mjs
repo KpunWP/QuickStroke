@@ -48,7 +48,7 @@ assert.match(speech,/sessionStorage\.getItem\('qs_jssf_ios_asr_only'\) === '1'/)
 assert.match(arm,/speech-test\.html\?iosJssfAsrOnly=1/);
 assert.match(consent,/speech-test\.html\?iosJssfAsrOnly=1/);
 assert.match(speech,/if \(IOS_JSSF_ASR_ONLY\) sessionStorage\.removeItem\('qs_jssf_ios_asr_only'\)/);
-assert.match(speech,/iOS JSSF · ASR ONLY/);
+assert.doesNotMatch(speech,/ios-exclusive-asr-trial-status|iOS JSSF · ASR ONLY|iOS STANDARD · WEB AUDIO \+ ASR/,'hide debug iOS route badge for all modes');
 console.log("PASS: iPhone JSSF ASR-only route survives Arm → Speech and direct resume navigation");
 
 assert.equal(cfg.keepMicAliveOnIOS,true);
