@@ -33,3 +33,17 @@ Do not promote experimental Public TTS to normal Public until iPhone and Android
 - Do **not** assert this means automatic speech is reliable on all iPhones. No Japanese prerecorded fallback is bundled. Check `speechSynthesis.getVoices()` for an available Japanese voice if result says unavailable; speaker autoplay after cross-page navigation remains browser-controlled.
 - Result attempts a short completion TTS automatically and leaves a replay button visible if the device blocks auto-play. No diagnosis or result interpretation is spoken.
 - Mandatory device UAT: iPhone Safari JA Speech twice (first attempt and two retries), observe on-screen TTS notice. Compare Result automatic voice vs direct gesture replay. Keep normal Public and JSSF baseline unchanged until confirmed.
+
+## 2026-10-19 evening: iPhone Public spoken 3–2–1 not audible
+**Observed by tester:** iPhone Speech shows 3–2–1 but has no spoken digit audio.
+
+**Code finding:** on the opt-in Public UAT path, the microphone/WebAudio stream is live during READY_CUE; `playPublicTtsCountdownDigit` previously called `speechSynthesis.cancel()` before **every** number. WebKit has reported media session routing/interference between `speechSynthesis` and live `getUserMedia` tracks. The exact physical cause on this iPhone remains unconfirmed, and a SpeechSynthesis `onend` event alone does NOT prove the speaker was audible.
+
+**Mitigation (Preview only):**
+- Use language-specific spoken number words rather than bare numeric text: Japanese 三・二・一, English Three/Two/One, Thai หนึ่ง/สอง/สาม, visually still counting 3→2→1.
+- Do not cancel the synthesizer before every number; reset once on 3 and then let each utterance complete.
+- Display each digit's `ended`, `no_start`, `timeout`, etc. on screen; preserve the large visual 3–2–1.
+- If the browser reports failed TTS and this is iOS, try the existing short WebAudio tone (not claimed as spoken numeral). The audioSession category and active microphone stream are **not** manipulated during countdown, avoiding new dead-mic risk from changing audio routing.
+- Keep Public experiment opt-in behind `?publicTtsTrial=1`; no Research/Dev/normal Public change.
+
+**Device gate before considering production:** On the same iPhone, verify visually reported status *and* actually audible words, then verify ASR transcript and **at least two consecutive retries**; if TTS reports `ended` but no voice is audible, do not call the problem fixed. A real prerecorded English/Japanese spoken-countdown fallback is a future option if native iOS TTS proves incompatible with an active mic, but requires approved, tested voice assets, and a safe speaker/mic handoff.
