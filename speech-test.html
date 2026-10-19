@@ -981,6 +981,7 @@
       <div class="mic-circle" id="mic-circle"><span class="mic-icon" id="mic-icon">🎤</span></div>
     </div>
     <p class="hint-lbl" id="hint-text"></p>
+    <button id="speech-voice-uat" type="button" hidden onclick="playPublicSpeechUatCue()" style="align-self:center;margin:0 auto 8px;padding:8px 16px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">🔊 <span id="speech-voice-uat-label">ฟังเสียง</span></button>
     <h1 class="word-display" id="word-target"></h1>
     <div id="transcript-box"></div>
     <div id="metrics-box">
@@ -1180,6 +1181,12 @@ const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && IOS_TRIAL_PARAM !== '0' &&
   (SPEECH_CFG.iosExclusiveAsrTrial === true || IOS_TRIAL_PARAM === '1' ||
    sessionStorage.getItem('qs_ios_exclusive_asr_trial') === '1' || IOS_JSSF_ASR_ONLY);
 const IOS_ASR_ONLY_TRIAL = IOS_EXCLUSIVE_ASR_TRIAL;
+// Public-only audio feasibility trial, enabled by the explicit Home preview link.
+// Never enable in JSSF Research/Dev or in the iOS ASR-only experiment.
+const PUBLIC_SPEECH_TTS_TRIAL = iosJssfContext.appMode === 'public'
+  && (window.QuickStrokeAppMode?.resolveMode?.() || 'public') === 'public'
+  && sessionStorage.getItem('qs_public_tts_trial') === '1'
+  && !IOS_ASR_ONLY_TRIAL;
 // Match iPhone's spoken JSSF Speech cues without changing Public or Dev routes.
 const ANDROID_JSSF_SPEECH_CUES = IS_ANDROID && isConsentedJssfSpeech;
 const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_ASR_ONLY_TRIAL;
@@ -1277,6 +1284,30 @@ function setSpeechCard(key, state, main, sub, icon){
   if (mainEl && main !== undefined) mainEl.textContent = main;
   if (subEl && sub !== undefined) subEl.textContent = sub;
   if (iconEl && icon !== undefined) iconEl.textContent = icon;
+}
+function publicSpeechCompletionText() {
+  const lang = String(T?.langCode || '').toLowerCase();
+  if (lang.startsWith('ja')) return '発話テストが終わりました。';
+  if (lang.startsWith('en')) return 'Speech test complete.';
+  return 'ทดสอบการพูดเสร็จแล้ว';
+}
+function publicSpeechUatCueText() {
+  return String(T?.langCode || '').toLowerCase().startsWith('th')
+    ? 'เตรียมพูด' : speechCueText();
+}
+function syncPublicSpeechVoiceButton() {
+  const btn = $('speech-voice-uat');
+  if (!btn) return;
+  btn.hidden = !PUBLIC_SPEECH_TTS_TRIAL || !['IDLE','DONE'].includes(phase);
+  if (!btn.hidden) {
+    const label=$('speech-voice-uat-label');
+    const lang=String(T?.langCode || '').toLowerCase();
+    if(label) label.textContent = lang.startsWith('ja') ? '音声テスト' : lang.startsWith('en') ? 'Test voice' : 'ทดสอบเสียง';
+  }
+}
+function playPublicSpeechUatCue() {
+  if (!PUBLIC_SPEECH_TTS_TRIAL || !['IDLE','DONE'].includes(phase)) return;
+  void speakSpeechCue(phase === 'DONE' ? publicSpeechCompletionText() : publicSpeechUatCueText());
 }
 function speechCueText() {
   const lang = String(T?.langCode || document.documentElement.lang || 'th-TH').toLowerCase();
@@ -2780,6 +2811,7 @@ async function selectLang(requestedCode) {
   );
 
   resetUI();
+  syncPublicSpeechVoiceButton();
   if (actionBtn) actionBtn.disabled = false;
   return true;
 }
@@ -2805,6 +2837,10 @@ function goBack() {
 
 function resetUI() {
   if ($('test-screen')) $('test-screen').classList.remove('done', 'result-details-open');
+  if (PUBLIC_SPEECH_TTS_TRIAL) {
+    const trialBtn = $('speech-voice-uat');
+    if (trialBtn) trialBtn.hidden = true;
+  }
   $('mic-circle').className        = 'mic-circle';
   $('mic-icon').textContent        = '🎤';
   $('hint-text').classList.remove('speak-now');
@@ -2847,6 +2883,16 @@ function resetUI() {
 // The 3-2-1 countdown remains visual-only on Android.
 const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL;
 async function playSpeechInstructionBeforeCapture() {
+  if (PUBLIC_SPEECH_TTS_TRIAL) {
+    // Speaker-first: await the spoken cue before any mic permission,
+    // WebAudio or ASR capture. This UAT path is Public only.
+    const message = publicSpeechUatCueText();
+    $('hint-text').textContent = message;
+    $('transcript-box').textContent = message;
+    const status = await speakSpeechCue(message);
+    if (status === 'ended') await sleep(180);
+    return status;
+  }
   if (SPEECH_SILENT_START_TRIAL) return 'silent_trial';
   if (!String(T?.langCode || '').toLowerCase().startsWith('th')) return 'skipped';
   const recorded=window.QuickStrokeThaiRecorded;
@@ -2894,6 +2940,7 @@ async function handleAction() {
     actionBtn.disabled = true;
     if (IOS_ASR_ONLY_TRIAL) iosInitialPreparePromise = speakSpeechCue('เตรียมพูด');
     beginSpeechModuleRun('initial_start');
+    if (PUBLIC_SPEECH_TTS_TRIAL) $('speech-voice-uat').hidden = true;
     let firstUseStage='instruction';
     try {
       // A failed instruction must not prevent microphone authorization.
@@ -5766,6 +5813,9 @@ function evaluateSpeech(text, confidence) {
         return speakSpeechCue('ทดสอบการพูดเสร็จแล้ว');
     }).catch(() => {});
   }
+  // Public TTS UAT only: an explicit user gesture can replay the completion
+  // message after capture has been released; do not overlap live iOS ASR.
+  if (PUBLIC_SPEECH_TTS_TRIAL) syncPublicSpeechVoiceButton();
 
   requestAnimationFrame(() => {
     if (rb && typeof rb.scrollIntoView === 'function') {
