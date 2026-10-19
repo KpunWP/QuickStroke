@@ -940,7 +940,7 @@
   @media(max-height:760px){#test-screen.speech-countdown-active .mic-box{height:172px!important;}#mic-circle.speech-countdown{width:148px!important;height:148px!important;flex-basis:148px!important;}#mic-circle.speech-countdown #mic-icon{font-size:98px!important;}}
 
   /* Opt-in Public voice UAT controls never appear in ordinary or JSSF UI. */
-  #speech-voice-uat[hidden]{display:none!important;}
+  #speech-voice-uat[hidden],#speech-voice-uat-status[hidden]{display:none!important;}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
@@ -985,6 +985,7 @@
     </div>
     <p class="hint-lbl" id="hint-text"></p>
     <button id="speech-voice-uat" type="button" hidden onclick="playPublicSpeechUatCue()" style="align-self:center;margin:0 auto 8px;padding:8px 16px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;font-weight:600;cursor:pointer">🔊 <span id="speech-voice-uat-label">ฟังเสียง</span></button>
+    <p id="speech-voice-uat-status" hidden role="status" aria-live="polite" style="font-size:12px;text-align:center;margin:0 14px 7px;color:var(--muted)"></p>
     <h1 class="word-display" id="word-target"></h1>
     <div id="transcript-box"></div>
     <div id="metrics-box">
@@ -1308,9 +1309,35 @@ function syncPublicSpeechVoiceButton() {
     if(label) label.textContent = lang.startsWith('ja') ? '音声テスト' : lang.startsWith('en') ? 'Test voice' : 'ทดสอบเสียง';
   }
 }
-function playPublicSpeechUatCue() {
-  if (!PUBLIC_SPEECH_TTS_TRIAL || !['IDLE','DONE'].includes(phase)) return;
-  void speakSpeechCue(phase === 'DONE' ? publicSpeechCompletionText() : publicSpeechUatCueText());
+function publicSpeechVoiceNotice(kind) {
+  if (!PUBLIC_SPEECH_TTS_TRIAL) return;
+  const el=$('speech-voice-uat-status');
+  if (!el) return;
+  const lang=String(T?.langCode || '').toLowerCase();
+  const copy={
+    preparing:['กำลังเปิดเสียง','Preparing voice','音声を準備中'],
+    played:['เล่นเสียงแล้ว','Voice played','音声再生が完了'],
+    failed:['เสียงอัตโนมัติไม่ออก กรุณากดปุ่มฟังเสียง','Automatic voice unavailable. Tap Test voice.','自動音声が再生されません。音声テストを押してください。'],
+    unavailable:['ไม่พบเสียง TTS ที่ใช้ได้','TTS voice unavailable','音声を利用できません']
+  };
+  const [th,en,ja]=copy[kind] || copy.failed;
+  el.hidden=false;
+  el.textContent=lang.startsWith('ja')?ja:lang.startsWith('en')?en:th;
+}
+function preparePublicSpeechPlaybackSession() {
+  if (!PUBLIC_SPEECH_TTS_TRIAL) return;
+  try {
+    if (navigator.audioSession && 'type' in navigator.audioSession)
+      navigator.audioSession.type='playback';
+  } catch (_) {}
+  try { window.speechSynthesis?.resume?.(); } catch (_) {}
+}
+async function playPublicSpeechUatCue() {
+  if (!PUBLIC_SPEECH_TTS_TRIAL || !['IDLE','DONE'].includes(phase) || iosResultMicReleasePending) return;
+  preparePublicSpeechPlaybackSession();
+  publicSpeechVoiceNotice('preparing');
+  const status=await speakSpeechCue(phase === 'DONE' ? publicSpeechCompletionText() : publicSpeechUatCueText());
+  publicSpeechVoiceNotice(status==='ended' ? 'played' : status==='visual_only'||status==='unsupported' ? 'unavailable' : 'failed');
 }
 function speechCueText() {
   const lang = String(T?.langCode || document.documentElement.lang || 'th-TH').toLowerCase();
@@ -5875,13 +5902,19 @@ function evaluateSpeech(text, confidence) {
       await sleep(220);
       if(phase!=='DONE' || audioStartToken!==finishedAudioToken)return;
       const message=publicSpeechCompletionText();
+      preparePublicSpeechPlaybackSession();
+      publicSpeechVoiceNotice('preparing');
       let status=await speakSpeechCue(message);
       if(status!=='ended' && message==='ทดสอบการพูดเสร็จแล้ว'
         && window.QuickStrokeThaiRecorded?.fileFor?.(message)){
         status=await window.QuickStrokeThaiRecorded.play(message,{timeoutMs:4000});
       }
+      publicSpeechVoiceNotice(status==='ended' ? 'played' : status==='visual_only'||status==='unsupported' ? 'unavailable' : 'failed');
       if(status!=='ended')queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_UNAVAILABLE');
-    }).catch(()=>queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_ERROR'));
+    }).catch(()=>{
+      publicSpeechVoiceNotice('failed');
+      queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_ERROR');
+    });
     syncPublicSpeechVoiceButton();
   }
 
