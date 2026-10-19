@@ -156,3 +156,6 @@ See shared Privacy positioning document for exact decision and limitations. The 
 
 ## Scene 01–02 editorial/layout detail handoff (2026-10-18)
 Detailed top-of-poster English copy, 55–60% left FAST context / 40–45% right phone concept, emergency-care bypass, and cross-team privacy/AI guardrails are now drafted in [`JSSF2026_POSTER_SCENES_01_02_EDITORIAL_LAYOUT_V1_20261018.md`](./JSSF2026_POSTER_SCENES_01_02_EDITORIAL_LAYOUT_V1_20261018.md). It is for owner review before typesetting; do not use general-purpose AI hype or “100% on-device speech” claims.
+
+## Scene 03 technical artwork blueprint (2026-10-19)
+Detailed, implementation-verified design for three real engine visuals, correct scientific metrics, and the Privacy-by-Design data-flow inset: [`JSSF2026_POSTER_SCENE03_TECH_ARTWORK_SPEC_V1_20261019.md`](./JSSF2026_POSTER_SCENE03_TECH_ARTWORK_SPEC_V1_20261019.md). Needed from Demo/Engineering: consenting adult Face mesh capture, confirmed phone/side posture artwork, controlled real IMU drift trace, actual browser ASR screen and only if proven offline local Whisper evidence. Do not insert staged values as if research observations. This spec is artwork-ready editorial guidance, not final image evidence or clinical validation.
