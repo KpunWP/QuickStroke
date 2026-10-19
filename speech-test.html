@@ -938,6 +938,7 @@
   #test-screen.speech-countdown-active #transcript-box{display:none!important;}
   #test-screen.speech-countdown-active #hint-text{font-size:19px!important;margin:0 auto!important;color:#145ab3!important;}
   @media(max-height:760px){#test-screen.speech-countdown-active .mic-box{height:172px!important;}#mic-circle.speech-countdown{width:148px!important;height:148px!important;flex-basis:148px!important;}#mic-circle.speech-countdown #mic-icon{font-size:98px!important;}}
+
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
@@ -1180,21 +1181,15 @@ const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS && IOS_TRIAL_PARAM !== '0' &&
   (SPEECH_CFG.iosExclusiveAsrTrial === true || IOS_TRIAL_PARAM === '1' ||
    sessionStorage.getItem('qs_ios_exclusive_asr_trial') === '1' || IOS_JSSF_ASR_ONLY);
 const IOS_ASR_ONLY_TRIAL = IOS_EXCLUSIVE_ASR_TRIAL;
+// Public-only audio feasibility trial, enabled by the explicit Home preview link.
+// Never enable in JSSF Research/Dev or in the iOS ASR-only experiment.
+const PUBLIC_SPEECH_TTS_TRIAL = iosJssfContext.appMode === 'public'
+  && (window.QuickStrokeAppMode?.resolveMode?.() || 'public') === 'public'
+  && sessionStorage.getItem('qs_public_tts_trial') === '1'
+  && !IOS_ASR_ONLY_TRIAL;
 // Match iPhone's spoken JSSF Speech cues without changing Public or Dev routes.
 const ANDROID_JSSF_SPEECH_CUES = IS_ANDROID && isConsentedJssfSpeech;
 const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_ASR_ONLY_TRIAL;
-if (IS_IOS) {
-  document.addEventListener('DOMContentLoaded', () => {
-    const label = document.createElement('div');
-    label.id = 'ios-exclusive-asr-trial-status';
-    label.textContent = IOS_ASR_ONLY_TRIAL
-      ? (IOS_JSSF_ASR_ONLY ? 'iOS JSSF · ASR ONLY' : 'iOS EXPERIMENT · ASR ONLY')
-      : 'iOS STANDARD · WEB AUDIO + ASR';
-    label.style.cssText = 'position:fixed;bottom:6px;left:8px;z-index:9999;background:#19283b;color:white;padding:5px 8px;font:11px system-ui;border-radius:6px;pointer-events:none';
-    document.body.appendChild(label);
-  });
-}
-
 const ANDROID_PHRASE_PAUSE_MS = SPEECH_CFG.androidPhrasePauseMs ?? 1800;
 const ANDROID_RECOGNITION_SAFETY_MS = SPEECH_CFG.androidRecognitionSafetyMs ?? 12000;
 const SPEECH_DATA_CONTRACT = window.QuickStrokeDataContract || null;
@@ -1277,6 +1272,24 @@ function setSpeechCard(key, state, main, sub, icon){
   if (mainEl && main !== undefined) mainEl.textContent = main;
   if (subEl && sub !== undefined) subEl.textContent = sub;
   if (iconEl && icon !== undefined) iconEl.textContent = icon;
+}
+function publicSpeechCompletionText() {
+  const lang = String(T?.langCode || '').toLowerCase();
+  if (lang.startsWith('ja')) return '発話テストが終わりました。';
+  if (lang.startsWith('en')) return 'Speech test complete.';
+  return 'ทดสอบการพูดเสร็จแล้ว';
+}
+function publicSpeechUatCueText() {
+  return String(T?.langCode || '').toLowerCase().startsWith('th')
+    ? 'เตรียมพูด' : speechCueText();
+}
+function preparePublicSpeechPlaybackSession() {
+  if (!PUBLIC_SPEECH_TTS_TRIAL) return;
+  try {
+    if (navigator.audioSession && 'type' in navigator.audioSession)
+      navigator.audioSession.type='playback';
+  } catch (_) {}
+  try { window.speechSynthesis?.resume?.(); } catch (_) {}
 }
 function speechCueText() {
   const lang = String(T?.langCode || document.documentElement.lang || 'th-TH').toLowerCase();
@@ -2847,6 +2860,16 @@ function resetUI() {
 // The 3-2-1 countdown remains visual-only on Android.
 const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL;
 async function playSpeechInstructionBeforeCapture() {
+  if (PUBLIC_SPEECH_TTS_TRIAL) {
+    // Speaker-first: await the spoken cue before any mic permission,
+    // WebAudio or ASR capture. This UAT path is Public only.
+    const message = publicSpeechUatCueText();
+    $('hint-text').textContent = message;
+    $('transcript-box').textContent = message;
+    const status = await speakSpeechCue(message);
+    if (status === 'ended') await sleep(180);
+    return status;
+  }
   if (SPEECH_SILENT_START_TRIAL) return 'silent_trial';
   if (!String(T?.langCode || '').toLowerCase().startsWith('th')) return 'skipped';
   const recorded=window.QuickStrokeThaiRecorded;
@@ -3270,6 +3293,74 @@ async function playIosAsrOnlyCount(count) {
     await sleep(900);
   }
   await sleep(180);
+}
+
+// Public TTS UAT: speak countdown digits with bounded waiting while ASR is
+// NOT active. Keep the visible count and never let browser TTS hang a test.
+// This intentionally exercises iOS playback while the calibrated stream exists;
+// a device failure must remain confined to the opt-in Preview experiment.
+function publicCountdownSpeechWord(count) {
+  const lang=String(T?.langCode || '').toLowerCase();
+  const words=lang.startsWith('ja')
+    ? ['','一','二','三']
+    : lang.startsWith('en')
+      ? ['','One','Two','Three']
+      : ['','หนึ่ง','สอง','สาม'];
+  return words[count] || String(count);
+}
+// Public audio UAT only. iOS microphone capture and WebAudio calibration
+// are already running here; Safari may refuse TTS even if voices are present.
+// Avoid resetting the synthesizer before every digit. Never switch to
+// "playback" while a live microphone is being used or force-release it here.
+async function playPublicTtsCountdownDigit(count) {
+  const startedAt=performance.now();
+  const recorded=window.QuickStrokeThaiRecorded;
+  const isThai=String(T?.langCode || '').toLowerCase().startsWith('th');
+  const native=async()=>new Promise(resolve=>{
+    const synth=window.speechSynthesis;
+    if(!synth || typeof SpeechSynthesisUtterance==='undefined'){resolve('unsupported');return;}
+    let done=false,started=false;
+    const finish=status=>{if(done)return;done=true;resolve(status);};
+    let timer;
+    try {
+      const u=new SpeechSynthesisUtterance(publicCountdownSpeechWord(count));
+      u.lang=T?.langCode || 'en-US';
+      u.rate=1.08;
+      u.volume=1;
+      const voices=synth.getVoices?.() || [];
+      const short=String(u.lang).toLowerCase().split('-')[0];
+      u.voice=voices.find(v=>String(v?.lang || '').toLowerCase().replace('_','-').startsWith(short)) || null;
+      u.onstart=()=>{started=true;};
+      u.onend=()=>{clearTimeout(timer);finish('ended');};
+      u.onerror=()=>{clearTimeout(timer);finish('error');};
+      // The prior implementation cancelled all speech before each digit,
+      // which can repeatedly reset the iOS audio route.
+      if(count===3)synth.cancel();
+      synth.resume?.();
+      synth.speak(u);
+      timer=setTimeout(()=>{
+        if(done)return;
+        try{synth.cancel();}catch(_){}
+        finish(started?'timeout':'no_start');
+      },1800);
+    }catch(_){clearTimeout(timer);finish('error');}
+  });
+  let status;
+  if(isThai && recorded?.use(T?.langCode) && recorded?.fileFor?.(String(count))){
+    status=await recorded.play(String(count),{timeoutMs:2000});
+  } else {
+    status=await native();
+    if(isThai && status!=='ended' && recorded?.fileFor?.(String(count))) {
+      status=await recorded.play(String(count),{timeoutMs:2000});
+    }
+  }
+  // The fallback is a signal, NOT spoken digits. It does not change the
+  // microphone stream or the ASR/scoring paths. If this is also silent,
+  // the large visual 3-2-1 remains the authoritative cue.
+  const backupBeep=status!=='ended' && IS_IOS ? playVisualCountdownBeep() : false;
+  if(status!=='ended') queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COUNTDOWN_UNAVAILABLE_'+String(count));
+  await sleep(Math.max(0,1000-(performance.now()-startedAt)));
+  return status;
 }
 
 // Android JSSF: each verified Thai MP3 is allowed to finish before ASR
@@ -4331,12 +4422,14 @@ function runLoop() {
           $('mic-icon').textContent = String(count);
           if (ANDROID_JSSF_SPEECH_CUES) {
             await playAndroidJssfSpokenCount(count);
+          } else if (PUBLIC_SPEECH_TTS_TRIAL) {
+            await playPublicTtsCountdownDigit(count);
           } else if (!IS_ANDROID && !SPEECH_SILENT_START_TRIAL) {
             playVisualCountdownBeep();
           }
           $('hint-text').textContent = String(T?.langCode || '').toLowerCase().startsWith('th') ? 'ยังไม่ต้องพูด' : T.preparePrompt;
           $('transcript-box').textContent = T.preparePrompt;
-          if (!ANDROID_JSSF_SPEECH_CUES) await sleep(1000);
+          if (!ANDROID_JSSF_SPEECH_CUES && !PUBLIC_SPEECH_TTS_TRIAL) await sleep(1000);
         }
         const cueStatus = 'visual_only';
         if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
@@ -5757,14 +5850,33 @@ function evaluateSpeech(text, confidence) {
   const finishedAudioToken = audioStartToken;
   // Android JSSF must also release its WebAudio mic before the closing cue;
   // the general Android flow still uses its established release semantics.
-  const cleanupAfterResult = releaseMicAfterSpeechResult(ANDROID_JSSF_SPEECH_CUES);
-  if (!IS_IOS) scheduleResultMicRelease();
+  const cleanupAfterResult = releaseMicAfterSpeechResult(ANDROID_JSSF_SPEECH_CUES || PUBLIC_SPEECH_TTS_TRIAL);
+  if (!IS_IOS && !PUBLIC_SPEECH_TTS_TRIAL) scheduleResultMicRelease();
   // Do not play output over a live ASR engine or on a newly started retry.
   if (IOS_ASR_ONLY_TRIAL || ANDROID_JSSF_SPEECH_CUES) {
     void cleanupAfterResult.then(() => {
       if (phase === 'DONE' && audioStartToken === finishedAudioToken)
         return speakSpeechCue('ทดสอบการพูดเสร็จแล้ว');
     }).catch(() => {});
+  }
+  // Public opt-in: attempt automatic completion after microphone release.
+  // Playback failures remain internal diagnostics.
+  if (PUBLIC_SPEECH_TTS_TRIAL) {
+    void cleanupAfterResult.then(async()=>{
+      if(phase!=='DONE' || audioStartToken!==finishedAudioToken)return;
+      await sleep(220);
+      if(phase!=='DONE' || audioStartToken!==finishedAudioToken)return;
+      const message=publicSpeechCompletionText();
+      preparePublicSpeechPlaybackSession();
+      let status=await speakSpeechCue(message);
+      if(status!=='ended' && message==='ทดสอบการพูดเสร็จแล้ว'
+        && window.QuickStrokeThaiRecorded?.fileFor?.(message)){
+        status=await window.QuickStrokeThaiRecorded.play(message,{timeoutMs:4000});
+      }
+      if(status!=='ended')queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_UNAVAILABLE');
+    }).catch(()=>{
+      queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_ERROR');
+    });
   }
 
   requestAnimationFrame(() => {

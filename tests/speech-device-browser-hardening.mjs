@@ -48,7 +48,7 @@ assert.match(speech,/sessionStorage\.getItem\('qs_jssf_ios_asr_only'\) === '1'/)
 assert.match(arm,/speech-test\.html\?iosJssfAsrOnly=1/);
 assert.match(consent,/speech-test\.html\?iosJssfAsrOnly=1/);
 assert.match(speech,/if \(IOS_JSSF_ASR_ONLY\) sessionStorage\.removeItem\('qs_jssf_ios_asr_only'\)/);
-assert.match(speech,/iOS JSSF · ASR ONLY/);
+assert.doesNotMatch(speech,/ios-exclusive-asr-trial-status|iOS JSSF · ASR ONLY|iOS STANDARD · WEB AUDIO \+ ASR/,'hide debug iOS route badge for all modes');
 console.log("PASS: iPhone JSSF ASR-only route survives Arm → Speech and direct resume navigation");
 
 assert.equal(cfg.keepMicAliveOnIOS,true);
@@ -120,8 +120,8 @@ assert.match(iosBranch,/finishSpeechInvalid\('DEAD_MIC_DETECTED'/);
 assert.doesNotMatch(iosBranch,/startRecording\(/);
 assert.doesNotMatch(iosBranch,/finalizeCanonicalSpeechAttempt\(/);
 assert.match(speech,/await stopAll\(IS_IOS && forceDirectMic \? true :/);
-assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES\)/);
-assert.match(speech,/if \(!IS_IOS\) scheduleResultMicRelease\(\)/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL\)/);
+assert.match(speech,/if \(!IS_IOS && !PUBLIC_SPEECH_TTS_TRIAL\) scheduleResultMicRelease\(\)/);
 console.log("PASS: iOS speech result releases mic and dead mic requires explicit Retry gesture");
 const releaseGate=extractFunction(speech,'releaseMicAfterSpeechResult');
 assert.match(releaseGate,/iosResultMicReleasePending = true/);
@@ -129,7 +129,7 @@ assert.match(releaseGate,/retryButton\.disabled = true/);
 assert.match(releaseGate,/stopAll\(fullRelease\)\.finally/);
 assert.match(releaseGate,/iosResultMicReleasePending = false/);
 assert.match(speech,/if \(IS_IOS && iosResultMicReleasePending\) return;/);
-assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES\)/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL\)/);
 console.log('PASS: iOS Speech Retry waits for full mic cleanup before enabling user gesture');
 
 
@@ -187,7 +187,7 @@ assert.doesNotMatch(iosRetryBlock,/retryStreamRequest/);
 assert.match(speech,/const healthyReuse = await probeExistingAudioPipeline\(\)/);
 assert.match(speech,/if \(healthyReuse\) \{/);
 assert.match(speech,/await stopAll\(true\);[\s\S]*await sleep\(RETRY_FULL_RELEASE_WAIT_MS\)/);
-assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES\)/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL\)/);
 console.log('PASS: iOS Retry probes preserved pipeline before rebuilding dead capture');
 
 

@@ -873,7 +873,8 @@
    body.jssf-participant-result.jssf-submit-visible main{padding-bottom:112px!important}
    .export-button{border:1.5px solid var(--line);background:#fff;color:var(--ink);flex:1 1 150px}
    .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
-  </style>
+  
+</style>
   <script src="config.js?v=20261007-audio-fallback-v20">
   </script>
   <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
@@ -1031,6 +1032,9 @@
    const RESULT_CONTRACT = window.QuickStrokeDataContract || null;
    const RESULT_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
    const APP_MODE_NAME = RESULT_APP_MODE?.resolveMode?.() || (window.QuickStrokeDevMode?.isEnabled?.() ? 'dev' : 'public');
+   const PUBLIC_RESULT_TTS_TRIAL = APP_MODE_NAME === 'public'
+     && sessionStorage.getItem('qs_public_tts_trial') === '1';
+   let publicResultAutoVoiceAttempted = false;
 
    function storedResultSessionModeHint() {
      const contractContext = RESULT_CONTRACT?.getSessionContext?.() || {};
@@ -2729,6 +2733,73 @@
      try { window.speechSynthesis?.resume?.(); } catch (_) {}
    }
 
+   // Public voice UAT: completion only, never verbalize a clinical
+   // conclusion or change participant/JSSF finalization behavior.
+   // Public UAT: automatically attempt neutral completion audio.
+   // No manual Play Voice button or participant-facing diagnostic label.
+   function playPublicResultTts() {
+     if (!PUBLIC_RESULT_TTS_TRIAL || !isPublicResultSession()) return;
+     const plan=jssfCompletionSpeechPlan(jssfSpeechLocale());
+     const recorded=window.QuickStrokeThaiRecorded;
+     const thaiText='จบการทดสอบ ขอบคุณค่ะ';
+     const canRecorded=LANG==='th' && !!recorded?.fileFor?.(thaiText);
+     let settled=false,started=false;
+     const playRecorded=async()=>{
+       if(settled)return;
+       settled=true;
+       if(!canRecorded){
+         console.warn('Public completion voice unavailable in selected language');
+         return;
+       }
+       try{
+         const outcome=await recorded.play(thaiText,{timeoutMs:4500});
+         if(outcome!=='ended')console.warn('Public completion recorded voice did not complete:',outcome);
+       }catch(error){
+         console.warn('Public completion recorded voice failed',error);
+       }
+     };
+     if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function'
+       || plan.deliveryMode === 'visual_only') {
+       void playRecorded();
+       return;
+     }
+     try {
+       prepareJssfPlaybackAudioSession();
+       window.speechSynthesis.cancel();
+       const utterance=new SpeechSynthesisUtterance(plan.text);
+       utterance.lang=plan.lang;
+       utterance.rate=0.94;
+       utterance.volume=1;
+       if(plan.voice)utterance.voice=plan.voice;
+       utterance.onstart=()=>{
+         if(!settled)started=true;
+       };
+       utterance.onend=()=>{
+         if(!settled)settled=true;
+       };
+       utterance.onerror=()=>{if(!settled)void playRecorded();};
+       window.speechSynthesis.speak(utterance);
+       setTimeout(()=>{
+         if(settled || started)return;
+         try{window.speechSynthesis.cancel();}catch(_){}
+         void playRecorded();
+       },2500);
+     }catch(error){
+       console.warn('Public completion TTS failed',error);
+       void playRecorded();
+     }
+   }
+   function configurePublicResultTts() {
+     const available=PUBLIC_RESULT_TTS_TRIAL && isPublicResultSession()
+       && CURRENT?.state!=='noData' && CURRENT?.state!=='incomplete';
+     if(!available || publicResultAutoVoiceAttempted)return;
+     publicResultAutoVoiceAttempted=true;
+     // Browser autoplay may still block synthesis after cross-page navigation.
+     setTimeout(()=>{
+       if(PUBLIC_RESULT_TTS_TRIAL && isPublicResultSession())playPublicResultTts();
+     },500);
+   }
+
    function primeJssfCompletionSpeech() {
      if (window.QuickStrokeThaiRecorded?.use(LANG)) return;
      if (!('speechSynthesis' in window) || typeof window.SpeechSynthesisUtterance !== 'function') return;
@@ -3126,6 +3197,7 @@
      renderDevDiagnostics(CURRENT);
      renderActions(CURRENT);
      applyJssfParticipantResultView(CURRENT);
+     configurePublicResultTts();
      void persistResultDecisionTrace(CURRENT);
 
      // Render the participant result first. Remote recovery/upload is durable
