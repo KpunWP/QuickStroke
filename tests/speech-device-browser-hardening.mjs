@@ -121,7 +121,7 @@ assert.doesNotMatch(iosBranch,/startRecording\(/);
 assert.doesNotMatch(iosBranch,/finalizeCanonicalSpeechAttempt\(/);
 assert.match(speech,/await stopAll\(IS_IOS && forceDirectMic \? true :/);
 assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL\)/);
-assert.match(speech,/if \(!IS_IOS\) scheduleResultMicRelease\(\)/);
+assert.match(speech,/if \(!IS_IOS && !PUBLIC_SPEECH_TTS_TRIAL\) scheduleResultMicRelease\(\)/);
 console.log("PASS: iOS speech result releases mic and dead mic requires explicit Retry gesture");
 const releaseGate=extractFunction(speech,'releaseMicAfterSpeechResult');
 assert.match(releaseGate,/iosResultMicReleasePending = true/);
