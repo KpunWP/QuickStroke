@@ -938,6 +938,9 @@
   #test-screen.speech-countdown-active #transcript-box{display:none!important;}
   #test-screen.speech-countdown-active #hint-text{font-size:19px!important;margin:0 auto!important;color:#145ab3!important;}
   @media(max-height:760px){#test-screen.speech-countdown-active .mic-box{height:172px!important;}#mic-circle.speech-countdown{width:148px!important;height:148px!important;flex-basis:148px!important;}#mic-circle.speech-countdown #mic-icon{font-size:98px!important;}}
+
+  /* Opt-in Public voice UAT controls never appear in ordinary or JSSF UI. */
+  #speech-voice-uat[hidden]{display:none!important;}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
