@@ -82,7 +82,8 @@ assert.match(th,/เหยียดแขนซ้ายไปข้างหน
 assert.match(th,/เหยียดแขนขวาไปข้างหน้าตามภาพ และถือนิ่งๆ/);
 assert.doesNotMatch(th,/ค่อย ๆ ยกแขนซ้ายไปข้างหน้าจนถึงระดับไหล่/);
 assert.match(th,/เริ่มทดสอบ หลับตา และถือนิ่งๆ/);
-assert.match(en,/Slowly raise your left arm forward to shoulder height/);
+assert.match(en,/Raise your left arm forward and hold still\./);
+assert.match(en,/Raise your right arm forward and hold still\./);
 assert.match(en,/Start\. Close your eyes and keep your arm still\./);
 assert.match(ja,/左腕を前に伸ばし、そのまま動かさないでください。/);
 assert.match(ja,/右腕を前に伸ばし、そのまま動かさないでください。/);
