@@ -48,7 +48,7 @@ const cases=[
 for(const [name,mode,retry,armDone,speechDone,expected] of cases) {
   assert.equal(faceNext(mode,retry,armDone,speechDone),expected,name);
 }
-assert.match(face,/const target = decideFaceCompletionTarget\(/[\s\S]*?Boolean\(sessionStorage\.getItem\('fast_arm'\)\),\s*Boolean\(sessionStorage\.getItem\('fast_speech'\)\)/);
+assert.match(face,/const target = decideFaceCompletionTarget\([\s\S]*?Boolean\(sessionStorage\.getItem\('fast_arm'\)\),\s*Boolean\(sessionStorage\.getItem\('fast_speech'\)\)/);
 assert.match(face,/btn\.dataset\.nextPage=target/);
 assert.match(face,/navBtn\.textContent = faceCompletionNavLabel\(navBtn\.dataset\.nextPage/);
 assert.match(index,/function clearAbandonedPublicResultRetry\(\)[\s\S]*?resolveMode\?\.\(\) \|\| 'public'\) === 'public'/);
