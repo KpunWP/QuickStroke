@@ -89,3 +89,22 @@ console.log('PASS: Public Full/Individual source routes; language loaders; TH/EN
 console.log('PASS: Face/Arm/Speech source cue wiring, Speech ASR gating, JSSF isolation');
 console.log('DEVICE UAT REQUIRED: audible output, exact order, iOS silent start, Android Thai recorded fallback, retry, permission and Result announcement');
 console.log('KNOWN GAPS: Public iOS Speech has deliberately silent pre-capture cue; EN/JA Speech cue function skips pre-capture TTS; Public Result has no JSSF terminal voice');
+
+// Completed Public Full must open a fresh screening rather than revisit old Result.
+const fullRestartFn=index.match(/function shouldRestartCompletedPublicFull\([^]*?\n\}/)?.[0];
+assert.ok(fullRestartFn,'Missing Public Full completion restart decision');
+const restartFull=vm.runInNewContext(fullRestartFn+'\nshouldRestartCompletedPublicFull',{MODULES:['face','arm','speech']});
+assert.equal(restartFull('public',3),true);
+assert.equal(restartFull('public',2),false);
+assert.equal(restartFull('research',3),false);
+assert.equal(restartFull('dev',3),false);
+const homeFull=index.slice(index.indexOf('async function handlePrimaryAction()'),index.indexOf('function toggleIndividual()'));
+assert.ok(homeFull.indexOf('await createFreshSessionForCurrentMode()')>=0);
+assert.ok(homeFull.indexOf('await createFreshSessionForCurrentMode()')<homeFull.indexOf("await prepareScreeningSession('full')"));
+assert.match(index,/id="view-last-result"[^>]*onclick="goResult\(\)"/);
+assert.match(index,/recentResultButton\.hidden = !publicFullCompleted/);
+for(const code of ['th-TH','en-US','ja-JP']){
+  const pack=JSON.parse(read('locales/'+code+'/ui.json'));
+  assert.ok(pack.index?.primaryRestart?.trim() && pack.index?.viewLastResult?.trim(),code+' needs clear fresh-Full and last-Result actions');
+}
+console.log('PASS: completed Public Full restarts Face→Arm→Speech with a new round; old Result is separate; Research/Dev stay unchanged');
