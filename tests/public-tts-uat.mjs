@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import vm from 'node:vm';
 
 const read = p=>fs.readFileSync(new URL('../'+p,import.meta.url),'utf8');
 const index=read('index.html'),speech=read('speech-test.html'),result=read('result.html'),arm=read('arm-test.html');
@@ -63,3 +64,26 @@ assert.match(result,/if \(isRemoteJssf\) \{\s*showJssfTerminalState\(\);\s*speak
 console.log('PASS Public opt-in voice experiment isolated to Public TH/EN/JA');
 console.log('PASS English/Japanese Arm concise; opt-in spoken countdown; Speech completion after release; Result auto+replay+Thai fallback; JSSF unchanged');
 console.log('DEVICE UAT STILL REQUIRED: actual iOS/Android TTS playback and iOS mic retry after using Speech voice test');
+
+// Regression for iPhone live-mic spoken countdown route in Public UAT:
+// number words are localized, the synthesizer is NOT reset between digits,
+// and failure must be visible while retaining a WebAudio tone/visual fallback.
+const numberFn=speech.match(/function publicCountdownSpeechWord\(count\) \{[^]*?\n\}/)?.[0];
+assert.ok(numberFn,'Public countdown must define a locale-aware number renderer');
+for(const [language,expected] of [
+  ['th-TH',['สาม','สอง','หนึ่ง']],
+  ['en-US',['Three','Two','One']],
+  ['ja-JP',['三','二','一']]
+]) {
+  const fn=vm.runInNewContext(numberFn+'\npublicCountdownSpeechWord',{T:{langCode:language}});
+  assert.deepEqual([3,2,1].map(n=>fn(n)),expected,language+' TTS spoken numbers');
+}
+const digitPlayer=speech.slice(speech.indexOf('async function playPublicTtsCountdownDigit(count) {'),speech.indexOf('// Android JSSF: each verified Thai MP3'));
+assert.ok(digitPlayer.startsWith('async function playPublicTtsCountdownDigit'));
+assert.match(digitPlayer,/if\(count===3\)synth\.cancel\(\)/,'only reset speech synthesis before first digit');
+assert.doesNotMatch(digitPlayer,/^\s*synth\.cancel\(\);/m,'never cancel before EVERY iPhone digit');
+assert.match(digitPlayer,/const backupBeep=status!=='ended' && IS_IOS \? playVisualCountdownBeep\(\) : false/);
+assert.match(digitPlayer,/showPublicCountdownAudioStatus\(count,status,backupBeep\)/);
+assert.match(speech,/id="public-countdown-audio-status" hidden role="status"/);
+assert.match(speech,/if \(PUBLIC_SPEECH_TTS_TRIAL\) \{\s*const status=\$\('public-countdown-audio-status'\)/);
+console.log('PASS: iPhone 3-2-1 spoken number words, no repeated synthesizer reset, visible failure status and safe tone fallback');
