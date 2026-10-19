@@ -33,6 +33,8 @@
     "primaryStart": "เริ่ม",
     "primaryContinue": "ทำต่อ",
     "primaryComplete": "ดูผล",
+    "primaryRestart": "ทดสอบทั้งหมดอีกครั้ง",
+    "viewLastResult": "ดูผลล่าสุด",
     "progress": "เสร็จแล้ว {{done}}/3",
     "timeEstimate": "ประมาณ 2–3 นาที",
     "statusNotDone": "ยังไม่ทำ",
