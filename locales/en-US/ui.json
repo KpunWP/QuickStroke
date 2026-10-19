@@ -33,6 +33,8 @@
     "primaryStart": "Start",
     "primaryContinue": "Continue",
     "primaryComplete": "Results",
+    "primaryRestart": "Test All Again",
+    "viewLastResult": "View Last Result",
     "progress": "{{done}}/3 complete",
     "timeEstimate": "About 2–3 minutes",
     "statusNotDone": "Not started",
