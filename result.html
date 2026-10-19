@@ -874,8 +874,6 @@
    .export-button{border:1.5px solid var(--line);background:#fff;color:var(--ink);flex:1 1 150px}
    .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
   
-  /* Opt-in Public voice UAT controls never appear in ordinary or JSSF UI. */
-  #public-result-tts[hidden],#public-result-tts-status[hidden]{display:none!important;}
 </style>
   <script src="config.js?v=20261007-audio-fallback-v20">
   </script>
@@ -1005,8 +1003,6 @@
     </button>
     <button class="btn-secondary" id="secondary-action" type="button">
     </button>
-    <button class="btn-secondary" id="public-result-tts" type="button" hidden aria-label="Play completion voice">🔊</button>
-    <span id="public-result-tts-status" hidden aria-live="polite" style="font-size:12px;text-align:center"></span>
     <button class="btn-text" hidden="" id="retry-all" type="button">
     </button>
    </div>
@@ -2739,34 +2735,27 @@
 
    // Public voice UAT: completion only, never verbalize a clinical
    // conclusion or change participant/JSSF finalization behavior.
+   // Public UAT: automatically attempt neutral completion audio.
+   // No manual Play Voice button or participant-facing diagnostic label.
    function playPublicResultTts() {
      if (!PUBLIC_RESULT_TTS_TRIAL || !isPublicResultSession()) return;
-     const button=document.getElementById('public-result-tts');
-     const status=document.getElementById('public-result-tts-status');
-     if (!button || !status) return;
-     status.hidden=false;
      const plan=jssfCompletionSpeechPlan(jssfSpeechLocale());
      const recorded=window.QuickStrokeThaiRecorded;
      const thaiText='จบการทดสอบ ขอบคุณค่ะ';
      const canRecorded=LANG==='th' && !!recorded?.fileFor?.(thaiText);
-     const sayStatus=(th,en,ja)=>{
-       status.textContent=LANG==='ja'?ja:LANG==='en'?en:th;
-     };
      let settled=false,started=false;
      const playRecorded=async()=>{
        if(settled)return;
        settled=true;
        if(!canRecorded){
-         sayStatus('ไม่มีเสียง TTS ในเครื่อง','TTS voice unavailable','音声を利用できません');
+         console.warn('Public completion voice unavailable in selected language');
          return;
        }
-       sayStatus('กำลังเปิดเสียงสำรอง','Trying recorded voice','録音音声を再生中');
        try{
-         const result=await recorded.play(thaiText,{timeoutMs:4500});
-         if(result==='ended')sayStatus('เล่นเสียงแล้ว','Voice played','音声テスト完了');
-         else sayStatus('เล่นเสียงไม่สำเร็จ กรุณากดฟังซ้ำ','Playback blocked; tap to retry','再生できません。もう一度押してください');
-       }catch(_){
-         sayStatus('เล่นเสียงไม่สำเร็จ','Playback failed','音声再生に失敗');
+         const outcome=await recorded.play(thaiText,{timeoutMs:4500});
+         if(outcome!=='ended')console.warn('Public completion recorded voice did not complete:',outcome);
+       }catch(error){
+         console.warn('Public completion recorded voice failed',error);
        }
      };
      if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance !== 'function'
@@ -2783,20 +2772,12 @@
        utterance.volume=1;
        if(plan.voice)utterance.voice=plan.voice;
        utterance.onstart=()=>{
-         if(settled)return;
-         started=true;
-         sayStatus('กำลังพูด','Speaking','音声再生中');
+         if(!settled)started=true;
        };
        utterance.onend=()=>{
-         if(settled)return;
-         settled=true;
-         sayStatus('เล่นเสียงแล้ว','Voice played','音声テスト完了');
+         if(!settled)settled=true;
        };
-       utterance.onerror=()=>{
-         if(settled)return;
-         void playRecorded();
-       };
-       sayStatus('กำลังเตรียมเสียง','Preparing voice','音声を準備中');
+       utterance.onerror=()=>{if(!settled)void playRecorded();};
        window.speechSynthesis.speak(utterance);
        setTimeout(()=>{
          if(settled || started)return;
@@ -2809,23 +2790,14 @@
      }
    }
    function configurePublicResultTts() {
-     const button=document.getElementById('public-result-tts');
-     const status=document.getElementById('public-result-tts-status');
-     if(!button||!status)return;
      const available=PUBLIC_RESULT_TTS_TRIAL && isPublicResultSession()
        && CURRENT?.state!=='noData' && CURRENT?.state!=='incomplete';
-     button.hidden=!available;
-     if(!available){status.hidden=true;return;}
-     button.textContent=LANG==='ja'?'🔊 音声を再生':LANG==='en'?'🔊 Play voice':'🔊 ฟังเสียงจบการทดสอบ';
-     button.onclick=playPublicResultTts;
-     // An automatic attempt is best-effort: Safari may block autoplay across
-     // navigation. The visible replay control provides a fresh user gesture.
-     if(!publicResultAutoVoiceAttempted){
-       publicResultAutoVoiceAttempted=true;
-       setTimeout(()=>{
-         if(PUBLIC_RESULT_TTS_TRIAL && isPublicResultSession())playPublicResultTts();
-       },500);
-     }
+     if(!available || publicResultAutoVoiceAttempted)return;
+     publicResultAutoVoiceAttempted=true;
+     // Browser autoplay may still block synthesis after cross-page navigation.
+     setTimeout(()=>{
+       if(PUBLIC_RESULT_TTS_TRIAL && isPublicResultSession())playPublicResultTts();
+     },500);
    }
 
    function primeJssfCompletionSpeech() {
