@@ -377,6 +377,15 @@
 <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
 <script src="./js/jssf-remote-sync.js?v=20261007-audio-fallback-v2"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
+<script src="./js/languages.js?v=20260717-lang-v1"></script>
+<style>
+  /* JSSF visitor-safe Public home: these controls still exist for intentional
+     technical entry (?tools=1 / ?dev=1 / research) without changing any mode
+     selection or consent gate. Not a security/authentication boundary. */
+  body:not(.qs-technical-entry) .mode-zone,
+  body:not(.qs-technical-entry) .dev-zone,
+  body:not(.qs-technical-entry) .jssf-draft-zone { display:none!important; }
+</style>
 </head>
 <body>
 <div class="app-shell">
@@ -496,7 +505,7 @@
       </div>
     </section>
 
-    <section style="margin:14px 0;padding:14px;border:1px solid #e3c88b;border-radius:14px;background:#fff9ed" aria-label="JSSF Remote Testing draft">
+    <section class="jssf-draft-zone" style="margin:14px 0;padding:14px;border:1px solid #e3c88b;border-radius:14px;background:#fff9ed" aria-label="JSSF Remote Testing draft">
       <strong style="font-size:13px;color:#8a5c14">JSSF Remote Testing — แบบร่าง</strong>
       <p style="font-size:13px;margin-top:6px;color:#55677b;line-height:1.6">ตัวอย่างหน้าความยินยอมสำหรับผู้ทดสอบทางไกล ยังไม่เปิดรับสมัครหรือส่งข้อมูล</p>
       <a href="./jssf-consent.html" style="font-size:13px;color:#155f9b;font-weight:750">ดูตัวอย่างหน้า Consent →</a><br>
@@ -585,7 +594,6 @@
   </div>
 </div>
 
-<script src="./js/languages.js?v=20260717-lang-v1"></script>
 <script src="./js/i18n.js"></script>
 <script>
 'use strict';
@@ -755,6 +763,13 @@ function prepareNextResearchParticipant(previousMetadata = {}) {
 
 function updateAppModeUi() {
   const mode = APP_MODE?.resolveMode?.() || 'public';
+  const params = new URLSearchParams(window.location.search);
+  const technicalEntry = mode !== 'public'
+    || params.get('tools') === '1'
+    || params.get('dev') === '1'
+    || params.get('mode') === 'research'
+    || params.get('research') === '1';
+  document.body.classList.toggle('qs-technical-entry', technicalEntry);
   const uiMode = pendingModeSelection || mode;
   const isResearchSetup = pendingModeSelection === 'research' && mode !== 'research';
   document.getElementById('app-mode-badge').textContent = isResearchSetup ? 'RESEARCH SETUP' : mode.toUpperCase();

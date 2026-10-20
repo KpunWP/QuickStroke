@@ -1,0 +1,37 @@
+name: JSSF 2026 Presenter isolation and regression
+
+on:
+  push:
+    branches:
+      - research/jssf2026-public-presenter-demo-20261018
+  pull_request:
+    branches:
+      - research/jssf-2026-poster-demo-kickoff-20261018
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  presenter-qa:
+    name: Presenter / Public isolation / existing engine regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Presenter contract
+        run: node tests/jssf-presenter-demo.mjs
+      - name: Public safety-history contract
+        run: node tests/public-sticky-regression.mjs
+      - name: JSSF result completion contract
+        run: node tests/jssf-result-completion-ux.mjs
+      - name: Existing policy and algorithm freeze tests
+        run: node tests/run-tests.mjs
+      - name: Service Worker syntax
+        run: node --check service-worker.js
+      - name: Presenter inline script syntax
+        run: python3 tests/check-inline-scripts.py presenter-demo.html
