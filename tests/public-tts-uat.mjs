@@ -27,7 +27,7 @@ assert.ok(prep.indexOf('if (PUBLIC_SPEECH_TTS_TRIAL || PUBLIC_IOS_SPEAKER_FIRST)
 assert.ok(prep.indexOf('await speakSpeechCue(message)')>prep.indexOf('if (PUBLIC_SPEECH_TTS_TRIAL || PUBLIC_IOS_SPEAKER_FIRST)'));
 assert.ok(prep.indexOf('if (SPEECH_SILENT_START_TRIAL)')>prep.indexOf('await speakSpeechCue(message)'));
 assert.match(speech,/const firstUseStream = await ensureMicDisclosureBeforeFirstUse\(\);/);
-assert.match(speech,/if \(PUBLIC_SPEECH_TTS_TRIAL\)/);
+assert.match(speech,/if \(PUBLIC_SPEECH_TTS_TRIAL \|\| PUBLIC_IOS_SPEAKER_FIRST\)/);
 assert.match(speech,/async function playPublicTtsCountdownDigit\(count\)/);
 assert.match(speech,/await playPublicTtsCountdownDigit\(count\)/);
 assert.match(speech,/if \(!ANDROID_JSSF_SPEECH_CUES && !PUBLIC_SPEECH_TTS_TRIAL && !PUBLIC_IOS_SPEAKER_FIRST\) await sleep\(1000\)/);
