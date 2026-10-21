@@ -29,6 +29,24 @@ assert.ok(speech.indexOf('const ready=await restorePublicSpeakerFirstMic(countdo
  < speech.indexOf("phase = 'RECORDING';",speech.indexOf("const cueStatus = 'visual_only';")));
 assert.match(speech,/if \(PUBLIC_SPEECH_TTS_TRIAL \|\| PUBLIC_IOS_SPEAKER_FIRST\) \{\s*\/\/ Speaker-first/);
 assert.match(speech,/if \(PUBLIC_SPEECH_TTS_TRIAL \|\| PUBLIC_IOS_SPEAKER_FIRST\) \{\s*void cleanupAfterResult/);
+
+const combined=segment('async function playPublicIosUnifiedCountdown(token) {','async function playPublicIosCompletionCue(message) {');
+assert.match(combined,/const content=words\.join\(', '\)/);
+assert.match(combined,/const words=\[3,2,1\]\.map\(publicCountdownSpeechWord\)/);
+assert.match(combined,/const u=new SpeechSynthesisUtterance\(content\)/);
+assert.equal((combined.match(/synth\.speak\(u\)/g)||[]).length,1,'iPhone plays all three words in a single utterance');
+assert.match(combined,/u\.onboundary=event=>\{/);
+assert.match(combined,/setTimeout\(\(\)=>show\(2\),850\)/);
+assert.match(combined,/setTimeout\(\(\)=>show\(1\),1750\)/);
+assert.match(combined,/setTimeout\(\(\)=>\{[\s\S]*?\},5000\)/);
+const countdown=segment('const countdownToken = audioStartToken;', "const cueStatus = 'visual_only';");
+assert.match(countdown,/await releasePublicSpeakerFirstCalibrationMic\(countdownToken\)/);
+assert.match(countdown,/if \(PUBLIC_IOS_SPEAKER_FIRST\) \{\s*await playPublicIosUnifiedCountdown\(countdownToken\)/);
+assert.ok(countdown.indexOf('await releasePublicSpeakerFirstCalibrationMic(countdownToken)')<countdown.indexOf('await playPublicIosUnifiedCountdown(countdownToken)'));
+assert.match(speech,/async function playPublicIosCompletionCue\(message\) \{[\s\S]*?recorded\.play\(message,\{timeoutMs:5000\}\)/);
+assert.match(speech,/if \(PUBLIC_IOS_SPEAKER_FIRST\) \{\s*status=await playPublicIosCompletionCue\(message\)/);
+assert.doesNotMatch(speech,/id="public-countdown-audio-status"|id="speech-voice-uat"|id="speech-voice-uat-status"/);
+
 const handlers=segment('// iPhone Public: preserve calibrated noise/onset thresholds','async function releaseAcousticCaptureForExclusiveAsr()');
 assert.doesNotMatch(handlers,/resetMeasurementState\(|beginSpeechCanonicalAttempt\(|calibStartMs\s*=/);
 assert.match(handlers,/captureSpeechMicrophoneRuntime\(streamRef,'public_post_tts_capture'\)/);
