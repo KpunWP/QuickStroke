@@ -4644,8 +4644,8 @@ function finishArm() {
   if (arm==='left') {
     setArmGuideStage('right', 1);
     showArmGuide();
-    $('instr').textContent = 'ลดแขนลง';
-    $('sub-instr').textContent = 'เริ่มทดสอบแขนขวา';
+    $('instr').textContent = T.instrDone_left;
+    $('sub-instr').textContent = T.btnNext;
     $('action-btn').textContent = armStartButtonText('right');
     $('action-btn').className   = '';
     $('action-btn').disabled    = false;
