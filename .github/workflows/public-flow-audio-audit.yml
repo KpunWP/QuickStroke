@@ -23,6 +23,8 @@ jobs:
           node-version: "22"
       - name: Public Full/Individual and TH EN JA cue wiring
         run: node tests/public-flow-audio-audit.mjs
+      - name: Face Public TTS countdown synchronization and Speech policy
+        run: node tests/public-face-voice-sync.mjs
       - name: Public opt-in TTS trial and Japanese Arm speech contract
         run: node tests/public-tts-uat.mjs
       - name: Existing core frozen algorithms and policy tests
