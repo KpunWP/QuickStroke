@@ -3729,7 +3729,12 @@ async function releasePublicSpeakerFirstCalibrationMic(token) {
         Promise.resolve(oldContext.close()).then(()=>true,()=>false),
         sleep(2500).then(()=>false)
       ]);
-      if(!closed) queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_TIMEOUT');
+      if(!closed) {
+        queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_TIMEOUT');
+        if(phase==='READY_CUE' && token===audioStartToken)
+          finishSpeechInvalid('MICROPHONE_START_FAILED',{stage:'public_pre_tts_close'});
+        return false;
+      }
     }
   } catch (_) { queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_ERROR'); }
   if (phase !== 'READY_CUE' || token !== audioStartToken) return;
@@ -3937,15 +3942,15 @@ async function beginSpeechRecognition() {
       if (recognitionReadyFallbackTimer) clearTimeout(recognitionReadyFallbackTimer);
       recognitionReadyFallbackTimer = setTimeout(() => {
         if (runId !== recognitionRunId || phase !== 'RECORDING' || recordingStartedMs) return;
-        if (ANDROID_JSSF_SPEECH_CUES) {
-          // ASR onstart means service started, not that mic capture started.
-          // Never display "เริ่มพูดได้" without the audio_start event.
+        if (ANDROID_JSSF_SPEECH_CUES || PUBLIC_IOS_SPEAKER_FIRST) {
+          // ASR engine onstart does NOT prove the microphone is accepting input.
+          // Speaker-first iPhone must confirm onaudiostart before Speak Now.
           queueSpeechTechnicalDiagnostic('ASR_AUDIO_CAPTURE');
           finishSpeechInvalid('MICROPHONE_START_FAILED', {message:'asr_audio_start_timeout'});
         } else {
           markSpeechRecognitionReady('onstart_timeout_fallback');
         }
-      }, ANDROID_JSSF_SPEECH_CUES ? 4500 : 900);
+      }, (ANDROID_JSSF_SPEECH_CUES || PUBLIC_IOS_SPEAKER_FIRST) ? 4500 : 900);
     };
     recognition.onaudiostart = () => {
       queueSpeechTechnicalDiagnostic('ASR_AUDIO_STARTED');
