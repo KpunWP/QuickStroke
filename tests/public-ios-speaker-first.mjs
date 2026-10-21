@@ -11,6 +11,12 @@ function segment(begin,end){
 assert.match(speech,/const PUBLIC_IOS_SPEAKER_FIRST = IS_IOS && !IOS_ASR_ONLY_TRIAL[\s\S]*?iosJssfContext\.appMode === 'public'/);
 assert.match(speech,/const KEEP_MIC_ALIVE = IS_IOS && !IOS_ASR_ONLY_TRIAL && !PUBLIC_IOS_SPEAKER_FIRST/);
 assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL \|\| PUBLIC_IOS_SPEAKER_FIRST\)/);
+const recognition=speech.slice(speech.indexOf('async function beginSpeechRecognition()'),speech.indexOf("async function releaseCurrentAudioResources(",speech.indexOf('async function beginSpeechRecognition()')));
+assert.match(recognition,/if \(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_IOS_SPEAKER_FIRST\)/);
+assert.match(recognition,/'asr_audio_start_timeout'/);
+assert.match(recognition,/\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_IOS_SPEAKER_FIRST\) \? 4500 : 900/);
+assert.match(recognition,/recognition\.onaudiostart = \(\) => \{[\s\S]*?markSpeechRecognitionReady\('audio_start'\)/);
+
 const calibrationHandoff=segment('const countdownToken = audioStartToken;', "const cueStatus = 'visual_only';");
 assert.ok(calibrationHandoff.indexOf('await releasePublicSpeakerFirstCalibrationMic(countdownToken)')>=0);
 assert.ok(calibrationHandoff.indexOf('await releasePublicSpeakerFirstCalibrationMic(countdownToken)')
