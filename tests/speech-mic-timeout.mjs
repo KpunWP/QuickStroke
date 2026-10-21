@@ -22,7 +22,7 @@ assert.match(asrShutdown,/oldRecognition\.abort\(\)/,'interrupted ASR still abor
 // expose missing acoustic metrics instead of fabricating speech measurements.
 assert.match(html,/const IOS_EXCLUSIVE_ASR_TRIAL = IS_IOS/);
 assert.match(html,/IOS_EXCLUSIVE_TRIAL_ENABLED/);
-assert.match(html,/ios-exclusive-asr-trial-status/);
+assert.doesNotMatch(html,/ios-exclusive-asr-trial-status/,'iOS capture route debug badge must not appear in the participant UI');
 assert.match(html,/const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR \|\| IOS_ASR_ONLY_TRIAL/);
 assert.match(html,/if \(EXCLUSIVE_ASR_CAPTURE\) \{\s*if \(!ANDROID_JSSF_SPEECH_CUES\) await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(html,/if \(ANDROID_JSSF_SPEECH_CUES\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);

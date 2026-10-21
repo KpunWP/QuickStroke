@@ -3414,8 +3414,7 @@ function applyFaceLang(){
 
   const navBtn = document.getElementById('fast-nav-btn');
   if (navBtn) {
-    const mode = sessionStorage.getItem('fast_mode');
-    navBtn.textContent = mode === 'full' ? FL.navNext : FL.navResult;
+    navBtn.textContent = faceCompletionNavLabel(navBtn.dataset.nextPage || 'result.html');
   }
   updateFaceStatusCards();
   if (document.body.classList.contains('result-visible')) {
@@ -4866,24 +4865,38 @@ function finishInvalid(reasonCode='UNABLE_TO_ASSESS', options={}){
   finalizeInvalidResult(reasonCode, detail);
 }
 
+// Never treat a historical Face result-retry marker as permission to skip
+// unfinished modules of a Full screening session.
+function decideFaceCompletionTarget(mode, returningFromResultRetry, armAttempted, speechAttempted) {
+  if (mode !== 'full') return 'result.html';
+  if (!armAttempted || !returningFromResultRetry) return 'arm-test.html';
+  if (!speechAttempted) return 'speech-test.html';
+  return 'result.html';
+}
+function faceCompletionNavLabel(target) {
+  if (target === 'arm-test.html') return FL.navNext;
+  if (target === 'speech-test.html') return FL.navSpeech || FL.navNext;
+  return FL.navResult;
+}
 function addNavButton(){
   setTimeout(()=>{
     const old=document.getElementById('fast-nav-btn'); if(old) old.remove();
-    const mode = sessionStorage.getItem('fast_mode');
-    let label = FL.navResult;
-    let target = 'result.html';
-    let bg = '#1FA98F';
-
+    const canonicalMode = FACE_DATA_CONTRACT?.getSessionContext?.()?.sessionMode;
+    const mode = sessionStorage.getItem('fast_mode') || canonicalMode;
     const returningFromResultRetry = faceModuleRunRecord?.moduleRunTrigger === 'result_retry'
       || Boolean(pendingFaceModuleRetry());
-    if (mode === 'full' && !returningFromResultRetry) {
-      label = FL.navNext;
-      target = 'arm-test.html';
-      bg = '#2B7DE9';
-    }
+    const target = decideFaceCompletionTarget(
+      mode,
+      returningFromResultRetry,
+      Boolean(sessionStorage.getItem('fast_arm')),
+      Boolean(sessionStorage.getItem('fast_speech'))
+    );
+    const label = faceCompletionNavLabel(target);
+    const bg = target === 'result.html' ? '#1FA98F' : '#2B7DE9';
     const btn=document.createElement('button');
     btn.id='fast-nav-btn'; btn.className='action-btn next-step-emphasis';
     btn.style.cssText=`background:${bg};border-color:rgba(255,255,255,0.25);color:#fff;font-weight:700;box-shadow:0 4px 12px rgba(43,125,233,0.35);width:100%;padding:13px 16px;border-radius:14px;`;
+    btn.dataset.nextPage=target;
     btn.textContent=label; btn.onclick=async()=>{
       btn.disabled=true;
       await Promise.race([
