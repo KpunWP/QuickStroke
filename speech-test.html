@@ -2973,10 +2973,13 @@ async function handleAction() {
       beginSpeechModuleRun('user_retry');
       actionBtn.disabled = true;
       actionBtn.textContent = T.calibrating;
-      if (IS_IOS) {
-        // Preserve the live WebAudio pipeline from the successful attempt.
-        // startRecording health-probes it and falls back to full release if
-        // digital silence is detected. Do not eagerly request another stream.
+      if (PUBLIC_IOS_SPEAKER_FIRST) {
+        // Safari requires the microphone request to begin in the Retry tap,
+        // just like the separate first-use permission disclosure tap. The old
+        // path awaited stopAll() first, losing transient user activation.
+        await startPublicIosRetryFromGesture();
+      } else if (IS_IOS) {
+        // Preserve the existing JSSF/Dev mic reuse and recovery policy.
         await startRecording(false);
       } else {
         await playSpeechInstructionBeforeCapture();
@@ -2995,6 +2998,40 @@ async function handleAction() {
       actionBtn.disabled = false;
     }
   }
+}
+
+// Public iPhone retry: called synchronously from the Retry button's onClick.
+// Mirror the proven first-use disclosure gesture (AudioContext + getUserMedia
+// requested before ANY await); the prior result already released the mic.
+// A late stream is stopped when the participant navigates away.
+async function startPublicIosRetryFromGesture() {
+  if (!PUBLIC_IOS_SPEAKER_FIRST) return startRecording(false);
+  const gestureToken=audioStartToken;
+  const Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx || !navigator.mediaDevices?.getUserMedia)
+    throw new Error('Microphone API is unavailable on retry');
+  window.QuickStrokeThaiRecorded?.stop?.();
+  try {window.speechSynthesis?.cancel?.();} catch(_) {}
+  prepareSpeechCaptureAudioSession();
+  if(!audioCtx || audioCtx.state==='closed') audioCtx=new Ctx();
+  // Deliberately invoked BEFORE the first await, inside the user's tap.
+  const requested=navigator.mediaDevices.getUserMedia({
+    audio:{echoCancellation:true,noiseSuppression:false,autoGainControl:false},
+    video:false
+  });
+  queueSpeechTechnicalDiagnostic('PUBLIC_IOS_RETRY_GESTURE_MIC_REQUESTED');
+  const freshStream=await waitForSpeechMicStep(requested,'public_retry_gesture_capture',12000,gestureToken);
+  if(gestureToken!==audioStartToken || phase!=='IDLE'){
+    try {freshStream?.getTracks?.().forEach(track=>track.stop());}catch(_){}
+    return;
+  }
+  if(!hasLiveAudioTrack(freshStream)){
+    try {freshStream?.getTracks?.().forEach(track=>track.stop());}catch(_){}
+    throw new Error('Retry gesture microphone did not produce a live track');
+  }
+  // startRecording preserves the gesture-created AudioContext and newly
+  // authorized stream, exactly as it does on the successful first attempt.
+  await startRecording(false,freshStream);
 }
 
 // ── SNR Gate: แสดง/จัดการคำเตือนเสียงรบกวน ──
@@ -5620,7 +5657,9 @@ function finishSpeechInvalid(reasonCode, details = {}) {
     'WEB_AUDIO_UNAVAILABLE',
     'DEAD_MIC_RECOVERY_FAILED'
   ].includes(reasonCode);
-  void releaseMicAfterSpeechResult(mustReleaseImmediately ? true : false);
+  // Public speaker-first must never leave a failed/retryable attempt with
+  // its capture stream held open while the next on-click starts.
+  void releaseMicAfterSpeechResult(mustReleaseImmediately || PUBLIC_IOS_SPEAKER_FIRST);
   if (!IS_IOS && !mustReleaseImmediately) scheduleResultMicRelease();
 }
 
@@ -6069,6 +6108,13 @@ function evaluateSpeech(text, confidence) {
   if (PUBLIC_SPEECH_TTS_TRIAL || PUBLIC_IOS_SPEAKER_FIRST) {
     void cleanupAfterResult.then(async()=>{
       if(phase!=='DONE' || audioStartToken!==finishedAudioToken)return;
+      // The mic may already be closed, but the terminal MP3/TTS still owns
+      // Safari's speaker session. Keep Retry disabled until it completes.
+      if (PUBLIC_IOS_SPEAKER_FIRST) {
+        iosResultMicReleasePending=true;
+        if($('action-btn'))$('action-btn').disabled=true;
+      }
+      try {
       await sleep(220);
       if(phase!=='DONE' || audioStartToken!==finishedAudioToken)return;
       const message=publicSpeechCompletionText();
@@ -6084,8 +6130,19 @@ function evaluateSpeech(text, confidence) {
         }
       }
       if(status!=='ended')queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_UNAVAILABLE');
+      } finally {
+        if (PUBLIC_IOS_SPEAKER_FIRST) {
+          iosResultMicReleasePending=false;
+          if (phase==='DONE' && audioStartToken===finishedAudioToken && $('action-btn'))
+            $('action-btn').disabled=false;
+        }
+      }
     }).catch(()=>{
       queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_ERROR');
+      if (PUBLIC_IOS_SPEAKER_FIRST) {
+        iosResultMicReleasePending=false;
+        if (phase==='DONE' && $('action-btn')) $('action-btn').disabled=false;
+      }
     });
   }
 
