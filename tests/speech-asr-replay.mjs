@@ -201,11 +201,12 @@ console.log("PASS: Android runtime uses deduplicating session aggregation while 
  const onstartBody=speech.match(/recognition\.onstart = \(\) => \{([\s\S]*?)\n    \};\n    recognition\.onaudiostart =/);
  const audiostartBody=speech.match(/recognition\.onaudiostart = \(\) => \{([\s\S]*?)\n    \};\n    recognition\.onaudioend =/);
  assert.ok(onstartBody&&audiostartBody,'ASR start and audio-start handlers must remain accessible');
- function replayReady(platformAndroid,sendAudioStart){
+ function replayReady(platformAndroid,sendAudioStart,publicIosSpeakerFirst=false){
    const state={ready:[],failure:[],timeouts:[],diagnostics:[],notes:[]};
    const ctx={
      recognition:{},recognitionRunId:1,runId:1,phase:'RECORDING',
      recordingStartedMs:null,ANDROID_JSSF_SPEECH_CUES:platformAndroid,
+     PUBLIC_IOS_SPEAKER_FIRST:publicIosSpeakerFirst,
      recognitionReadyFallbackTimer:null,
      queueSpeechTechnicalDiagnostic:v=>state.diagnostics.push(v),
      appendAsrObservation:v=>state.notes.push(v),
@@ -228,6 +229,9 @@ console.log("PASS: Android runtime uses deduplicating session aggregation while 
  assert.deepEqual(replayReady(true,true).ready,['audio_start'],'Android speak-now appears only after actual capture readiness');
  assert.equal(replayReady(true,true).failure.length,0,'successful mic start never times out');
  assert.deepEqual(replayReady(false,false).ready,['onstart_timeout_fallback'],'non-JSSF legacy fallback remains');
+ assert.deepEqual(replayReady(false,false,true).ready,[],'Public iPhone speaker-first must not claim mic-ready from ASR engine onstart');
+ assert.equal(replayReady(false,false,true).failure[0].code,'MICROPHONE_START_FAILED');
+ assert.deepEqual(replayReady(false,true,true).ready,['audio_start'],'Public iPhone speaker-first requires actual microphone audio-start');
  console.log('PASS: virtual Android mic-ready event gates spoken instructions while legacy remains isolated');
 
  assert.match(speech,/isIncompleteJssfTargetPhrase\(text\)\) invalidReasonCode = 'INCOMPLETE_TARGET_PHRASE'/);
