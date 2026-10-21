@@ -81,7 +81,7 @@ assert.doesNotMatch(speech,/id="speech-voice-uat"|id="speech-voice-uat-status"|i
 assert.doesNotMatch(speech,/ios-exclusive-asr-trial-status|iOS STANDARD · WEB AUDIO \+ ASR|iOS JSSF · ASR ONLY/);
 assert.doesNotMatch(speech,/function playPublicSpeechUatCue\(|function showPublicCountdownAudioStatus\(/);
 assert.doesNotMatch(result,/id="public-result-tts"|id="public-result-tts-status"|button\.onclick=playPublicResultTts/);
-assert.match(speech,/const message=publicSpeechCompletionText\(\);[\s\S]*?preparePublicSpeechPlaybackSession\(\);[\s\S]*?let status=await speakSpeechCue\(message\)/);
+assert.match(speech,/const message=publicSpeechCompletionText\(\);[\s\S]*?if \(PUBLIC_IOS_SPEAKER_FIRST\) \{\s*status=await playPublicIosCompletionCue\(message\)/);
 assert.match(speech,/const backupBeep=status!=='ended' && IS_IOS \? playVisualCountdownBeep\(\) : false/);
 assert.match(result,/function configurePublicResultTts\(\) \{[\s\S]*?if\(!available \|\| publicResultAutoVoiceAttempted\)return;[\s\S]*?playPublicResultTts\(\)/);
 console.log('PASS: no playback buttons, iOS badge or countdown TTS status; automatic audio remains wired');
