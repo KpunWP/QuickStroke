@@ -2034,6 +2034,7 @@ let modelReady = false;
 let isCameraRunning = false;
 let lastVideoTs = -1;
 let countdownTimer = null;
+let faceNeutralCountdownPending = false;
 let countdownVal = CALIBRATION_SECONDS;
 let countdownPaused = false;
 let noFaceCount = 0;
@@ -2206,7 +2207,10 @@ function speakFace(txt, opts={}){
   const canRecorded=!!recorded?.fileFor?.(txt);
   const route=opts.route||'primary';
   const playRecorded=()=>{
-    if (!canRecorded) return;
+    if (!canRecorded) { opts.onstart?.(); return; }
+    // The player does not expose a start callback. Beginning playback is the
+    // closest safe start signal for the Public-only visual synchronizer.
+    opts.onstart?.();
     void recorded.play(txt).then(status=>{
       // Only a consented JSSF Android primary can fail over to Thai TTS.
       if(pilotFallback && route==='primary' && status!=='ended' && status!=='cancelled'){
@@ -2217,6 +2221,7 @@ function speakFace(txt, opts={}){
   if (typeof speechSynthesis === 'undefined' || typeof SpeechSynthesisUtterance === 'undefined') {
     reportFaceTts('TTS_UNAVAILABLE','prompt','unsupported',lang,undefined,'face-prompt-unsupported');
     if(pilotFallback && route==='primary') playRecorded();
+    else opts.onstart?.();
     return;
   }
   const now = Date.now();
@@ -2248,6 +2253,7 @@ function speakFace(txt, opts={}){
     if (plan.deliveryMode === 'visual_only') {
       reportFaceTts('TTS_UNAVAILABLE','prompt','unsupported',lang,'no_fallback_voice','face-prompt-visual-only','visual_only',lang);
       fallbackToRecording();
+      opts.onstart?.();
       return;
     }
     const ut = new SpeechSynthesisUtterance(plan.text);
@@ -2262,9 +2268,11 @@ function speakFace(txt, opts={}){
       if(failedOver)return;
       failedOver=true;
       fallbackToRecording();
+      opts.onstart?.();
     };
     ut.onstart = () => {
       started = true;
+      opts.onstart?.();
       reportFaceTts('TTS_PLAYBACK_STARTED','prompt','started',lang,undefined,'face-prompt-started-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
     };
     ut.onerror = event => {
@@ -2291,6 +2299,7 @@ function speakFace(txt, opts={}){
   } catch(e){
     reportFaceTts('TTS_ERROR','prompt','error',lang,'setup_exception','face-prompt-setup-exception');
     fallbackToRecording();
+    opts.onstart?.();
   }
 }
 
@@ -3681,6 +3690,7 @@ function goBackHome(){
     if (!confirm(FL.quit)) return;
   }
   if (countdownTimer){ clearInterval(countdownTimer); countdownTimer=null; }
+  faceNeutralCountdownPending=false;
   if (retryTimer){ clearTimeout(retryTimer); retryTimer=null; }
   try { speechSynthesis.cancel(); } catch(e){}
   window.location.href = 'index.html';
@@ -4099,6 +4109,7 @@ function startScreening(){
   baseRawMouthLeftY=null; baseRawMouthRightY=null;
   baseEyeCenterX=null; baseEyeCenterY=null; baseEyeLineRollDeg=null;
   criticalFired=false; noFaceCount=0; poseBadFrames=0; poseGoodFrames=0;
+  faceNeutralCountdownPending=false;
   countdownVal=CALIBRATION_SECONDS; countdownPaused=false; poseInterruptedSmile=false;
   smileStartMs=null; frameAsymScores=[]; validSmileFrames=0; smileFrameCount=0; smileLostSinceMs=null; mouthBlockedSinceMs=null; smileEverDetected=false;
   actionWaitStartMs=null; lastSmileVoiceMs=0; smileNudgeUntilMs=0; lastRepAsym=0;
@@ -4115,10 +4126,43 @@ function startScreening(){
 
   phase='RESTING_PHASE';
   setUI({glassColor:'var(--col-orange-glass)', msg:FL.step1, showReset:true, showHud:true});
-  speakFace(FL.restVoice, {force:true});
-  showCenterCountdown(countdownVal);
-  if (countdownTimer) clearInterval(countdownTimer);
-  countdownTimer = setInterval(calibrationTick, 1000);
+  if (countdownTimer) {clearInterval(countdownTimer); countdownTimer=null;}
+  const publicMode=window.QuickStrokeAppMode?.resolveMode?.()==='public'
+    && FACE_DATA_CONTRACT?.getSessionContext?.()?.appMode==='public';
+  if (!publicMode) {
+    // The consented JSSF/Dev protocol retains its established phase timings.
+    speakFace(FL.restVoice, {force:true});
+    showCenterCountdown(countdownVal);
+    countdownTimer=setInterval(calibrationTick,1000);
+    return;
+  }
+  // Public voice and countdown must begin together: a speechSynthesis.speak()
+  // call queues output, so starting the countdown immediately can leave the
+  // first spoken words delayed until the screen shows 1.
+  faceNeutralCountdownPending=true;
+  const thisRun=screeningStartedAtMs;
+  const beginNeutralCount=()=>{
+    if (!faceNeutralCountdownPending || phase!=='RESTING_PHASE'
+      || screeningStartedAtMs!==thisRun) return;
+    faceNeutralCountdownPending=false;
+    baselineWaitStartMs=Date.now();
+    restCornerAsymSamples=[]; restCornerL=[]; restCornerR=[]; restEyeW=[];
+    restRawMouthLeftY=[]; restRawMouthRightY=[];
+    restEyeCenterX=[]; restEyeCenterY=[]; restEyeLineRollDeg=[];
+    countdownVal=CALIBRATION_SECONDS;
+    showCenterCountdown(countdownVal);
+    countdownTimer=setInterval(calibrationTick,1000);
+  };
+  // Safari may never issue speech onstart. Fail open to a visual countdown
+  // after a bounded wait; cancel any queued late utterance so it cannot start
+  // midway through the measurement.
+  setTimeout(()=>{
+    if(!faceNeutralCountdownPending || phase!=='RESTING_PHASE'
+      || screeningStartedAtMs!==thisRun)return;
+    try {speechSynthesis.cancel();}catch(_){}
+    beginNeutralCount();
+  },3000);
+  speakFace(FL.restVoice,{force:true,onstart:beginNeutralCount});
 }
 
 function calibrationTick(){
@@ -4256,6 +4300,9 @@ function resetSmileWindowToAction(reasonText, voiceText, opts={}){
 /* ───────────── results ───────────── */
 function onResults(results, handResults=null){
   if (!isCameraRunning) return;
+  // Public only: baseline sampling begins with audible/visual 3, not during
+  // a delayed iOS TTS queue. This does not modify Face scoring thresholds.
+  if (phase==='RESTING_PHASE' && faceNeutralCountdownPending) return;
   const lmArr = results.faceLandmarks;
   const blendArr = results.faceBlendshapes;
 
