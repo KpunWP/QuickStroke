@@ -1187,6 +1187,11 @@ const PUBLIC_SPEECH_TTS_TRIAL = iosJssfContext.appMode === 'public'
   && (window.QuickStrokeAppMode?.resolveMode?.() || 'public') === 'public'
   && sessionStorage.getItem('qs_public_tts_trial') === '1'
   && !IOS_ASR_ONLY_TRIAL;
+// iPhone Public by default: finish voice output BEFORE restarting capture.
+// Do not change JSSF, Dev or Android's separately proven microphone pathways.
+const PUBLIC_IOS_SPEAKER_FIRST = IS_IOS && !IOS_ASR_ONLY_TRIAL
+  && iosJssfContext.appMode === 'public'
+  && (window.QuickStrokeAppMode?.resolveMode?.() || 'public') === 'public';
 // Match iPhone's spoken JSSF Speech cues without changing Public or Dev routes.
 const ANDROID_JSSF_SPEECH_CUES = IS_ANDROID && isConsentedJssfSpeech;
 const EXCLUSIVE_ASR_CAPTURE = ANDROID_EXCLUSIVE_ASR || IOS_ASR_ONLY_TRIAL;
@@ -1284,7 +1289,7 @@ function publicSpeechUatCueText() {
     ? 'เตรียมพูด' : speechCueText();
 }
 function preparePublicSpeechPlaybackSession() {
-  if (!PUBLIC_SPEECH_TTS_TRIAL) return;
+  if (!PUBLIC_SPEECH_TTS_TRIAL && !PUBLIC_IOS_SPEAKER_FIRST) return;
   try {
     if (navigator.audioSession && 'type' in navigator.audioSession)
       navigator.audioSession.type='playback';
@@ -2860,7 +2865,7 @@ function resetUI() {
 // The 3-2-1 countdown remains visual-only on Android.
 const SPEECH_SILENT_START_TRIAL = IS_IOS && !IOS_ASR_ONLY_TRIAL;
 async function playSpeechInstructionBeforeCapture() {
-  if (PUBLIC_SPEECH_TTS_TRIAL) {
+  if (PUBLIC_SPEECH_TTS_TRIAL || PUBLIC_IOS_SPEAKER_FIRST) {
     // Speaker-first: await the spoken cue before any mic permission,
     // WebAudio or ASR capture. This UAT path is Public only.
     const message = publicSpeechUatCueText();
@@ -2968,10 +2973,13 @@ async function handleAction() {
       beginSpeechModuleRun('user_retry');
       actionBtn.disabled = true;
       actionBtn.textContent = T.calibrating;
-      if (IS_IOS) {
-        // Preserve the live WebAudio pipeline from the successful attempt.
-        // startRecording health-probes it and falls back to full release if
-        // digital silence is detected. Do not eagerly request another stream.
+      if (PUBLIC_IOS_SPEAKER_FIRST) {
+        // Safari requires the microphone request to begin in the Retry tap,
+        // just like the separate first-use permission disclosure tap. The old
+        // path awaited stopAll() first, losing transient user activation.
+        await startPublicIosRetryFromGesture();
+      } else if (IS_IOS) {
+        // Preserve the existing JSSF/Dev mic reuse and recovery policy.
         await startRecording(false);
       } else {
         await playSpeechInstructionBeforeCapture();
@@ -2990,6 +2998,40 @@ async function handleAction() {
       actionBtn.disabled = false;
     }
   }
+}
+
+// Public iPhone retry: called synchronously from the Retry button's onClick.
+// Mirror the proven first-use disclosure gesture (AudioContext + getUserMedia
+// requested before ANY await); the prior result already released the mic.
+// A late stream is stopped when the participant navigates away.
+async function startPublicIosRetryFromGesture() {
+  if (!PUBLIC_IOS_SPEAKER_FIRST) return startRecording(false);
+  const gestureToken=audioStartToken;
+  const Ctx=window.AudioContext||window.webkitAudioContext;
+  if(!Ctx || !navigator.mediaDevices?.getUserMedia)
+    throw new Error('Microphone API is unavailable on retry');
+  window.QuickStrokeThaiRecorded?.stop?.();
+  try {window.speechSynthesis?.cancel?.();} catch(_) {}
+  prepareSpeechCaptureAudioSession();
+  if(!audioCtx || audioCtx.state==='closed') audioCtx=new Ctx();
+  // Deliberately invoked BEFORE the first await, inside the user's tap.
+  const requested=navigator.mediaDevices.getUserMedia({
+    audio:{echoCancellation:true,noiseSuppression:false,autoGainControl:false},
+    video:false
+  });
+  queueSpeechTechnicalDiagnostic('PUBLIC_IOS_RETRY_GESTURE_MIC_REQUESTED');
+  const freshStream=await waitForSpeechMicStep(requested,'public_retry_gesture_capture',12000,gestureToken);
+  if(gestureToken!==audioStartToken || phase!=='IDLE'){
+    try {freshStream?.getTracks?.().forEach(track=>track.stop());}catch(_){}
+    return;
+  }
+  if(!hasLiveAudioTrack(freshStream)){
+    try {freshStream?.getTracks?.().forEach(track=>track.stop());}catch(_){}
+    throw new Error('Retry gesture microphone did not produce a live track');
+  }
+  // startRecording preserves the gesture-created AudioContext and newly
+  // authorized stream, exactly as it does on the successful first attempt.
+  await startRecording(false,freshStream);
 }
 
 // ── SNR Gate: แสดง/จัดการคำเตือนเสียงรบกวน ──
@@ -3363,6 +3405,98 @@ async function playPublicTtsCountdownDigit(count) {
   return status;
 }
 
+// Safari iPhone: THREE sequential speechSynthesis.speak() invocations can
+// produce only the first audible digit. Speak the complete phrase in ONE
+// utterance, while calibration mic/WebAudio are fully closed. Use boundaries
+// for visual progress when supported, otherwise bounded visual timer fallbacks.
+async function playPublicIosUnifiedCountdown(token) {
+  const live=()=>PUBLIC_IOS_SPEAKER_FIRST && phase==='READY_CUE' && audioStartToken===token;
+  const words=[3,2,1].map(publicCountdownSpeechWord);
+  const content=words.join(', ');
+  const offsets=[0,words[0].length+2,words[0].length+words[1].length+4];
+  const synth=window.speechSynthesis;
+  const visible=$('mic-icon');
+  const began=performance.now();
+  let latestDigit=3;
+  const show=count=>{
+    if(!live() || count>=latestDigit)return;
+    latestDigit=count;
+    if(visible)visible.textContent=String(count);
+  };
+  if(visible && live())visible.textContent='3';
+  const status=await new Promise(resolve=>{
+    if(!synth || typeof SpeechSynthesisUtterance==='undefined'){resolve('unsupported');return;}
+    let settled=false,started=false;
+    let timeLimit;
+    const finish=result=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timeLimit);
+      resolve(result);
+    };
+    try {
+      const u=new SpeechSynthesisUtterance(content);
+      u.lang=T?.langCode || 'th-TH';
+      u.volume=1;
+      u.rate=0.92;
+      const short=String(u.lang).toLowerCase().split('-')[0];
+      const voices=synth.getVoices?.()||[];
+      u.voice=voices.find(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short))||null;
+      u.onstart=()=>{
+        started=true;
+        // Timer fallback for Safari builds that omit word onboundary events.
+        setTimeout(()=>show(2),850);
+        setTimeout(()=>show(1),1750);
+      };
+      u.onboundary=event=>{
+        const n=Number(event?.charIndex);
+        if(!Number.isFinite(n))return;
+        if(n>=offsets[2])show(1);
+        else if(n>=offsets[1])show(2);
+      };
+      u.onend=()=>finish('ended');
+      u.onerror=()=>finish('error');
+      // Reset only once at the beginning of the COMPLETE phrase.
+      try {synth.cancel();}catch(_){}
+      synth.resume?.();
+      synth.speak(u);
+      timeLimit=setTimeout(()=>{
+        if(!settled){try{synth.cancel();}catch(_){}finish(started?'timeout':'no_start');}
+      },5000);
+    }catch(_){finish('exception');}
+  });
+  if(status!=='ended')queueSpeechTechnicalDiagnostic('PUBLIC_IOS_UNIFIED_COUNTDOWN_'+String(status).toUpperCase());
+  // Preserve visible 3,2,1 even if Safari fires 'end' early or never starts.
+  const elapsed=performance.now()-began;
+  if(live() && elapsed<850)await sleep(850-elapsed);
+  show(2);
+  const remainingToOne=1750-(performance.now()-began);
+  if(live() && remainingToOne>0)await sleep(remainingToOne);
+  show(1);
+  const remain=2400-(performance.now()-began);
+  if(live() && remain>0)await sleep(remain);
+  return status;
+}
+
+async function playPublicIosCompletionCue(message) {
+  if (!PUBLIC_IOS_SPEAKER_FIRST) return 'skipped';
+  preparePublicSpeechPlaybackSession();
+  // On iOS the audio category can still be settling after getUserMedia close.
+  await sleep(450);
+  const recorded=window.QuickStrokeThaiRecorded;
+  const thai=String(T?.langCode||'').toLowerCase().startsWith('th');
+  // The shipped Thai completion MP3 is a single clip. iPhone native TTS can
+  // signal onend even when the speaker is silent after an ASR session.
+  // Use prerecorded speech first only for this one terminal cue; no playback
+  // occurs while the microphone or ASR is active.
+  if(thai && recorded?.fileFor?.(message)){
+    const result=await recorded.play(message,{timeoutMs:5000});
+    if(result==='ended')return result;
+    queueSpeechTechnicalDiagnostic('PUBLIC_IOS_COMPLETION_MP3_'+String(result).toUpperCase());
+  }
+  return speakSpeechCue(message);
+}
+
 // Android JSSF: each verified Thai MP3 is allowed to finish before ASR
 // acquires the mic. Keep the start of each spoken digit ~1s apart regardless
 // of the trimmed clip duration (rather than accumulating file-end silence).
@@ -3706,6 +3840,99 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
   // Speech Recognition จะเริ่มหลังจบ calibration เท่านั้น
 }
 
+// iPhone Public: preserve calibrated noise/onset thresholds while handing the
+// audio route over to playback, then back to capture after all three cues.
+// No JSSF research path calls either function. No session/timer reset here.
+async function releasePublicSpeakerFirstCalibrationMic(token) {
+  if (!PUBLIC_IOS_SPEAKER_FIRST || phase !== 'READY_CUE' || token !== audioStartToken) return;
+  const oldSource=source; source=null;
+  try { oldSource?.disconnect?.(); } catch (_) {}
+  const oldStream=streamRef; streamRef=null;
+  try { oldStream?.getTracks?.().forEach(track=>track.stop()); } catch (_) {}
+  const oldContext=audioCtx; audioCtx=null; analyser=null;
+  try {
+    if(oldContext && oldContext.state!=='closed') {
+      // A hung close is reported and forces visual fallback instead of
+      // pretending capture was released before playback.
+      const closed=await Promise.race([
+        Promise.resolve(oldContext.close()).then(()=>true,()=>false),
+        sleep(2500).then(()=>false)
+      ]);
+      if(!closed) {
+        queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_TIMEOUT');
+        if(phase==='READY_CUE' && token===audioStartToken)
+          finishSpeechInvalid('MICROPHONE_START_FAILED',{stage:'public_pre_tts_close'});
+        return false;
+      }
+    }
+  } catch (_) {
+    queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_ERROR');
+    if(phase==='READY_CUE' && token===audioStartToken)
+      finishSpeechInvalid('MICROPHONE_START_FAILED',{stage:'public_pre_tts_close'});
+    return false;
+  }
+  if (phase !== 'READY_CUE' || token !== audioStartToken) return;
+  try {
+    if (navigator.audioSession && 'type' in navigator.audioSession)
+      navigator.audioSession.type='playback';
+  } catch (_) {}
+  queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_MIC_RELEASED');
+}
+
+async function restorePublicSpeakerFirstMic(token) {
+  if (!PUBLIC_IOS_SPEAKER_FIRST || phase !== 'READY_CUE' || token !== audioStartToken) return false;
+  let pendingStream=null;
+  let pendingContext=null;
+  try {
+    // The native mic authorization is already granted during first-use
+    // disclosure. This step must happen AFTER all speaker cues finish.
+    prepareSpeechCaptureAudioSession();
+    const Ctx=window.AudioContext||window.webkitAudioContext;
+    if(!Ctx) throw new Error('Web Audio API is unavailable');
+    pendingContext=new Ctx();
+    if(pendingContext.state==='suspended') {
+      try { void Promise.resolve(pendingContext.resume()).catch(()=>{}); } catch (_) {}
+    }
+    pendingStream=await waitForSpeechMicStep(navigator.mediaDevices.getUserMedia({
+      audio:{echoCancellation:true,noiseSuppression:false,autoGainControl:false},
+      video:false
+    }), 'public_post_tts_capture', 10000, token);
+    if(phase!=='READY_CUE' || token!==audioStartToken) return false;
+    if(!hasLiveAudioTrack(pendingStream)) throw new Error('Post-TTS microphone track not live');
+    if(!await waitForMicTrackReady(pendingStream,2000))
+      throw new Error('Post-TTS microphone track remained muted');
+    if(pendingContext.state!=='running')
+      await waitForSpeechMicStep(pendingContext.resume(),'public_post_tts_context_resume',5000,token);
+    if(phase!=='READY_CUE' || token!==audioStartToken) return false;
+    if(pendingContext.state!=='running') throw new Error('Post-TTS AudioContext not running');
+    const pendingAnalyser=pendingContext.createAnalyser();
+    pendingAnalyser.fftSize=1024;
+    pendingAnalyser.smoothingTimeConstant=0.2;
+    const pendingSource=pendingContext.createMediaStreamSource(pendingStream);
+    pendingSource.connect(pendingAnalyser);
+    audioCtx=pendingContext;pendingContext=null;
+    streamRef=pendingStream;pendingStream=null;
+    analyser=pendingAnalyser;source=pendingSource;
+    captureSpeechMicrophoneRuntime(streamRef,'public_post_tts_capture');
+    pipelineReadyMs=performance.now();
+    sawRealSignal=false;
+    queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_MIC_REOPENED');
+    return true;
+  } catch(error) {
+    if (token===audioStartToken && phase==='READY_CUE') {
+      queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_MIC_REOPEN_FAILED');
+      finishSpeechInvalid(mapMicErrorReason(error),{
+        errorName:error?.name||'Error',
+        stage:'public_post_tts_capture'
+      });
+    }
+    return false;
+  } finally {
+    try { pendingStream?.getTracks?.().forEach(t=>t.stop()); } catch (_) {}
+    try { if(pendingContext && pendingContext.state!=='closed') void pendingContext.close(); } catch (_) {}
+  }
+}
+
 async function releaseAcousticCaptureForExclusiveAsr() {
   if (!EXCLUSIVE_ASR_CAPTURE) return;
   const oldSource = source;
@@ -3848,15 +4075,15 @@ async function beginSpeechRecognition() {
       if (recognitionReadyFallbackTimer) clearTimeout(recognitionReadyFallbackTimer);
       recognitionReadyFallbackTimer = setTimeout(() => {
         if (runId !== recognitionRunId || phase !== 'RECORDING' || recordingStartedMs) return;
-        if (ANDROID_JSSF_SPEECH_CUES) {
-          // ASR onstart means service started, not that mic capture started.
-          // Never display "เริ่มพูดได้" without the audio_start event.
+        if (ANDROID_JSSF_SPEECH_CUES || PUBLIC_IOS_SPEAKER_FIRST) {
+          // ASR engine onstart does NOT prove the microphone is accepting input.
+          // Speaker-first iPhone must confirm onaudiostart before Speak Now.
           queueSpeechTechnicalDiagnostic('ASR_AUDIO_CAPTURE');
           finishSpeechInvalid('MICROPHONE_START_FAILED', {message:'asr_audio_start_timeout'});
         } else {
           markSpeechRecognitionReady('onstart_timeout_fallback');
         }
-      }, ANDROID_JSSF_SPEECH_CUES ? 4500 : 900);
+      }, (ANDROID_JSSF_SPEECH_CUES || PUBLIC_IOS_SPEAKER_FIRST) ? 4500 : 900);
     };
     recognition.onaudiostart = () => {
       queueSpeechTechnicalDiagnostic('ASR_AUDIO_STARTED');
@@ -4139,7 +4366,8 @@ async function beginSpeechRecognition() {
 // ทำให้ session ทั้งก้อน corrupt → getUserMedia รอบถัดไปได้ stream เงียบตายทุกครั้ง
 // จนกว่า iOS จะ reset เอง (~1 นาที) → ทางแก้: บน iOS "ไม่ปล่อยไมค์เลย"
 // เปิดครั้งเดียวใช้ซ้ำทุกรอบ ปิดเฉพาะ ASR ระหว่างรอบ
-const KEEP_MIC_ALIVE = IS_IOS && !IOS_ASR_ONLY_TRIAL && (SPEECH_CFG.keepMicAliveOnIOS ?? true);
+const KEEP_MIC_ALIVE = IS_IOS && !IOS_ASR_ONLY_TRIAL && !PUBLIC_IOS_SPEAKER_FIRST
+  && (SPEECH_CFG.keepMicAliveOnIOS ?? true);
 
 async function releaseCurrentAudioResources(fullRelease = !KEEP_MIC_ALIVE) {
   const hadResources = !!(
@@ -4415,28 +4643,42 @@ function runLoop() {
         if (ANDROID_JSSF_SPEECH_CUES) {
           await releaseAcousticCaptureForExclusiveAsr();
           if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
+        } else if (PUBLIC_IOS_SPEAKER_FIRST) {
+          // The prior calibration stream cannot coexist with the iOS voice output.
+          await releasePublicSpeakerFirstCalibrationMic(countdownToken);
+          if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
         }
         // Actual permission to speak is still gated on ASR onaudiostart.
-        for (const count of [3,2,1]) {
+        if (PUBLIC_IOS_SPEAKER_FIRST) {
+          await playPublicIosUnifiedCountdown(countdownToken);
+          if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
+        } else for (const count of [3,2,1]) {
           if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
           $('mic-icon').textContent = String(count);
           if (ANDROID_JSSF_SPEECH_CUES) {
             await playAndroidJssfSpokenCount(count);
-          } else if (PUBLIC_SPEECH_TTS_TRIAL) {
+          } else if (PUBLIC_IOS_SPEAKER_FIRST || PUBLIC_SPEECH_TTS_TRIAL) {
             await playPublicTtsCountdownDigit(count);
           } else if (!IS_ANDROID && !SPEECH_SILENT_START_TRIAL) {
             playVisualCountdownBeep();
           }
           $('hint-text').textContent = String(T?.langCode || '').toLowerCase().startsWith('th') ? 'ยังไม่ต้องพูด' : T.preparePrompt;
           $('transcript-box').textContent = T.preparePrompt;
-          if (!ANDROID_JSSF_SPEECH_CUES && !PUBLIC_SPEECH_TTS_TRIAL) await sleep(1000);
+          if (!ANDROID_JSSF_SPEECH_CUES && !PUBLIC_SPEECH_TTS_TRIAL && !PUBLIC_IOS_SPEAKER_FIRST) await sleep(1000);
         }
         const cueStatus = 'visual_only';
         if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
         // Never leave the participant in a silent "ready" trap. If Safari still
         // refuses TTS after priming/retry, proceed with the visual cue immediately.
-        await sleep(ANDROID_JSSF_SPEECH_CUES ? 260 : (cueStatus === 'ended' ? 180 : 80));
+        await sleep(ANDROID_JSSF_SPEECH_CUES ? 260 : (PUBLIC_IOS_SPEAKER_FIRST ? 240 : (cueStatus === 'ended' ? 180 : 80)));
         if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
+        if (PUBLIC_IOS_SPEAKER_FIRST) {
+          // Reacquire post-TTS and verify a live PCM stream before ASR.
+          // Keep the completed noise-floor calibration values; do NOT restart it
+          // or reset Speech attempt metrics during the speaker-to-mic handoff.
+          const ready=await restorePublicSpeakerFirstMic(countdownToken);
+          if (!ready || phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
+        }
 
         // Enter the recognition phase, but do not tell the participant to speak yet.
         // Android still has to hand the microphone from WebAudio to Web Speech.
@@ -5415,7 +5657,9 @@ function finishSpeechInvalid(reasonCode, details = {}) {
     'WEB_AUDIO_UNAVAILABLE',
     'DEAD_MIC_RECOVERY_FAILED'
   ].includes(reasonCode);
-  void releaseMicAfterSpeechResult(mustReleaseImmediately ? true : false);
+  // Public speaker-first must never leave a failed/retryable attempt with
+  // its capture stream held open while the next on-click starts.
+  void releaseMicAfterSpeechResult(mustReleaseImmediately || PUBLIC_IOS_SPEAKER_FIRST);
   if (!IS_IOS && !mustReleaseImmediately) scheduleResultMicRelease();
 }
 
@@ -5850,7 +6094,7 @@ function evaluateSpeech(text, confidence) {
   const finishedAudioToken = audioStartToken;
   // Android JSSF must also release its WebAudio mic before the closing cue;
   // the general Android flow still uses its established release semantics.
-  const cleanupAfterResult = releaseMicAfterSpeechResult(ANDROID_JSSF_SPEECH_CUES || PUBLIC_SPEECH_TTS_TRIAL);
+  const cleanupAfterResult = releaseMicAfterSpeechResult(ANDROID_JSSF_SPEECH_CUES || PUBLIC_SPEECH_TTS_TRIAL || PUBLIC_IOS_SPEAKER_FIRST);
   if (!IS_IOS && !PUBLIC_SPEECH_TTS_TRIAL) scheduleResultMicRelease();
   // Do not play output over a live ASR engine or on a newly started retry.
   if (IOS_ASR_ONLY_TRIAL || ANDROID_JSSF_SPEECH_CUES) {
@@ -5861,21 +6105,44 @@ function evaluateSpeech(text, confidence) {
   }
   // Public opt-in: attempt automatic completion after microphone release.
   // Playback failures remain internal diagnostics.
-  if (PUBLIC_SPEECH_TTS_TRIAL) {
+  if (PUBLIC_SPEECH_TTS_TRIAL || PUBLIC_IOS_SPEAKER_FIRST) {
     void cleanupAfterResult.then(async()=>{
       if(phase!=='DONE' || audioStartToken!==finishedAudioToken)return;
+      // The mic may already be closed, but the terminal MP3/TTS still owns
+      // Safari's speaker session. Keep Retry disabled until it completes.
+      if (PUBLIC_IOS_SPEAKER_FIRST) {
+        iosResultMicReleasePending=true;
+        if($('action-btn'))$('action-btn').disabled=true;
+      }
+      try {
       await sleep(220);
       if(phase!=='DONE' || audioStartToken!==finishedAudioToken)return;
       const message=publicSpeechCompletionText();
-      preparePublicSpeechPlaybackSession();
-      let status=await speakSpeechCue(message);
-      if(status!=='ended' && message==='ทดสอบการพูดเสร็จแล้ว'
-        && window.QuickStrokeThaiRecorded?.fileFor?.(message)){
-        status=await window.QuickStrokeThaiRecorded.play(message,{timeoutMs:4000});
+      let status;
+      if (PUBLIC_IOS_SPEAKER_FIRST) {
+        status=await playPublicIosCompletionCue(message);
+      } else {
+        preparePublicSpeechPlaybackSession();
+        status=await speakSpeechCue(message);
+        if(status!=='ended' && message==='ทดสอบการพูดเสร็จแล้ว'
+          && window.QuickStrokeThaiRecorded?.fileFor?.(message)){
+          status=await window.QuickStrokeThaiRecorded.play(message,{timeoutMs:4000});
+        }
       }
       if(status!=='ended')queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_UNAVAILABLE');
+      } finally {
+        if (PUBLIC_IOS_SPEAKER_FIRST) {
+          iosResultMicReleasePending=false;
+          if (phase==='DONE' && audioStartToken===finishedAudioToken && $('action-btn'))
+            $('action-btn').disabled=false;
+        }
+      }
     }).catch(()=>{
       queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_ERROR');
+      if (PUBLIC_IOS_SPEAKER_FIRST) {
+        iosResultMicReleasePending=false;
+        if (phase==='DONE' && $('action-btn')) $('action-btn').disabled=false;
+      }
     });
   }
 

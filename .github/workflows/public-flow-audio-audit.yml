@@ -23,6 +23,8 @@ jobs:
           node-version: "22"
       - name: Public Full/Individual and TH EN JA cue wiring
         run: node tests/public-flow-audio-audit.mjs
+      - name: Public iPhone speaker-first mic and ASR handoff
+        run: node tests/public-ios-speaker-first.mjs
       - name: Public opt-in TTS trial and Japanese Arm speech contract
         run: node tests/public-tts-uat.mjs
       - name: Existing core frozen algorithms and policy tests

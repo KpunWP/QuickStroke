@@ -116,7 +116,7 @@ assert.match(speech,/const ANDROID_JSSF_SPEECH_CUES = IS_ANDROID && isConsentedJ
 assert.match(speech,/if \(ANDROID_JSSF_SPEECH_CUES\) \{\s*await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(speech,/if \(!ANDROID_JSSF_SPEECH_CUES\) await releaseAcousticCaptureForExclusiveAsr\(\)/);
 assert.match(speech,/if \(IOS_ASR_ONLY_TRIAL \|\| ANDROID_JSSF_SPEECH_CUES\) \{\s*void cleanupAfterResult\.then/);
-assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL\)/);
+assert.match(speech,/const cleanupAfterResult = releaseMicAfterSpeechResult\(ANDROID_JSSF_SPEECH_CUES \|\| PUBLIC_SPEECH_TTS_TRIAL \|\| PUBLIC_IOS_SPEAKER_FIRST\)/);
 const androidCount=speech.slice(speech.indexOf("if (ANDROID_JSSF_SPEECH_CUES) {\n          await releaseAcousticCaptureForExclusiveAsr();"),speech.indexOf("const cueStatus = 'visual_only';",speech.indexOf("if (ANDROID_JSSF_SPEECH_CUES) {\n          await releaseAcousticCaptureForExclusiveAsr();")));
 assert.ok(androidCount.indexOf("await releaseAcousticCaptureForExclusiveAsr()")<androidCount.indexOf("await playAndroidJssfSpokenCount(count)"),'mic capture must stop before spoken count');
 assert.match(speech,/speakSpeechCue\('เตรียมพูด'\)/);
