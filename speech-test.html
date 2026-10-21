@@ -3736,7 +3736,12 @@ async function releasePublicSpeakerFirstCalibrationMic(token) {
         return false;
       }
     }
-  } catch (_) { queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_ERROR'); }
+  } catch (_) {
+    queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_ERROR');
+    if(phase==='READY_CUE' && token===audioStartToken)
+      finishSpeechInvalid('MICROPHONE_START_FAILED',{stage:'public_pre_tts_close'});
+    return false;
+  }
   if (phase !== 'READY_CUE' || token !== audioStartToken) return;
   try {
     if (navigator.audioSession && 'type' in navigator.audioSession)
@@ -3789,8 +3794,7 @@ async function restorePublicSpeakerFirstMic(token) {
       queueSpeechTechnicalDiagnostic('PUBLIC_SPEAKER_FIRST_MIC_REOPEN_FAILED');
       finishSpeechInvalid(mapMicErrorReason(error),{
         errorName:error?.name||'Error',
-        stage:'public_post_tts_capture',
-        message:String(error?.message||'').slice(0,160)
+        stage:'public_post_tts_capture'
       });
     }
     return false;
