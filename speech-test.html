@@ -3368,6 +3368,98 @@ async function playPublicTtsCountdownDigit(count) {
   return status;
 }
 
+// Safari iPhone: THREE sequential speechSynthesis.speak() invocations can
+// produce only the first audible digit. Speak the complete phrase in ONE
+// utterance, while calibration mic/WebAudio are fully closed. Use boundaries
+// for visual progress when supported, otherwise bounded visual timer fallbacks.
+async function playPublicIosUnifiedCountdown(token) {
+  const live=()=>PUBLIC_IOS_SPEAKER_FIRST && phase==='READY_CUE' && audioStartToken===token;
+  const words=[3,2,1].map(publicCountdownSpeechWord);
+  const content=words.join(', ');
+  const offsets=[0,words[0].length+2,words[0].length+words[1].length+4];
+  const synth=window.speechSynthesis;
+  const visible=$('mic-icon');
+  const began=performance.now();
+  let latestDigit=3;
+  const show=count=>{
+    if(!live() || count>=latestDigit)return;
+    latestDigit=count;
+    if(visible)visible.textContent=String(count);
+  };
+  if(visible && live())visible.textContent='3';
+  const status=await new Promise(resolve=>{
+    if(!synth || typeof SpeechSynthesisUtterance==='undefined'){resolve('unsupported');return;}
+    let settled=false,started=false;
+    let timeLimit;
+    const finish=result=>{
+      if(settled)return;
+      settled=true;
+      clearTimeout(timeLimit);
+      resolve(result);
+    };
+    try {
+      const u=new SpeechSynthesisUtterance(content);
+      u.lang=T?.langCode || 'th-TH';
+      u.volume=1;
+      u.rate=0.92;
+      const short=String(u.lang).toLowerCase().split('-')[0];
+      const voices=synth.getVoices?.()||[];
+      u.voice=voices.find(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short))||null;
+      u.onstart=()=>{
+        started=true;
+        // Timer fallback for Safari builds that omit word onboundary events.
+        setTimeout(()=>show(2),850);
+        setTimeout(()=>show(1),1750);
+      };
+      u.onboundary=event=>{
+        const n=Number(event?.charIndex);
+        if(!Number.isFinite(n))return;
+        if(n>=offsets[2])show(1);
+        else if(n>=offsets[1])show(2);
+      };
+      u.onend=()=>finish('ended');
+      u.onerror=()=>finish('error');
+      // Reset only once at the beginning of the COMPLETE phrase.
+      try {synth.cancel();}catch(_){}
+      synth.resume?.();
+      synth.speak(u);
+      timeLimit=setTimeout(()=>{
+        if(!settled){try{synth.cancel();}catch(_){}finish(started?'timeout':'no_start');}
+      },5000);
+    }catch(_){finish('exception');}
+  });
+  if(status!=='ended')queueSpeechTechnicalDiagnostic('PUBLIC_IOS_UNIFIED_COUNTDOWN_'+String(status).toUpperCase());
+  // Preserve visible 3,2,1 even if Safari fires 'end' early or never starts.
+  const elapsed=performance.now()-began;
+  if(live() && elapsed<850)await sleep(850-elapsed);
+  show(2);
+  const remainingToOne=1750-(performance.now()-began);
+  if(live() && remainingToOne>0)await sleep(remainingToOne);
+  show(1);
+  const remain=2400-(performance.now()-began);
+  if(live() && remain>0)await sleep(remain);
+  return status;
+}
+
+async function playPublicIosCompletionCue(message) {
+  if (!PUBLIC_IOS_SPEAKER_FIRST) return 'skipped';
+  preparePublicSpeechPlaybackSession();
+  // On iOS the audio category can still be settling after getUserMedia close.
+  await sleep(450);
+  const recorded=window.QuickStrokeThaiRecorded;
+  const thai=String(T?.langCode||'').toLowerCase().startsWith('th');
+  // The shipped Thai completion MP3 is a single clip. iPhone native TTS can
+  // signal onend even when the speaker is silent after an ASR session.
+  // Use prerecorded speech first only for this one terminal cue; no playback
+  // occurs while the microphone or ASR is active.
+  if(thai && recorded?.fileFor?.(message)){
+    const result=await recorded.play(message,{timeoutMs:5000});
+    if(result==='ended')return result;
+    queueSpeechTechnicalDiagnostic('PUBLIC_IOS_COMPLETION_MP3_'+String(result).toUpperCase());
+  }
+  return speakSpeechCue(message);
+}
+
 // Android JSSF: each verified Thai MP3 is allowed to finish before ASR
 // acquires the mic. Keep the start of each spoken digit ~1s apart regardless
 // of the trimmed clip duration (rather than accumulating file-end silence).
@@ -4520,7 +4612,10 @@ function runLoop() {
           if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
         }
         // Actual permission to speak is still gated on ASR onaudiostart.
-        for (const count of [3,2,1]) {
+        if (PUBLIC_IOS_SPEAKER_FIRST) {
+          await playPublicIosUnifiedCountdown(countdownToken);
+          if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
+        } else for (const count of [3,2,1]) {
           if (phase !== 'READY_CUE' || countdownToken !== audioStartToken) return;
           $('mic-icon').textContent = String(count);
           if (ANDROID_JSSF_SPEECH_CUES) {
@@ -5977,11 +6072,16 @@ function evaluateSpeech(text, confidence) {
       await sleep(220);
       if(phase!=='DONE' || audioStartToken!==finishedAudioToken)return;
       const message=publicSpeechCompletionText();
-      preparePublicSpeechPlaybackSession();
-      let status=await speakSpeechCue(message);
-      if(status!=='ended' && message==='ทดสอบการพูดเสร็จแล้ว'
-        && window.QuickStrokeThaiRecorded?.fileFor?.(message)){
-        status=await window.QuickStrokeThaiRecorded.play(message,{timeoutMs:4000});
+      let status;
+      if (PUBLIC_IOS_SPEAKER_FIRST) {
+        status=await playPublicIosCompletionCue(message);
+      } else {
+        preparePublicSpeechPlaybackSession();
+        status=await speakSpeechCue(message);
+        if(status!=='ended' && message==='ทดสอบการพูดเสร็จแล้ว'
+          && window.QuickStrokeThaiRecorded?.fileFor?.(message)){
+          status=await window.QuickStrokeThaiRecorded.play(message,{timeoutMs:4000});
+        }
       }
       if(status!=='ended')queueSpeechTechnicalDiagnostic('PUBLIC_TTS_COMPLETION_UNAVAILABLE');
     }).catch(()=>{
