@@ -115,5 +115,53 @@ assert.equal(await jssf.ctx.restorePublicSpeakerFirstMic(9),false);
 assert.equal(jssf.stopped,0);
 assert.equal(jssf.closed,0);
 assert.equal(jssf.acquired,0);
+
+// Regression: first-use microphone permission succeeds in a real user tap.
+// Public iPhone Retry must acquire getUserMedia in that SAME click, not after
+// awaiting asynchronous cleanup that consumes Safari's transient activation.
+const retrySource=segment('async function startPublicIosRetryFromGesture() {','// ── SNR Gate: แสดง/จัดการคำเตือนเสียงรบกวน ──');
+assert.match(retrySource,/const requested=navigator\.mediaDevices\.getUserMedia\(/);
+assert.ok(retrySource.indexOf('const requested=navigator.mediaDevices.getUserMedia(')
+  < retrySource.indexOf('const freshStream=await waitForSpeechMicStep('));
+assert.match(retrySource,/await startRecording\(false,freshStream\)/);
+const retryHandler=segment("else if (phase === 'DONE') {","// Public iPhone retry: called synchronously");
+assert.match(retryHandler,/if \(PUBLIC_IOS_SPEAKER_FIRST\) \{[\s\S]*?await startPublicIosRetryFromGesture\(\)/);
+assert.match(retryHandler,/else if \(IS_IOS\) \{[\s\S]*?await startRecording\(false\)/);
+
+let requestedDuringTap=false,createdContext=false,startedWith=null,allowResolve=null;
+const capturedStream={
+ getAudioTracks:()=>[{readyState:'live',muted:false}],
+ getTracks:()=>[{stop:()=>{}}]
+};
+const retryContext={
+ PUBLIC_IOS_SPEAKER_FIRST:true,audioStartToken:12,phase:'IDLE',audioCtx:null,
+ window:{AudioContext:class FakeAudioContext{constructor(){this.state='running';createdContext=true;}},
+  QuickStrokeThaiRecorded:{stop:()=>{}},speechSynthesis:{cancel:()=>{}}},
+ navigator:{mediaDevices:{getUserMedia:()=>{requestedDuringTap=true;return new Promise(resolve=>{allowResolve=resolve;});}}},
+ prepareSpeechCaptureAudioSession:()=>{},
+ queueSpeechTechnicalDiagnostic:()=>{},waitForSpeechMicStep:async(p)=>p,
+ hasLiveAudioTrack:s=>s===capturedStream,
+ startRecording:async(force,stream)=>{startedWith={force,stream};},
+ console
+};
+vm.createContext(retryContext);
+vm.runInContext(retrySource,retryContext);
+const retryPromise=retryContext.startPublicIosRetryFromGesture();
+assert.equal(requestedDuringTap,true,'getUserMedia request runs synchronously during retry tap');
+assert.equal(createdContext,true,'AudioContext is created during retry tap');
+assert.equal(startedWith,null,'startRecording waits for the newly authorized stream');
+allowResolve(capturedStream);
+await retryPromise;
+assert.equal(startedWith.force,false);
+assert.equal(startedWith.stream,capturedStream);
+const finishHandler=segment('function finishSpeechInvalid(reasonCode, details = {}) {','function evaluateSpeech(text, confidence) {');
+assert.match(finishHandler,/releaseMicAfterSpeechResult\(mustReleaseImmediately \|\| PUBLIC_IOS_SPEAKER_FIRST\)/);
+const completion=speech.slice(speech.indexOf('const finishedAudioToken = audioStartToken'),speech.indexOf('requestAnimationFrame(() => {',speech.indexOf('const finishedAudioToken = audioStartToken')));
+assert.match(completion,/iosResultMicReleasePending=true/);
+assert.match(completion,/if\(\$\('action-btn'\)\)\$\('action-btn'\)\.disabled=true/);
+assert.match(completion,/try \{[\s\S]*?status=await playPublicIosCompletionCue\(message\);[\s\S]*?\} finally \{/);
+assert.match(completion,/iosResultMicReleasePending=false/);
+console.log('PASS: iPhone retry starts getUserMedia inside tap, holds retry during completion MP3 and releases mic after invalid result');
+
 console.log('PASS: Public iOS release → voice only → reacquire live mic; muted mic fails visibly; JSSF untouched');
 console.log('DEVICE UAT REQUIRED: iPhone Safari real TTS/ASR initial and two retry attempts');
