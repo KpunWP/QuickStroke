@@ -384,6 +384,24 @@
 <script src="./js/jssf-remote-sync.js?v=20261007-audio-fallback-v2"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
 <script src="./js/languages.js?v=20260717-lang-v1"></script>
+<script>
+  // Entry-point presentation only. Research/Dev engines remain untouched.
+  // Staff can open ?mode=research or ?dev=1; the ordinary QR is public-only.
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const staff = params.get('dev') === '1' ||
+      params.get('mode') === 'dev' ||
+      params.get('mode') === 'research' ||
+      params.get('research') === '1';
+    document.documentElement.dataset.qsStaffEntry = staff ? '1' : '0';
+  })();
+</script>
+<style>
+  html[data-qs-staff-entry="0"] .mode-zone,
+  html[data-qs-staff-entry="0"] .dev-zone { display:none !important; }
+  html[data-qs-staff-entry="1"] .mode-zone,
+  html[data-qs-staff-entry="1"] .dev-zone { display:block; }
+</style>
 </head>
 <body>
 <div class="app-shell">
@@ -1264,6 +1282,18 @@ window.addEventListener('quickstroke:research-store-error', (event) => {
     }
   });
 
+  // A shared QR must never silently continue an old Dev/Research mode
+  // retained in this tab. Reuse the existing safe mode transition rather than
+  // bypassing research finalization or deleting stored pilot observations.
+  if (document.documentElement.dataset.qsStaffEntry === '0' &&
+      (APP_MODE?.resolveMode?.() || 'public') !== 'public') {
+    await selectPublicMode();
+    // A research protocol-completed session requires explicit finalization.
+    // If it cannot be switched safely, reveal mode controls rather than
+    // mislabeling a research session as Public.
+    if ((APP_MODE?.resolveMode?.() || 'public') !== 'public')
+      document.documentElement.dataset.qsStaffEntry = '1';
+  }
   const context = ensureScreeningSession();
   const initialLang = sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';
 
