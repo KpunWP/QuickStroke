@@ -41,4 +41,13 @@ assert.match(speech, /coverage: Number\.isFinite\(transcriptCoverageRatio\)/);
 assert.match(speech, /function updateDevLogTools\(/);
 assert.match(speech, /SPEECH_SCIENCE_DEMO = DEBUG_ON && window\.QuickStrokeAppMode\?\.resolveMode\?\.\(\) === 'dev'/);
 assert.doesNotMatch(speech.match(/<aside id="speech-science-panel"[\s\S]*?<\/aside>/)?.[0] || '', /transcript-box|textContent =.*transcript/i);
+// Small touch target in the right edge of the result content; never overlay
+// the retry or the main result area with a full-width fixed export button.
+assert.match(speech, /#test-screen\.done #dev-log-tools\.show\{[\s\S]*?position:static!important;[\s\S]*?order:9!important;/);
+assert.match(speech, /#test-screen\.done #dev-copy-log\{[\s\S]*?width:44px!important;[\s\S]*?height:44px!important;/);
+assert.match(speech, /id="dev-copy-log"[^>]*aria-label="Copy Speech diagnostic log"[^>]*>📋<\/button>/);
+assert.match(speech, /button\.title = originalTitle/);
+assert.match(speech, /setDevLogStatus\(`คัดลอกแล้ว/);
+assert.doesNotMatch(speech, /bottom:156px!important|padding-bottom:250px!important/);
+
 console.log('PASS developer-only read-only Face/Arm/Speech presenter panels; mode/consent boundaries retained');
