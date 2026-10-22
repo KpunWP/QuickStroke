@@ -1815,7 +1815,7 @@
 <style id="qs-face-science-style">
 /* Developer-only, read-only scientific HUD. Public and consented Research are untouched. */
 #face-science-panel{display:none;position:absolute;top:calc(192px + env(safe-area-inset-top));left:12px;z-index:108;width:176px;max-width:calc(100% - 24px);padding:11px 12px;border:1px solid rgba(125,245,207,.38);border-radius:16px;background:rgba(9,24,32,.86);color:#fff;pointer-events:none;box-shadow:0 8px 26px rgba(0,0,0,.25);font:600 11px/1.35 'Manrope',sans-serif;backdrop-filter:blur(8px)}
-body.dev-mode #face-science-panel{display:block}
+body.qs-science-dev-mode #face-science-panel{display:block}
 #face-science-panel .qs-sci-title{font-size:10px;font-weight:800;letter-spacing:.08em;color:#83edca;margin-bottom:7px}
 #face-science-panel .qs-sci-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px}
 #face-science-panel .qs-sci-k{display:block;font-size:10px;color:#b5c4cf}
@@ -1831,6 +1831,8 @@ body.dev-mode #face-science-panel{display:block}
 
 // Developer UI follows the global Dev Mode switch on Index; ?dev=1 remains a fallback.
 const FACE_DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
+const FACE_SCIENCE_DEMO = FACE_DEV_MODE && window.QuickStrokeAppMode?.resolveMode?.() === 'dev';
+document.body.classList.toggle('qs-science-dev-mode', FACE_SCIENCE_DEMO);
 document.body.classList.toggle('dev-mode', FACE_DEV_MODE);
 
 // tasks-vision is imported dynamically inside loadModel() so that a failed/blocked
@@ -1963,7 +1965,7 @@ const poseHud = document.getElementById('pose-hud');
 const debugPanel = document.getElementById('debug-panel');
 let lastFaceSciencePaintAt = 0;
 function updateFaceSciencePanel(smileLeft, smileRight, smileAsymmetry, yaw, pitch, roll, poseValid) {
-  if (!FACE_DEV_MODE || phase === 'FACE_DONE' || phase === 'CRITICAL_ASYMMETRY') return;
+  if (!FACE_SCIENCE_DEMO || phase === 'FACE_DONE' || phase === 'CRITICAL_ASYMMETRY') return;
   const now = performance.now();
   if (now - lastFaceSciencePaintAt < 250) return;
   lastFaceSciencePaintAt = now;
@@ -1976,7 +1978,7 @@ function updateFaceSciencePanel(smileLeft, smileRight, smileAsymmetry, yaw, pitc
   put('qs-face-science-status', poseValid ? 'Pose aligned · exploratory live values' : 'Check head alignment · exploratory values');
 }
 function finishFaceSciencePanel(asymmetry) {
-  if (!FACE_DEV_MODE) return;
+  if (!FACE_SCIENCE_DEMO) return;
   const label = document.getElementById('qs-face-asym-label');
   const output = document.getElementById('qs-face-asym');
   if (label) label.textContent = 'Final representative asymmetry';
@@ -4124,7 +4126,7 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
 
 /* ───────────── calibration / phase control ───────────── */
 function startScreening(){
-  if (FACE_DEV_MODE) {
+  if (FACE_SCIENCE_DEMO) {
     const label = document.getElementById('qs-face-asym-label');
     if (label) label.textContent = 'Live smile asymmetry';
   }
