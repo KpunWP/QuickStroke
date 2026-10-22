@@ -1779,6 +1779,16 @@
   </div>
 </div>
 
+
+<!-- Display only: reads the existing Blendshape and pose outputs; no scoring effect. -->
+<aside id="face-science-panel" aria-label="Live Face scientific measurements">
+ <div class="qs-sci-title">● LIVE FACE ANALYSIS</div>
+ <div class="qs-sci-pair"><div><span class="qs-sci-k">Smile L</span><span class="qs-sci-v" id="qs-face-smile-l">—</span></div><div><span class="qs-sci-k">Smile R</span><span class="qs-sci-v" id="qs-face-smile-r">—</span></div></div>
+ <div class="qs-sci-line"><span id="qs-face-asym-label">Live smile asymmetry</span><strong id="qs-face-asym">—</strong></div>
+ <div class="qs-sci-line"><span>Head pose (Y/P/R)</span><strong id="qs-face-pose">—</strong></div>
+ <div class="qs-sci-hint" id="qs-face-science-status">Blendshape + pose · not a diagnosis</div>
+</aside>
+
 <div id="score-box">
   <div id="score-container">
     <span id="score-num">—</span>
@@ -1800,6 +1810,21 @@
     <button class="action-btn hidden" id="start-btn"></button>
   </div>
 </div>
+
+
+<style id="qs-face-science-style">
+/* Developer-only, read-only scientific HUD. Public and consented Research are untouched. */
+#face-science-panel{display:none;position:absolute;top:calc(192px + env(safe-area-inset-top));left:12px;z-index:108;width:176px;max-width:calc(100% - 24px);padding:11px 12px;border:1px solid rgba(125,245,207,.38);border-radius:16px;background:rgba(9,24,32,.86);color:#fff;pointer-events:none;box-shadow:0 8px 26px rgba(0,0,0,.25);font:600 11px/1.35 'Manrope',sans-serif;backdrop-filter:blur(8px)}
+body.dev-mode #face-science-panel{display:block}
+#face-science-panel .qs-sci-title{font-size:10px;font-weight:800;letter-spacing:.08em;color:#83edca;margin-bottom:7px}
+#face-science-panel .qs-sci-pair{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:7px}
+#face-science-panel .qs-sci-k{display:block;font-size:10px;color:#b5c4cf}
+#face-science-panel .qs-sci-v{display:block;font:800 19px/1.25 'Manrope',monospace;color:#fff;font-variant-numeric:tabular-nums}
+#face-science-panel .qs-sci-line{display:flex;justify-content:space-between;align-items:center;gap:6px;margin-top:4px}
+#face-science-panel .qs-sci-line strong{font:800 12px 'Manrope',monospace;color:#fff}
+#face-science-panel .qs-sci-hint{font-size:9px;color:#a6bfcd;margin-top:6px}
+@media(max-height:650px){#face-science-panel{top:150px;padding:8px}}
+</style>
 
 <script type="module">
 'use strict';
@@ -1936,6 +1961,28 @@ const scoreBox = document.getElementById('score-box');
 const scoreNum = document.getElementById('score-num');
 const poseHud = document.getElementById('pose-hud');
 const debugPanel = document.getElementById('debug-panel');
+let lastFaceSciencePaintAt = 0;
+function updateFaceSciencePanel(smileLeft, smileRight, smileAsymmetry, yaw, pitch, roll, poseValid) {
+  if (!FACE_DEV_MODE || phase === 'FACE_DONE' || phase === 'CRITICAL_ASYMMETRY') return;
+  const now = performance.now();
+  if (now - lastFaceSciencePaintAt < 250) return;
+  lastFaceSciencePaintAt = now;
+  const put = (id, value) => { const node = document.getElementById(id); if (node) node.textContent = value; };
+  const fmt = value => Number.isFinite(value) ? value.toFixed(2) : '—';
+  put('qs-face-smile-l', fmt(smileLeft));
+  put('qs-face-smile-r', fmt(smileRight));
+  put('qs-face-asym', fmt(smileAsymmetry));
+  put('qs-face-pose', [yaw, pitch, roll].map(value => Number.isFinite(value) ? value.toFixed(0) + '°' : '—').join('/'));
+  put('qs-face-science-status', poseValid ? 'Pose aligned · exploratory live values' : 'Check head alignment · exploratory values');
+}
+function finishFaceSciencePanel(asymmetry) {
+  if (!FACE_DEV_MODE) return;
+  const label = document.getElementById('qs-face-asym-label');
+  const output = document.getElementById('qs-face-asym');
+  if (label) label.textContent = 'Final representative asymmetry';
+  if (output) output.textContent = Number.isFinite(asymmetry) ? asymmetry.toFixed(2) : '—';
+}
+
 let mouthCanvas = null;
 let mouthCtx = null;
 
@@ -4077,6 +4124,10 @@ function setUI({glassColor,msg,poseWarn='',showScore=false,showStart=false,showR
 
 /* ───────────── calibration / phase control ───────────── */
 function startScreening(){
+  if (FACE_DEV_MODE) {
+    const label = document.getElementById('qs-face-asym-label');
+    if (label) label.textContent = 'Live smile asymmetry';
+  }
   const previousPhase = phase;
   const nextScreeningStartedAtMs = Date.now();
   sessionStorage.removeItem('fast_face');
@@ -4422,6 +4473,8 @@ function onResults(results, handResults=null){
     handMouthOverlap:lastHandMouthOverlap
   });
 
+  updateFaceSciencePanel(smileL, smileR, smileAsym, yawDeg, pitchDeg, rollDeg, sampledPoseValid);
+
   // debug — เขียน DOM เฉพาะตอนเปิด panel เท่านั้น (เดิมยิง getElementById ~16 ครั้ง/เฟรมตลอดเวลา)
   if (debugVisible){
     const setDbg=(id,v)=>{const el=document.getElementById(id);if(el)el.textContent=v;};
@@ -4714,6 +4767,7 @@ function finishFace(){
   }
 
   lastRepAsym = rep;
+  finishFaceSciencePanel(rep);
   if (criticalFired) riskLevel = 'bad';
   const score = criticalFired ? Math.min(asymToScore(rep), 30) : asymToScore(rep);
 
