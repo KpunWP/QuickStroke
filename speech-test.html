@@ -782,53 +782,53 @@
   }
 
 
-  /* QUICKSTROKE SPEECH DEV COPY LOG — v1.4.2
-     Keep the export control fixed and visible in result mode on mobile. */
-  #test-screen.done #mid{
-    padding-bottom:250px!important;
-    scroll-padding-bottom:250px!important;
-  }
+  /* QUICKSTROKE SPEECH DEV COPY LOG — compact right-corner action.
+     Keep it in result content flow, not fixed over Retry or result text. */
   #test-screen.done #dev-log-tools.show{
-    position:absolute!important;
-    left:12px!important;
-    right:12px!important;
-    bottom:156px!important;
-    z-index:132!important;
-    width:auto!important;
-    max-width:none!important;
-    margin:0!important;
+    position:static!important;
+    order:9!important;
     display:flex!important;
-    gap:5px!important;
-    padding:0!important;
+    flex-direction:row!important;
+    justify-content:flex-end!important;
+    align-items:center!important;
+    align-self:center!important;
+    width:100%!important;
+    max-width:300px!important;
+    margin:0!important;
+    padding:0 2px!important;
+    gap:8px!important;
+    flex-shrink:0!important;
   }
   #test-screen.done #dev-copy-log{
-    width:100%!important;
-    min-height:52px!important;
+    order:1!important;
+    flex:none!important;
+    width:44px!important;
+    min-width:44px!important;
+    max-width:44px!important;
+    height:44px!important;
+    min-height:44px!important;
+    padding:0!important;
+    border-radius:13px!important;
+    font-size:19px!important;
+    line-height:1!important;
     color:#0D58B8!important;
     background:#EAF2FD!important;
     border:1.5px solid rgba(43,125,233,.42)!important;
-    border-radius:17px!important;
-    box-shadow:0 10px 24px rgba(27,42,58,.14)!important;
-    font-size:16px!important;
-    font-weight:800!important;
+    box-shadow:0 4px 12px rgba(27,42,58,.12)!important;
+    white-space:nowrap!important;
   }
   #test-screen.done #dev-log-status{
+    order:0!important;
+    flex:1 1 auto!important;
+    min-width:0!important;
     min-height:0!important;
-    padding:0 6px!important;
+    padding:0!important;
     color:var(--ink-soft)!important;
-    font-size:11px!important;
+    font-size:10px!important;
+    line-height:1.35!important;
+    text-align:right!important;
+    overflow-wrap:anywhere!important;
   }
-  @media (max-height:720px){
-    #test-screen.done #mid{
-      padding-bottom:236px!important;
-      scroll-padding-bottom:236px!important;
-    }
-    #test-screen.done #dev-log-tools.show{
-      bottom:146px!important;
-    }
-    #test-screen.done #dev-copy-log{min-height:48px!important;}
-  }
-
 
   /* JSSF pilot: keep metric DOM nodes for calculations and research, not visual UI.
      Suppress the inactive speed status tile and legacy progress bars at all phases,
@@ -1001,6 +1001,21 @@
         <div style="text-align:right;font-family:monospace;font-size:11px;color:var(--muted);margin-top:2px" id="score-stab"></div>
       </div>
     </div>
+
+    <!-- Developer-only metrics from the current ASR attempt; no transcript stored here. -->
+    <aside id="speech-science-panel" aria-label="Speech recognition scientific metrics">
+      <div class="qs-sci-head"><span>● SPEECH RECOGNITION</span><span id="qs-speech-science-phase">IDLE</span></div>
+      <div class="qs-sci-main"><span>Phrase similarity</span><strong id="qs-speech-similarity">—</strong></div>
+      <div class="qs-sci-track"><div class="qs-sci-fill" id="qs-speech-similarity-fill"></div></div>
+      <div class="qs-sci-grid">
+        <div class="qs-sci-cell"><span>Transcript coverage</span><strong id="qs-speech-coverage">—</strong></div>
+        <div class="qs-sci-cell"><span>ASR final received</span><strong id="qs-speech-final">—</strong></div>
+        <div class="qs-sci-cell"><span>Phrase observation</span><strong id="qs-speech-observation">Pending</strong></div>
+        <div class="qs-sci-cell"><span>Quality flags</span><strong id="qs-speech-quality">—</strong></div>
+      </div>
+      <div class="qs-sci-foot">Browser ASR similarity ≠ diagnostic accuracy</div>
+    </aside>
+
     <div id="result-banner">
       <div class="rb-title" id="rb-title"></div>
       <div class="rb-score" id="rb-score" aria-hidden="true"></div>
@@ -1023,7 +1038,7 @@
       <div id="result-details-note" hidden></div>
     </div>
     <div id="dev-log-tools" aria-live="polite">
-      <button id="dev-copy-log" type="button" onclick="copySpeechResearchLog()">📋 Copy Log</button>
+      <button id="dev-copy-log" type="button" onclick="copySpeechResearchLog()" aria-label="Copy Speech diagnostic log" title="Copy Log">📋</button>
       <div id="dev-log-status"></div>
     </div>
   </div>
@@ -1032,6 +1047,24 @@
   <button id="fast-nav-btn" type="button" aria-hidden="true"></button>
   <button id="action-btn" onclick="handleAction()" disabled></button>
 </div>
+
+
+<style id="qs-speech-science-style">
+/* Dev-only presentational summary. Does not influence ASR, timing or scoring. */
+#speech-science-panel{display:none;width:100%;max-width:300px;flex-direction:column;gap:7px;flex-shrink:0;padding:12px 14px;border-radius:17px;border:1px solid rgba(74,164,206,.48);background:#152e40;color:#eef8ff;box-shadow:0 6px 18px rgba(0,0,0,.10);text-align:left;font:600 11px/1.4 'Manrope',sans-serif;order:8}
+body.qs-science-dev-mode #speech-science-panel{display:flex}
+#speech-science-panel .qs-sci-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:.045em;color:#8be3f3}
+#speech-science-panel .qs-sci-main{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px}
+#speech-science-panel .qs-sci-main strong{font:800 27px/1 'Manrope',monospace;color:#fff;font-variant-numeric:tabular-nums}
+#speech-science-panel .qs-sci-track{height:6px;border-radius:4px;background:rgba(255,255,255,.2);overflow:hidden}
+#speech-science-panel .qs-sci-fill{height:100%;width:0;background:#82e4d0;border-radius:4px}
+#speech-science-panel .qs-sci-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+#speech-science-panel .qs-sci-cell{background:rgba(255,255,255,.06);border-radius:9px;padding:7px;min-width:0}
+#speech-science-panel .qs-sci-cell span{display:block;color:#bbd1db;font-size:10px}
+#speech-science-panel .qs-sci-cell strong{display:block;font-size:12px;font-weight:800;overflow-wrap:anywhere}
+#speech-science-panel .qs-sci-foot{font-size:9px;color:#b6c9d2}
+#test-screen.speech-countdown-active #speech-science-panel{display:none!important}
+</style>
 
 <script>
 'use strict';
@@ -1688,6 +1721,31 @@ let cleanupPromise = Promise.resolve();
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
 const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.7.2 — Android phrase pause tolerance';
 const DEBUG_ON = window.QuickStrokeDevMode?.isEnabled?.() === true;
+const SPEECH_SCIENCE_DEMO = DEBUG_ON && window.QuickStrokeAppMode?.resolveMode?.() === 'dev';
+document.body.classList.toggle('qs-science-dev-mode', SPEECH_SCIENCE_DEMO);
+let speechScienceCompleted = null;
+function renderSpeechScience() {
+  if (!SPEECH_SCIENCE_DEMO) return;
+  const finished = phase === 'DONE' ? speechScienceCompleted : null;
+  const put = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  put('qs-speech-science-phase', String(phase || 'IDLE').replace(/_/g, ' '));
+  put('qs-speech-similarity', finished && Number.isFinite(finished.similarity)
+    ? (finished.similarity * 100).toFixed(1) + '%' : '—');
+  put('qs-speech-coverage', finished && Number.isFinite(finished.coverage)
+    ? (finished.coverage * 100).toFixed(0) + '%' : '—');
+  put('qs-speech-final', finished ? (finished.asrFinal ? 'Yes' : 'No') :
+    (phase === 'RECORDING' ? (asrFinalReceived ? 'Yes' : 'Awaiting') : '—'));
+  put('qs-speech-observation', finished ? finished.observation : 'Pending');
+  put('qs-speech-quality', finished ? finished.quality : '—');
+  const fill = document.getElementById('qs-speech-similarity-fill');
+  if (fill) fill.style.width = finished && Number.isFinite(finished.similarity)
+    ? Math.min(100, Math.max(0, finished.similarity * 100)) + '%' : '0%';
+}
+if (SPEECH_SCIENCE_DEMO) window.setInterval(renderSpeechScience, 350);
+
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
 
@@ -2580,21 +2638,33 @@ async function copySpeechResearchLog() {
   }
 
   const button = $('dev-copy-log');
-  const originalText = button?.textContent || '📋 Copy Log';
+  const originalText = button?.textContent || '📋';
+  const originalTitle = button?.title || 'Copy Log';
+  const originalAriaLabel = button?.getAttribute('aria-label') || 'Copy Speech diagnostic log';
   if (button) {
     button.disabled = true;
-    button.textContent = 'กำลังคัดลอก…';
+    button.textContent = '…';
+    button.title = 'Copying Log…';
+    button.setAttribute('aria-label', 'Copying Speech diagnostic log');
   }
 
   const json = JSON.stringify(bundle, null, 2);
   try {
     const copied = await writeSpeechLogToClipboard(json);
     if (!copied) throw new Error('Clipboard copy returned false');
-    if (button) button.textContent = '✓ Copied';
+    if (button) {
+      button.textContent = '✓';
+      button.title = 'Log copied';
+      button.setAttribute('aria-label', 'Speech diagnostic log copied');
+    }
     setDevLogStatus(`คัดลอกแล้ว ${bundle.testAttempts.length} test attempt — วางส่งในแชตได้เลย`, 'success');
   } catch (error) {
     console.warn('Automatic Speech log copy failed', error);
-    if (button) button.textContent = 'เลือก Log เพื่อ Copy';
+    if (button) {
+      button.textContent = '📄';
+      button.title = 'Select Log to copy';
+      button.setAttribute('aria-label', 'Select Speech diagnostic log to copy');
+    }
     setDevLogStatus('คัดลอกอัตโนมัติไม่ได้ — เปิดกล่องให้เลือกทั้งหมดแล้ว', 'warning');
     showManualCopyOverlay(json);
   } finally {
@@ -2602,6 +2672,8 @@ async function copySpeechResearchLog() {
       if (button) {
         button.disabled = false;
         button.textContent = originalText;
+        button.title = originalTitle;
+        button.setAttribute('aria-label', originalAriaLabel);
       }
     }, 2200);
   }
@@ -6075,6 +6147,17 @@ function evaluateSpeech(text, confidence) {
   finalizeSpeechModuleRun(result);
   handleFastFlow(cls);
 
+  if (SPEECH_SCIENCE_DEMO) {
+    speechScienceCompleted = {
+      similarity: Number.isFinite(phraseSimilarity) ? phraseSimilarity : null,
+      coverage: Number.isFinite(transcriptCoverageRatio) ? transcriptCoverageRatio : null,
+      asrFinal: Boolean(asrFinalReceived),
+      observation: phraseObservationStatus === 'no_alert' ? 'Exact phrase' :
+        phraseObservationStatus === 'attention' ? 'Review phrase' : 'Unavailable',
+      quality: uniqueQualityFlags.length ? uniqueQualityFlags.slice(0, 2).join(', ') : 'No flags'
+    };
+    renderSpeechScience();
+  }
   $('debug-box').style.display = 'none';
   $('debug-box').textContent = [
     'Speech diagnostics',
