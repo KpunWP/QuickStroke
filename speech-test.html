@@ -1052,7 +1052,7 @@
 <style id="qs-speech-science-style">
 /* Dev-only presentational summary. Does not influence ASR, timing or scoring. */
 #speech-science-panel{display:none;width:100%;max-width:300px;flex-direction:column;gap:7px;flex-shrink:0;padding:12px 14px;border-radius:17px;border:1px solid rgba(74,164,206,.48);background:#152e40;color:#eef8ff;box-shadow:0 6px 18px rgba(0,0,0,.10);text-align:left;font:600 11px/1.4 'Manrope',sans-serif;order:8}
-body.qs-global-dev-mode #speech-science-panel{display:flex}
+body.qs-science-dev-mode #speech-science-panel{display:flex}
 #speech-science-panel .qs-sci-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;font-weight:800;letter-spacing:.045em;color:#8be3f3}
 #speech-science-panel .qs-sci-main{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:12px}
 #speech-science-panel .qs-sci-main strong{font:800 27px/1 'Manrope',monospace;color:#fff;font-variant-numeric:tabular-nums}
@@ -1721,9 +1721,11 @@ let cleanupPromise = Promise.resolve();
 // ผู้ใช้ทั่วไปจะไม่เห็นอะไรเลย และ DBG() เป็น no-op (แทบไม่กิน performance)
 const DEBUG_BUILD = 'SPEECH PRE-PILOT v1.7.2 — Android phrase pause tolerance';
 const DEBUG_ON = window.QuickStrokeDevMode?.isEnabled?.() === true;
+const SPEECH_SCIENCE_DEMO = DEBUG_ON && window.QuickStrokeAppMode?.resolveMode?.() === 'dev';
+document.body.classList.toggle('qs-science-dev-mode', SPEECH_SCIENCE_DEMO);
 let speechScienceCompleted = null;
 function renderSpeechScience() {
-  if (!DEBUG_ON) return;
+  if (!SPEECH_SCIENCE_DEMO) return;
   const finished = phase === 'DONE' ? speechScienceCompleted : null;
   const put = (id, value) => {
     const el = document.getElementById(id);
@@ -1742,7 +1744,7 @@ function renderSpeechScience() {
   if (fill) fill.style.width = finished && Number.isFinite(finished.similarity)
     ? Math.min(100, Math.max(0, finished.similarity * 100)) + '%' : '0%';
 }
-if (DEBUG_ON) window.setInterval(renderSpeechScience, 350);
+if (SPEECH_SCIENCE_DEMO) window.setInterval(renderSpeechScience, 350);
 
 let DBG_T0 = performance.now();
 let DBG_LINES = [];
@@ -6131,7 +6133,7 @@ function evaluateSpeech(text, confidence) {
   finalizeSpeechModuleRun(result);
   handleFastFlow(cls);
 
-  if (DEBUG_ON) {
+  if (SPEECH_SCIENCE_DEMO) {
     speechScienceCompleted = {
       similarity: Number.isFinite(phraseSimilarity) ? phraseSimilarity : null,
       coverage: Number.isFinite(transcriptCoverageRatio) ? transcriptCoverageRatio : null,
