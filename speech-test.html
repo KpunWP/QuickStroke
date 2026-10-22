@@ -782,53 +782,53 @@
   }
 
 
-  /* QUICKSTROKE SPEECH DEV COPY LOG — v1.4.2
-     Keep the export control fixed and visible in result mode on mobile. */
-  #test-screen.done #mid{
-    padding-bottom:250px!important;
-    scroll-padding-bottom:250px!important;
-  }
+  /* QUICKSTROKE SPEECH DEV COPY LOG — compact right-corner action.
+     Keep it in result content flow, not fixed over Retry or result text. */
   #test-screen.done #dev-log-tools.show{
-    position:absolute!important;
-    left:12px!important;
-    right:12px!important;
-    bottom:156px!important;
-    z-index:132!important;
-    width:auto!important;
-    max-width:none!important;
-    margin:0!important;
+    position:static!important;
+    order:9!important;
     display:flex!important;
-    gap:5px!important;
-    padding:0!important;
+    flex-direction:row!important;
+    justify-content:flex-end!important;
+    align-items:center!important;
+    align-self:center!important;
+    width:100%!important;
+    max-width:300px!important;
+    margin:0!important;
+    padding:0 2px!important;
+    gap:8px!important;
+    flex-shrink:0!important;
   }
   #test-screen.done #dev-copy-log{
-    width:100%!important;
-    min-height:52px!important;
+    order:1!important;
+    flex:none!important;
+    width:44px!important;
+    min-width:44px!important;
+    max-width:44px!important;
+    height:44px!important;
+    min-height:44px!important;
+    padding:0!important;
+    border-radius:13px!important;
+    font-size:19px!important;
+    line-height:1!important;
     color:#0D58B8!important;
     background:#EAF2FD!important;
     border:1.5px solid rgba(43,125,233,.42)!important;
-    border-radius:17px!important;
-    box-shadow:0 10px 24px rgba(27,42,58,.14)!important;
-    font-size:16px!important;
-    font-weight:800!important;
+    box-shadow:0 4px 12px rgba(27,42,58,.12)!important;
+    white-space:nowrap!important;
   }
   #test-screen.done #dev-log-status{
+    order:0!important;
+    flex:1 1 auto!important;
+    min-width:0!important;
     min-height:0!important;
-    padding:0 6px!important;
+    padding:0!important;
     color:var(--ink-soft)!important;
-    font-size:11px!important;
+    font-size:10px!important;
+    line-height:1.35!important;
+    text-align:right!important;
+    overflow-wrap:anywhere!important;
   }
-  @media (max-height:720px){
-    #test-screen.done #mid{
-      padding-bottom:236px!important;
-      scroll-padding-bottom:236px!important;
-    }
-    #test-screen.done #dev-log-tools.show{
-      bottom:146px!important;
-    }
-    #test-screen.done #dev-copy-log{min-height:48px!important;}
-  }
-
 
   /* JSSF pilot: keep metric DOM nodes for calculations and research, not visual UI.
      Suppress the inactive speed status tile and legacy progress bars at all phases,
@@ -1038,7 +1038,7 @@
       <div id="result-details-note" hidden></div>
     </div>
     <div id="dev-log-tools" aria-live="polite">
-      <button id="dev-copy-log" type="button" onclick="copySpeechResearchLog()">📋 Copy Log</button>
+      <button id="dev-copy-log" type="button" onclick="copySpeechResearchLog()" aria-label="Copy Speech diagnostic log" title="Copy Log">📋</button>
       <div id="dev-log-status"></div>
     </div>
   </div>
@@ -2638,21 +2638,33 @@ async function copySpeechResearchLog() {
   }
 
   const button = $('dev-copy-log');
-  const originalText = button?.textContent || '📋 Copy Log';
+  const originalText = button?.textContent || '📋';
+  const originalTitle = button?.title || 'Copy Log';
+  const originalAriaLabel = button?.getAttribute('aria-label') || 'Copy Speech diagnostic log';
   if (button) {
     button.disabled = true;
-    button.textContent = 'กำลังคัดลอก…';
+    button.textContent = '…';
+    button.title = 'Copying Log…';
+    button.setAttribute('aria-label', 'Copying Speech diagnostic log');
   }
 
   const json = JSON.stringify(bundle, null, 2);
   try {
     const copied = await writeSpeechLogToClipboard(json);
     if (!copied) throw new Error('Clipboard copy returned false');
-    if (button) button.textContent = '✓ Copied';
+    if (button) {
+      button.textContent = '✓';
+      button.title = 'Log copied';
+      button.setAttribute('aria-label', 'Speech diagnostic log copied');
+    }
     setDevLogStatus(`คัดลอกแล้ว ${bundle.testAttempts.length} test attempt — วางส่งในแชตได้เลย`, 'success');
   } catch (error) {
     console.warn('Automatic Speech log copy failed', error);
-    if (button) button.textContent = 'เลือก Log เพื่อ Copy';
+    if (button) {
+      button.textContent = '📄';
+      button.title = 'Select Log to copy';
+      button.setAttribute('aria-label', 'Select Speech diagnostic log to copy');
+    }
     setDevLogStatus('คัดลอกอัตโนมัติไม่ได้ — เปิดกล่องให้เลือกทั้งหมดแล้ว', 'warning');
     showManualCopyOverlay(json);
   } finally {
@@ -2660,6 +2672,8 @@ async function copySpeechResearchLog() {
       if (button) {
         button.disabled = false;
         button.textContent = originalText;
+        button.title = originalTitle;
+        button.setAttribute('aria-label', originalAriaLabel);
       }
     }, 2200);
   }
