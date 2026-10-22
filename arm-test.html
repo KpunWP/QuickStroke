@@ -1795,7 +1795,7 @@
 <style id="qs-arm-science-style">
 /* Passive presenter HUD; keeps the original full DEV sensor logger behind its button. */
 #arm-science-panel{display:none;position:absolute;top:calc(155px + env(safe-area-inset-top));left:12px;width:185px;max-width:calc(100% - 24px);z-index:118;padding:11px 12px;border-radius:16px;background:rgba(12,29,42,.91);border:1px solid rgba(113,221,229,.42);box-shadow:0 9px 24px rgba(0,0,0,.16);color:white;pointer-events:none;font:600 11px/1.35 'Manrope',sans-serif}
-body.dev-mode #arm-science-panel{display:block}
+body.qs-science-dev-mode #arm-science-panel{display:block}
 #arm-science-panel .qs-sci-title{color:#87eff1;letter-spacing:.075em;font-size:10px;font-weight:800}
 #arm-science-panel .qs-sci-big{display:flex;align-items:baseline;justify-content:space-between;margin:8px 0;gap:6px}
 #arm-science-panel .qs-sci-number{font:800 27px/1 'Manrope',monospace;font-variant-numeric:tabular-nums;color:#fff}
@@ -1816,6 +1816,7 @@ const ARM_RESEARCH_STORE = window.QuickStrokeResearchStore || null;
 
 // ── Developer mode: follows the global switch on Index ─────
 const ARM_DEV_MODE = window.QuickStrokeDevMode?.isEnabled?.() === true;
+const ARM_SCIENCE_DEMO = ARM_DEV_MODE && window.QuickStrokeAppMode?.resolveMode?.() === 'dev';
 // Global Dev Mode only enables diagnostics and logging. The old three-trial
 // engineering protocol is now opt-in and must never alter the normal FAST flow.
 const ARM_GUIDED_PROTOCOL_MODE = ARM_DEV_MODE &&
@@ -2073,6 +2074,7 @@ function clearArmDevLog() {
 function initArmDevMode() {
   if (!ARM_DEV_MODE) return;
   document.body.classList.add('dev-mode');
+  document.body.classList.toggle('qs-science-dev-mode', ARM_SCIENCE_DEMO);
   updateDevProtocolUI();
   addDevMarker(ARM_GUIDED_PROTOCOL_MODE ? 'PROTOCOL_1_NORMAL' : 'DEV_LOG_STARTED');
   updateArmDevHUD();
