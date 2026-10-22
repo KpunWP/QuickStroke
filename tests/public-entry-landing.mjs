@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+assert.match(html,/params\.get\('dev'\) === '1'/);
+assert.match(html,/params\.get\('mode'\) === 'research'/);
+assert.match(html,/params\.get\('research'\) === '1'/);
+assert.match(html,/html\[data-qs-staff-entry="0"\] \.mode-zone,/);
+assert.match(html,/html\[data-qs-staff-entry="0"\] \.dev-zone \{ display:none !important; \}/);
+assert.match(html,/await selectPublicMode\(\)/);
+assert.match(html,/if \(\(APP_MODE\?\.resolveMode\?\.\(\) \|\| 'public'\) !== 'public'\)/);
+assert.match(html,/document\.documentElement\.dataset\.qsStaffEntry = '1'/);
+assert.match(html,/id="mode-public"/);
+assert.match(html,/id="mode-research"/);
+assert.match(html,/id="dev-mode-toggle"/);
+console.log('PASS public-only regular entry; staff Research/Dev access preserved; existing research lifecycle retained');
