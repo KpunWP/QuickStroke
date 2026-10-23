@@ -376,6 +376,120 @@
 
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 </style>
+<style>
+
+/* Phase A: ordinary Public Home only. Staff entry and Research recovery stay on the original UI. */
+.public-play,.public-module-overview,.public-more-options,.public-individual-icon{display:none}
+html[data-qs-staff-entry="0"] .staff-module-icon{display:none}
+html[data-qs-staff-entry="0"] .public-individual-icon{display:block}
+html[data-qs-staff-entry="0"] {
+  --public-font:'Manrope','IBM Plex Sans Thai',sans-serif;
+}
+html[data-qs-staff-entry="0"]:lang(th){--public-font:'IBM Plex Sans Thai','Manrope',sans-serif}
+html[data-qs-staff-entry="0"]:lang(ja){--public-font:'Manrope','Noto Sans CJK JP','Hiragino Kaku Gothic ProN','Yu Gothic',Meiryo,sans-serif}
+html[data-qs-staff-entry="0"] body{font-family:var(--public-font);font-synthesis:none;line-height:1.65;background:radial-gradient(ellipse at 50% 8%,#e4effc,transparent 50%),#f4f7fa}
+html[data-qs-staff-entry="0"] .app-shell{width:100%;max-width:480px;margin-inline:auto;box-shadow:none;min-height:100svh}
+html[data-qs-staff-entry="0"] header{position:static;min-height:72px;height:auto;display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;padding:max(8px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 8px max(16px,env(safe-area-inset-left));background:transparent;border:0;box-shadow:none;border-radius:0}
+html[data-qs-staff-entry="0"] .brand{gap:8px;max-width:100%}
+html[data-qs-staff-entry="0"] .brand-mark{width:28px;height:28px;background:transparent;box-shadow:none;border:0;border-radius:0;color:#0d58b8}
+html[data-qs-staff-entry="0"] .brand-mark svg{width:28px;height:28px;stroke:#0d58b8}
+html[data-qs-staff-entry="0"] .brand-text{font-family:'Manrope','IBM Plex Sans Thai',sans-serif;font-size:1.1875rem;font-weight:700;line-height:1.5;letter-spacing:normal}
+html[data-qs-staff-entry="0"] .lang-seg{flex-wrap:wrap;max-width:100%;gap:2px;padding:3px;border:1px solid #d6e0eb;border-radius:12px;background:#fff;box-shadow:none;backdrop-filter:none}
+html[data-qs-staff-entry="0"] .lang-seg button{font-family:'Manrope','IBM Plex Sans Thai','Noto Sans CJK JP',sans-serif;min-width:48px;min-height:48px;height:auto;padding:6px 8px;border-radius:8px;font-size:.875rem;font-weight:700;line-height:1.65;color:#48617a}
+html[data-qs-staff-entry="0"] .lang-seg button.on{background:#0d58b8;color:#fff;box-shadow:none}
+html[data-qs-staff-entry="0"] main{width:100%;padding:0 max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+html[data-qs-staff-entry="0"] .hero{padding:20px 0 0}
+html[data-qs-staff-entry="0"] .hero h1{font-size:1.875rem;line-height:1.5;font-weight:700;letter-spacing:normal;margin:0;max-width:none;text-wrap:balance;overflow-wrap:break-word}
+html[data-qs-staff-entry="0"] .hero h1 span{display:inline-block;max-width:100%}
+html[data-qs-staff-entry="0"] #hero-subtitle{display:none}
+html[data-qs-staff-entry="0"] .public-module-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,5.5em),1fr));gap:8px;margin:24px 0}
+html[data-qs-staff-entry="0"] .public-module{min-width:0;text-align:center}
+html[data-qs-staff-entry="0"] .public-module-icon{width:52px;height:52px;margin:0 auto 8px;display:grid;place-items:center;border:1px solid #d3e3f8;border-radius:18px;color:#0d58b8;background:#e6effb}
+html[data-qs-staff-entry="0"] .public-module-icon svg{width:32px;height:32px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+html[data-qs-staff-entry="0"] .public-module-label{font-size:1rem;line-height:1.65;font-weight:600}
+html[data-qs-staff-entry="0"] .public-module-state{font-size:.875rem;line-height:1.75;min-height:1.75em;margin-top:3px;color:#52677c}
+html[data-qs-staff-entry="0"] .public-module.state-ok .public-module-state{color:#0d58b8}
+html[data-qs-staff-entry="0"] .public-module.state-warn .public-module-state{color:#a96010}
+html[data-qs-staff-entry="0"] .public-module.state-bad .public-module-state{color:#b6312c}
+html[data-qs-staff-entry="0"] .public-module.state-invalid .public-module-state{color:#8b5918}
+html[data-qs-staff-entry="0"] .actions{padding:0}
+html[data-qs-staff-entry="0"] .action-panel{overflow:visible;border:0;border-radius:0;background:transparent;box-shadow:none}
+html[data-qs-staff-entry="0"] .combined-action{width:fit-content;max-width:100%;margin-inline:auto;min-height:84px;height:auto;padding:14px clamp(28px,8vw,36px);display:flex;gap:14px;align-items:center;justify-content:flex-start;text-align:start;border:1px solid #0d58b8;border-radius:20px;background:linear-gradient(125deg,#246ed2,#0d58b8);box-shadow:0 8px 18px #0d58b824;overflow:visible;font-family:inherit;overflow-wrap:break-word}
+html[data-qs-staff-entry="0"] .combined-action::after{display:none}
+html[data-qs-staff-entry="0"] .combined-copy{align-items:flex-start;min-width:0;overflow-wrap:break-word}
+html[data-qs-staff-entry="0"] .combined-label{font-size:1.625rem;font-weight:700;line-height:1.55;letter-spacing:normal}
+html[data-qs-staff-entry="0"] .combined-meta{display:block;font-size:.875rem;line-height:1.75;font-weight:400;color:#fff;margin-top:3px}
+html[data-qs-staff-entry="0"] .combined-arrow{display:none}
+html[data-qs-staff-entry="0"] .public-play{display:grid;place-items:center;width:48px;height:48px;flex:0 0 48px;border:1px solid #ffffff38;border-radius:50%;background:#ffffff18}
+html[data-qs-staff-entry="0"] .public-play svg{width:24px;height:24px;fill:#fff;stroke:none;margin-left:3px}
+html[data-qs-staff-entry="0"] .recent-result-btn{margin-top:10px;min-height:48px;padding:10px 12px;border:1px solid #bfcfe1;border-radius:14px;font:600 1rem/1.65 var(--public-font);background:#fff;color:#0d58b8}
+html[data-qs-staff-entry="0"] .mode-switch{margin-top:5px;min-height:48px;padding:10px 12px;background:transparent;border:0;border-radius:0;box-shadow:none;font-size:1rem;font-weight:400;line-height:1.65;color:#48617a}
+html[data-qs-staff-entry="0"] .individual-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,7rem),1fr));gap:8px;background:transparent}
+html[data-qs-staff-entry="0"] .module-choice{min-width:0;min-height:56px;height:auto;padding:12px;border:1px solid #bfcfe1;border-radius:12px;gap:8px;font-family:inherit;overflow-wrap:break-word}
+html[data-qs-staff-entry="0"] .module-icon{width:48px;height:48px;flex-shrink:0}
+html[data-qs-staff-entry="0"] .module-name{font-size:1rem;font-weight:600;line-height:1.65}
+html[data-qs-staff-entry="0"] .module-state{font-size:.875rem;font-weight:400;line-height:1.75;min-height:1.75em}
+html[data-qs-staff-entry="0"] .emergency{margin:12px 0 0;min-height:48px;padding:12px;gap:10px;align-items:flex-start;border:1px solid #f0d6c3;border-radius:14px;background:#fff4ed;box-shadow:none}
+html[data-qs-staff-entry="0"] .emergency-icon{width:21px;height:21px;margin-top:4px;flex:0 0 21px;background:transparent;box-shadow:none;border-radius:0}
+html[data-qs-staff-entry="0"] .emergency-icon svg{width:21px;height:21px;stroke:#854025;stroke-width:1.7}
+html[data-qs-staff-entry="0"] .emergency-text{min-width:0;font-size:1rem;font-weight:400;line-height:1.8;color:#854025}
+html[data-qs-staff-entry="0"] .emergency-text b{font-weight:700;color:inherit}
+html[data-qs-staff-entry="0"] .safety-note{margin:12px 0 0;color:#52677c;font-size:.875rem;line-height:1.8;font-weight:400}
+html[data-qs-staff-entry="0"] .clear-zone{padding:0}
+html[data-qs-staff-entry="0"] .btn-clear{width:100%;min-height:48px;height:auto;margin-top:5px;padding:10px 12px;border:0;border-radius:0;background:transparent;color:#48617a;font:400 .875rem/1.65 var(--public-font);text-decoration:underline;text-underline-offset:4px;box-shadow:none}
+html[data-qs-staff-entry="0"] .public-more-options{display:block;margin-top:6px}
+html[data-qs-staff-entry="0"] .public-more-options summary{min-width:48px;min-height:48px;padding:12px;font-size:.875rem;line-height:1.7;color:#48617a;text-align:center;cursor:pointer}
+html[data-qs-staff-entry="0"] .jssf-draft{display:none}
+html[data-qs-staff-entry="0"] .new-person-overlay,
+html[data-qs-staff-entry="0"] .disclaimer-overlay{align-items:flex-start;overflow:auto;padding:max(16px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) max(16px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+html[data-qs-staff-entry="0"] .new-person-dialog,
+html[data-qs-staff-entry="0"] .disclaimer-card{width:min(100%,440px);min-width:0;max-height:none;overflow:visible;margin:auto;padding:24px 20px;border-radius:24px;font-family:var(--public-font);flex-shrink:0}
+html[data-qs-staff-entry="0"] .new-person-dialog h2,
+html[data-qs-staff-entry="0"] .disclaimer-card h2{font-size:1.5rem;line-height:1.6;font-weight:700;letter-spacing:normal}
+html[data-qs-staff-entry="0"] .new-person-dialog p,
+html[data-qs-staff-entry="0"] .disc-body{font-size:1rem;line-height:1.85;font-weight:400;max-width:none}
+html[data-qs-staff-entry="0"] .new-person-actions{display:flex;flex-wrap:wrap;gap:10px}
+html[data-qs-staff-entry="0"] .new-person-actions button{min-height:48px;height:auto;padding:10px 12px;font-size:1rem;line-height:1.65;font-weight:600;flex:1 1 8rem;font-family:inherit}
+html[data-qs-staff-entry="0"] .disc-mark,
+html[data-qs-staff-entry="0"] .disc-eyebrow{display:none}
+html[data-qs-staff-entry="0"] .disc-lang{margin-bottom:14px}
+html[data-qs-staff-entry="0"] .disc-emergency{align-items:flex-start;gap:10px;padding:12px;background:#fff4ed;border-color:#f0d6c3;border-radius:14px}
+html[data-qs-staff-entry="0"] .disc-emergency-icon{width:21px;height:21px;margin-top:4px;background:transparent;box-shadow:none;flex:0 0 21px}
+html[data-qs-staff-entry="0"] .disc-emergency-icon svg{stroke:#854025}
+html[data-qs-staff-entry="0"] .disc-emergency-text{font-size:1rem;line-height:1.8;font-weight:400;color:#854025;min-width:0}
+html[data-qs-staff-entry="0"] .disc-emergency-text b{font-weight:700;color:inherit}
+html[data-qs-staff-entry="0"] #disc-accept-btn{min-height:56px;height:auto;padding:12px 16px;font:600 1.0625rem/1.65 var(--public-font);border-radius:20px;background:linear-gradient(125deg,#246ed2,#0d58b8);box-shadow:0 8px 18px #0d58b824}
+html[data-qs-staff-entry="0"] .disc-note:empty{display:none}
+html[data-qs-staff-entry="0"] button{overflow-wrap:break-word}
+html[data-qs-staff-entry="0"] .public-module-overview[hidden],
+html[data-qs-staff-entry="0"] .public-more-options[hidden]{display:none!important}
+html[data-qs-staff-entry="0"]:lang(en) .hero h1{font-size:1.75rem;line-height:1.4}
+html[data-qs-staff-entry="0"]:lang(ja) .hero h1{font-size:1.75rem;line-height:1.55;line-break:strict}
+html[data-qs-staff-entry="0"]:lang(en) .combined-label{font-size:1.5rem;line-height:1.5}
+html[data-qs-staff-entry="0"]:lang(ja) .combined-label{font-size:1.5rem;line-height:1.65;line-break:strict}
+@media(max-width:340px){html[data-qs-staff-entry="0"] .hero h1{font-size:1.75rem}
+html[data-qs-staff-entry="0"] .combined-label{font-size:1.5rem}
+html[data-qs-staff-entry="0"] .hero{padding-top:12px}
+html[data-qs-staff-entry="0"] .public-module-overview{margin:18px 0}
+}
+@media(max-height:650px){html[data-qs-staff-entry="0"] .hero{padding-top:8px}
+html[data-qs-staff-entry="0"] .public-module-overview{margin:14px 0}
+html[data-qs-staff-entry="0"] .combined-action{min-height:76px;padding-block:12px}
+}
+@media(min-width:412px) and (min-height:800px){html[data-qs-staff-entry="0"] main{padding-inline:max(24px,env(safe-area-inset-left)) max(24px,env(safe-area-inset-right))}
+html[data-qs-staff-entry="0"] .public-module-overview{margin-block:28px}
+html[data-qs-staff-entry="0"] .combined-action{min-height:92px;padding-block:16px}
+}
+@media(orientation:landscape) and (max-height:500px){html[data-qs-staff-entry="0"] .app-shell{max-width:640px}
+html[data-qs-staff-entry="0"] .hero{padding-top:4px}
+}
+@media(max-width:380px){html[data-qs-staff-entry="0"] .actions{container-type:inline-size;container-name:action-space}
+}
+@container action-space (max-width:12em){html[data-qs-staff-entry="0"] .combined-action{width:max-content;max-width:100%;padding:10px 12px;gap:8px}
+html[data-qs-staff-entry="0"] .combined-copy{flex:1 1 auto}
+html[data-qs-staff-entry="0"] .combined-meta{margin-top:0}
+}
+</style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
 <script src="./js/research-policy.js?v=20260801-research-policy-v1"></script>
@@ -423,10 +537,17 @@
       <p id="hero-subtitle">ใบหน้า · แขน · การพูด</p>
     </section>
 
+    <div class="public-module-overview" id="public-module-overview" hidden>
+<div class="public-module" id="overview-face"><span class="public-module-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><circle cx="16" cy="16" r="11"/><path d="M11 13h.1m9.8 0h.1M11 19q5 5 10 0"/></svg></span><div class="public-module-label" data-i18n="index.face"></div><div class="public-module-state" id="overview-state-face"></div></div>
+<div class="public-module" id="overview-arm"><span class="public-module-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 25h13c4 0 6-3 5-7l-2-8-3-3-4 2 2 5 2 1v4h-7l-3-4-4 1 1 9Z"/><path d="m16 9 2 2 4-1M14 19q0-4 4-4"/></svg></span><div class="public-module-label" data-i18n="index.arm"></div><div class="public-module-state" id="overview-state-arm"></div></div>
+<div class="public-module" id="overview-speech"><span class="public-module-icon" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M7 7h18v14H15l-6 5v-5H7Z"/><path d="M12 12h8m-8 4h5"/></svg></span><div class="public-module-label" data-i18n="index.speech"></div><div class="public-module-state" id="overview-state-speech"></div></div>
+</div>
+
     <section class="actions" aria-label="Screening actions">
       <div class="action-panel" id="action-panel">
         <div class="panel-view" id="combined-view">
           <button type="button" class="combined-action" id="primary-action" onclick="handlePrimaryAction()">
+            <span class="public-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3 21 12 6 21Z"/></svg></span>
             <span class="combined-copy">
               <span class="combined-label" id="primary-label" data-i18n="index.primaryStart">เริ่ม</span>
               <span class="combined-meta" id="primary-meta" aria-live="polite">ใบหน้า · แขน · การพูด</span>
@@ -442,7 +563,7 @@
           <div class="individual-grid" aria-label="Choose one screening test">
             <button type="button" class="module-choice" id="row-face" onclick="goTest('face')">
               <span class="module-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg>
+                <svg class="staff-module-icon" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><path d="M9 9h.01M15 9h.01"/></svg><svg class="public-individual-icon" viewBox="0 0 32 32"><circle cx="16" cy="16" r="11"/><path d="M11 13h.1m9.8 0h.1M11 19q5 5 10 0"/></svg>
               </span>
               <span class="module-name" data-i18n="index.face">ใบหน้า</span>
               <span class="module-state" id="state-face">ยังไม่ตรวจ</span>
@@ -450,7 +571,7 @@
 
             <button type="button" class="module-choice" id="row-arm" onclick="goTest('arm')">
               <span class="module-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><path d="M6.5 20V9.5a1.5 1.5 0 0 1 3 0V13"/><path d="M9.5 13V6.5a1.5 1.5 0 0 1 3 0V13"/><path d="M12.5 13V7.5a1.5 1.5 0 0 1 3 0V13"/><path d="M15.5 13v-3a1.5 1.5 0 0 1 3 0v5.5c0 3.6-2.5 6.5-6.2 6.5H11c-2.5 0-4.5-2-4.5-4.5"/></svg>
+                <svg class="staff-module-icon" viewBox="0 0 24 24"><path d="M6.5 20V9.5a1.5 1.5 0 0 1 3 0V13"/><path d="M9.5 13V6.5a1.5 1.5 0 0 1 3 0V13"/><path d="M12.5 13V7.5a1.5 1.5 0 0 1 3 0V13"/><path d="M15.5 13v-3a1.5 1.5 0 0 1 3 0v5.5c0 3.6-2.5 6.5-6.2 6.5H11c-2.5 0-4.5-2-4.5-4.5"/></svg><svg class="public-individual-icon" viewBox="0 0 32 32"><path d="M7 25h13c4 0 6-3 5-7l-2-8-3-3-4 2 2 5 2 1v4h-7l-3-4-4 1 1 9Z"/><path d="m16 9 2 2 4-1M14 19q0-4 4-4"/></svg>
               </span>
               <span class="module-name" data-i18n="index.arm">แขน</span>
               <span class="module-state" id="state-arm">ยังไม่ตรวจ</span>
@@ -458,7 +579,7 @@
 
             <button type="button" class="module-choice" id="row-speech" onclick="goTest('speech')">
               <span class="module-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg>
+                <svg class="staff-module-icon" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v3"/></svg><svg class="public-individual-icon" viewBox="0 0 32 32"><path d="M7 7h18v14H15l-6 5v-5H7Z"/><path d="M12 12h8m-8 4h5"/></svg>
               </span>
               <span class="module-name" data-i18n="index.speech">การพูด</span>
               <span class="module-state" id="state-speech">ยังไม่ตรวจ</span>
@@ -483,6 +604,7 @@
 
     <p class="safety-note" data-i18n="index.notDiagnosis">คัดกรองเบื้องต้นเท่านั้น · ไม่ใช่การวินิจฉัย</p>
 
+    <details class="public-more-options" id="public-more-options" hidden><summary id="public-more-label"></summary></details>
     <div class="clear-zone">
       <button
         type="button"
@@ -522,7 +644,7 @@
       </div>
     </section>
 
-    <section style="margin:14px 0;padding:14px;border:1px solid #e3c88b;border-radius:14px;background:#fff9ed" aria-label="JSSF Remote Testing draft">
+    <section class="jssf-draft" style="margin:14px 0;padding:14px;border:1px solid #e3c88b;border-radius:14px;background:#fff9ed" aria-label="JSSF Remote Testing draft">
       <strong style="font-size:13px;color:#8a5c14">JSSF Remote Testing — แบบร่าง</strong>
       <p style="font-size:13px;margin-top:6px;color:#55677b;line-height:1.6">ตัวอย่างหน้าความยินยอมสำหรับผู้ทดสอบทางไกล ยังไม่เปิดรับสมัครหรือส่งข้อมูล</p>
       <a href="./jssf-consent.html" style="font-size:13px;color:#155f9b;font-weight:750">ดูตัวอย่างหน้า Consent →</a><br>
@@ -1199,6 +1321,77 @@ function updateProgress() {
 
   updateModeSwitchText();
   clearButton?.classList.toggle('show', attemptedCount > 0);
+  updatePublicHomePresentation();
+}
+
+
+function updatePublicHomePresentation() {
+  const ordinaryPublic = document.documentElement.dataset.qsStaffEntry === '0' &&
+    (APP_MODE?.resolveMode?.() || 'public') === 'public';
+  const overview = document.getElementById('public-module-overview');
+  if (overview) overview.hidden = !ordinaryPublic || indOpen;
+  const more = document.getElementById('public-more-options');
+  const clear = document.getElementById('btn-clear');
+  const resetZone = clear?.parentElement;
+  if (more && resetZone) {
+    more.hidden = !ordinaryPublic || screeningState.validCompleted !== MODULES.length;
+    if (!more.hidden) more.appendChild(resetZone);
+    else { more.after(resetZone); more.open = false; }
+  }
+  // Restore the original staff labels if a guarded mode transition reveals staff recovery.
+  const copy = ordinaryPublic ? {
+    'btn-clear':['index.publicResetAction', 'เริ่มใหม่', 'index.newPersonButton'],
+    'new-person-title':['index.publicResetTitle', 'เริ่มใหม่?', 'index.newPersonTitle'],
+    'new-person-confirm':['index.publicResetConfirm', 'เริ่มใหม่', 'index.newPersonConfirm']
+  } : {
+    'btn-clear':['index.newPersonButton', 'เริ่มรายใหม่'],
+    'new-person-title':['index.newPersonTitle', 'เริ่มรายใหม่?'],
+    'new-person-confirm':['index.newPersonConfirm', 'เริ่มใหม่']
+  };
+  Object.entries(copy).forEach(([id, [key, fallback, legacyKey]]) => {
+    const node = document.getElementById(id);
+    if (node) node.textContent = tr(key, legacyKey ? tr(legacyKey, fallback) : fallback);
+  });
+  if (!ordinaryPublic) return;
+  const title = document.getElementById('hero-title');
+  if (title) {
+    title.textContent = tr('index.title', 'เช็กสัญญาณสโตรก');
+    if (lang === 'ja' && title.textContent.includes('を')) {
+      const text = title.textContent;
+      const split = text.indexOf('を');
+      title.replaceChildren();
+      [text.slice(0, split), text.slice(split)].forEach(part => {
+        const span = document.createElement('span');
+        span.textContent = part;
+        title.appendChild(span);
+      });
+    }
+  }
+  document.querySelectorAll('.lang-seg').forEach(picker => {
+    picker.setAttribute('aria-label', tr('index.publicLanguageLabel', 'TH / EN / JA'));
+  });
+  document.querySelector('.actions')?.setAttribute('aria-label', tr('index.title', 'เช็กสัญญาณสโตรก'));
+  document.querySelector('.individual-grid')?.setAttribute('aria-label', tr('index.individualName', 'เลือกทีละอย่าง'));
+  if (overview) overview.setAttribute('aria-label', getModuleListText());
+  MODULES.forEach(module => {
+    const row = document.getElementById(`row-${module}`);
+    const item = document.getElementById(`overview-${module}`);
+    const status = document.getElementById(`overview-state-${module}`);
+    if (item && row) item.className = row.className.replace('module-choice', 'public-module');
+    if (status) status.textContent = screeningState.attemptedCount > 0
+      ? document.getElementById(`state-${module}`)?.textContent || '' : '';
+  });
+  const primaryLabel = document.getElementById('primary-label');
+  const primaryMeta = document.getElementById('primary-meta');
+  if (screeningState.validCompleted === MODULES.length) {
+    primaryLabel.textContent = tr('index.publicPrimaryRestart', tr('index.primaryRestart', 'ทดสอบอีกครั้ง'));
+    primaryMeta.textContent = tr('index.publicRestartSupport', tr('index.fullName', 'เริ่มครบ 3 อย่างใหม่'));
+  } else if (screeningState.attemptedCount === 0) {
+    primaryLabel.textContent = tr('index.publicPrimaryStart', tr('index.primaryStart', 'เริ่มเลย'));
+    primaryMeta.textContent = tr('index.fullName', 'คัดกรองครบ 3 อย่าง');
+  }
+  const moreLabel = document.getElementById('public-more-label');
+  if (moreLabel) moreLabel.textContent = tr('index.publicMoreOptions', tr('index.newPersonButton', 'ตัวเลือกเพิ่มเติม'));
 }
 
 function openNewPersonDialog() {

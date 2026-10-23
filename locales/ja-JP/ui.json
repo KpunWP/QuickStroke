@@ -45,7 +45,15 @@
     "devModeEnable": "オン",
     "devModeDisable": "オフ",
     "devModeOn": "開発者モードは全ページで有効です",
-    "devModeOff": "開発者モードはオフです"
+    "devModeOff": "開発者モードはオフです",
+    "publicPrimaryStart": "今すぐ開始",
+    "publicPrimaryRestart": "もう一度チェック",
+    "publicRestartSupport": "3項目を最初から確認",
+    "publicMoreOptions": "その他の操作",
+    "publicResetAction": "最初からやり直す",
+    "publicResetTitle": "最初からやり直しますか？",
+    "publicResetConfirm": "最初からやり直す",
+    "publicLanguageLabel": "言語"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",
