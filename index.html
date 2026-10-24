@@ -1109,7 +1109,26 @@ function getModuleListText() {
   ].join(' · ');
 }
 
-async function setLang(requestedLang) {
+// Explicit exhibition entry only; the ordinary URL keeps its configured default.
+// These tab-scoped keys are separate from Consent/Research's shared fast_lang.
+function isOrdinaryPublicHome() {
+  return document.documentElement.dataset.qsStaffEntry === '0' &&
+    (APP_MODE?.resolveMode?.() || 'public') === 'public';
+}
+
+function homeInitialLanguage() {
+  if (isOrdinaryPublicHome()) {
+    if (new URLSearchParams(location.search).get('event') === 'jssf2026')
+      sessionStorage.setItem('quickstroke_public_event', 'jssf2026');
+    if (sessionStorage.getItem('quickstroke_public_event') === 'jssf2026') {
+      const selected = sessionStorage.getItem('quickstroke_public_home_language');
+      return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';
+    }
+  }
+  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';
+}
+
+async function setLang(requestedLang, { initializing = false } = {}) {
   const shortLang = String(requestedLang || 'th').split('-')[0].toLowerCase();
   const requestedLocale = LOCALE_MAP[shortLang];
 
@@ -1138,6 +1157,8 @@ async function setLang(requestedLang) {
   });
 
   sessionStorage.setItem('fast_lang', lang);
+  if (!initializing && isOrdinaryPublicHome())
+    sessionStorage.setItem('quickstroke_public_home_language', lang);
   updateEmergencyAction();
   updateProgress();
   updateGlobalDevModeUi();
@@ -1488,10 +1509,10 @@ window.addEventListener('quickstroke:research-store-error', (event) => {
       document.documentElement.dataset.qsStaffEntry = '1';
   }
   const context = ensureScreeningSession();
-  const initialLang = sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';
+  const initialLang = homeInitialLanguage();
 
   await Promise.all([
-    setLang(initialLang),
+    setLang(initialLang, { initializing:true }),
     persistScreeningSessionIfNeeded(context)
   ]);
 
