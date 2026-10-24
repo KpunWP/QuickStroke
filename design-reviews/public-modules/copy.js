@@ -31,7 +31,9 @@ const COPY = {
       "retryAll": "Start over",
       "continueTests": "Continue",
       "safetyNote": "Preliminary screening only · Not a diagnosis",
-      "individualInvalidDesc": "Unable to assess"
+      "individualInvalidDesc": "Unable to assess",
+      "emergencyThailand": "Call Thailand EMS · 1669",
+      "emergencyLocal": "Contact local emergency services now"
     },
     "face": {
       "step1": "Face forward · Keep still",
@@ -47,7 +49,9 @@ const COPY = {
       "faceUnableAssess": "⚠️ Unable to assess face",
       "invalidHelp": "⚠️ Unable to assess after several tries · Ask for help or tap ↺",
       "navNext": "Continue to Arm →",
-      "navHome": "Home"
+      "navHome": "Home",
+      "critical": "🚨 Marked facial asymmetry detected\nIf stroke is suspected, call emergency services now",
+      "smileVoice": "Smile widely"
     },
     "arm": {
       "armLeft": "Left",
@@ -144,7 +148,9 @@ const COPY = {
       "retryAll": "เริ่มใหม่ทั้งหมด",
       "continueTests": "ทำต่อ",
       "safetyNote": "คัดกรองเบื้องต้นเท่านั้น · ไม่ใช่การวินิจฉัย",
-      "individualInvalidDesc": "ประเมินไม่ได้"
+      "individualInvalidDesc": "ประเมินไม่ได้",
+      "emergencyThailand": "โทร 1669 ทันที",
+      "emergencyLocal": "ติดต่อบริการฉุกเฉินในพื้นที่ทันที"
     },
     "face": {
       "step1": "หน้าตรง · อยู่นิ่ง",
@@ -160,7 +166,9 @@ const COPY = {
       "faceUnableAssess": "⚠️ ประเมินใบหน้าไม่ได้",
       "invalidHelp": "⚠️ ประเมินไม่ได้หลายครั้ง · ขอความช่วยเหลือหรือกด ↺",
       "navNext": "ทดสอบแขนต่อ →",
-      "navHome": "หน้าหลัก"
+      "navHome": "หน้าหลัก",
+      "critical": "🚨 พบใบหน้าไม่สมมาตรชัดเจน\nหากสงสัยสโตรก โทร 1669 ทันที",
+      "smileVoice": "ยิ้มกว้าง"
     },
     "arm": {
       "armLeft": "ซ้าย",
@@ -257,7 +265,9 @@ const COPY = {
       "retryAll": "最初から",
       "continueTests": "続ける",
       "safetyNote": "初期スクリーニングのみ・医療診断ではありません",
-      "individualInvalidDesc": "判定できません"
+      "individualInvalidDesc": "判定できません",
+      "emergencyThailand": "タイの救急医療 1669へ電話",
+      "emergencyLocal": "地域の救急サービスへ連絡してください"
     },
     "face": {
       "step1": "正面 · 動かない",
@@ -273,7 +283,9 @@ const COPY = {
       "faceUnableAssess": "⚠️ 顔を判定できません",
       "invalidHelp": "⚠️ 判定できません · スタッフに相談するか ↺ を押す",
       "navNext": "腕のテストへ →",
-      "navHome": "ホーム"
+      "navHome": "ホーム",
+      "critical": "🚨 顔の左右差が大きい可能性\n脳卒中が疑われる場合は救急要請",
+      "smileVoice": "大きく笑ってください"
     },
     "arm": {
       "armLeft": "左",

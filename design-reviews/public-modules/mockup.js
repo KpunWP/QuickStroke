@@ -1,7 +1,7 @@
 'use strict';
 // Presentation simulator only. No application scripts, persisted sessions, media,
 // timers, research storage or network submission APIs are imported or invoked.
-const STATES={result:['completed','incomplete','unable','urgent'],face:['instructions','camera','countdown','result','unable','permission'],arm:['left','countdown','measure','transition','right','completion','retry'],speech:['instructions','countdown','listening','retry','unable','permission','result']};
+const STATES={result:['completed','incomplete','unable','urgent'],face:['instructions','camera','countdown','capture','result','unable','permission'],arm:['left','countdown','measure','transition','right','completion','retry'],speech:['instructions','countdown','listening','retry','unable','permission','result']};
 const ICONS={face:'<circle cx="16" cy="16" r="11"/><path d="M11 13h.1m9.8 0h.1M11 19q5 5 10 0"/>',arm:'<path d="M7 25h13c4 0 6-3 5-7l-2-8-3-3-4 2 2 5 2 1v4h-7l-3-4-4 1 1 9Z"/><path d="m16 9 2 2 4-1M14 19q0-4 4-4"/>',speech:'<path d="M7 7h18v14H15l-6 5v-5H7Z"/><path d="M12 12h8m-8 4h5"/>'};
 const warning='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3h.01"/></svg>';
 const check='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m5 12 4 4L19 6"/></svg>';
@@ -34,11 +34,12 @@ function resultScreen(){
  return badge()+`<section class="card summary ${state}"><p class="eyebrow">${esc(t('result','summaryKicker'))}</p><div class="completion">${check}${esc(t('result','completionShort').replace('{n}',count))}</div><h1>${esc(t('result',title))}</h1><p class="guide">${esc(t('result',description))}</p>${synthetic()}</section>${urgent?safety():''}<div class="module-list">${['face','arm','speech'].map((m,i)=>`<div class="module-row">${icon(m)}<div><div class="module-name">${esc(t('index',m))}</div><div class="module-status ${statuses[i]==='moduleReview'?'warn':statuses[i]==='moduleBad'?'danger':''}">${statuses[i]==='moduleOk'?'✓ ':statuses[i]==='moduleBad'?'! ':statuses[i]==='validityInvalid'?'— ':''}${esc(t('result',statuses[i]))}</div></div></div>`).join('')}</div><section class="card"><p>${esc(t('result',next))}</p></section>`+(urgent?'':safety())+actions(t('result',incomplete?'continueTests':'retryAll'),incomplete?'speech':'face','instructions');
 }
 function faceScreen(){
- const labels={instructions:'step1',camera:'cardAligning',countdown:'step1',result:'faceDone',unable:'faceUnableAssess',permission:'cameraTitle'};
- const instruction=state==='permission'?t('permissions','cameraTitle'):t('face',labels[state]);
- const status=state==='result'?t('face','faceAbnormal'):state==='unable'?t('face','invalidHelp'):state==='permission'?t('permissions','blockedCamera'):state==='camera'?t('face','step1'):'';
- const controls=state==='countdown'?'':state==='result'?actions(t('face','navNext'),'arm','left',[t('face','retryBtn'),'face','instructions']):actions(t(state==='permission'?'permissions':'face',state==='permission'?'retryBtn':state==='unable'?'retryBtn':'startBtn'),'face',state==='instructions'?'camera':state==='camera'?'countdown':'instructions');
- return `<div class="face-backdrop" aria-hidden="true"></div><div class="face-experience" data-face-state="${state}"><div class="face-topline"><span class="face-simulation">${esc(t('review','badge'))}</span><span class="face-module">${esc(t('index','face'))} · 1/3</span></div><section class="face-instruction glass"><h1>${esc(instruction)}</h1></section><section class="face-stage" aria-label="${esc(t('review','camera'))}"><div class="face-clear-zone">${camera()}</div>${state==='countdown'?'<div class="face-countdown glass" aria-label="5"><span>5</span></div>':''}</section>${status?`<section class="face-status glass ${state==='result'?'attention':''}"><p>${esc(status)}</p>${['result','unable'].includes(state)?synthetic():''}</section>`:''}${state==='instructions'||state==='permission'?`<p class="face-privacy">${esc(t('permissions','privacyCameraNote'))}</p>`:''}<div class="face-controls">${controls}</div><div class="face-safety">${safety()}</div></div>`;
+ const urgent=state==='result'&&params.get('urgent')==='1';
+ const labels={instructions:'step1',camera:'step1',countdown:'step1',capture:'smileVoice',result:'faceAbnormal',unable:'faceUnableAssess'};
+ const instruction=state==='permission'?t('permissions','blockedCamera'):urgent?t('face','critical'):t('face',labels[state]);
+ const passive=['countdown','capture'].includes(state);
+ const button=passive?'':urgent?`<button class="face-urgent-action" data-face-emergency>${esc(t('result',language==='th'?'emergencyThailand':'emergencyLocal'))}</button>`:`<button class="primary" data-go="${state==='result'?'arm':'face'}" data-state="${state==='instructions'?'camera':state==='camera'?'countdown':state==='result'?'left':'instructions'}">${esc(t(state==='permission'?'permissions':'face',state==='permission'?'retryBtn':state==='unable'?'retryBtn':state==='result'?'navNext':'startBtn'))}</button>`;
+ return `<div class="face-backdrop" aria-hidden="true"></div><div class="face-experience" data-face-state="${state}"><section class="face-instruction ${state==='permission'||urgent?'glass':''}"><h1>${esc(instruction)}</h1></section><section class="face-stage" aria-label="${esc(t('review','camera'))}"><div class="face-clear-zone">${camera().replace('viewBox="0 0 400 300"','viewBox="100 25 200 250"')}</div></section><div class="face-bottom">${state==='countdown'?'<div class="face-countdown" aria-label="5"><span>5</span></div>':''}${state==='permission'?`<p class="face-permission-note">${esc(t('permissions','privacyCameraNote'))}</p>`:''}${state==='unable'?`<p class="face-error-help">${esc(t('face','invalidHelp'))}</p>`:''}<div class="face-controls">${button}</div>${state==='result'?`<p class="face-result-note">${esc(t('review','data'))}</p>`:''}</div></div>`;
 }
 function armScreen(){
  let body=badge()+progress();const right=state==='right',done=state==='completion',transition=state==='transition';
@@ -63,6 +64,7 @@ function speechScreen(){
 }
 function render(){
  document.body.classList.toggle('face-mode',moduleName==='face');
+ document.body.classList.toggle('face-active',moduleName==='face'&&['camera','countdown','capture'].includes(state));
  document.documentElement.lang={en:'en-US',th:'th-TH',ja:'ja-JP'}[language];document.documentElement.classList.toggle('large',enlarged);
  document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.lang===language?'true':'false'));
  document.getElementById('module-select').innerHTML=Object.keys(STATES).map(m=>`<option value="${m}" ${moduleName===m?'selected':''}>${m}</option>`).join('');
@@ -71,6 +73,7 @@ function render(){
  let content;
  content=({result:resultScreen,face:faceScreen,arm:armScreen,speech:speechScreen})[moduleName]();
  document.getElementById('screen').innerHTML=content;document.getElementById('simulation').textContent=t('review','notice');
+ document.querySelector('[data-face-emergency]')?.addEventListener('click',()=>alert(t('review','notice')));
  document.querySelectorAll('[data-go]').forEach(b=>b.addEventListener('click',()=>navigate(b.dataset.go,b.dataset.state)));
  const url=new URL(location.href);for(const[k,v]of Object.entries({module:moduleName,state,lang:language,text:enlarged?'200':'100'}))url.searchParams.set(k,v);history.replaceState(null,'',url);
 }

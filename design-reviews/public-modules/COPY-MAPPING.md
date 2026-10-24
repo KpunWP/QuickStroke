@@ -126,3 +126,9 @@ existing camera/microphone privacy disclosures. Japanese clinical translations
 are reused as-is, not certified by this review; native-language review remains
 necessary before exhibition use. New gallery English labels and scenario names
 are review metadata, not new clinical instructions.
+
+## Minimal Face refinement — additional existing excerpts
+
+`face.critical`, `face.smileVoice`, `result.emergencyThailand` and
+`result.emergencyLocal` are copied unchanged in TH/EN/JA for the illustrative
+capture and urgent-result variant. No new clinical translation is proposed.
