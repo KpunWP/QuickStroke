@@ -45,7 +45,15 @@
     "devModeEnable": "Enable",
     "devModeDisable": "Disable",
     "devModeOn": "Developer mode is active on every page",
-    "devModeOff": "Developer mode is off"
+    "devModeOff": "Developer mode is off",
+    "publicPrimaryStart": "Start now",
+    "publicPrimaryRestart": "Test again",
+    "publicRestartSupport": "Start a new 3-part check",
+    "publicMoreOptions": "More options",
+    "publicResetAction": "Start over",
+    "publicResetTitle": "Start over?",
+    "publicResetConfirm": "Start over",
+    "publicLanguageLabel": "Language"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",

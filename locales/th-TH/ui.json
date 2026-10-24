@@ -45,7 +45,15 @@
     "devModeEnable": "เปิด",
     "devModeDisable": "ปิด",
     "devModeOn": "โหมดผู้พัฒนาเปิดอยู่ทุกหน้า",
-    "devModeOff": "โหมดผู้พัฒนาปิดอยู่"
+    "devModeOff": "โหมดผู้พัฒนาปิดอยู่",
+    "publicPrimaryStart": "เริ่มเลย",
+    "publicPrimaryRestart": "ทดสอบอีกครั้ง",
+    "publicRestartSupport": "เริ่มครบ 3 อย่างใหม่",
+    "publicMoreOptions": "ตัวเลือกเพิ่มเติม",
+    "publicResetAction": "เริ่มใหม่",
+    "publicResetTitle": "เริ่มใหม่?",
+    "publicResetConfirm": "เริ่มใหม่",
+    "publicLanguageLabel": "ภาษา"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",
