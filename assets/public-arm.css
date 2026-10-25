@@ -71,3 +71,19 @@ html[data-arm-public="1"] #cd-num{font:700 3.75rem/1.3 'Manrope',sans-serif!impo
 html[data-arm-public="1"] #test-screen.arm-guide-measuring #instr{order:-3}
 html[data-arm-public="1"] #test-screen.arm-guide-measuring #sub-instr{order:-2}
 html[data-arm-public="1"] #test-screen.arm-guide-measuring #cd-wrap{order:-1}
+/* Override legacy percentage label widths. Intrinsic word widths let cards
+   move to separate rows at enlarged text instead of splitting English words. */
+html[data-arm-public="1"] .rcard{display:grid!important;grid-template-columns:2rem minmax(min-content,1fr);align-items:center;justify-content:stretch;column-gap:8px!important;flex:1 1 8.5rem!important;min-width:min-content!important}
+html[data-arm-public="1"] .rcard .rcard-arm,html[data-arm-public="1"] .rcard .rcard-lbl{width:auto!important;max-width:100%;grid-column:2;white-space:normal!important;word-break:normal;overflow-wrap:normal;text-align:start}
+html[data-arm-public="1"] .rcard-icon{grid-column:1;grid-row:1 / 3;width:2rem!important;height:2rem!important;min-width:0}
+/* showFinal already exposes this banner with inline display:flex; reset hides
+   it. CSS follows that visibility without adding state or lifecycle hooks. */
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #pose-guide,
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #cd-wrap,
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #pre-cd{display:none!important}
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #action-dock{margin-top:12px!important;flex-direction:column;align-items:center}
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #fast-nav-btn{order:-1}
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #action-btn{background:#fff!important;color:#0d58b8!important;border-color:#bfcfe1!important;box-shadow:none!important;font-weight:600!important}
+/* Remove the legacy fixed-dock scroll clearance only for Public completion. */
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #mid{padding-bottom:0!important;overflow:visible!important}
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #final-banner{margin-bottom:0!important}
