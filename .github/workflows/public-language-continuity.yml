@@ -1,0 +1,28 @@
+name: Public language continuity
+on:
+  pull_request:
+    branches: [feat/public-result-ui-phase-c1-20261024, main]
+    paths:
+      - index.html
+      - js/languages.js
+      - tests/public-language-continuity.mjs
+      - .github/workflows/public-language-continuity.yml
+permissions:
+  contents: read
+jobs:
+  language-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          node tests/public-language-continuity.mjs
+          node tests/public-event-language.mjs
+          node tests/public-home-redesign.mjs
+          node tests/public-result-ui.mjs
+          node tests/run-tests.mjs
+          node tests/public-flow-audio-audit.mjs
+          node tests/public-ios-speaker-first.mjs
+          python3 tests/check-inline-scripts.py
