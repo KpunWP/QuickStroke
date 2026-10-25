@@ -1,0 +1,55 @@
+name: Public Face UI regression
+on:
+  pull_request:
+    branches:
+      - feat/public-speech-ui-phase-c3-20261025
+      - fix/public-arm-completion-layout-20261025
+      - main
+    paths:
+      - face-test.html
+      - assets/public-face.css
+      - tests/public-face-ui.mjs
+      - tests/face-capture-contract.mjs
+      - tests/public-face-browser.cjs
+      - .github/workflows/public-face-ui.yml
+permissions:
+  contents: read
+jobs:
+  public-face-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen Face camera/geometry/lifecycle and existing contracts
+        run: |
+          node tests/public-face-ui.mjs
+          node tests/face-capture-contract.mjs
+          node tests/run-tests.mjs
+          node tests/public-flow-audio-audit.mjs
+          node tests/public-ios-speaker-first.mjs
+          node tests/public-tts-uat.mjs
+          node tests/voice-cue-flow.mjs
+          node tests/tts-readiness-contract.mjs
+          node tests/tts-pronunciation.mjs
+          node tests/android-compat.mjs
+          node tests/public-language-continuity.mjs
+          node tests/public-event-language.mjs
+          node tests/jssf-consent-entry-flow.mjs
+          node tests/public-home-redesign.mjs
+          node tests/public-result-ui.mjs
+          node tests/public-arm-ui.mjs
+          node tests/public-speech-ui.mjs
+          python3 tests/check-inline-scripts.py
+      - name: Install isolated browser dependency
+        run: |
+          npm install --prefix "$RUNNER_TEMP/face-ui-browser" --no-package-lock --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/face-ui-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Synthetic Face layouts, actual handlers, mode isolation and offline styling
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/face-ui-browser/node_modules/playwright
+        run: node tests/public-face-browser.cjs
