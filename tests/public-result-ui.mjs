@@ -4,7 +4,10 @@ import vm from 'node:vm';
 import crypto from 'node:crypto';
 const html=fs.readFileSync(new URL('../result.html',import.meta.url),'utf8');
 const css=fs.readFileSync(new URL('../assets/public-result.css',import.meta.url),'utf8');
-assert.match(html, /<link href="assets\/public-result\.css" rel="stylesheet"\/>/);
+const bundled=html.match(/<style id="public-result-style">\n([^]*?)<\/style>/);
+assert.ok(bundled,'Public Result CSS must travel atomically with cached HTML');
+assert.equal(bundled[1],css,'Bundled CSS must exactly match the reviewed stylesheet source');
+assert.doesNotMatch(html,/<link[^>]+href="assets\/public-result\.css"/);
 function source(name){const m=html.match(new RegExp(`(?:async )?function ${name}\\([^]*?\\n   \\}`));assert.ok(m,name);return m[0];}
 // Every existing script byte is frozen: only the presentation helper and one
 // render call may differ from the approved Home branch's Result implementation.

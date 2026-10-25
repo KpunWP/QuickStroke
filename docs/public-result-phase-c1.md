@@ -1,5 +1,9 @@
 # Phase C.1 — actual Public Result UI
 
+**Asset-delivery follow-up:** see `public-result-final-review.md`. Public CSS is
+now bundled atomically in Result HTML; the original external-link/cache limitation
+below is historical and fixed without changing the service worker.
+
 Base: PR #106 head `87388eb7dd39be24663e0364f66193aa72481966`.
 Branch: `feat/public-result-ui-phase-c1-20261024`.
 Design reference: Phase B Result at `bfa19d3bdc836efcc25ee91c67d07c7cbe04a5a2`.
