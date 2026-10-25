@@ -1,0 +1,36 @@
+name: Public Arm UI regression
+on:
+  pull_request:
+    branches:
+      - feat/public-result-ui-phase-c1-20261024
+      - main
+    paths:
+      - arm-test.html
+      - assets/public-arm.css
+      - tests/public-arm-ui.mjs
+      - .github/workflows/public-arm-ui.yml
+permissions:
+  contents: read
+jobs:
+  public-arm-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Public Arm UI and frozen engine boundary
+        run: node tests/public-arm-ui.mjs
+      - name: Existing sensor, duration, guide and audio contracts
+        run: |
+          node tests/run-tests.mjs
+          node tests/arm-sensor-replay.mjs
+          node tests/arm-dynamics-duration.mjs
+          node tests/arm-device-browser-hardening.mjs
+          node tests/arm-research-e2e-audit.mjs
+          node tests/arm-guide-persistence.mjs
+          node tests/arm-post-task-understanding.mjs
+          node tests/public-flow-audio-audit.mjs
+          node tests/public-tts-uat.mjs
+          python3 tests/check-inline-scripts.py
