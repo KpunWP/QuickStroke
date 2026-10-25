@@ -1128,6 +1128,15 @@ function homeInitialLanguage() {
   return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';
 }
 
+// A restored Home can retain its pre-navigation DOM without running init again.
+window.addEventListener('pageshow', async (event) => {
+  if (!event.persisted || !isOrdinaryPublicHome() ||
+      sessionStorage.getItem('quickstroke_public_event') !== 'jssf2026') return;
+  const selected = sessionStorage.getItem('quickstroke_public_home_language');
+  if (['th', 'en', 'ja'].includes(selected) && selected !== lang)
+    await setLang(selected, { initializing:true });
+});
+
 async function setLang(requestedLang, { initializing = false } = {}) {
   const shortLang = String(requestedLang || 'th').split('-')[0].toLowerCase();
   const requestedLocale = LOCALE_MAP[shortLang];
