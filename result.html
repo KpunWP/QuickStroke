@@ -875,6 +875,78 @@
    .finalization-status{min-height:18px;margin-top:8px;font-size:12px;font-weight:700;color:var(--ink-soft)}
   
 </style>
+<!-- Public Result CSS is bundled with HTML for atomic offline delivery. -->
+<style id="public-result-style">
+/* Public Result presentation only. The canonical session-mode flag is set after
+   existing result recovery; Research/Dev retain their original presentation. */
+html[data-result-public="1"]{--public-result-font:'Manrope','IBM Plex Sans Thai',sans-serif;background:#f4f7fa}
+html[data-result-public="1"]:lang(th){--public-result-font:'IBM Plex Sans Thai','Manrope',sans-serif}
+html[data-result-public="1"]:lang(ja){--public-result-font:'Manrope','Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans CJK JP',Meiryo,sans-serif}
+html[data-result-public="1"] body{background:radial-gradient(ellipse at 50% 8%,#e4effc,transparent 50%),#f4f7fa;color:#172536;font-family:var(--public-result-font);font-size:1rem;line-height:1.65;font-synthesis:none;overflow-x:visible;min-height:100svh}
+html[data-result-public="1"] header{position:static;max-width:480px;margin:auto;flex-wrap:wrap;gap:12px;min-height:72px;padding:max(8px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 8px max(16px,env(safe-area-inset-left));background:transparent;border:0;backdrop-filter:none}
+html[data-result-public="1"] .brand{gap:8px;max-width:100%;min-width:0}
+html[data-result-public="1"] .brand-mark{width:28px;height:28px;flex-shrink:0;border:0;background:none;box-shadow:none}
+html[data-result-public="1"] .brand-mark svg{width:28px;height:28px;stroke:#0d58b8}
+html[data-result-public="1"] .brand-text{font-family:'Manrope','IBM Plex Sans Thai',sans-serif;font-size:1.1875rem;font-weight:700;line-height:1.5;letter-spacing:normal;overflow-wrap:anywhere}
+html[data-result-public="1"] .brand-text strong{color:#2b7de9}
+html[data-result-public="1"] .lang-seg{flex-wrap:wrap;max-width:100%;gap:2px;padding:3px;border-radius:12px;border-color:#d6e0eb}
+html[data-result-public="1"] .lang-seg button{min-width:48px;min-height:48px;height:auto;padding:6px 8px;border-radius:8px;color:#48617a;font:700 .875rem/1.65 var(--public-result-font)}
+html[data-result-public="1"] .lang-seg button.active{background:#0d58b8;color:#fff}
+html[data-result-public="1"] main{padding:16px max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));max-width:480px}
+html[data-result-public="1"] .summary-card{border:1px solid #d6e0eb;border-radius:22px;background:#fff;box-shadow:0 4px 16px #163f6610;overflow:hidden}
+html[data-result-public="1"] .summary-accent{height:4px;background:#0d58b8}
+html[data-result-public="1"] .summary-card.ok .summary-accent{background:#0d58b8}
+html[data-result-public="1"] .summary-card.review .summary-accent{background:#a96010}
+html[data-result-public="1"] .summary-card.urgent .summary-accent{background:#b6312c}
+html[data-result-public="1"] .summary-body{padding:20px}
+html[data-result-public="1"] .summary-main{display:flex;flex-direction:column;align-items:stretch;gap:12px}
+html[data-result-public="1"] .summary-kicker{font-size:.875rem;line-height:1.75;color:#52677c;font-weight:600;margin-bottom:8px}
+html[data-result-public="1"] .summary-title{font-size:1.625rem;font-weight:700;line-height:1.55;letter-spacing:normal;overflow-wrap:break-word;text-wrap:balance}
+html[data-result-public="1"] .summary-desc{font-size:1rem;font-weight:400;line-height:1.8;color:#52677c;margin-top:8px}
+html[data-result-public="1"] .public-result-completion{width:fit-content;max-width:100%;padding:0;margin-bottom:8px;border-radius:0;background:transparent;color:#52677c;font-size:.875rem;line-height:1.75;font-weight:400}
+html[data-result-public="1"] .metric{order:2;min-height:0;border-radius:10px;display:flex;flex-direction:row;flex-wrap:wrap;justify-content:flex-start;gap:8px;padding:8px 10px;max-width:100%;width:fit-content;background:#edf4fd;color:#0d58b8}
+html[data-result-public="1"] .metric-value{font:700 1rem/1.75 'Manrope',sans-serif;letter-spacing:normal}
+html[data-result-public="1"] .metric-label{font-size:.875rem;line-height:1.75;font-weight:600;margin:0}
+html[data-result-public="1"] .summary-card.review .metric{background:#fff3dd;color:#96530b}
+html[data-result-public="1"] .summary-card.urgent .metric{background:#fdedec;color:#b6312c}
+html[data-result-public="1"] .completion{font-size:.875rem;line-height:1.75;font-weight:600;margin-top:8px}
+html[data-result-public="1"] .emergency-call,html[data-result-public="1"] .emergency-local{height:auto;min-height:56px;padding:12px 16px;border-radius:16px;font-size:1.125rem;line-height:1.7;font-weight:700;background:#b6312c;box-shadow:none;overflow-wrap:anywhere}
+html[data-result-public="1"] .emergency-call svg{flex-shrink:0}
+html[data-result-public="1"] .module-grid{grid-template-columns:minmax(0,1fr);grid-template-columns:repeat(auto-fit,minmax(min(100%,max(5.5em,calc((100% - 16px)/3))),1fr));gap:8px;margin-top:18px}
+html[data-result-public="1"] .module-tile{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:88px;padding:12px 8px;border:1px solid #d6e0eb;border-radius:16px;background:#fff;text-align:center;align-items:center;justify-content:flex-start;box-shadow:none;overflow-wrap:break-word}
+html[data-result-public="1"] .module-icon{width:44px;height:44px;flex-shrink:0;align-self:center;border-radius:14px;background:#e6effb!important;color:#0d58b8!important}
+html[data-result-public="1"] .module-icon svg{width:28px;height:28px;stroke-width:1.7}
+html[data-result-public="1"] .module-name{grid-column:2;margin:0;font-size:1rem;line-height:1.65;font-weight:700;overflow-wrap:break-word}
+html[data-result-public="1"] .module-status{grid-column:2;margin:0;font-size:.875rem;line-height:1.75;font-weight:400;color:#52677c}
+html[data-result-public="1"] .module-tile.ok .module-status{color:#0d58b8}
+html[data-result-public="1"] .module-tile.warn .module-status{color:#96530b}
+html[data-result-public="1"] .module-tile.bad .module-status{color:#b6312c}
+html[data-result-public="1"] .module-history{grid-column:2;margin:0;color:#96530b;font-size:.875rem;line-height:1.8;font-weight:400}
+html[data-result-public="1"] .module-action{grid-column:2;margin:0;font-size:.875rem;line-height:1.75;font-weight:600;color:#0d58b8;text-decoration:underline;text-underline-offset:3px}
+html[data-result-public="1"] .public-module-validity{grid-column:2;color:#52677c;font-size:.875rem;line-height:1.75}
+html[data-result-public="1"] .module-tile.current{border-color:#0d58b8;box-shadow:0 0 0 2px #0d58b81a}
+html[data-result-public="1"] .next-step{padding:16px;margin-top:18px;border:1px solid #d6e0eb;border-radius:20px;background:#fff;color:#172536;font-size:1rem;font-weight:400;line-height:1.8}
+html[data-result-public="1"] .next-step.urgent{border-color:#efc0bc;background:#fff4f2;color:#85352c}
+html[data-result-public="1"] .emergency-reminder{min-height:48px;flex-wrap:wrap;align-items:center;gap:10px;padding:14px;margin-top:16px;border:1px solid #f0d6c3;border-radius:16px;background:#fff4ed;color:#854025;font-size:1rem;line-height:1.8}
+html[data-result-public="1"] .emergency-reminder button{min-width:48px;min-height:48px;height:auto;padding:8px 12px;font-size:1rem;line-height:1.65;flex-shrink:0}
+html[data-result-public="1"] .actions{display:flex;flex-direction:column;gap:10px;margin-top:22px}
+html[data-result-public="1"] .btn-primary{width:fit-content;max-width:100%;min-height:64px;height:auto;margin-inline:auto;padding:14px clamp(28px,8vw,36px);border:1px solid #0d58b8;border-radius:20px;background:linear-gradient(125deg,#246ed2,#0d58b8);box-shadow:0 8px 18px #0d58b824;font:700 1.25rem/1.6 var(--public-result-font);overflow-wrap:anywhere}
+html[data-result-public="1"] .btn-secondary,html[data-result-public="1"] .btn-text{min-height:48px;height:auto;padding:10px 14px;border:1px solid #bfcfe1;border-radius:14px;background:transparent;box-shadow:none;color:#0d58b8;font:600 1rem/1.65 var(--public-result-font);overflow-wrap:anywhere}
+html[data-result-public="1"] .btn-text{border-color:transparent;font-weight:400}
+html[data-result-public="1"] .legal-note{margin-top:14px;color:#52677c;font-size:.875rem;font-weight:400;line-height:1.8}
+html[data-result-public="1"] button:focus-visible,html[data-result-public="1"] [role="button"]:focus-visible{outline:3px solid #a96010;outline-offset:4px}
+html[data-result-public="1"] .summary-card.ok .metric{background:#edf4fd;color:#0d58b8}
+
+/* Longer history deserves full width; em-based tracks otherwise adapt to text
+   enlargement without fixed device breakpoints or truncated clinical content. */
+html[data-result-public="1"] .module-grid[data-result-complex="1"]{grid-template-columns:minmax(0,1fr)}
+html[data-result-public="1"] .module-grid[data-result-complex="1"] .module-tile{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:12px;text-align:start;align-items:center}
+html[data-result-public="1"] .module-grid[data-result-complex="1"] .module-icon{grid-column:1;grid-row:1/6;align-self:start}
+html[data-result-public="1"] .module-name,html[data-result-public="1"] .module-status,html[data-result-public="1"] .module-history,html[data-result-public="1"] .public-module-validity{min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word}
+html[data-result-public="1"] .module-action{max-width:100%;margin-top:auto;padding-top:4px}
+html[data-result-public="1"] .public-module-validity{order:1}
+html[data-result-public="1"] .module-action{order:2}
+</style>
   <script src="config.js?v=20261007-audio-fallback-v20">
   </script>
   <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
@@ -912,6 +984,7 @@
     <div class="summary-accent">
     </div>
     <div class="summary-body">
+     <p class="public-result-completion" id="public-result-completion" hidden></p>
      <div class="summary-main">
       <div class="metric">
        <div class="metric-value" id="metric-value">
@@ -3165,6 +3238,42 @@
          : (isRemoteJssf ? 'ข้อมูลรอบนี้ยังไม่ครบถ้วน กรุณาลองโหลดหน้านี้ใหม่หรือติดต่อผู้ดำเนินโครงการ' : 'กรุณาแก้ integrity errors ก่อน finalize');
    }
 
+   // Presentation only: use the already recovered session, never query mode.
+   function updatePublicResultPresentation(r) {
+     const publicResult = isPublicResultSession();
+     document.documentElement.dataset.resultPublic = publicResult ? '1' : '0';
+     document.querySelector('meta[name="viewport"]').content = publicResult
+       ? 'width=device-width, initial-scale=1.0, viewport-fit=cover'
+       : 'width=device-width, initial-scale=1.0, user-scalable=no';
+     const completion = document.getElementById('public-result-completion');
+     completion.hidden = !publicResult || r.scope === 'individual' || r.valid.length !== 3;
+     completion.textContent = publicResult ? T.completionShort.replace('{n}', r.valid.length) : '';
+     if (!publicResult) return;
+     document.getElementById('module-grid').dataset.resultComplex = MODULES.some(name =>
+       r.data[name]?.historicalAbnormalRetained || r.data[name]?.historicalInvalidRetained
+     ) ? '1' : '0';
+     const publicIcons = {
+       face:'<circle cx="16" cy="16" r="11"/><path d="M11 13h.1m9.8 0h.1M11 19q5 5 10 0"/>',
+       arm:'<path d="M7 25h13c4 0 6-3 5-7l-2-8-3-3-4 2 2 5 2 1v4h-7l-3-4-4 1 1 9Z"/><path d="m16 9 2 2 4-1M14 19q0-4 4-4"/>',
+       speech:'<path d="M7 7h18v14H15l-6 5v-5H7Z"/><path d="M12 12h8m-8 4h5"/>'
+     };
+     document.querySelectorAll('#module-grid .module-tile').forEach((tile, index) => {
+       tile.querySelector('.module-icon').innerHTML = `<svg viewBox="0 0 32 32" aria-hidden="true">${publicIcons[MODULES[index]]}</svg>`;
+       const history = tile.querySelector('.module-history');
+       if (history) {
+         history.id = `public-result-history-${MODULES[index]}`;
+         tile.setAttribute('aria-describedby', history.id);
+       }
+       if (!r.invalid.includes(MODULES[index])) return;
+       const validity = document.createElement('div');
+       validity.className = 'public-module-validity';
+       validity.id = `public-result-validity-${MODULES[index]}`;
+       validity.textContent = T.validityInvalid;
+       tile.appendChild(validity);
+       tile.setAttribute('aria-describedby', [history?.id, validity.id].filter(Boolean).join(' '));
+     });
+   }
+
    async function buildResult() {
      if (!T) return;
      await ensureResultDataContext();
@@ -3196,6 +3305,7 @@
      await renderResearchFinalization(CURRENT);
      renderDevDiagnostics(CURRENT);
      renderActions(CURRENT);
+     updatePublicResultPresentation(CURRENT);
      applyJssfParticipantResultView(CURRENT);
      configurePublicResultTts();
      void persistResultDecisionTrace(CURRENT);

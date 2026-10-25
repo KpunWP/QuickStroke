@@ -1,0 +1,33 @@
+name: Public Result UI regression
+on:
+  pull_request:
+    branches:
+      - feat/public-home-redesign-phase-a-20261023
+      - main
+    paths:
+      - result.html
+      - assets/public-result.css
+      - tests/public-result-ui.mjs
+      - tests/public-result-grid.cjs
+      - tests/public-result-final-review.cjs
+      - .github/workflows/public-result-ui.yml
+permissions:
+  contents: read
+jobs:
+  public-result-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Public Result presentation and frozen behavior
+        run: node tests/public-result-ui.mjs
+      - name: Existing Result and safety contracts
+        run: |
+          node tests/run-tests.mjs
+          node tests/public-sticky-regression.mjs
+          node tests/jssf-result-completion-ux.mjs
+          node tests/public-flow-audio-audit.mjs
+          python3 tests/check-inline-scripts.py
