@@ -1680,6 +1680,68 @@
   }
 
 </style>
+<style id="public-face-style">
+/* Minimal Crystal: Public chrome only. Video/canvas rules and engine remain untouched. */
+html[data-face-public="1"]{display:block!important;width:100%!important;padding:0!important;min-height:100%;overflow:visible!important;background:#102536!important;--public-face-font:'Manrope','IBM Plex Sans Thai',sans-serif}
+html[data-face-public="1"]:lang(th){--public-face-font:'IBM Plex Sans Thai','Manrope',sans-serif}
+html[data-face-public="1"]:lang(ja){--public-face-font:'Manrope','Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans CJK JP',Meiryo,sans-serif}
+html[data-face-public="1"] body{display:block!important;width:100vw!important;min-width:0!important;max-width:none!important;height:100dvh!important;max-height:none!important;margin:0!important;padding:0!important;position:relative!important;overflow:visible!important;border-radius:0!important;box-shadow:none!important;background:#102536!important;color:#fff;font-family:var(--public-face-font);font-synthesis:none;line-height:1.7}
+html[data-face-public="1"] #face-home-btn{position:absolute!important;inset:auto!important;top:max(12px,env(safe-area-inset-top))!important;left:max(12px,env(safe-area-inset-left))!important;z-index:300!important;width:48px!important;height:48px!important;border:1px solid #ffffff70!important;border-radius:50%!important;background:rgba(16,38,57,.82)!important;color:#fff!important;box-shadow:inset 0 1px 0 #ffffff40!important;font-size:1.5rem;backdrop-filter:blur(16px)!important;-webkit-backdrop-filter:blur(16px)!important}
+html[data-face-public="1"] #top-bar{position:absolute!important;inset:auto!important;bottom:calc(88px + env(safe-area-inset-bottom))!important;left:max(16px,env(safe-area-inset-left))!important;right:max(16px,env(safe-area-inset-right))!important;width:auto!important;height:auto!important;min-height:48px;padding:0!important;display:flex!important;justify-content:center!important;background:none!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;z-index:120!important;transform:none!important}
+html[data-face-public="1"] .top-label,html[data-face-public="1"] .top-spacer{display:none!important}
+html[data-face-public="1"] .top-right{display:flex!important;justify-content:center!important;max-width:100%;min-width:0;margin:0!important;flex-wrap:wrap}
+html[data-face-public="1"] #lang-sw-fixed{position:static!important;inset:auto!important;transform:none!important;display:flex;flex-wrap:wrap!important;justify-content:center;max-width:100%;padding:3px!important;gap:2px!important;border:1px solid #ffffff70!important;border-radius:18px!important;background:rgba(16,38,57,.82)!important;box-shadow:inset 0 1px 0 #ffffff40!important;backdrop-filter:blur(16px)!important;-webkit-backdrop-filter:blur(16px)!important}
+html[data-face-public="1"] .lang-sw-btn{min-width:48px!important;min-height:48px!important;width:auto!important;height:auto!important;padding:6px 8px!important;border:0!important;border-radius:14px!important;background:none!important;color:#fff!important;font:700 .875rem/1.7 var(--public-face-font)!important;letter-spacing:normal!important}
+html[data-face-public="1"] .lang-sw-btn.active{background:#0d58b8!important;color:#fff!important;box-shadow:inset 0 1px 0 #ffffff50!important}
+html[data-face-public="1"] body.screening-active #top-bar{display:none!important}
+html[data-face-public="1"] #face-status-row,html[data-face-public="1"] #progress-dots,html[data-face-public="1"] #pose-hud,html[data-face-public="1"] #debug-panel{display:none!important}
+html[data-face-public="1"] #dashboard{position:absolute!important;inset:auto!important;top:calc(72px + env(safe-area-inset-top))!important;left:max(12px,env(safe-area-inset-left))!important;right:max(12px,env(safe-area-inset-right))!important;width:auto!important;max-width:none!important;min-height:0!important;height:auto!important;max-height:max(48px,calc(28svh - 72px - env(safe-area-inset-top)))!important;overflow:auto!important;margin:0!important;padding:0!important;transform:none!important;gap:0!important;background:none!important;border:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;z-index:130!important}
+html[data-face-public="1"] #dashboard-header{min-height:0!important;margin:0!important;padding:0!important;background:none!important;border:0!important}
+html[data-face-public="1"] #app-title{display:none!important}
+html[data-face-public="1"] #status-msg,html[data-face-public="1"] #pose-warn-msg{position:static!important;inset:auto!important;transform:none!important;width:fit-content!important;max-width:100%!important;min-height:0!important;height:auto!important;max-height:none!important;margin:0 auto!important;padding:6px 12px!important;border:1px solid #ffffff50!important;border-radius:18px!important;background:rgba(16,38,57,.82)!important;color:#fff!important;box-shadow:none!important;backdrop-filter:blur(12px)!important;-webkit-backdrop-filter:blur(12px)!important;font:600 1.125rem/1.65 var(--public-face-font)!important;letter-spacing:normal!important;text-align:center!important;white-space:normal!important;word-break:normal;overflow-wrap:break-word;text-shadow:0 1px 3px #000}
+html[data-face-public="1"] #no-face-banner{position:absolute!important;inset:auto!important;top:max(12px,env(safe-area-inset-top))!important;left:76px!important;right:max(12px,env(safe-area-inset-right))!important;width:auto!important;max-width:none!important;max-height:48px!important;overflow:auto!important;transform:none!important;padding:6px 10px!important;border:1px solid #ffffff60!important;border-radius:16px!important;background:rgba(16,38,57,.88)!important;color:#fff!important;font:600 1rem/1.7 var(--public-face-font)!important;letter-spacing:normal!important;white-space:normal!important;word-break:normal;overflow-wrap:break-word;box-shadow:none!important;z-index:120!important}
+html[data-face-public="1"] #center-countdown{position:absolute!important;inset:auto!important;bottom:max(16px,env(safe-area-inset-bottom))!important;left:50%!important;transform:translateX(-50%)!important;width:fit-content!important;max-width:calc(100% - 112px);height:auto!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;font:700 4rem/1.15 'Manrope',sans-serif!important;color:#fff!important;font-variant-numeric:tabular-nums;text-align:center;letter-spacing:normal!important;text-shadow:0 2px 3px #000,0 0 10px #000;z-index:140!important}
+html[data-face-public="1"] #btn-row{position:fixed!important;inset:auto!important;bottom:max(16px,env(safe-area-inset-bottom))!important;left:max(16px,env(safe-area-inset-left))!important;right:max(16px,env(safe-area-inset-right))!important;width:auto!important;max-width:none!important;display:flex!important;flex-wrap:wrap!important;justify-content:center!important;gap:10px!important;margin:0!important;padding:0!important;background:none!important;transform:none!important;z-index:150!important}
+html[data-face-public="1"] #start-btn,html[data-face-public="1"] #fast-nav-btn{position:static!important;inset:auto!important;transform:none!important;width:fit-content!important;max-width:100%!important;min-width:48px!important;min-height:56px!important;height:auto!important;margin:0!important;padding:12px 28px!important;border:1px solid #ffffff80!important;border-radius:28px!important;background:linear-gradient(135deg,#246ed2,#0d58b8)!important;color:#fff!important;box-shadow:inset 0 1px 0 #ffffff60,0 6px 18px #001a3340!important;font:700 1.125rem/1.7 var(--public-face-font)!important;letter-spacing:normal!important;white-space:normal!important;word-break:normal;overflow-wrap:break-word;animation:none!important}
+html[data-face-public="1"] #reset-btn{position:fixed!important;inset:auto!important;right:max(16px,env(safe-area-inset-right))!important;bottom:max(16px,env(safe-area-inset-bottom))!important;width:48px!important;min-width:48px!important;height:48px!important;min-height:48px!important;margin:0!important;padding:0!important;border:1px solid #ffffff80!important;border-radius:50%!important;background:rgba(16,38,57,.82)!important;color:#fff!important;font-size:1.5rem!important;box-shadow:inset 0 1px 0 #ffffff40!important;backdrop-filter:blur(16px)!important;z-index:160!important}
+html[data-face-public="1"] body.result-visible #top-bar{top:max(12px,env(safe-area-inset-top))!important;bottom:auto!important;left:76px!important;justify-content:flex-end!important}
+html[data-face-public="1"] body.result-visible #score-box{position:relative!important;inset:auto!important;transform:none!important;width:calc(100% - 32px)!important;max-width:448px!important;min-height:0!important;height:auto!important;max-height:none!important;margin:62svh auto 0!important;padding:16px!important;border:1px solid #ffffff80!important;border-radius:24px!important;background:rgba(16,38,57,.9)!important;color:#fff!important;box-shadow:inset 0 1px 0 #ffffff40!important;backdrop-filter:blur(16px)!important;-webkit-backdrop-filter:blur(16px)!important;overflow:visible!important;z-index:120!important}
+html[data-face-public="1"] body.result-visible #score-container{min-height:0!important;display:flex!important;justify-content:center!important;flex-wrap:wrap;gap:0!important;padding:0!important}
+html[data-face-public="1"] body.result-visible #score-label{display:block!important;width:100%!important;height:auto!important;max-height:none!important;margin:0!important;padding:0!important;border:0!important;background:none!important;color:#fff!important;font:700 1.375rem/1.65 var(--public-face-font)!important;letter-spacing:normal!important;white-space:normal!important;word-break:normal;overflow-wrap:break-word;text-align:center!important;overflow:visible!important;text-shadow:none!important}
+html[data-face-public="1"] body.result-visible #score-threshold{max-width:100%;font:400 1rem/1.8 var(--public-face-font)!important;color:#fff!important;letter-spacing:normal!important;white-space:pre-line!important;word-break:normal;overflow-wrap:break-word;max-height:none!important;overflow:visible!important}
+html[data-face-public="1"] body.result-visible #score-threshold:empty{display:none!important}
+html[data-face-public="1"] body.result-visible #dashboard{position:relative!important;inset:auto!important;width:calc(100% - 32px)!important;max-width:448px!important;height:auto!important;max-height:none!important;overflow:visible!important;margin:12px auto 0!important;padding:0 0 calc(24px + env(safe-area-inset-bottom))!important;z-index:120!important}
+html[data-face-public="1"] body.result-visible #btn-row{position:static!important;inset:auto!important;width:100%!important;flex-direction:column!important;align-items:center!important;margin:0!important}
+html[data-face-public="1"] body.result-visible #fast-nav-btn{order:-1}
+html[data-face-public="1"] body.result-visible #start-btn{background:rgba(16,38,57,.9)!important;box-shadow:inset 0 1px 0 #ffffff40!important;font-weight:600!important}
+html[data-face-public="1"] button:focus-visible{outline:3px solid #ffdc87!important;outline-offset:4px}
+/* Header sizing follows text growth; messages stay in the upper edge band. */
+html[data-face-public="1"]{--face-notice-top:calc(max(12px,env(safe-area-inset-top)) + max(56px,calc(1.4875rem + 20px)) + 12px)}
+html[data-face-public="1"] body{display:flow-root!important}
+html[data-face-public="1"] body.screening-active{--face-notice-top:calc(max(12px,env(safe-area-inset-top)) + 60px)}
+html[data-face-public="1"] #top-bar{top:max(12px,env(safe-area-inset-top))!important;bottom:auto!important;left:76px!important;justify-content:flex-end!important}
+html[data-face-public="1"] body:not(.result-visible) #dashboard{top:var(--face-notice-top)!important;max-height:max(48px,calc(28svh - var(--face-notice-top)))!important}
+html[data-face-public="1"] body:not(.screening-active):not(.result-visible) #no-face-banner{top:var(--face-notice-top)!important;left:12px!important;max-height:max(48px,calc(28svh - var(--face-notice-top)))!important}
+/* When the camera has no face, its existing no-face warning takes precedence
+   over the simultaneous alignment prompt. The warning itself stays visible. */
+html[data-face-public="1"] body.notice-pose:has(#no-face-banner[style*="display: block"]) #pose-warn-msg{display:none!important}
+/* Preserve the existing bilingual locale-load failure even without notice classes. */
+html[data-face-public="1"] body:not(.result-visible):not(.start-ready) #status-msg[style*="display: block"]{display:block!important}
+/* Make the engine's single-notice classes authoritative over older active-state
+   selectors that could resurrect cleared preparation text during capture. */
+html[data-face-public="1"] body:not(.result-visible) #status-msg,
+html[data-face-public="1"] body:not(.result-visible) #pose-warn-msg{display:none!important}
+html[data-face-public="1"] body.notice-status:not(.result-visible) #status-msg:not(:empty),
+html[data-face-public="1"] body.notice-smile:not(.result-visible) #status-msg:not(:empty),
+html[data-face-public="1"] body.notice-pose:not(.result-visible) #pose-warn-msg:not(:empty){display:flex!important}
+/* Empty/cleared notices must also beat legacy :not(:empty) active selectors. */
+html[data-face-public="1"] body:not(.notice-status):not(.notice-smile):not(.result-visible) #status-msg,
+html[data-face-public="1"] body:not(.notice-pose):not(.result-visible) #pose-warn-msg{display:none!important}
+html[data-face-public="1"] body:not(.result-visible):not(.start-ready):not(.screening-active) #status-msg[style*="display: block"]{display:block!important}
+/* Context-specific urgent notice gets more room than routine guidance, while
+   retaining a separate lower countdown region and scroll access at large text. */
+html[data-face-public="1"] body:not(.result-visible) #dashboard.pulse{max-height:max(48px,calc(68svh - var(--face-notice-top)))!important}
+</style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
 <script src="./js/app-mode.js?v=20260807-app-mode-v2"></script>
@@ -1691,6 +1753,15 @@
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
+<script id="public-face-mode">
+// Presentation only; preserve explicit Dev/mesh demonstrations and all policies.
+const publicFacePresentation = window.QuickStrokeAppMode?.resolveMode?.() === 'public'
+  && window.QuickStrokeDevMode?.isEnabled?.() !== true
+  && !new URLSearchParams(window.location.search).has('mesh');
+document.documentElement.dataset.facePublic = publicFacePresentation ? '1' : '0';
+if (publicFacePresentation) document.querySelector('meta[name="viewport"]').content =
+  'width=device-width, initial-scale=1.0, viewport-fit=cover';
+</script>
 </head>
 <body>
 
