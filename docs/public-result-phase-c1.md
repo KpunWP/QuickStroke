@@ -1,5 +1,9 @@
 # Phase C.1 — actual Public Result UI
 
+**Layout follow-up:** current Public module cards are adaptive columns; see
+`public-result-grid-refinement.md`. The original stacked-layout screenshots and
+implementation notes below are historical.
+
 **Asset-delivery follow-up:** see `public-result-final-review.md`. Public CSS is
 now bundled atomically in Result HTML; the original external-link/cache limitation
 below is historical and fixed without changing the service worker.

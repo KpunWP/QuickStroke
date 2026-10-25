@@ -18,13 +18,14 @@ assert.equal(crypto.createHash('sha256').update(scripts).digest('hex'),expected,
 for(const rule of css.split('}').filter(x=>x.trim()))assert.match(rule.trim(),/^(?:\/\*[^]*?\*\/\s*)?html\[data-result-public="1"\]/,'All styles are Public-scoped');
 assert.doesNotMatch(source('updatePublicResultPresentation'),/sessionStorage|localStorage|fetch\(|finalize|setTimeout|location\./);
 for(const mode of ['public','research','dev'])for(const scope of ['combined','individual'])for(const count of [0,1,2,3]){
- const completion={hidden:true,textContent:''},viewport={content:'legacy'};
- const tiles=Array.from({length:3},()=>({children:[],querySelector:()=>({}),appendChild(e){this.children.push(e)}}));
- const ctx=vm.createContext({MODULES:['face','arm','speech'],T:{completionShort:'{n}/3 complete',validityInvalid:'Unable to assess'},isPublicResultSession:()=>mode==='public',document:{documentElement:{dataset:{}},querySelector:()=>viewport,getElementById:()=>completion,querySelectorAll:()=>tiles,createElement:()=>({})}});
+ const completion={hidden:true,textContent:''},grid={dataset:{}},viewport={content:'legacy'};
+ const tiles=Array.from({length:3},()=>({children:[],querySelector:s=>s==='.module-history'?null:{},setAttribute(){},appendChild(e){this.children.push(e)}}));
+ const ctx=vm.createContext({MODULES:['face','arm','speech'],T:{completionShort:'{n}/3 complete',validityInvalid:'Unable to assess'},isPublicResultSession:()=>mode==='public',document:{documentElement:{dataset:{}},querySelector:()=>viewport,getElementById:id=>id==='module-grid'?grid:completion,querySelectorAll:()=>tiles,createElement:()=>({})}});
  vm.runInContext(source('updatePublicResultPresentation'),ctx);
- ctx.fixture={scope,valid:Array(count).fill('valid'),invalid:['speech']};vm.runInContext('updatePublicResultPresentation(fixture)',ctx);
+ ctx.fixture={scope,data:{},valid:Array(count).fill('valid'),invalid:['speech']};vm.runInContext('updatePublicResultPresentation(fixture)',ctx);
  assert.equal(ctx.document.documentElement.dataset.resultPublic,mode==='public'?'1':'0');
  assert.equal(completion.hidden,mode!=='public'||scope==='individual'||count!==3);
+ assert.equal(grid.dataset.resultComplex,mode==='public'?'0':undefined);
  assert.equal(tiles[2].children.length,mode==='public'?1:0);
  assert.equal(viewport.content.includes('user-scalable=no'),mode!=='public');
 }
@@ -48,4 +49,6 @@ for(const[name,data,mode,sourceModule,state]of fixtures){
  for(const fn of ['moduleScore','moduleClass','moduleIsUsable','moduleResearchScoreIsUsable','requestedResultSource','calculate'])vm.runInContext(source(fn),ctx);
  const r=vm.runInContext('calculate()',ctx);assert.equal(r.state,state,name);assert.equal(r.scope,sourceModule?'individual':'combined',name);
 }
+assert.match(css,/repeat\(auto-fit,minmax/);
+assert.match(css,/data-result-complex="1"/);
 console.log('PASS: Result script freeze, Public-only presentation/zoom, completion vs validity, five states and full/individual scopes');

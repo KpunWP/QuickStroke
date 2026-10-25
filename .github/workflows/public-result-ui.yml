@@ -8,6 +8,8 @@ on:
       - result.html
       - assets/public-result.css
       - tests/public-result-ui.mjs
+      - tests/public-result-grid.cjs
+      - tests/public-result-final-review.cjs
       - .github/workflows/public-result-ui.yml
 permissions:
   contents: read

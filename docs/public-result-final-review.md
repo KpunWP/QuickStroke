@@ -46,7 +46,7 @@ PLAYWRIGHT_MODULE=/path/to/playwright CHROMIUM_PATH=/path/to/chromium \
 - Away/back navigation retains the appropriate result and label count.
 - Fresh browser page: bundled styling applies without a stylesheet request.
 - Fresh real service-worker installation, before ever visiting Result/CSS:
-  Result boots and uses the approved single-column Public layout offline.
+  Result boots and uses the approved Public module layout offline.
 - Returning v101 cache seeded with the prior Result HTML: offline access retains
   that older HTML. After online network-first Result refresh, new bundled HTML
   is cached and styled Result reloads offline. Existing caches are not deleted.

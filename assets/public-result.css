@@ -24,7 +24,7 @@ html[data-result-public="1"] .summary-main{display:flex;flex-direction:column;al
 html[data-result-public="1"] .summary-kicker{font-size:.875rem;line-height:1.75;color:#52677c;font-weight:600;margin-bottom:8px}
 html[data-result-public="1"] .summary-title{font-size:1.625rem;font-weight:700;line-height:1.55;letter-spacing:normal;overflow-wrap:break-word;text-wrap:balance}
 html[data-result-public="1"] .summary-desc{font-size:1rem;font-weight:400;line-height:1.8;color:#52677c;margin-top:8px}
-html[data-result-public="1"] .public-result-completion{width:fit-content;max-width:100%;padding:5px 10px;margin-bottom:12px;border-radius:10px;background:#edf4fd;color:#0d58b8;font-size:.875rem;line-height:1.75;font-weight:600}
+html[data-result-public="1"] .public-result-completion{width:fit-content;max-width:100%;padding:0;margin-bottom:8px;border-radius:0;background:transparent;color:#52677c;font-size:.875rem;line-height:1.75;font-weight:400}
 html[data-result-public="1"] .metric{order:2;min-height:0;border-radius:10px;display:flex;flex-direction:row;flex-wrap:wrap;justify-content:flex-start;gap:8px;padding:8px 10px;max-width:100%;width:fit-content;background:#edf4fd;color:#0d58b8}
 html[data-result-public="1"] .metric-value{font:700 1rem/1.75 'Manrope',sans-serif;letter-spacing:normal}
 html[data-result-public="1"] .metric-label{font-size:.875rem;line-height:1.75;font-weight:600;margin:0}
@@ -33,9 +33,9 @@ html[data-result-public="1"] .summary-card.urgent .metric{background:#fdedec;col
 html[data-result-public="1"] .completion{font-size:.875rem;line-height:1.75;font-weight:600;margin-top:8px}
 html[data-result-public="1"] .emergency-call,html[data-result-public="1"] .emergency-local{height:auto;min-height:56px;padding:12px 16px;border-radius:16px;font-size:1.125rem;line-height:1.7;font-weight:700;background:#b6312c;box-shadow:none;overflow-wrap:anywhere}
 html[data-result-public="1"] .emergency-call svg{flex-shrink:0}
-html[data-result-public="1"] .module-grid{grid-template-columns:minmax(0,1fr);gap:10px;margin-top:18px}
-html[data-result-public="1"] .module-tile{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:12px;row-gap:3px;min-height:88px;padding:12px;border:1px solid #d6e0eb;border-radius:16px;background:#fff;text-align:start;align-items:center;justify-content:stretch;box-shadow:none}
-html[data-result-public="1"] .module-icon{grid-column:1;grid-row:1/5;width:44px;height:44px;align-self:start;border-radius:14px;background:#e6effb!important;color:#0d58b8!important}
+html[data-result-public="1"] .module-grid{grid-template-columns:minmax(0,1fr);grid-template-columns:repeat(auto-fit,minmax(min(100%,max(5.5em,calc((100% - 16px)/3))),1fr));gap:8px;margin-top:18px}
+html[data-result-public="1"] .module-tile{display:flex;flex-direction:column;gap:4px;min-width:0;min-height:88px;padding:12px 8px;border:1px solid #d6e0eb;border-radius:16px;background:#fff;text-align:center;align-items:center;justify-content:flex-start;box-shadow:none;overflow-wrap:break-word}
+html[data-result-public="1"] .module-icon{width:44px;height:44px;flex-shrink:0;align-self:center;border-radius:14px;background:#e6effb!important;color:#0d58b8!important}
 html[data-result-public="1"] .module-icon svg{width:28px;height:28px;stroke-width:1.7}
 html[data-result-public="1"] .module-name{grid-column:2;margin:0;font-size:1rem;line-height:1.65;font-weight:700;overflow-wrap:break-word}
 html[data-result-public="1"] .module-status{grid-column:2;margin:0;font-size:.875rem;line-height:1.75;font-weight:400;color:#52677c}
@@ -57,3 +57,13 @@ html[data-result-public="1"] .btn-text{border-color:transparent;font-weight:400}
 html[data-result-public="1"] .legal-note{margin-top:14px;color:#52677c;font-size:.875rem;font-weight:400;line-height:1.8}
 html[data-result-public="1"] button:focus-visible,html[data-result-public="1"] [role="button"]:focus-visible{outline:3px solid #a96010;outline-offset:4px}
 html[data-result-public="1"] .summary-card.ok .metric{background:#edf4fd;color:#0d58b8}
+
+/* Longer history deserves full width; em-based tracks otherwise adapt to text
+   enlargement without fixed device breakpoints or truncated clinical content. */
+html[data-result-public="1"] .module-grid[data-result-complex="1"]{grid-template-columns:minmax(0,1fr)}
+html[data-result-public="1"] .module-grid[data-result-complex="1"] .module-tile{display:grid;grid-template-columns:44px minmax(0,1fr);column-gap:12px;text-align:start;align-items:center}
+html[data-result-public="1"] .module-grid[data-result-complex="1"] .module-icon{grid-column:1;grid-row:1/6;align-self:start}
+html[data-result-public="1"] .module-name,html[data-result-public="1"] .module-status,html[data-result-public="1"] .module-history,html[data-result-public="1"] .public-module-validity{min-width:0;max-width:100%;white-space:normal;overflow-wrap:break-word}
+html[data-result-public="1"] .module-action{max-width:100%;margin-top:auto;padding-top:4px}
+html[data-result-public="1"] .public-module-validity{order:1}
+html[data-result-public="1"] .module-action{order:2}
