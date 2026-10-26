@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import crypto from 'node:crypto';
 import vm from 'node:vm';
 const html=fs.readFileSync('face-test.html','utf8'),css=fs.readFileSync('assets/public-face.css','utf8');
-const original=html.replace(/<script id="public-face-mode">[^]*?<\/script>\n/,'');
+const original=html.replace(/\/\* PUBLIC FACE STARTUP PRESENTATION[^]*?\/\* END PUBLIC FACE STARTUP PRESENTATION \*\/\n\n/,'').replace(/<script id="public-face-mode">[^]*?<\/script>\n/,'');
 const scripts=[...original.matchAll(/<script\b[^>]*>([^]*?)<\/script>/g)].map(m=>m[1]).join('\n');
 assert.equal(crypto.createHash('sha256').update(scripts).digest('hex'),'4f8a184891c9eba1101a12b3c30504bbd7dd854b58be18333b8603dabda0d52e','Every pre-existing Face script stays byte-for-byte frozen, including camera, MediaPipe, geometry, countdown, cues, retry, storage and navigation');
 assert.equal(html.match(/<style id="public-face-style">\n([^]*?)<\/style>/)[1],css,'Atomic inline offline CSS delivery');

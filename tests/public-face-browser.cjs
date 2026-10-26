@@ -8,7 +8,8 @@ window.__faceFixture={
  async set(state){
   if(countdownTimer){clearInterval(countdownTimer);countdownTimer=null}if(retryTimer){clearTimeout(retryTimer);retryTimer=null}
   hideCenterCountdown();hideSmilePrompt();noFaceBanner.style.display='none';phase='BEFORE_START';criticalFired=false;__lastUISig=null;
-  if(state==='localeError'){setUI({glassColor:'var(--col-blue-glass)',msg:'',showStart:false});statusMsg.textContent='⚠️ ไม่สามารถโหลดไฟล์ภาษาได้ / Unable to load language resources.';statusMsg.style.display='block';return}
+  isCameraRunning=!['loading','localeError','permission','unsupported'].includes(state);modelReady=!['loading','model','localeError','permission','unsupported'].includes(state);
+  if(state==='localeError'){setUI({glassColor:'var(--col-blue-glass)',msg:'',showStart:false});statusMsg.textContent='⚠️ ไม่สามารถโหลดไฟล์ภาษาได้ / Unable to load language resources.';statusMsg.style.display='block';FL=null;return}
   if(state==='loading'){setUI({glassColor:'var(--col-blue-glass)',msg:FL.loading,showStart:false});return}
   if(state==='model'){setUI({glassColor:'var(--col-blue-glass)',msg:FL.loadingModel,showStart:false});return}
   if(state==='instructions'||state==='camera'){setUI({glassColor:'var(--col-blue-glass)',msg:FL.pressStart,showStart:true});return}
