@@ -2,6 +2,7 @@ name: Face layout diagnostics
 on:
   pull_request:
     branches:
+      - fix/face-layout-copy-summary-20261026
       - diagnostics/public-face-layout-20261026
       - fix/public-face-camera-countdown-final-20261026
     paths:
@@ -10,6 +11,7 @@ on:
       - js/face-layout-debug.js
       - tests/face-layout-debug.*
       - tests/face-layout-summary.mjs
+      - tests/face-layout-ab.*
       - tests/fixtures/face-layout-summary.mjs
       - tests/public-face-*.mjs
       - .github/workflows/face-layout-debug.yml
@@ -30,6 +32,7 @@ jobs:
         run: |
           node tests/face-layout-debug.mjs
           node tests/face-layout-summary.mjs
+          node tests/face-layout-ab.mjs
           node tests/public-face-ui.mjs
           node tests/public-face-active.mjs
           node tests/public-face-startup.mjs
@@ -45,4 +48,6 @@ jobs:
       - name: Public-only snapshots, geometry, caps, clipboard and privacy
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/layout-browser/node_modules/playwright
-        run: node tests/face-layout-debug.cjs
+        run: |
+          node tests/face-layout-debug.cjs
+          node tests/face-layout-ab.cjs

@@ -5548,7 +5548,7 @@ try {
 // Explicit flag only. The server gate independently verifies the Preview environment.
 if (new URLSearchParams(location.search).get('faceLayoutDebug') === '1' &&
     document.documentElement.dataset.facePublic === '1') {
-  import('./js/face-layout-debug.js?v=20261026-v2').then(m => m.startFaceLayoutDebug()).catch(() => {});
+  import('./js/face-layout-debug.js?v=20261026-v3').then(m => m.startFaceLayoutDebug()).catch(() => {});
 }
 </script>
 </body>

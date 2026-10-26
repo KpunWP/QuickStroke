@@ -1,3 +1,39 @@
+// A/B outcomes are explicit owner reports, never inferred from geometry.
+export function buildFaceABSummary(report) {
+  const samples=report.ab?.snapshots||[], observations=report.ab?.observations||[];
+  const n=v=>typeof v==='number'&&Number.isFinite(v)?String(Math.round(v*10)/10):'?';
+  const rect=s=>s?.elements?.video?.r;
+  const container=s=>s?.elements?.['video-container']?.r;
+  const equal=(a,b)=>Array.isArray(a)&&Array.isArray(b)&&a.length===b.length&&a.every((v,i)=>typeof v==='number'&&typeof b[i]==='number'&&Math.abs(v-b[i])<=.5);
+  const baseline=samples.find(s=>s.kind==='ab-baseline');
+  const latest=mode=>samples.filter(s=>s.diagnosticMode===mode && s.kind===`ab-${mode}`).at(-1);
+  const sha=/^[a-f0-9]{40}$/.test(report.build?.sha||'')?report.build.sha:'unavailable';
+  const lines=['QuickStroke Face A/B Summary v1',`SHA ${sha}`,'Rects=[x,y,width,height]; metadata only.'];
+  for(const [label,mode,s]of [['Baseline','baseline',baseline],['Test A','A',latest('A')],['Test B','B',latest('B')]]){
+    const matches=observations.filter(o=>o.mode===mode&&['still-visible','disappeared','unsure'].includes(o.outcome));
+    const observation=mode==='baseline'?matches[0]:matches.at(-1);
+    if(!s){lines.push(`${label}: MISSING; owner observation=${observation?.outcome||'not reported'}`);continue;}
+    const r=a=>Array.isArray(a)?'['+a.map(n).join(',')+']':'MISSING';
+    const all=[rect(s),rect(baseline),container(s),container(baseline),s.viewport?.visual,baseline?.viewport?.visual,s.video?.intrinsic,baseline?.video?.intrinsic];
+    const changed=all.every(a=>Array.isArray(a)&&a.every(Number.isFinite)) ? !(equal(rect(s),rect(baseline))&&equal(container(s),container(baseline))&&equal(s.viewport.visual,baseline.viewport.visual)&&equal(s.video.intrinsic,baseline.video.intrinsic)) : null;
+    lines.push(`${label} @${n(s.at)}ms: video=${r(rect(s))}; container=${r(container(s))}; visualViewport=${r(s.viewport?.visual)}; intrinsic=${r(s.video?.intrinsic)}`);
+    const read=(id,key)=>report.css?.values?.[s.elements?.[id]?.cs]?.[report.css?.keys?.indexOf(key)];
+    const cv=read('canvas','visibility'),wc=read('video','will-change');
+    lines.push(`Observed CSS: canvas visibility=${['visible','hidden','collapse'].includes(cv)?cv:'unknown'}; video will-change=${['auto','transform','opacity','contents','scroll-position'].includes(wc)?wc:'unknown'}.`);
+    const classes=['start-ready','screening-active','result-visible','notice-status','notice-pose','notice-smile','pose-warning-visible','smile-prompt-visible'].filter(c=>s.state?.classes?.includes(c));
+    lines.push('Layout classes: '+(classes.join(',')||'not recorded'));
+    lines.push(`Geometry changed vs initial baseline=${changed===null?'unknown':changed?'YES':'NO'}; owner says bands=${observation?.outcome||'NOT REPORTED'}${observation?' @'+n(observation.at)+'ms':''}.`);
+  }
+  const restored=samples.filter(s=>s.kind==='ab-restored').at(-1);
+  if(restored)lines.push(`Latest restored baseline @${n(restored.at)}ms: video=[${(rect(restored)||[]).map(n).join(',')}]; container=[${(container(restored)||[]).map(n).join(',')}].`);
+  const ownerLog=observations.filter(o=>['baseline','A','B'].includes(o.mode)&&['still-visible','disappeared','unsure'].includes(o.outcome)).slice(0,8);
+  lines.push('Owner log (explicit): '+(ownerLog.length?ownerLog.map(o=>`${o.mode}=${o.outcome}@${n(o.at)}ms`).join('; '):'none'));
+  lines.push(`Selected mode=${['baseline','A','B'].includes(report.ab?.mode)?report.ab.mode:'unknown'}. A/B are mutually exclusive.`);
+  lines.push('A hides only mesh/technical layers; instructions/warnings/countdown/results remain. B requests will-change:transform only; no crop/mirror/stream changes.');
+  lines.push('Unchanged geometry does not prove bands disappeared. A visibility changes can also trigger recompositing; B may be ignored. No root cause is inferred.');
+  return lines.join('\n');
+}
+
 // Pure formatter: existing report data only. No DOM reads, sampling, I/O or state changes.
 export function buildFaceLayoutSummary(report) {
   const knownClasses = ['start-ready','screening-active','result-visible','notice-status','notice-pose',
@@ -94,6 +130,9 @@ export async function startFaceLayoutDebug() {
   if (!start || !video) return;
   const originTime = performance.now();
   const snapshots = [];
+  const abSnapshots = [], abObservations = [];
+  let abMode = 'baseline', abBusy = false, abToken = 0, abPending = 0;
+  const abStyles = new Map();
   const computed = [], computedIndex = new Map();
   const timers = new Set();
   const frames = new Set();
@@ -135,7 +174,7 @@ export async function startFaceLayoutDebug() {
   shadow.innerHTML = `<style>
     :host{color:#172536;font-family:system-ui,sans-serif;line-height:1.5}
     button{font:600 14px/1.5 system-ui,sans-serif;min-height:48px;padding:8px 12px;border:1px solid #75899d;border-radius:10px;background:#fff;color:#172536;cursor:pointer}
-    button:focus-visible{outline:3px solid #0d58b8;outline-offset:2px}
+    select{font:14px/1.5 system-ui,sans-serif;min-height:48px;max-width:100%} button:disabled{opacity:.5} summary{min-height:48px;cursor:pointer} button:focus-visible{outline:3px solid #0d58b8;outline-offset:2px}
     section{width:min(290px,calc(100vw - 16px));max-height:50dvh;overflow:auto;box-sizing:border-box;background:#fff;border:1px solid #75899d;border-radius:12px;padding:8px}
     section[hidden],textarea[hidden],button[hidden]{display:none} p{font-size:13px;margin:6px 0} nav{display:grid;gap:6px}
     textarea{box-sizing:border-box;width:100%;height:90px;font:12px/1.4 monospace}
@@ -143,15 +182,27 @@ export async function startFaceLayoutDebug() {
   <section id="panel" hidden aria-label="Face layout diagnostics">
     <p>Preview diagnostics. Collapse before Start. Copy after completion.</p>
     <nav><button type="button" id="mark">Mark black bands visible</button><button type="button" id="copy">Copy diagnostic report</button><button type="button" id="summary">Copy Summary</button><button type="button" id="summary-next" hidden>Copy Summary Part 2</button></nav>
-    <p id="status" aria-live="off">Preparing bounded snapshots…</p>
+    <details><summary>A/B paint diagnostics</summary>
+    <p id="ab-mode">Baseline — no A/B override.</p>
+    <nav><button type="button" id="test-a" aria-pressed="false">Test A: Hide nonessential overlays</button>
+    <button type="button" id="test-b" aria-pressed="false">Test B: Video presentation</button>
+    <button type="button" id="ab-restore">Restore baseline</button></nav>
+    <label>Observed bands <select id="ab-outcome"><option value="unreported">Not reported</option><option value="still-visible">Still visible</option><option value="disappeared">Disappeared</option><option value="unsure">Unsure</option></select></label>
+    <nav><button type="button" id="ab-record">Record observation</button><button type="button" id="ab-copy">Copy A/B Summary</button></nav>
+    <textarea id="ab-fallback" readonly inputmode="none" aria-label="A/B summary — select and copy" hidden></textarea>
+    </details><p id="status" aria-live="off">Preparing bounded snapshots…</p>
     <textarea id="fallback" readonly inputmode="none" aria-label="Diagnostic JSON — select and copy" hidden></textarea><textarea id="summary-fallback" readonly inputmode="none" aria-label="Diagnostic summary — select and copy" hidden></textarea>
   </section>`;
   const panel = shadow.getElementById('panel'), toggle = shadow.getElementById('toggle');
   const status = shadow.getElementById('status'), fallback = shadow.getElementById('fallback');
   const report = () => ({ schema: 1, tool: 'face-layout-20261026-v1', build: { sha: gate.sha, host: gate.host },
-    styles, css: { keys: properties, values: computed }, starts, pendingSnapshots: pending, limits: { snapshots: 12, starts: 2, marks: 4 }, beforeStartCaptured: snapshots.some(s => s.kind === 'before-start'), snapshots });
+    styles, css: { keys: properties, values: computed }, ab: { mode: abMode, busy: abBusy, pending: abPending, snapshots: abSnapshots, observations: abObservations }, starts, pendingSnapshots: pending, limits: { snapshots: 12, starts: 2, marks: 4 }, beforeStartCaptured: snapshots.some(s => s.kind === 'before-start'), snapshots });
   const stop = () => {
     stopped = true;
+    abToken++;
+    for (const style of abStyles.values()) style.media = 'not all';
+    for (const style of abStyles.values()) style.remove(); // Own diagnostic styles only; never remove app layers.
+    abSnapshots.length = 0; abObservations.length = 0;
     observer.disconnect();
     start.removeEventListener('click', onStart, true);
     for (const t of timers) clearTimeout(t);
@@ -163,16 +214,16 @@ export async function startFaceLayoutDebug() {
     const id = setTimeout(() => { timers.delete(id); fn(); }, ms);
     timers.add(id);
   };
-  const capture = (kind, requestedAt) => {
+  const capture = (kind, requestedAt, ab = false) => {
     if (stopped) return;
     if (!publicOnly()) return stop();
-    if (snapshots.length >= 12) return;
+    if (ab ? abSnapshots.length >= 8 : snapshots.length >= 12) return;
     const vv = window.visualViewport;
     let settings = {};
     try { settings = video.srcObject?.getVideoTracks?.()[0]?.getSettings?.() || {}; } catch (_) {}
     // Batch reads after a rendering opportunity, then update only the isolated diagnostic UI.
     // No values/text from result labels, media pixels, track labels/IDs or session objects.
-    const snapshot = { kind, requestedAt, at: elapsed(),
+    const snapshot = { kind, requestedAt, at: elapsed(), diagnosticMode: abMode,
       viewport: { window: [innerWidth,innerHeight], document: [document.documentElement.clientWidth,document.documentElement.clientHeight],
         visual: vv ? [vv.width,vv.height,vv.offsetLeft,vv.offsetTop,vv.scale].map(round) : null,
         scroll: [scrollX,scrollY].map(round) },
@@ -184,8 +235,9 @@ export async function startFaceLayoutDebug() {
       video: { intrinsic: [video.videoWidth,video.videoHeight], readyState: video.readyState, paused: video.paused, ended: video.ended,
         track: { width: round(settings.width), height: round(settings.height), aspectRatio: Number.isFinite(settings.aspectRatio) ? Math.round(settings.aspectRatio * 10000) / 10000 : null } },
       ui: { expanded: !panel.hidden, r: element(host).r } };
-    snapshots.push(snapshot);
-    status.textContent = `${snapshots.length}/12 snapshots. ${kind}.`;
+    if (ab) abSnapshots.push(snapshot); else snapshots.push(snapshot);
+    status.textContent = ab ? `A/B: ${kind}.` : `${snapshots.length}/12 snapshots. ${kind}.`;
+    return snapshot;
   };
   const schedule = (kind, delay = 0, onlyReady = false) => {
     if (stopped || snapshots.length + pending >= 12) return;
@@ -269,6 +321,80 @@ export async function startFaceLayoutDebug() {
   nextButton.addEventListener('click', () => {
     copySummaryPart(nextSummaryPart);
   });
+  // Diagnostic styles are created only by explicit A/B actions. Disabling the
+  // stylesheet restores the current original cascade without editing app nodes.
+  const abRules = {
+    A: 'html[data-face-public="1"] #canvas,html[data-face-public="1"] #face-status-row,html[data-face-public="1"] #progress-dots,html[data-face-public="1"] #pose-hud,html[data-face-public="1"] #debug-panel{visibility:hidden!important}',
+    B: 'html[data-face-public="1"] #video{will-change:transform!important}'
+  };
+  const abButtonA = shadow.getElementById('test-a'), abButtonB = shadow.getElementById('test-b');
+  const abOutcome = shadow.getElementById('ab-outcome');
+  const syncAB = () => {
+    abButtonA.disabled = abBusy || abMode === 'B';
+    abButtonB.disabled = abBusy || abMode === 'A';
+    abButtonA.setAttribute('aria-pressed', String(abMode === 'A'));
+    abButtonB.setAttribute('aria-pressed', String(abMode === 'B'));
+    abOutcome.disabled = abBusy;
+    shadow.getElementById('ab-record').disabled = abBusy;
+    shadow.getElementById('ab-mode').textContent = abBusy ? 'Preparing a bounded A/B snapshot…' :
+      abMode === 'baseline' ? 'Baseline — no A/B override.' : `Test ${abMode} ACTIVE — restore baseline before the other test.`;
+  };
+  const scheduleAB = (kind, callback = () => {}) => {
+    if (stopped || abSnapshots.length + abPending >= 8) { callback(null); return; }
+    abPending++;
+    const requestedAt = elapsed();
+    const frame = requestAnimationFrame(() => {
+      frames.delete(frame);
+      later(() => { abPending--; const sample = capture(kind, requestedAt, true); callback(sample); },0);
+    });
+    frames.add(frame);
+  };
+  const restoreAB = () => {
+    abToken++;
+    for (const style of abStyles.values()) style.media = 'not all';
+    abMode = 'baseline'; abBusy = false; abOutcome.value = 'unreported'; syncAB();
+  };
+  const requestAB = mode => {
+    if (stopped || !publicOnly()) return stop();
+    if (abBusy) return;
+    if (abMode === mode) { restoreAB(); scheduleAB('ab-restored'); return; }
+    if (abMode !== 'baseline') return; // No simultaneous A/B, including scripted clicks.
+    if (abSnapshots.length + abPending >= 7) { status.textContent = 'A/B snapshot limit. Copy the report and reload for another run.'; return; }
+    abBusy = true; syncAB();
+    const token = ++abToken;
+    const apply = () => {
+      if (stopped || token !== abToken || !publicOnly()) return;
+      let style = abStyles.get(mode);
+      if (!style) {
+        style = document.createElement('style'); style.id = `qs-face-layout-ab-${mode}`;
+        style.media = 'not all'; style.textContent = abRules[mode];
+        document.body.appendChild(style); abStyles.set(mode,style);
+      }
+      style.media = 'all'; abMode = mode; abOutcome.value = 'unreported';
+      scheduleAB(`ab-${mode}`, () => { if(token===abToken){abBusy=false;syncAB();} });
+    };
+    // Capture baseline immediately before each independent experiment, not from an old stage.
+    scheduleAB('ab-baseline', sample => { if(sample) apply(); else {abBusy=false;syncAB();} });
+  };
+  abButtonA.addEventListener('click', () => requestAB('A'));
+  abButtonB.addEventListener('click', () => requestAB('B'));
+  shadow.getElementById('ab-restore').addEventListener('click', () => {
+    if(!publicOnly())return stop(); restoreAB(); scheduleAB('ab-restored');
+  });
+  shadow.getElementById('ab-record').addEventListener('click', () => {
+    if(!publicOnly())return stop();
+    if(abBusy || abObservations.length>=8 || !['still-visible','disappeared','unsure'].includes(abOutcome.value))return;
+    abObservations.push({ mode:abMode, at:elapsed(), outcome:abOutcome.value });
+    status.textContent = `Owner reported ${abOutcome.value} in ${abMode}. No visual inference.`;
+  });
+  shadow.getElementById('ab-copy').addEventListener('click', () => {
+    if(!publicOnly())return stop();
+    const text = buildFaceABSummary(report());
+    const manual = () => { const field=shadow.getElementById('ab-fallback');field.hidden=false;field.value=text;field.focus();field.select();status.textContent='Select and copy the A/B summary manually.'; };
+    if(!navigator.clipboard?.writeText)return manual();
+    navigator.clipboard.writeText(text).then(()=>{status.textContent='A/B summary copied. No upload.';},manual);
+  });
+  syncAB();
   document.body.appendChild(host);
   start.addEventListener('click', onStart, { capture: true, passive: true });
   observer.observe(document.body, { attributes: true, attributeFilter: ['class'] });
