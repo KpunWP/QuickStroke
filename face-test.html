@@ -1783,6 +1783,15 @@ html[data-face-public="1"] body[data-public-face-startup="ready"] #btn-row{posit
 html[data-face-public="1"] body[data-public-face-startup="preparing"]{display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,1fr) auto auto}
 html[data-face-public="1"] body[data-public-face-startup="preparing"] #public-face-startup{position:relative;grid-row:2;grid-column:1;inset:auto;width:calc(100% - 24px);margin:0 auto calc(16px + env(safe-area-inset-bottom))}
 </style>
+<style id="public-face-active-style">
+/* Public active view only. Leave startup, urgent warnings and results unchanged.
+   Pin the display layer to the viewport independently of startup/completion flow.
+   Camera acquisition, intrinsic dimensions, cover crop and mirror stay unchanged. */
+html[data-face-public="1"] body.screening-active:not(.result-visible):not(:has(#dashboard.pulse)){display:block!important;grid-template-rows:none!important;grid-template-columns:none!important;padding:0!important}
+html[data-face-public="1"] body.screening-active:not(.result-visible):not(:has(#dashboard.pulse)) #video-container{position:fixed!important;inset:0!important;width:100vw!important;height:100vh!important;height:100dvh!important;margin:0!important;padding:0!important;border:0!important;border-radius:0!important;max-width:none!important;max-height:none!important}
+html[data-face-public="1"] body.screening-active:not(.result-visible):not(:has(#dashboard.pulse)) #video{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;max-width:none!important;max-height:none!important;object-fit:cover!important;display:block!important}
+html[data-face-public="1"] body.screening-active:not(.result-visible):not(:has(#dashboard.pulse)) #center-countdown{position:fixed!important;inset:auto!important;top:50%!important;left:50%!important;bottom:auto!important;right:auto!important;transform:translate(-50%,-50%)!important;width:max-content!important;max-width:calc(100% - 48px)!important;height:auto!important;margin:0!important;padding:0!important;font-size:clamp(4rem,22vw,8rem)!important;font-weight:500!important;line-height:1.15!important;color:rgba(255,255,255,.72)!important;-webkit-text-stroke:1.25px rgba(8,20,32,.75);text-shadow:0 1px 3px rgba(0,0,0,.7)!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important}
+</style>
 <script id="public-face-mode">
 // Presentation only; preserve explicit Dev/mesh demonstrations and all policies.
 const publicFacePresentation = window.QuickStrokeAppMode?.resolveMode?.() === 'public'
