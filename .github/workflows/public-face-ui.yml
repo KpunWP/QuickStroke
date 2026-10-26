@@ -2,6 +2,7 @@ name: Public Face UI regression
 on:
   pull_request:
     branches:
+      - diagnostics/public-face-black-band-ab-20261026
       - fix/public-face-fullscreen-countdown-20261026
       - fix/public-face-startup-ux-20261026
       - fix/public-face-completion-panel-20261025
@@ -14,6 +15,7 @@ on:
       - assets/public-face.css
       - assets/public-face-startup.css
       - assets/public-face-active.css
+      - tests/public-face-regression-bands.mjs
       - tests/public-face-active.mjs
       - tests/public-face-active.cjs
       - locales/**/ui.json
@@ -40,6 +42,7 @@ jobs:
           node-version: '22'
       - name: Frozen Face camera/geometry/lifecycle and existing contracts
         run: |
+          node tests/public-face-regression-bands.mjs
           node tests/public-face-ui.mjs
           node tests/public-face-active.mjs
           node tests/public-face-startup.mjs

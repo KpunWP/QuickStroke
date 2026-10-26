@@ -2,11 +2,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 const html=fs.readFileSync('face-test.html','utf8'),css=fs.readFileSync('assets/public-face-active.css','utf8');
-const baseline=html.replace(/<script id="public-face-layout-debug-loader"[^]*?<\/script>\n/,'').replace(/<style id="public-face-active-style">[^]*?<\/style>\n/,'');
-assert.equal(crypto.createHash('sha256').update(baseline).digest('hex'),'a1e6e55f83d2d1151d79bffb2d5cb0146e3d756f48720305241f34da680eb0a0','All baseline markup/scripts/startup/completion remain exactly PR #115; only a CSS block is added');
+// Presentation wrapper and CSS are separately checked; freeze every original node/script.
+const normalize=s=>s.replace(/<style\b[^>]*>[^]*?<\/style>/g,'').replace('<!-- PUBLIC FACE PRESENTATION WRAPPER -->\n<div id="public-face-presentation" style="display:contents">\n','').replace('</div><!-- END PUBLIC FACE PRESENTATION WRAPPER -->\n','');
+assert.equal(crypto.createHash('sha256').update(normalize(html)).digest('hex'),'84c42f0a9f422c6889dfdbfcfa864efc77d9ba5e258e9b034b4c59b697cf32a8','Original DOM/scripts remain frozen after removing the two presentation wrapper tags and CSS');
 assert.equal(html.match(/<style id="public-face-active-style">\n([^]*?)<\/style>/)[1],css);
 const scope='html[data-face-public="1"] body.screening-active:not(.result-visible):not(:has(#dashboard.pulse))';
 for(const rule of css.split('}').filter(x=>x.trim()))assert.ok(rule.replace(/\/\*[^]*?\*\//g,'').trim().startsWith(scope));
 assert.doesNotMatch(css,/scaleX|#canvas|visibility:|display:none|animation:|filter:blur\([^0n]|z-index:/);
 assert.doesNotMatch(css,/#video(?:-container)?\b/);assert.match(css,/top:50%/);assert.match(css,/color:rgba\(255,255,255,\.85\)/);assert.match(css,/pointer-events:none/);
-console.log('PASS: CSS-only delta from exact PR #115; original engines/handlers/startup/completion frozen; Public active-only inherited camera layout and Bold translucent centered countdown');
+console.log('PASS: original DOM/scripts frozen except two wrapper tags; Public camera geometry inherited; Bold centered countdown unchanged');

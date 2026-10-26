@@ -1744,8 +1744,8 @@ html[data-face-public="1"] body:not(.result-visible) #dashboard.pulse{max-height
 /* Completion-only hotfix: valid result with no attached warning/reason.
    One decorative background spans the existing summary and original controls.
    Intrinsic rows grow/scroll instead of clipping accessibility text. */
-html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty){display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;column-gap:0;row-gap:0}
-html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty)::before{content:"";grid-column:1;grid-row:2 / 4;align-self:stretch;position:relative;width:calc(100% - 24px);max-width:448px;margin:0 auto calc(12px + env(safe-area-inset-bottom));border:1px solid #ffffff70;border-radius:22px;background:rgba(16,38,57,.94);box-shadow:inset 0 1px 0 #ffffff40,0 6px 24px #00102040;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);pointer-events:none;z-index:118}
+html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty) #public-face-presentation{position:absolute;inset:0;pointer-events:none;display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr) auto auto;column-gap:0;row-gap:0}
+html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty) #public-face-presentation::before{content:"";grid-column:1;grid-row:2 / 4;align-self:stretch;position:relative;width:calc(100% - 24px);max-width:448px;margin:0 auto calc(12px + env(safe-area-inset-bottom));border:1px solid #ffffff70;border-radius:22px;background:rgba(16,38,57,.94);box-shadow:inset 0 1px 0 #ffffff40,0 6px 24px #00102040;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);pointer-events:none;z-index:118}
 html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty) #score-box{grid-column:1;grid-row:2;position:relative!important;inset:auto!important;width:calc(100% - 24px)!important;max-width:448px!important;margin:0 auto!important;padding:12px 14px 4px!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
 html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty) #score-container{min-height:0!important;padding:0!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important}
 html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty) #score-label{font-size:1.125rem!important;line-height:1.8!important;padding:0!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important}
@@ -1753,6 +1753,9 @@ html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: f
 html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty) #btn-row{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;align-items:stretch!important;justify-content:center!important;gap:8px!important;width:100%!important;min-width:0!important;margin:0!important;padding:0!important}
 html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty) #fast-nav-btn{flex:1 1 9rem!important;width:auto!important;min-width:48px!important;min-height:48px!important;padding:9px 12px!important;border-radius:14px!important;font-size:1rem!important;line-height:1.8!important;box-shadow:inset 0 1px 0 #ffffff40!important}
 html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty) #start-btn{flex:0 1 auto!important;width:auto!important;min-width:48px!important;min-height:48px!important;padding:9px 12px!important;border-radius:14px!important;background:rgba(255,255,255,.07)!important;font-size:1rem!important;line-height:1.8!important;box-shadow:none!important}
+
+/* Keep presentation grids beside, never above, the camera in the DOM. */
+html[data-face-public="1"] #public-face-presentation > *{pointer-events:auto}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1"></script>
@@ -1776,18 +1779,17 @@ html[data-face-public="1"] body[data-public-face-startup="preparing"]:not(.resul
 html[data-face-public="1"] body[data-public-face-startup="preparing"] #start-btn{display:none!important}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup{padding:8px 12px}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup-title,html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup-spinner{display:none}
-html[data-face-public="1"] body[data-public-face-startup="ready"]{display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) auto auto}
+html[data-face-public="1"] body[data-public-face-startup="ready"]:not(.screening-active):not(.result-visible) #public-face-presentation{position:absolute;inset:0;pointer-events:none;display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) auto auto}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup{position:relative;grid-row:2;grid-column:1;inset:auto;width:calc(100% - 24px);max-width:424px;margin:0 auto 8px}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #dashboard{position:relative!important;grid-row:3;grid-column:1;inset:auto!important;width:calc(100% - 24px)!important;max-width:424px!important;max-height:none!important;overflow:visible!important;margin:0 auto!important;padding:0 0 calc(16px + env(safe-area-inset-bottom))!important}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #btn-row{position:static!important;inset:auto!important;width:100%!important}
-html[data-face-public="1"] body[data-public-face-startup="preparing"]{display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,1fr) auto auto}
+html[data-face-public="1"] body[data-public-face-startup="preparing"]:not(.screening-active):not(.result-visible) #public-face-presentation{position:absolute;inset:0;pointer-events:none;display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,1fr) auto auto}
 html[data-face-public="1"] body[data-public-face-startup="preparing"] #public-face-startup{position:relative;grid-row:2;grid-column:1;inset:auto;width:calc(100% - 24px);margin:0 auto calc(16px + env(safe-area-inset-bottom))}
 </style>
 <style id="public-face-active-style">
 /* Public active view only. Leave startup, urgent warnings and results unchanged.
-   Retain active block flow; inherit the same camera display geometry as before Start.
+   Retain the known-good Public body flow; inherit the same camera display geometry as before Start.
    Camera acquisition, intrinsic dimensions, cover crop and mirror stay unchanged. */
-html[data-face-public="1"] body.screening-active:not(.result-visible):not(:has(#dashboard.pulse)){display:block!important;grid-template-rows:none!important;grid-template-columns:none!important;padding:0!important}
 html[data-face-public="1"] body.screening-active:not(.result-visible):not(:has(#dashboard.pulse)) #center-countdown{position:fixed!important;inset:auto!important;top:50%!important;left:50%!important;bottom:auto!important;right:auto!important;transform:translate(-50%,-50%)!important;width:max-content!important;max-width:calc(100% - 48px)!important;height:auto!important;margin:0!important;padding:0!important;font-family:'Manrope',sans-serif!important;font-size:clamp(4rem,20vw,5rem)!important;font-weight:700!important;line-height:1.15!important;font-variant-numeric:tabular-nums!important;color:rgba(255,255,255,.85)!important;-webkit-text-stroke:0;text-shadow:0 1px 3px rgba(0,0,0,.28)!important;background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important;pointer-events:none!important}
 </style>
 <script id="public-face-mode">
@@ -1887,6 +1889,8 @@ if (publicFacePresentation) document.querySelector('meta[name="viewport"]').cont
   </div>
 </div>
 
+<!-- PUBLIC FACE PRESENTATION WRAPPER -->
+<div id="public-face-presentation" style="display:contents">
 <div id="score-box">
   <div id="score-container">
     <span id="score-num">—</span>
@@ -1916,6 +1920,7 @@ if (publicFacePresentation) document.querySelector('meta[name="viewport"]').cont
   <span id="public-face-startup-detail"></span>
 </section>
 <!-- END PUBLIC FACE STARTUP PRESENTATION -->
+</div><!-- END PUBLIC FACE PRESENTATION WRAPPER -->
 
 <script type="module">
 'use strict';

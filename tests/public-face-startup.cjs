@@ -64,5 +64,23 @@ for(const state of ['alignment','retry','result','review','urgent','unable']){aw
 for(const mode of ['research','dev'])for(const state of ['model','camera','result']){const shots=[];for(const old of [true,false]){await load('en',state,mode,old);shots.push(await p.screenshot({animations:'disabled'}));if(!old)assert.equal(await panel(),false)}assert.ok(shots[0].equals(shots[1]),mode+' '+state+' unchanged')}flows.push('Research/Dev startup and completion pixel-identical');
 for(const flow of ['full','individual']){await load('en','result','public',false,flow);const target=flow==='full'?'arm-test.html':'result.html';await p.route('**/'+target,r=>r.fulfill({contentType:'text/html',body:'Navigation boundary'}));await p.locator('#fast-nav-btn').click();await p.waitForURL('**/'+target);await p.unroute('**/'+target);flows.push(flow+' original continuation → '+target)}
 for(const state of ['camera','result']){await load('en',state);await p.evaluate(()=>__faceFixture.boundary());await p.locator('#start-btn').click();assert.equal(await p.evaluate(()=>window.faceStartCalls),1);flows.push(state+' original Start/Retry boundary')}
+// Regression boundaries #114/#115: a presentation grid must never own the camera.
+for(const width of [320,390,430])for(const lang of ['en','th','ja'])for(const scale of [1,2]){
+ await p.setViewportSize({width,height:width===320?568:844});
+ for(const state of ['model','camera','countdown','result']){
+  await load(lang,state);if(scale===2)await p.evaluate(()=>document.documentElement.style.fontSize='200%');
+  const layout=await p.evaluate(()=>{
+   const body=getComputedStyle(document.body),w=document.getElementById('public-face-presentation'),v=document.getElementById('video'),c=document.getElementById('video-container');
+   const rect=n=>{const r=n.getBoundingClientRect();return[r.x,r.y,r.width,r.height]};
+   return{bodyDisplay:body.display,bodyBefore:getComputedStyle(document.body,'::before').content,wrapperDisplay:getComputedStyle(w).display,wrapperBefore:getComputedStyle(w,'::before').content,wrapperPointer:getComputedStyle(w).pointerEvents,cameraOutside:!w.contains(c)&&!w.contains(v),video:rect(v),container:rect(c),mirror:getComputedStyle(v).transform,fit:getComputedStyle(v).objectFit,horizontal:document.documentElement.scrollWidth>innerWidth};
+  });
+  assert.equal(layout.bodyDisplay,'flow-root',JSON.stringify({width,lang,scale,state,layout}));
+  assert.equal(layout.bodyBefore,'none');assert.equal(layout.cameraOutside,true);assert.equal(layout.fit,'cover');assert.equal(layout.mirror,'matrix(-1, 0, 0, 1, 0, 0)');
+  assert.deepEqual(layout.video,[0,0,width,width===320?568:844]);assert.deepEqual(layout.container,layout.video);assert.equal(layout.horizontal,false);
+  assert.equal(layout.wrapperDisplay,state==='countdown'?'contents':'grid');
+  if(state==='result'){assert.equal(layout.wrapperBefore,'""');assert.equal(layout.wrapperPointer,'none');await p.locator('#fast-nav-btn').scrollIntoViewIfNeeded();assert.ok(await p.locator('#fast-nav-btn').isVisible());}
+ }
+}
+flows.push('72 root-stability cases: TH/EN/JA, 320/390/430, normal/200%, preparing/ready/countdown/completion; camera outside presentation grid; no body paint layer');
 assert.deepEqual(errors,[]);if(out)fs.writeFileSync(path.join(out,'results.json'),JSON.stringify({cases:records.length,records,flows,errors},null,2));console.log(JSON.stringify({pass:true,cases:records.length,flows,errors},null,2));await c.close();
 }finally{await b.close();server.close()}})().catch(e=>{console.error(e);server.close();process.exitCode=1});
