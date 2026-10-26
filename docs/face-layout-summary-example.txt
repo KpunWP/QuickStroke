@@ -1,0 +1,48 @@
+SYNTHETIC EXAMPLE ONLY — not a physical iPhone observation.
+
+QuickStroke Face Layout Summary v1
+SHA aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa; diagnostic face-layout-20261026-v1
+Rects=[x,y,width,height] CSS px; intrinsic=width x height; ?=unavailable. Times from tool enable. Pending snapshots=0.
+
+Before Start @50ms:
+visualViewport=390x696 offset(0,0) scale 1; body=[0,0,390,696]
+container=[0,0,390,696]; video=[0,0,390,696]; intrinsic=480x640; track=480x640
+CSS: container position=absolute; video position=static; fit=cover; object-position=50% 50%; overflow container=hidden/hidden, video=clip/clip; background container=rgb(0, 0, 0), video=rgb(14, 22, 32)
+State: start-ready; startup=ready; lang=en-US.
+Over-video candidates: canvas (pixels unknown).
+
+After Start @220ms:
+visualViewport=390x696 offset(0,0) scale 1; body=[0,0,390,696]
+container=[0,0,390,696]; video=[0,0,390,696]; intrinsic=480x640; track=480x640
+CSS: unchanged from previous available stage
+State: added screening-active,notice-status; removed start-ready; startup=?; lang=en-US.
+Over-video candidates: canvas (pixels unknown), instruction area (child paint unknown).
+
+After Start ~250ms @470ms:
+visualViewport=390x696 offset(0,0) scale 1; body=[0,0,390,696]
+container=[0,0,390,696]; video=[0,0,390,696]; intrinsic=480x640; track=480x640
+CSS: unchanged from previous available stage
+State: classes unchanged; startup=?; lang=en-US.
+Over-video candidates: same as previous available stage.
+
+After Start ~1s @1220ms:
+visualViewport=390x696 offset(0,0) scale 1; body=[0,0,390,696]
+container=[0,0,390,696]; video=[0,0,390,696]; intrinsic=480x640; track=480x640
+CSS: unchanged from previous available stage
+State: classes unchanged; startup=?; lang=en-US.
+Over-video candidates: same as previous available stage.
+
+Bands visible (latest) @1800ms:
+visualViewport=390x696 offset(0,0) scale 1; body=[0,0,390,696]
+container=[0,0,390,696]; video=[0,0,390,696]; intrinsic=480x640; track=480x640
+CSS: unchanged from previous available stage
+State: classes unchanged; startup=?; lang=en-US.
+Over-video candidates: same as previous available stage.
+
+Completion/result (latest) @6000ms:
+visualViewport=390x696 offset(0,0) scale 1; body=[0,0,390,696]
+container=[0,0,390,696]; video=[0,0,390,696]; intrinsic=480x640; track=480x640
+CSS: unchanged from previous available stage
+State: added result-visible; removed screening-active,notice-status; startup=?; lang=en-US.
+Over-video candidates: canvas (pixels unknown), instruction area (child paint unknown), result panel.
+After-Start samples use the first click; bands/result use latest. Candidates are not proof of occlusion. No pixels sampled.

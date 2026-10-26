@@ -1,3 +1,75 @@
+// Pure formatter: existing report data only. No DOM reads, sampling, I/O or state changes.
+export function buildFaceLayoutSummary(report) {
+  const knownClasses = ['start-ready','screening-active','result-visible','notice-status','notice-pose',
+    'notice-smile','pose-warning-visible','smile-prompt-visible'];
+  const num = x => typeof x === 'number' && Number.isFinite(x) ? String(Math.round(x * 10) / 10) : '?';
+  const list = (a, n) => Array.isArray(a) ? a.slice(0,n).map(num).join(',') : '?';
+  const rect = e => e?.r?.length === 4 ? '[' + list(e.r,4) + ']' : 'MISSING';
+  const css = e => {
+    const values = report.css?.values?.[e?.cs] || [];
+    return Object.fromEntries((report.css?.keys || []).map((key,i) => [key,values[i]]));
+  };
+  const enumValue = (value, allowed) => allowed.includes(value) ? value : '?';
+  const color = value => typeof value === 'string' && value.length <= 64 &&
+    (value === 'transparent' || /^rgba?\([\d.,% /]+\)$/.test(value) || /^color\((?:srgb|display-p3) [\d.% /+-]+\)$/.test(value)) ? value : '?';
+  const position = value => typeof value === 'string' && value.length <= 48 &&
+    /^[\d.%+ -]+$/.test(value) ? value : '?';
+  const layoutCSS = snapshot => {
+    const c=css(snapshot.elements?.['video-container']),v=css(snapshot.elements?.video);
+    const pos=['static','relative','absolute','fixed','sticky'], over=['visible','hidden','clip','scroll','auto','overlay'];
+    return `container position=${enumValue(c.position,pos)}; video position=${enumValue(v.position,pos)}; fit=${enumValue(v['object-fit'],['cover','contain','fill','none','scale-down'])}; object-position=${position(v['object-position'])}; overflow container=${enumValue(c['overflow-x'],over)}/${enumValue(c['overflow-y'],over)}, video=${enumValue(v['overflow-x'],over)}/${enumValue(v['overflow-y'],over)}; background container=${color(c['background-color'])}, video=${color(v['background-color'])}`;
+  };
+  const intersects = (a,b) => a?.length===4 && b?.length===4 && a.every(Number.isFinite) && b.every(Number.isFinite) &&
+    a[2]>0 && a[3]>0 && b[2]>0 && b[3]>0 && Math.min(a[0]+a[2],b[0]+b[2])>Math.max(a[0],b[0]) && Math.min(a[1]+a[3],b[1]+b[3])>Math.max(a[1],b[1]);
+  const layers = snapshot => {
+    const names={'canvas':'canvas (pixels unknown)','dashboard':'instruction area (child paint unknown)',
+      'score-box':'result panel','public-face-startup':'startup bubble','no-face-banner':'no-face banner'};
+    const result=[];
+    for(const [id,name] of Object.entries(names)) {
+      const e=snapshot.elements?.[id],s=css(e);
+      if(e && intersects(e.r,snapshot.elements?.video?.r) && s.display!=='none' && s.visibility!=='hidden' && s.opacity!=='0')result.push(name);
+    }
+    if(intersects(snapshot.ui?.r,snapshot.elements?.video?.r))result.push(`diagnostic control (${snapshot.ui?.expanded?'expanded':'collapsed'})`);
+    if(snapshot.bodyPseudo?.before?.contentPresent)result.push('body::before (rect unknown)');
+    if(snapshot.bodyPseudo?.after?.contentPresent)result.push('body::after (rect unknown)');
+    return result.length ? result.join(', ') : 'none recorded';
+  };
+  const snapshots=Array.isArray(report.snapshots)?report.snapshots:[];
+  const first=kind=>snapshots.find(s=>s.kind===kind);
+  const last=kind=>snapshots.filter(s=>s.kind===kind).at(-1);
+  const stages=[['Before Start',first('before-start')],['After Start',first('after-start')],
+    ['After Start ~250ms',first('after-start-250ms')],['After Start ~1s',first('after-start-1000ms')],
+    ['Bands visible (latest)',last('bands-visible')],['Completion/result (latest)',last('after-result-visible')]];
+  let previous=null;
+  const blocks=stages.map(([label,snapshot])=>{
+    if(!snapshot)return `${label}: MISSING${label.startsWith('Bands')?' — use Mark black bands visible.':'.'}`;
+    const vv=snapshot.viewport?.visual,e=snapshot.elements||{},track=snapshot.video?.track;
+    const classes=knownClasses.filter(c=>snapshot.state?.classes?.includes(c));
+    const priorClasses=knownClasses.filter(c=>previous?.state?.classes?.includes(c));
+    const added=classes.filter(c=>!priorClasses.includes(c)),removed=priorClasses.filter(c=>!classes.includes(c));
+    const state=previous ? (added.length||removed.length ? `added ${added.join(',')||'none'}; removed ${removed.join(',')||'none'}` : 'classes unchanged') : (classes.join(',')||'no listed classes');
+    const currentCSS=layoutCSS(snapshot),currentLayers=layers(snapshot);
+    const lines=[`${label} @${num(snapshot.at)}ms:`,
+      `visualViewport=${vv?.length>=5?`${num(vv[0])}x${num(vv[1])} offset(${num(vv[2])},${num(vv[3])}) scale ${num(vv[4])}`:'MISSING'}; body=${rect(e.body)}`,
+      `container=${rect(e['video-container'])}; video=${rect(e.video)}; intrinsic=${num(snapshot.video?.intrinsic?.[0])}x${num(snapshot.video?.intrinsic?.[1])}; track=${num(track?.width)}x${num(track?.height)}`,
+      `CSS: ${previous&&currentCSS===layoutCSS(previous)?'unchanged from previous available stage':currentCSS}`,
+      `State: ${state}; startup=${enumValue(snapshot.state?.startup,['ready','preparing'])}; lang=${enumValue(snapshot.state?.lang,['th','en','ja','th-TH','en-US','ja-JP'])}.`,
+      `Over-video candidates: ${previous&&currentLayers===layers(previous)?'same as previous available stage':currentLayers}.`];
+    previous=snapshot;
+    return lines.join('\n');
+  });
+  const sha=/^[a-f0-9]{40}$/.test(report.build?.sha||'')?report.build.sha:'unavailable';
+  const tool=/^face-layout-\d{8}-v\d{1,3}$/.test(report.tool||'')?report.tool:'unavailable';
+  const header=`QuickStroke Face Layout Summary v1\nSHA ${sha}; diagnostic ${tool}\nRects=[x,y,width,height] CSS px; intrinsic=width x height; ?=unavailable. Times from tool enable. Pending snapshots=${num(report.pendingSnapshots)}.\n`;
+  const note='\nAfter-Start samples use the first click; bands/result use latest. Candidates are not proof of occlusion. No pixels sampled.';
+  const whole=header+'\n'+blocks.join('\n\n')+note;
+  if(whole.length<=3000)return [whole];
+  // All six stages remain present. Split whole stage blocks, never trim their text.
+  const midpoint=3;
+  return [header+'Part 1/2\n\n'+blocks.slice(0,midpoint).join('\n\n')+note,
+    header+'Part 2/2\n\n'+blocks.slice(midpoint).join('\n\n')+note];
+}
+
 // Temporary opt-in metadata diagnostics. No media reads, engine hooks, storage or report uploads.
 export async function startFaceLayoutDebug() {
   const query = new URLSearchParams(location.search);
@@ -65,14 +137,14 @@ export async function startFaceLayoutDebug() {
     button{font:600 14px/1.5 system-ui,sans-serif;min-height:48px;padding:8px 12px;border:1px solid #75899d;border-radius:10px;background:#fff;color:#172536;cursor:pointer}
     button:focus-visible{outline:3px solid #0d58b8;outline-offset:2px}
     section{width:min(290px,calc(100vw - 16px));max-height:50dvh;overflow:auto;box-sizing:border-box;background:#fff;border:1px solid #75899d;border-radius:12px;padding:8px}
-    section[hidden],textarea[hidden]{display:none} p{font-size:13px;margin:6px 0} nav{display:grid;gap:6px}
+    section[hidden],textarea[hidden],button[hidden]{display:none} p{font-size:13px;margin:6px 0} nav{display:grid;gap:6px}
     textarea{box-sizing:border-box;width:100%;height:90px;font:12px/1.4 monospace}
   </style><button type="button" id="toggle" aria-expanded="false" aria-controls="panel">Layout</button>
   <section id="panel" hidden aria-label="Face layout diagnostics">
     <p>Preview diagnostics. Collapse before Start. Copy after completion.</p>
-    <nav><button type="button" id="mark">Mark black bands visible</button><button type="button" id="copy">Copy diagnostic report</button></nav>
+    <nav><button type="button" id="mark">Mark black bands visible</button><button type="button" id="copy">Copy diagnostic report</button><button type="button" id="summary">Copy Summary</button><button type="button" id="summary-next" hidden>Copy Summary Part 2</button></nav>
     <p id="status" aria-live="off">Preparing bounded snapshots…</p>
-    <textarea id="fallback" readonly inputmode="none" aria-label="Diagnostic JSON — select and copy" hidden></textarea>
+    <textarea id="fallback" readonly inputmode="none" aria-label="Diagnostic JSON — select and copy" hidden></textarea><textarea id="summary-fallback" readonly inputmode="none" aria-label="Diagnostic summary — select and copy" hidden></textarea>
   </section>`;
   const panel = shadow.getElementById('panel'), toggle = shadow.getElementById('toggle');
   const status = shadow.getElementById('status'), fallback = shadow.getElementById('fallback');
@@ -170,6 +242,32 @@ export async function startFaceLayoutDebug() {
       status.textContent = 'Clipboard unavailable. Select this JSON and copy manually.'; };
     if (!navigator.clipboard?.writeText) return manualCopy();
     navigator.clipboard.writeText(json).then(() => { status.textContent = 'Diagnostic JSON copied. No report uploaded.'; }, manualCopy);
+  });
+  let summaryParts = [], nextSummaryPart = 1;
+  const nextButton = shadow.getElementById('summary-next');
+  const copySummaryPart = index => {
+    if (!publicOnly()) return stop();
+    const text = summaryParts[index];
+    const label = `Summary part ${index + 1}/${summaryParts.length}`;
+    const manualCopy = () => {
+      const field = shadow.getElementById('summary-fallback');
+      field.hidden = false; field.value = text; field.focus(); field.select();
+      status.textContent = `${label}: select and copy the text manually.`;
+    };
+    if (!navigator.clipboard?.writeText) return manualCopy();
+    navigator.clipboard.writeText(text).then(() => {
+      status.textContent = `${label} copied.${summaryParts.length > 1 ? ' Copy both parts.' : ''}`;
+    }, manualCopy);
+  };
+  shadow.getElementById('summary').addEventListener('click', () => {
+    if (!publicOnly()) return stop();
+    summaryParts = buildFaceLayoutSummary(report());
+    nextSummaryPart = 1;
+    nextButton.hidden = summaryParts.length < 2;
+    copySummaryPart(0);
+  });
+  nextButton.addEventListener('click', () => {
+    copySummaryPart(nextSummaryPart);
   });
   document.body.appendChild(host);
   start.addEventListener('click', onStart, { capture: true, passive: true });
