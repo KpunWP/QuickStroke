@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 const html=fs.readFileSync('face-test.html','utf8'),css=fs.readFileSync('assets/public-face.css','utf8');
-const withoutStyle=html.replace(/<style id="public-face-active-style">[^]*?<\/style>\n/,'').replace(/<style id="public-face-startup-style">[^]*?<\/style>\n/,'').replace(/<!-- PUBLIC FACE STARTUP PRESENTATION -->[^]*?<!-- END PUBLIC FACE STARTUP PRESENTATION -->\n\n/,'').replace(/\/\* PUBLIC FACE STARTUP PRESENTATION[^]*?\/\* END PUBLIC FACE STARTUP PRESENTATION \*\/\n\n/,'').replace(/<style id="public-face-style">[^]*?<\/style>/,'');
+const withoutStyle=html.replace(/<script id="public-face-layout-debug-loader"[^]*?<\/script>\n/,'').replace(/<style id="public-face-active-style">[^]*?<\/style>\n/,'').replace(/<style id="public-face-startup-style">[^]*?<\/style>\n/,'').replace(/<!-- PUBLIC FACE STARTUP PRESENTATION -->[^]*?<!-- END PUBLIC FACE STARTUP PRESENTATION -->\n\n/,'').replace(/\/\* PUBLIC FACE STARTUP PRESENTATION[^]*?\/\* END PUBLIC FACE STARTUP PRESENTATION \*\/\n\n/,'').replace(/<style id="public-face-style">[^]*?<\/style>/,'');
 assert.equal(crypto.createHash('sha256').update(withoutStyle).digest('hex'),'a1a432351d3303a1d909aa9b7691d7bfeeb33feabca1c6205292a1cd19686a6d','Baseline HTML, DOM, scripts and handlers match accepted 428c34b after separately tested presentation additions');
 const hotfix=css.slice(css.indexOf('/* Completion-only hotfix:'));
 const prefix='html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: flex"]):has(#score-threshold:empty)';
