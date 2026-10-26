@@ -2,6 +2,7 @@ name: Public Face UI regression
 on:
   pull_request:
     branches:
+      - fix/public-face-startup-ux-20261026
       - fix/public-face-completion-panel-20261025
       - feat/public-face-ui-phase-c4-20261025
       - feat/public-speech-ui-phase-c3-20261025
@@ -11,6 +12,9 @@ on:
       - face-test.html
       - assets/public-face.css
       - assets/public-face-startup.css
+      - assets/public-face-active.css
+      - tests/public-face-active.mjs
+      - tests/public-face-active.cjs
       - locales/**/ui.json
       - tests/public-face-startup.mjs
       - tests/public-face-startup.cjs
@@ -36,6 +40,7 @@ jobs:
       - name: Frozen Face camera/geometry/lifecycle and existing contracts
         run: |
           node tests/public-face-ui.mjs
+          node tests/public-face-active.mjs
           node tests/public-face-startup.mjs
           node tests/public-face-completion-panel.mjs
           node tests/face-capture-contract.mjs
@@ -66,3 +71,4 @@ jobs:
           node tests/public-face-browser.cjs
           node tests/public-face-completion-panel.cjs
           node tests/public-face-startup.cjs
+          node tests/public-face-active.cjs
