@@ -1765,6 +1765,24 @@ html[data-face-public="1"] body.result-visible:has(#score-box[style*="display: f
 <script src="fast-permissions.js"></script>
 <script src="./js/languages.js?v=20260720-language-registry-v1"></script>
 <script src="./js/i18n.js?v=20260720-face-review-v1"></script>
+<style id="public-face-startup-style">
+/* Startup presentation only: attributes project existing readiness; media geometry is untouched. */
+html[data-face-public="1"] #public-face-startup[hidden]{display:none!important}
+html[data-face-public="1"] #public-face-startup{position:absolute;z-index:135;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:calc(16px + env(safe-area-inset-bottom));max-width:424px;margin:0 auto;padding:16px;border:1px solid #ffffff60;border-radius:22px;background:rgba(16,38,57,.94);box-shadow:inset 0 1px 0 #ffffff30;backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);color:#fff;font:500 1rem/1.8 var(--public-face-font);text-align:center;overflow-wrap:break-word;pointer-events:none}
+html[data-face-public="1"] #public-face-startup-title{display:block;font-weight:700;font-size:1.125rem;line-height:1.8;margin:4px 0}
+html[data-face-public="1"] #public-face-startup-detail{display:block}
+html[data-face-public="1"] #public-face-startup-spinner{display:block;width:24px;height:24px;margin:0 auto 8px;border:3px solid #ffffff50;border-top-color:#fff;border-radius:50%}
+html[data-face-public="1"] body[data-public-face-startup="preparing"]:not(.result-visible):not(.screening-active) #status-msg:not(:empty){display:none!important}
+html[data-face-public="1"] body[data-public-face-startup="preparing"] #start-btn{display:none!important}
+html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup{padding:8px 12px}
+html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup-title,html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup-spinner{display:none}
+html[data-face-public="1"] body[data-public-face-startup="ready"]{display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) auto auto}
+html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup{position:relative;grid-row:2;grid-column:1;inset:auto;width:calc(100% - 24px);max-width:424px;margin:0 auto 8px}
+html[data-face-public="1"] body[data-public-face-startup="ready"] #dashboard{position:relative!important;grid-row:3;grid-column:1;inset:auto!important;width:calc(100% - 24px)!important;max-width:424px!important;max-height:none!important;overflow:visible!important;margin:0 auto!important;padding:0 0 calc(16px + env(safe-area-inset-bottom))!important}
+html[data-face-public="1"] body[data-public-face-startup="ready"] #btn-row{position:static!important;inset:auto!important;width:100%!important}
+html[data-face-public="1"] body[data-public-face-startup="preparing"]{display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,1fr) auto auto}
+html[data-face-public="1"] body[data-public-face-startup="preparing"] #public-face-startup{position:relative;grid-row:2;grid-column:1;inset:auto;width:calc(100% - 24px);margin:0 auto calc(16px + env(safe-area-inset-bottom))}
+</style>
 <script id="public-face-mode">
 // Presentation only; preserve explicit Dev/mesh demonstrations and all policies.
 const publicFacePresentation = window.QuickStrokeAppMode?.resolveMode?.() === 'public'
@@ -1883,6 +1901,14 @@ if (publicFacePresentation) document.querySelector('meta[name="viewport"]').cont
     <button class="action-btn hidden" id="start-btn"></button>
   </div>
 </div>
+
+<!-- PUBLIC FACE STARTUP PRESENTATION -->
+<section id="public-face-startup" role="status" aria-live="polite" aria-atomic="true" hidden>
+  <span id="public-face-startup-spinner" aria-hidden="true"></span>
+  <strong id="public-face-startup-title"></strong>
+  <span id="public-face-startup-detail"></span>
+</section>
+<!-- END PUBLIC FACE STARTUP PRESENTATION -->
 
 <script type="module">
 'use strict';
@@ -5442,6 +5468,44 @@ async function bootstrapFaceTest() {
   startCamera();
   loadModel();
 }
+
+/* PUBLIC FACE STARTUP PRESENTATION — read-only projection; no acquisition or readiness transitions. */
+if (document.documentElement.dataset.facePublic === '1') {
+  const startupPanel = document.getElementById('public-face-startup');
+  const startupTitle = document.getElementById('public-face-startup-title');
+  const startupDetail = document.getElementById('public-face-startup-detail');
+  const putText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
+  const syncPublicStartupPresentation = () => {
+    const eligible = phase === 'BEFORE_START' && !document.body.classList.contains('result-visible') &&
+      !runtimeQualityFlags.has('MODEL_LOAD_FAILED') &&
+      !(ENFORCE_HAND_MODEL && runtimeQualityFlags.has('HAND_MODEL_UNAVAILABLE')) &&
+      !( !FL && statusMsg.textContent.trim() );
+    if (!eligible) {
+      if (!startupPanel.hidden) startupPanel.hidden = true;
+      if (document.body.hasAttribute('data-public-face-startup')) document.body.removeAttribute('data-public-face-startup');
+      return;
+    }
+    const ready = !!FL && modelReady && isCameraRunning;
+    const view = ready ? 'ready' : 'preparing';
+    if (document.body.dataset.publicFaceStartup !== view) document.body.dataset.publicFaceStartup = view;
+    if (startupPanel.hidden) startupPanel.hidden = false;
+    const textLocale = FL ? (FACE_LOCALE_MAP[activeFaceLang] || 'en-US') : 'en-US';
+    if (startupPanel.lang !== textLocale) startupPanel.lang = textLocale;
+    if (startupPanel.getAttribute('aria-busy') !== String(!ready)) startupPanel.setAttribute('aria-busy', String(!ready));
+    putText(startupTitle, FL ? (FL.publicStartupTitle || FL.loadingModel) : 'Preparing face detection');
+    putText(startupDetail, ready ? (FL.publicReadyHint || FL.pressStart) :
+      (FL ? (FL.publicStartupHint || FL.loadingModel) : 'Getting the camera and detection tools ready. Please wait.'));
+  };
+  // Existing setUI/locale/error writes trigger this projection. No polling, media calls or state writes.
+  new MutationObserver(records => {
+    if (records.every(r => startupPanel.contains(r.target) || r.target === startupPanel ||
+      (r.target === document.body && r.attributeName === 'data-public-face-startup'))) return;
+    syncPublicStartupPresentation();
+  }).observe(document.body, {subtree:true, childList:true, characterData:true, attributes:true,
+    attributeFilter:['class','style','lang','data-public-face-startup']});
+  syncPublicStartupPresentation();
+}
+/* END PUBLIC FACE STARTUP PRESENTATION */
 
 bootstrapFaceTest();
 
