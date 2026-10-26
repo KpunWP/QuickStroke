@@ -2,6 +2,7 @@ name: Face layout diagnostics
 on:
   pull_request:
     branches:
+      - diagnostics/public-face-black-band-ab-20261026
       - fix/face-layout-copy-summary-20261026
       - diagnostics/public-face-layout-20261026
       - fix/public-face-camera-countdown-final-20261026
@@ -20,7 +21,7 @@ permissions:
 jobs:
   diagnostic-safety:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:

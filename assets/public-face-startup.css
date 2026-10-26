@@ -8,9 +8,9 @@ html[data-face-public="1"] body[data-public-face-startup="preparing"]:not(.resul
 html[data-face-public="1"] body[data-public-face-startup="preparing"] #start-btn{display:none!important}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup{padding:8px 12px}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup-title,html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup-spinner{display:none}
-html[data-face-public="1"] body[data-public-face-startup="ready"]{display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) auto auto}
+html[data-face-public="1"] body[data-public-face-startup="ready"]:not(.screening-active):not(.result-visible) #public-face-presentation{position:absolute;inset:0;pointer-events:none;display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(120px,1fr) auto auto}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #public-face-startup{position:relative;grid-row:2;grid-column:1;inset:auto;width:calc(100% - 24px);max-width:424px;margin:0 auto 8px}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #dashboard{position:relative!important;grid-row:3;grid-column:1;inset:auto!important;width:calc(100% - 24px)!important;max-width:424px!important;max-height:none!important;overflow:visible!important;margin:0 auto!important;padding:0 0 calc(16px + env(safe-area-inset-bottom))!important}
 html[data-face-public="1"] body[data-public-face-startup="ready"] #btn-row{position:static!important;inset:auto!important;width:100%!important}
-html[data-face-public="1"] body[data-public-face-startup="preparing"]{display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,1fr) auto auto}
+html[data-face-public="1"] body[data-public-face-startup="preparing"]:not(.screening-active):not(.result-visible) #public-face-presentation{position:absolute;inset:0;pointer-events:none;display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,1fr) auto auto}
 html[data-face-public="1"] body[data-public-face-startup="preparing"] #public-face-startup{position:relative;grid-row:2;grid-column:1;inset:auto;width:calc(100% - 24px);margin:0 auto calc(16px + env(safe-area-inset-bottom))}
