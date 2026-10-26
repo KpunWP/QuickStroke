@@ -2,6 +2,7 @@ name: Public Face UI regression
 on:
   pull_request:
     branches:
+      - fix/public-face-fullscreen-countdown-20261026
       - fix/public-face-startup-ux-20261026
       - fix/public-face-completion-panel-20261025
       - feat/public-face-ui-phase-c4-20261025

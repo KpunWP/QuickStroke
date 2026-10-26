@@ -8,5 +8,5 @@ assert.equal(html.match(/<style id="public-face-active-style">\n([^]*?)<\/style>
 const scope='html[data-face-public="1"] body.screening-active:not(.result-visible):not(:has(#dashboard.pulse))';
 for(const rule of css.split('}').filter(x=>x.trim()))assert.ok(rule.replace(/\/\*[^]*?\*\//g,'').trim().startsWith(scope));
 assert.doesNotMatch(css,/scaleX|#canvas|visibility:|display:none|animation:|filter:blur\([^0n]|z-index:/);
-assert.match(css,/object-fit:cover/);assert.match(css,/top:50%/);assert.match(css,/color:rgba\(255,255,255,\.72\)/);assert.match(css,/pointer-events:none/);
-console.log('PASS: CSS-only delta from exact PR #115; original engines/handlers/startup/completion frozen; Public active-only viewport display and translucent centered countdown');
+assert.doesNotMatch(css,/#video(?:-container)?\b/);assert.match(css,/top:50%/);assert.match(css,/color:rgba\(255,255,255,\.85\)/);assert.match(css,/pointer-events:none/);
+console.log('PASS: CSS-only delta from exact PR #115; original engines/handlers/startup/completion frozen; Public active-only inherited camera layout and Bold translucent centered countdown');
