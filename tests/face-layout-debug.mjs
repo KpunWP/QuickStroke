@@ -1,0 +1,26 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import crypto from 'node:crypto';
+const html=fs.readFileSync('face-test.html','utf8');
+const stripped=html.replace(/<script id="public-face-layout-debug-loader"[^]*?<\/script>\n/,'');
+assert.equal(crypto.createHash('sha256').update(stripped).digest('hex'),'b7331dc5960dd53a61b031a91637faf558474719b92d60ff4f27ca788d8ba25b','Exact PR #117 HTML/CSS/engines/startup/completion/navigation unchanged outside the opt-in loader');
+const source=fs.readFileSync('js/face-layout-debug.js','utf8');
+assert.doesNotMatch(source,/getUserMedia|captureStream|getContext|drawImage|toDataURL|toBlob|speechSynthesis|Landmarker|sendBeacon|XMLHttpRequest|localStorage|sessionStorage|indexedDB|setInterval|applyConstraints|\.stop\(/);
+assert.equal((source.match(/\bfetch\(/g)||[]).length,1,'Only environment handshake; no report upload');
+assert.match(source,/method: 'POST', credentials: 'same-origin', cache: 'no-store'/);
+assert.doesNotMatch(source,/body:\s*JSON|deviceId|groupId|\.label\b|\.getImageData|\.textContent\s*\|/);
+assert.match(source,/capture: true, passive: true/);
+assert.match(source,/snapshots.length \+ pending >= 12/);
+const gateSource=fs.readFileSync('api/face-layout-debug-gate.js','utf8');
+const preview={VERCEL:'1',VERCEL_ENV:'preview',VERCEL_TARGET_ENV:'preview',VERCEL_URL:'quickstroke-test.vercel.app',VERCEL_GIT_COMMIT_SHA:'a'.repeat(40)};
+function run(env,req={}){const ctx={module:{exports:{}},process:{env},URL};vm.runInNewContext(gateSource,ctx);const result={headers:{}};const res={setHeader:(k,v)=>result.headers[k]=v,status:n=>{result.status=n;return res},end:()=>result,json:value=>{result.value=JSON.parse(JSON.stringify(value));return result}};ctx.module.exports({url:'/api/face-layout-debug-gate?faceLayoutDebug=1',method:'POST',headers:{host:preview.VERCEL_URL},...req},res);return result;}
+assert.equal(run(preview).status,200);
+for(const env of [{},{...preview,VERCEL_ENV:'production'},{...preview,VERCEL_ENV:'development'},{...preview,VERCEL_TARGET_ENV:'staging'},{...preview,VERCEL_GIT_COMMIT_SHA:''}])assert.equal(run(env).status,404);
+assert.equal(run(preview,{headers:{host:'quickstroke.vercel.app'}}).status,404);
+assert.equal(run(preview,{url:'/api/face-layout-debug-gate'}).status,404);
+assert.equal(run(preview,{method:'GET'}).status,405);
+assert.equal(run(preview,{headers:{host:preview.VERCEL_URL,'content-length':'20'}}).status,400);
+assert.match(run(preview).headers['Cache-Control'],/no-store/);
+assert.deepEqual(Object.keys(run(preview).value).sort(),['host','preview','schema','sha']);
+console.log('PASS: exact baseline outside flag loader; verified Preview-only server gate; fail-closed Production/aliases/missing metadata; no media/storage/report-upload APIs; bounded passive diagnostics');
