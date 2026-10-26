@@ -2,12 +2,15 @@ name: Face layout diagnostics
 on:
   pull_request:
     branches:
+      - diagnostics/public-face-layout-20261026
       - fix/public-face-camera-countdown-final-20261026
     paths:
       - face-test.html
       - api/face-layout-debug-gate.js
       - js/face-layout-debug.js
       - tests/face-layout-debug.*
+      - tests/face-layout-summary.mjs
+      - tests/fixtures/face-layout-summary.mjs
       - tests/public-face-*.mjs
       - .github/workflows/face-layout-debug.yml
 permissions:
@@ -26,6 +29,7 @@ jobs:
       - name: Preview gate, privacy and frozen application contracts
         run: |
           node tests/face-layout-debug.mjs
+          node tests/face-layout-summary.mjs
           node tests/public-face-ui.mjs
           node tests/public-face-active.mjs
           node tests/public-face-startup.mjs
