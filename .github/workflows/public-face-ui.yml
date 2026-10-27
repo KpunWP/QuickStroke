@@ -15,6 +15,7 @@ on:
       - assets/public-face.css
       - assets/public-face-startup.css
       - assets/public-face-active.css
+      - tests/release-diagnostic-cleanup.mjs
       - tests/public-face-regression-bands.mjs
       - tests/public-face-active.mjs
       - tests/public-face-active.cjs
@@ -42,6 +43,7 @@ jobs:
           node-version: '22'
       - name: Frozen Face camera/geometry/lifecycle and existing contracts
         run: |
+          node tests/release-diagnostic-cleanup.mjs
           node tests/public-face-regression-bands.mjs
           node tests/public-face-ui.mjs
           node tests/public-face-active.mjs
