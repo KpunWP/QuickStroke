@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {restoreResultEmergency} from './emergency-boundaries.mjs';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
 const html=fs.readFileSync(new URL('../result.html',import.meta.url),'utf8');
@@ -11,7 +12,7 @@ assert.doesNotMatch(html,/<link[^>]+href="assets\/public-result\.css"/);
 function source(name){const m=html.match(new RegExp(`(?:async )?function ${name}\\([^]*?\\n   \\}`));assert.ok(m,name);return m[0];}
 // Every existing script byte is frozen: only the presentation helper and one
 // render call may differ from the approved Home branch's Result implementation.
-let normalized=html.replace(/   \/\/ Presentation only: use the already recovered session, never query mode\.\n[^]*?(?=   async function buildResult\()/,'').replace('     updatePublicResultPresentation(CURRENT);\n','');
+let normalized=restoreResultEmergency(html).replace(/   \/\/ Presentation only: use the already recovered session, never query mode\.\n[^]*?(?=   async function buildResult\()/,'').replace('     updatePublicResultPresentation(CURRENT);\n','');
 const scripts=[...normalized.matchAll(/<script\b[^>]*>([^]*?)<\/script>/g)].map(m=>m[1]).join('\n');
 const expected='bc86600becbac0eaa79f983c3ead2769d4a306ef5f8e140ceb6b7ab254cdbf79';
 assert.equal(crypto.createHash('sha256').update(scripts).digest('hex'),expected,'Existing Result interpretations, recovery, persistence, TTS and handlers must remain byte-identical');

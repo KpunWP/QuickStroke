@@ -20,7 +20,7 @@ assert.equal(typeof pronounce, 'function');
 const thaiSafetyPrompt = 'อาจพบแขนตก หากสงสัยสโตรก โทร 1669 ทันที';
 assert.equal(
   pronounce(thaiSafetyPrompt, 'th-TH'),
-  'อาจพบแขนตก หากสงสัยโรคหลอดเลือดสมอง โทร หนึ่ง หก หก เก้า ทันที'
+  'อาจพบแขนตก หากสงสัยโรคหลอดเลือดสมอง ติดต่อบริการฉุกเฉินในพื้นที่ทันที'
 );
 assert.equal(pronounce('สงสัยสโตรก? โทร 1669', 'th'), 'สงสัยโรคหลอดเลือดสมอง? โทร หนึ่ง หก หก เก้า');
 assert.equal(pronounce('1669', 'th-TH'), 'หนึ่ง หก หก เก้า');

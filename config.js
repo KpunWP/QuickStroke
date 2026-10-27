@@ -24,15 +24,10 @@ window.QS_CONFIG = {
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20260801-clinic-feasibility-v1",
+    localePack: "20261027-emergency-v2",
     languageRegistry: "20260720-language-registry-v1"
   },
 
-  emergency: {
-    th: "1669",
-    en: "local emergency services",
-    ja: "救急"
-  },
 
   scoring: {
     // Retained only for research summaries. These weights do not determine

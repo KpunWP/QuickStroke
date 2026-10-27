@@ -25,7 +25,7 @@
     'ข้อมือขยับ เหยียดข้อมือให้ตรงแล้วลองอีกครั้ง':'arm_08_wrist.mp3',
     'การเคลื่อนไหวไม่ชัด ลองอีกครั้ง':'arm_09_retry.mp3',
     'แขนทั้งสองข้างปกติ':'arm_10_complete.mp3',
-    'อาจพบแขนตก หากสงสัยสโตรก โทร 1669 ทันที':'arm_11_alert.mp3',
+    'อาจพบแขนตก หากสงสัยสโตรก ติดต่อบริการฉุกเฉินในพื้นที่ทันที':'arm_11_alert_local_emergency_v2.mp3',
     'เตรียมพูด รอจนหน้าจอแสดงว่าเริ่มพูดได้':'speech_01_prepare.mp3',
     'เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้':'speech_02_instruction.mp3',
     'เตรียมพูด':'speech_03_prepare_short.mp3',
@@ -35,13 +35,13 @@
     'ทดสอบการพูดเสร็จแล้ว':'speech_07_module_complete.mp3',
     'จบการทดสอบ ขอบคุณค่ะ':'result_01_thanks.mp3'
   };
-  const alias={'เตรียมพูด รอเสียงสัญญาณก่อนเริ่มพูด':'เตรียมพูด รอจนหน้าจอแสดงว่าเริ่มพูดได้',
+  const alias={"อาจพบแขนตก หากสงสัยสโตรก โทร 1669 ทันที":"อาจพบแขนตก หากสงสัยสโตรก ติดต่อบริการฉุกเฉินในพื้นที่ทันที",'เตรียมพูด รอเสียงสัญญาณก่อนเริ่มพูด':'เตรียมพูด รอจนหน้าจอแสดงว่าเริ่มพูดได้',
     'ข้อมือขยับ เหยียดข้อมือให้ตรงแล้วลองอีกครั้ง':'ข้อมือขยับ เหยียดข้อมือให้ตรงแล้วลองอีกครั้ง'};
   const norm=s=>String(s||'').replace(/[\u200b\u200c\u200d]/g,'').replace(/\s+/g,'').replace(/[.,，。!?ฯ]/g,'').replace(/ๆ/g,'ๆ');
   const lookup=new Map(Object.entries(manifest).map(([s,f])=>[norm(s),f]));
   // Consent warm-up: cache every required Thai prompt before the first module.
   // A completed fetch is verified as audio bytes, not merely preload='auto'.
-  const AUDIO_CACHE='quickstroke-jssf-th-audio-v3';
+  const AUDIO_CACHE='quickstroke-jssf-th-audio-v4';
   const REQUIRED_FILES=[...new Set(Object.values(manifest))];
   let preparePromise=null;
   function shouldPrepare() {
