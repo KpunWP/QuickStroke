@@ -21,6 +21,18 @@ for(const lang of ['th','en','ja','th-TH','en-US','ja-JP']){
  assert.deepEqual(links.map(e=>e.href),['tel:1669','tel:119']);assert.deepEqual(links.map(e=>e.dataset.emergencyCountry),['TH','JP']);
  for(const e of links){assert.ok(e.textContent.includes(e.href.slice(4)));assert.match(e.style.cssText,/min-height:48px/)}
 }
+for (const lang of ['th','en','ja']) {
+ const parent=new Element('div');
+ context.window.QuickStrokeEmergency.render(parent,lang,{jssfExhibition:true});
+ context.window.QuickStrokeEmergency.render(parent,lang,{jssfExhibition:true});
+ const links=parent.children[0].children.filter(e=>e.tag==='a');
+ assert.equal(parent.children.length,1);assert.equal(parent.children[0].children.length,1);
+ assert.equal(links[0].href,lang==='th'?'tel:1669':'tel:119');
+ assert.equal(links[0].textContent,lang==='th'?'ประเทศไทย · 1669':lang==='ja'?'日本 · 119':'Japan · 119');
+ assert.match(links[0].style.cssText,/min-height:48px/);
+ context.window.QuickStrokeEmergency.render(parent,lang);
+ assert.equal(parent.children[0].children.filter(e=>e.tag==='a').length,2);
+}
 for(const file of ['index.html','result.html'])assert.equal(read(file).match(/<script id="emergency-contacts">\n([^]*?)<\/script>/)[1],helper,'Atomic helper: '+file);
 assert.doesNotMatch(read('index.html').match(/function activateEmergencyCard\([^]*?\n\}/)[0],/location|tel:|lang\s*[!=]==/);
 assert.doesNotMatch(read('result.html'),/function emergencyPhone|tel:\$\{phone\}|b.textContent = '1669'/);
@@ -42,7 +54,7 @@ for(const ua of ['iPhone','Android Chrome','Android SamsungBrowser/'])for(const 
  if(ua==='iPhone')assert.equal(player.use('th-TH'),false);else if(mode==='research'||ua.includes('Samsung'))assert.equal(player.use('th-TH'),true);
 }
 assert.ok(requested.every(u=>u.endsWith('/audio/th/arm_11_alert_local_emergency_v2.mp3')));
-const sw=read('service-worker.js');assert.match(sw,/quickstroke-pwa-v102/);assert.match(sw,/REQUIRED_OFFLINE_ASSETS[^]*?arm_11_alert_local_emergency_v2.mp3/);assert.match(source,/quickstroke-jssf-th-audio-v4/);
+const sw=read('service-worker.js');assert.match(sw,/quickstroke-pwa-v103/);assert.match(sw,/REQUIRED_OFFLINE_ASSETS[^]*?arm_11_alert_local_emergency_v2.mp3/);assert.match(source,/quickstroke-jssf-th-audio-v4/);
 const hash=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 assert.equal(hash('audio/th/arm_11_alert_local_emergency_v2.mp3'),'b99907a9d1c0b7d78302a145131c7ab2672d2a16ec9b15e4e965bb23567a4f7d');
 assert.equal(hash('audio/th/arm_11_alert.mp3'),'7c88dca14c14cc161c6b600739c7e734777915ca0f41671b867aeb6dc3c3b9af','Never overwrite original recording');

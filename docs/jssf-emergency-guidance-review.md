@@ -59,3 +59,30 @@ No merge, Preview/Production deployment or release tag is authorized here. PR #1
 ## Local evidence
 
 38 selected source/contract commands passed (including core 23/23). Synthetic Chromium module checks passed: Face 432, Arm completion 48, Speech 336, Result grid 192 and Public language/back/forward/reload isolation. Emergency browser matrix passed 72 cases with zero telephone calls; both normal and 200% text were checked. Actual base SW v101 -> v102 update preserved the session sentinel, removed the old app cache, warmed recorded cache v4, and read the new 31,104-byte MP3 offline with SHA-256 b99907a9d1c0b7d78302a145131c7ab2672d2a16ec9b15e4e965bb23567a4f7d while an old v3 audio cache was still present. This establishes byte delivery/routing, not spoken-content acceptance.
+
+
+## Compact JSSF exhibition follow-up
+
+Only ordinary Public sessions with the existing `quickstroke_public_event=jssf2026`
+tab-scoped Home entry flag use one action: TH ประเทศไทย · 1669, EN Japan · 119,
+JA 日本 · 119. This is an explicit exhibition convention, never location detection.
+The helper receives a checked option from Home/Disclaimer and Result; it does not
+read storage or infer country outside the exhibition. Research/Dev and ordinary
+non-event entries retain both country-labelled choices. Research Consent is unchanged.
+
+Home writes the event flag only for explicit ordinary Public event entry. All three
+module navigation paths remain in the same origin/tab and retain sessionStorage.
+Result uses its effective canonical/session mode to exclude Research/Dev even when
+an old event flag is present. Reload and back/forward retain the existing flag;
+a fresh unrelated tab does not inherit a preference through new persistent storage.
+Existing browser tab duplication/opening behavior is unchanged.
+
+Cache v103 replaces v102 HTML; unique MP3 filename, audio cache v4, manifest,
+neutral Thai warning and native-TTS preparation remain byte-for-byte unchanged.
+Update online while idle and reload before offline testing; do not update mid-test.
+Synthetic telephone tests prevent navigation and never place calls.
+
+Speech Retry remains unresolved on physical iPhone Safari and requires failure-stage
+diagnostics. This patch changes no Speech, ASR, capture, audio or retry implementation.
+Physical iPhone/Android review remains required for layout, 200% text, audio and PWA.
+No deployment is authorized by this follow-up.
