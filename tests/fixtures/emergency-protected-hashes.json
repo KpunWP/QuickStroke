@@ -1,0 +1,25 @@
+{
+  "config": "e41741cb70c35c407dab6d3ad082ee8ad53b31e756cd901a0504481219a7f2b9",
+  "thai": "fecc3c05c5319feae84a09bd4ae661ae1a0c92d54c27485e07bd3f28950b6d27",
+  "changed": [
+    "index.emergency",
+    "disclaimer.emergency",
+    "face.critical",
+    "arm.finalBadSub",
+    "arm.vFinalBad",
+    "speech.subBad",
+    "result.emergencyThailand"
+  ],
+  "player": {
+    "use": "5671902fc072067f3a4264c0e9f028395e53d6a37c2f8e9ec8c3919a84859786",
+    "stop": "30d3f5f8ff592c3cc4dbbd0f066d0d162a686d93493d83787b85e9a9c3ed42a5",
+    "unlock": "170a8b1893fc6854582ebe5129f899ba61afc4f941fb4492f6cb2e5f4f3e937f",
+    "play": "100776ed248190f60e63c92135dfc270069fe3c9839c1336be6e97c2a2575c70"
+  },
+  "clinicalPrefixes": {
+    "face.critical": "🚨 พบใบหน้าไม่สมมาตรชัดเจน\n",
+    "arm.finalBadSub": "รูปแบบการเคลื่อนไหวอาจสอดคล้องกับแขนตก ",
+    "arm.vFinalBad": "อาจพบแขนตก ",
+    "speech.subBad": "พบสัญญาณการพูดผิดปกติ · "
+  }
+}

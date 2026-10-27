@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {restoreReferences} from './emergency-boundaries.mjs';
 import crypto from 'node:crypto';
-const html=fs.readFileSync('face-test.html','utf8'),css=fs.readFileSync('assets/public-face-active.css','utf8');
+const html=restoreReferences(fs.readFileSync('face-test.html','utf8'),'face-test.html'),css=fs.readFileSync('assets/public-face-active.css','utf8');
 // Presentation wrapper and CSS are separately checked; freeze every original node/script.
 const normalize=s=>s.replace(/<style\b[^>]*>[^]*?<\/style>/g,'').replace('<!-- PUBLIC FACE PRESENTATION WRAPPER -->\n<div id="public-face-presentation" style="display:contents">\n','').replace('</div><!-- END PUBLIC FACE PRESENTATION WRAPPER -->\n','');
 assert.equal(crypto.createHash('sha256').update(normalize(html)).digest('hex'),'72eedd4d29cc3ea9a367b4babda1e2a45dd008c8701bf1f9f63d6bdab3adffe1','Original DOM/scripts remain frozen after removing the two presentation wrapper tags and CSS');

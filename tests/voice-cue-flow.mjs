@@ -145,7 +145,7 @@ const voiceText='เตรียมพูดตามข้อความบน
 // updated MP3 manifest rather than reusing the obsolete Ogg manifest.
 for (const path of ['jssf-consent.html','face-test.html','arm-test.html','speech-test.html','result.html']) {
   const html=fs.readFileSync(path,'utf8');
-  assert.ok(html.includes('thai-recorded-audio.js?v=20261018-jssf-audio-priority-v1'), 'stale audio JS URL: '+path);
+  assert.ok(html.includes('thai-recorded-audio.js?v=20261027-local-emergency-v2'), 'stale audio JS URL: '+path);
   assert.ok(!html.includes('thai-recorded-audio.js?v=20261018-jssf-android-spoken-cues-v1'), 'old Ogg route remains: '+path);
 }
 

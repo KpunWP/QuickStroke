@@ -7,7 +7,7 @@
  * - JS / JSON / รูปภาพ: stale-while-revalidate
  */
 
-const CACHE_NAME = "quickstroke-pwa-v101";
+const CACHE_NAME = "quickstroke-pwa-v102";
 const CACHE_PREFIX = "quickstroke-pwa-";
 
 const CORE_SHELL = [
@@ -57,7 +57,8 @@ const FACE_OFFLINE_ASSETS = [
 
 const REQUIRED_OFFLINE_ASSETS = [
   ...CORE_SHELL,
-  ...FACE_OFFLINE_ASSETS
+  ...FACE_OFFLINE_ASSETS,
+  "/audio/th/arm_11_alert_local_emergency_v2.mp3"
 ];
 
 const HTML_NETWORK_TIMEOUT_MS = 3000;
