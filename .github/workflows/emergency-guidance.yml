@@ -1,7 +1,7 @@
 name: Country-explicit emergency guidance
 on:
   pull_request:
-    branches: [release/jssf-2026-clean-rc-20261027, main]
+    branches: [release/jssf-2026-clean-rc-20261027, fix/jssf-country-explicit-emergency-20261027, main]
 permissions:
   contents: read
 jobs:
