@@ -1,0 +1,57 @@
+name: Country-explicit emergency guidance
+on:
+  pull_request:
+    branches: [release/jssf-2026-clean-rc-20261027, fix/jssf-country-explicit-emergency-20261027, fix/jssf-compact-emergency-20261027, main]
+permissions:
+  contents: read
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Emergency, privacy, engines and navigation contracts
+        run: |
+          node tests/power-words.mjs
+          for suite in emergency-guidance release-diagnostic-cleanup public-face-regression-bands public-face-ui public-face-active public-face-startup public-face-completion-panel face-capture-contract run-tests public-home-redesign public-result-ui public-arm-ui public-speech-ui public-language-continuity public-event-language tts-pronunciation tts-readiness-contract voice-cue-flow public-flow-audio-audit arm-sensor-replay arm-dynamics-duration arm-device-browser-hardening arm-research-e2e-audit arm-guide-persistence speech-asr-replay speech-timing-rate-replay speech-mic-timeout speech-device-browser-hardening speech-research-e2e-audit jssf-remote-client jssf-consent-v2-contract jssf-result-completion-ux; do
+            node "tests/$suite.mjs" || exit 1
+          done
+          python3 tests/check-inline-scripts.py
+  browsers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        group: [emergency, modules]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Isolated existing browser dependency
+        run: |
+          npm install --prefix "$RUNNER_TEMP/emergency-browser" --no-package-lock --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/emergency-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Synthetic browser checks — no live data or telephone navigation
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/emergency-browser/node_modules/playwright
+          TEST_GROUP: ${{ matrix.group }}
+        run: |
+          if [ "$TEST_GROUP" = emergency ]; then
+            node tests/power-words-browser.cjs
+            node tests/emergency-browser.cjs
+            node tests/public-result-grid.cjs
+            node tests/public-language-continuity-browser.cjs
+          else
+            node tests/public-face-browser.cjs
+            node tests/public-arm-completion-layout.cjs
+            node tests/public-speech-browser.cjs
+          fi

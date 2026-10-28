@@ -1,0 +1,55 @@
+name: Public Speech UI regression
+on:
+  pull_request:
+    branches:
+      - fix/public-arm-completion-layout-20261025
+      - integration/jssf-public-arm-uat-20261025
+      - main
+    paths:
+      - speech-test.html
+      - assets/public-speech.css
+      - tests/public-speech-ui.mjs
+      - tests/public-speech-browser.cjs
+      - .github/workflows/public-speech-ui.yml
+permissions:
+  contents: read
+jobs:
+  public-speech-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Frozen Speech behavior and existing regressions
+        run: |
+          node tests/public-speech-ui.mjs
+          node tests/run-tests.mjs
+          node tests/speech-asr-replay.mjs
+          node tests/speech-timing-rate-replay.mjs
+          node tests/speech-mic-timeout.mjs
+          node tests/speech-device-browser-hardening.mjs
+          node tests/speech-research-e2e-audit.mjs
+          node tests/speech-p0-remote-contract.mjs
+          node tests/public-flow-audio-audit.mjs
+          node tests/public-tts-uat.mjs
+          node tests/public-ios-speaker-first.mjs
+          node tests/voice-cue-flow.mjs
+          node tests/public-arm-ui.mjs
+          node tests/public-result-ui.mjs
+          node tests/public-sticky-regression.mjs
+          node tests/public-language-continuity.mjs
+          node tests/public-event-language.mjs
+          node tests/public-home-redesign.mjs
+          python3 tests/check-inline-scripts.py
+      - name: Install isolated browser test dependency
+        run: |
+          npm install --prefix "$RUNNER_TEMP/speech-ui-browser" --no-package-lock --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/speech-ui-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Synthetic Public states, handlers, isolation and offline delivery
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/speech-ui-browser/node_modules/playwright
+        run: node tests/public-speech-browser.cjs

@@ -1,0 +1,50 @@
+name: Public Arm UI regression
+on:
+  pull_request:
+    branches:
+      - feat/public-result-ui-phase-c1-20261024
+      - integration/jssf-public-arm-uat-20261025
+      - main
+    paths:
+      - arm-test.html
+      - assets/public-arm.css
+      - tests/public-arm-ui.mjs
+      - tests/public-arm-completion-layout.cjs
+      - .github/workflows/public-arm-ui.yml
+permissions:
+  contents: read
+jobs:
+  public-arm-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Public Arm UI and frozen engine boundary
+        run: |
+          node tests/public-arm-ui.mjs
+          node --check tests/public-arm-completion-layout.cjs
+      - name: Existing sensor, duration, guide and audio contracts
+        run: |
+          node tests/run-tests.mjs
+          node tests/arm-sensor-replay.mjs
+          node tests/arm-dynamics-duration.mjs
+          node tests/arm-device-browser-hardening.mjs
+          node tests/arm-research-e2e-audit.mjs
+          node tests/arm-guide-persistence.mjs
+          node tests/arm-post-task-understanding.mjs
+          node tests/public-flow-audio-audit.mjs
+          node tests/public-tts-uat.mjs
+          python3 tests/check-inline-scripts.py
+      - name: Install isolated browser test dependency
+        run: |
+          npm install --prefix "$RUNNER_TEMP/arm-layout-browser" --no-package-lock --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/arm-layout-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Public completion layout and existing navigation
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/arm-layout-browser/node_modules/playwright
+        run: node tests/public-arm-completion-layout.cjs

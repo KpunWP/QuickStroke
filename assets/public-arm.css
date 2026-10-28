@@ -1,0 +1,89 @@
+/* Public Arm only. Existing state visibility, handlers and timing remain authoritative.
+   !important counters legacy fixed-shell declarations, not state-machine display. */
+html[data-arm-public="1"]{display:block!important;width:100%!important;padding:0!important;min-height:100%;overflow:visible!important;background:#f4f7fa!important;--public-arm-font:'Manrope','IBM Plex Sans Thai',sans-serif}
+html[data-arm-public="1"]:lang(th){--public-arm-font:'IBM Plex Sans Thai','Manrope',sans-serif}
+html[data-arm-public="1"]:lang(ja){--public-arm-font:'Manrope','Hiragino Kaku Gothic ProN','Yu Gothic','Noto Sans CJK JP',Meiryo,sans-serif}
+html[data-arm-public="1"] body{width:100%!important;min-width:0!important;max-width:480px!important;height:auto!important;max-height:none!important;min-height:100svh;margin:0 auto!important;display:block!important;position:relative!important;overflow:visible!important;border-radius:0!important;box-shadow:none!important;background:radial-gradient(ellipse at 50% 8%,#e4effc,transparent 50%),#f4f7fa!important;color:#172536;font-family:var(--public-arm-font);font-synthesis:none;line-height:1.65}
+html[data-arm-public="1"] #test-screen{position:relative!important;width:100%;height:auto!important;min-height:100svh;overflow:visible!important;flex:none!important;padding:0 max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));background:none!important;border:0!important}
+html[data-arm-public="1"] #arm-home-btn{position:absolute!important;top:max(12px,env(safe-area-inset-top))!important;left:max(16px,env(safe-area-inset-left))!important;right:auto!important;bottom:auto!important;z-index:125;width:48px!important;height:48px!important;min-width:48px;border:1px solid #bfcfe1;border-radius:14px;background:#fff!important;color:#0d58b8!important;box-shadow:none!important;font-size:1.5rem}
+html[data-arm-public="1"] #top-bar{position:static!important;inset:auto!important;transform:none!important;display:flex!important;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;min-height:80px;height:auto!important;padding:max(12px,env(safe-area-inset-top)) 0 12px 60px!important;width:100%!important;background:none!important;border:0!important;box-shadow:none!important}
+html[data-arm-public="1"] .top-spacer{display:none}
+html[data-arm-public="1"] .top-label{font:700 1.125rem/1.65 var(--public-arm-font)!important;letter-spacing:normal!important;text-transform:none!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;color:#172536!important}
+html[data-arm-public="1"] .top-right{min-width:0;max-width:100%;display:flex;flex-wrap:wrap}
+html[data-arm-public="1"] #lang-sw-fixed{position:static!important;inset:auto!important;transform:none!important;flex-wrap:wrap!important;max-width:100%;height:auto!important;padding:3px!important;gap:2px!important;border:1px solid #d6e0eb!important;border-radius:12px!important;background:#fff!important;box-shadow:none!important}
+html[data-arm-public="1"] .lsf-btn{min-width:48px!important;min-height:48px!important;width:auto!important;height:auto!important;padding:6px 8px!important;border:0!important;border-radius:8px!important;color:#48617a!important;background:none!important;font:700 .875rem/1.65 var(--public-arm-font)!important;letter-spacing:normal!important;backdrop-filter:none!important}
+html[data-arm-public="1"] .lsf-btn.active{background:#0d58b8!important;color:#fff!important}
+html[data-arm-public="1"] #result-row{position:static!important;inset:auto!important;transform:none!important;display:flex;flex-wrap:wrap;width:100%!important;min-width:0!important;gap:8px!important;padding:0!important;margin:12px 0 18px!important;border:0!important;border-radius:0!important;background:none!important;box-shadow:none!important;backdrop-filter:none!important}
+html[data-arm-public="1"] .rcard{flex:1 1 7rem!important;min-width:0!important;min-height:80px!important;height:auto!important;margin:0!important;padding:12px!important;gap:3px!important;border:1px solid #d6e0eb!important;border-radius:14px!important;opacity:1!important;background:#fff!important;box-shadow:none!important;color:#52677c!important}
+html[data-arm-public="1"] .rcard.active{border:2px solid #0d58b8!important;background:#eaf2fc!important;color:#0d58b8!important}
+html[data-arm-public="1"] .rcard.pass{border-color:#9ebde2!important;color:#0d58b8!important}
+html[data-arm-public="1"] .rcard.fail{border-color:#d99590!important;color:#b6312c!important}
+html[data-arm-public="1"] .rcard.retry{border-color:#d8b37c!important;color:#96530b!important}
+html[data-arm-public="1"] .rcard-arm{font:700 1rem/1.65 var(--public-arm-font)!important;letter-spacing:normal!important;text-transform:none!important;color:inherit!important}
+html[data-arm-public="1"] .rcard-icon{font-size:1.125rem!important;line-height:1.5!important;color:inherit!important}
+html[data-arm-public="1"] .rcard-lbl{font:400 .875rem/1.75 var(--public-arm-font)!important;color:inherit!important}
+html[data-arm-public="1"] #mid{position:static!important;inset:auto!important;transform:none!important;display:flex!important;flex-direction:column;justify-content:flex-start!important;align-items:stretch!important;flex:none!important;width:100%!important;min-width:0!important;min-height:0!important;height:auto!important;max-height:none!important;padding:0!important;margin:0!important;gap:12px!important;overflow:visible!important}
+html[data-arm-public="1"] #pose-guide{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:100%!important;margin:0!important;flex-shrink:0}
+html[data-arm-public="1"] .image-guide-card{padding:12px!important;border:1px solid #d6e4f3!important;border-radius:20px!important;background:#edf4fd!important;box-shadow:none!important;width:100%!important;max-width:100%!important;height:auto!important;overflow:visible!important}
+html[data-arm-public="1"] #pose-guide .guide-step{position:static!important;padding:0!important;gap:0!important;border:0!important;background:none!important;box-shadow:none!important;min-height:0!important;height:auto!important;max-height:none!important;overflow:visible!important}
+html[data-arm-public="1"] #pose-guide .guide-step-visual,html[data-arm-public="1"] #test-screen.arm-guide-measuring #pose-guide .guide-step.step-3 .guide-step-visual{width:auto!important;height:260px!important;max-width:100%!important;max-height:none!important;min-height:0!important;margin:0 auto!important;object-fit:contain!important;border:0!important;border-radius:14px!important;box-shadow:none!important}
+html[data-arm-public="1"] #instr,html[data-arm-public="1"] #test-screen.arm-guide-measuring #instr{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:none!important;min-height:0!important;margin:0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important;color:#172536!important;font:700 1.625rem/1.55 var(--public-arm-font)!important;letter-spacing:normal!important;text-align:center;overflow-wrap:break-word}
+html[data-arm-public="1"] #sub-instr,html[data-arm-public="1"] #test-screen.arm-guide-measuring #sub-instr{position:static!important;inset:auto!important;width:100%!important;max-width:none!important;min-height:0!important;margin:0!important;padding:0!important;background:none!important;border:0!important;color:#52677c!important;font:400 1rem/1.8 var(--public-arm-font)!important;letter-spacing:normal!important;text-align:center;overflow-wrap:break-word}
+html[data-arm-public="1"] #warn-banner{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:none!important;height:auto!important;margin:0!important;padding:14px!important;border:1px solid #e1bc88!important;border-radius:16px!important;background:#fff4df!important;box-shadow:none!important}
+html[data-arm-public="1"] .warn-title{font:700 1.125rem/1.7 var(--public-arm-font)!important;color:#854b0b!important;letter-spacing:normal!important}
+html[data-arm-public="1"] .warn-sub{font:400 1rem/1.8 var(--public-arm-font)!important;color:#854b0b!important}
+html[data-arm-public="1"] #pre-cd{position:static!important;inset:auto!important;transform:none!important;max-width:100%!important;text-align:center;font:700 4rem/1.3 'Manrope',sans-serif!important;color:#0d58b8!important;animation:none!important}
+html[data-arm-public="1"] #cd-wrap{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:none!important;height:auto!important;margin:4px 0!important;padding:14px!important;border:1px solid #cee0f4!important;border-radius:20px!important;background:#eaf2fc!important;box-shadow:none!important;backdrop-filter:none!important}
+html[data-arm-public="1"] .cd-svg-wrap{position:relative!important;width:fit-content!important;min-width:100px!important;height:auto!important;min-height:110px!important;display:grid;place-items:center;max-width:100%!important;margin:auto!important}
+html[data-arm-public="1"] .cd-svg{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;opacity:.3;pointer-events:none}
+html[data-arm-public="1"] .cd-center{position:static!important;inset:auto!important;transform:none!important;padding:10px 20px!important}
+html[data-arm-public="1"] .cd-num{font:700 3.75rem/1.3 'Manrope',sans-serif!important;color:#0d58b8!important}
+html[data-arm-public="1"] .cd-unit{font:400 .875rem/1.75 var(--public-arm-font)!important;color:#52677c!important}
+/* No absolute-arm-angle presentation. Existing relative-drift computation and
+   all stored values remain intact; Public follows the approved no-gauge design. */
+html[data-arm-public="1"] #drift-wrap{display:none!important}
+html[data-arm-public="1"] #final-banner{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:none!important;height:auto!important;max-height:none!important;margin:0!important;padding:18px!important;border:1px solid #d6e0eb!important;border-radius:20px!important;background:#fff!important;box-shadow:none!important;overflow:visible!important}
+html[data-arm-public="1"] .fb-title{font:700 1.375rem/1.6 var(--public-arm-font)!important;color:#172536!important}
+html[data-arm-public="1"] .fb-sub{font:400 1rem/1.8 var(--public-arm-font)!important;color:#52677c!important}
+html[data-arm-public="1"] #action-dock{position:static!important;inset:auto!important;transform:none!important;width:100%!important;display:flex;flex-wrap:wrap!important;justify-content:center!important;gap:10px!important;margin:22px 0 0!important;padding:0!important;background:none!important;border:0!important;box-shadow:none!important}
+html[data-arm-public="1"] #action-dock #action-btn,html[data-arm-public="1"] #action-dock #fast-nav-btn{position:static!important;inset:auto!important;transform:none!important;flex:0 1 auto!important;width:fit-content!important;max-width:100%!important;min-width:48px!important;min-height:56px!important;height:auto!important;max-height:none!important;margin:0!important;padding:12px 26px!important;border:1px solid #0d58b8!important;border-radius:20px!important;background:linear-gradient(125deg,#246ed2,#0d58b8)!important;box-shadow:0 8px 18px #0d58b824!important;color:#fff!important;font:700 1.125rem/1.65 var(--public-arm-font)!important;overflow-wrap:anywhere;animation:none!important}
+html[data-arm-public="1"] #action-dock.split #action-btn{background:#fff!important;color:#0d58b8!important;border-color:#bfcfe1!important;box-shadow:none!important;font-weight:600!important}
+html[data-arm-public="1"] #arm-intro{position:static!important;inset:auto!important;min-height:0!important;padding:20px 0!important;background:none!important;display:flex;align-items:flex-start!important;justify-content:center!important}
+html[data-arm-public="1"] #arm-intro[hidden]{display:none!important}
+html[data-arm-public="1"] .arm-intro-panel{width:100%!important;max-width:none!important;padding:24px 20px!important;border:1px solid #d6e0eb!important;border-radius:22px!important;background:#fff!important;box-shadow:0 4px 16px #163f6610!important}
+html[data-arm-public="1"] .arm-intro-panel h1{font:700 1.75rem/1.55 var(--public-arm-font)!important;letter-spacing:normal!important;color:#172536!important;overflow-wrap:break-word}
+html[data-arm-public="1"] .arm-intro-panel p{font:400 1rem/1.8 var(--public-arm-font)!important;color:#52677c!important}
+html[data-arm-public="1"] #arm-intro-start{width:fit-content!important;max-width:100%;min-height:56px;height:auto;padding:12px 26px;font:700 1.125rem/1.65 var(--public-arm-font);border-radius:20px;background:linear-gradient(125deg,#246ed2,#0d58b8);border:1px solid #0d58b8;overflow-wrap:anywhere}
+html[data-arm-public="1"] #test-screen.arm-intro-visible #result-row,html[data-arm-public="1"] #test-screen.arm-intro-visible #mid{display:none!important}
+html[data-arm-public="1"] button:focus-visible{outline:3px solid #a96010!important;outline-offset:4px}
+html[data-arm-public="1"] #top-bar{order:-3}
+html[data-arm-public="1"] #arm-intro{order:-1}
+html[data-arm-public="1"] #mid{order:1}
+html[data-arm-public="1"] #action-dock{order:2}
+html[data-arm-public="1"] #top-bar{backdrop-filter:none!important;-webkit-backdrop-filter:none!important;z-index:auto!important}
+html[data-arm-public="1"] #arm-home-btn{z-index:300!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+html[data-arm-public="1"] #result-row:after{display:none!important}
+html[data-arm-public="1"] .rcard-icon{box-shadow:none!important;background:#e6effb!important}
+html[data-arm-public="1"] .rcard-arm,html[data-arm-public="1"] .rcard-lbl{white-space:normal!important;overflow-wrap:break-word}
+html[data-arm-public="1"] #cd-num{font:700 3.75rem/1.3 'Manrope',sans-serif!important;color:#0d58b8!important;transform:none!important}
+/* Put the live countdown before the retained step-three illustration on short
+   screens; the source instructions, timer and image selection are unchanged. */
+html[data-arm-public="1"] #test-screen.arm-guide-measuring #instr{order:-3}
+html[data-arm-public="1"] #test-screen.arm-guide-measuring #sub-instr{order:-2}
+html[data-arm-public="1"] #test-screen.arm-guide-measuring #cd-wrap{order:-1}
+/* Override legacy percentage label widths. Intrinsic word widths let cards
+   move to separate rows at enlarged text instead of splitting English words. */
+html[data-arm-public="1"] .rcard{display:grid!important;grid-template-columns:2rem minmax(min-content,1fr);align-items:center;justify-content:stretch;column-gap:8px!important;flex:1 1 8.5rem!important;min-width:min-content!important}
+html[data-arm-public="1"] .rcard .rcard-arm,html[data-arm-public="1"] .rcard .rcard-lbl{width:auto!important;max-width:100%;grid-column:2;white-space:normal!important;word-break:normal;overflow-wrap:normal;text-align:start}
+html[data-arm-public="1"] .rcard-icon{grid-column:1;grid-row:1 / 3;width:2rem!important;height:2rem!important;min-width:0}
+/* showFinal already exposes this banner with inline display:flex; reset hides
+   it. CSS follows that visibility without adding state or lifecycle hooks. */
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #pose-guide,
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #cd-wrap,
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #pre-cd{display:none!important}
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #action-dock{margin-top:12px!important;flex-direction:column;align-items:center}
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #fast-nav-btn{order:-1}
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #action-btn{background:#fff!important;color:#0d58b8!important;border-color:#bfcfe1!important;box-shadow:none!important;font-weight:600!important}
+/* Remove the legacy fixed-dock scroll clearance only for Public completion. */
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #mid{padding-bottom:0!important;overflow:visible!important}
+html[data-arm-public="1"] #test-screen:has(#final-banner[style*="display: flex"]) #final-banner{margin-bottom:0!important}

@@ -58,6 +58,7 @@
     const value = String(text ?? "");
     if ((normalizeLocale(locale) || activeLocale) !== "th-TH") return value;
     return value
+      .replace("อาจพบแขนตก หากสงสัยสโตรก โทร 1669 ทันที", "อาจพบแขนตก หากสงสัยสโตรก ติดต่อบริการฉุกเฉินในพื้นที่ทันที")
       .replace(/สโตรก/g, "โรคหลอดเลือดสมอง")
       .replace(/(^|[^0-9])1669(?=[^0-9]|$)/g, (_match, prefix) =>
         `${prefix}หนึ่ง หก หก เก้า`);

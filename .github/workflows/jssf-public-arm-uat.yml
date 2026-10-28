@@ -1,0 +1,34 @@
+name: JSSF Public Arm integration UAT
+on:
+  push:
+    branches: [integration/jssf-public-arm-uat-20261025]
+permissions:
+  contents: read
+jobs:
+  integration-regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: |
+          node tests/run-tests.mjs
+          node tests/public-arm-ui.mjs
+          node tests/arm-sensor-replay.mjs
+          node tests/arm-dynamics-duration.mjs
+          node tests/arm-device-browser-hardening.mjs
+          node tests/arm-research-e2e-audit.mjs
+          node tests/arm-guide-persistence.mjs
+          node tests/arm-post-task-understanding.mjs
+          node tests/public-flow-audio-audit.mjs
+          node tests/public-tts-uat.mjs
+          node tests/public-ios-speaker-first.mjs
+          node tests/voice-cue-flow.mjs
+          node tests/public-result-ui.mjs
+          node tests/public-sticky-regression.mjs
+          node tests/public-language-continuity.mjs
+          node tests/public-event-language.mjs
+          node tests/public-home-redesign.mjs
+          python3 tests/check-inline-scripts.py

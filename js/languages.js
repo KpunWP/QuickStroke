@@ -72,6 +72,28 @@
     return [...ordered, ...remaining];
   }
 
+  function isPublicFlowSelection() {
+    const page = global.location?.pathname?.split('/').pop() || 'index.html';
+    return ['index.html', 'face-test.html', 'arm-test.html', 'speech-test.html', 'result.html'].includes(page)
+      && global.QuickStrokeAppMode?.resolveMode?.() === 'public'
+      && global.QuickStrokeDevMode?.isEnabled?.() !== true
+      && document.documentElement.dataset.qsStaffEntry !== '1';
+  }
+
+  // Only picker clicks enter here. Direct page initialization still calls its
+  // original loader; the synchronous call retains the user's media gesture.
+  async function choose(handler, requestedCode) {
+    if (!BY_CODE[requestedCode] || safeHandlerName(handler, '') !== handler ||
+        typeof global[handler] !== 'function') return;
+    const publicBefore = isPublicFlowSelection();
+    const result = await global[handler](requestedCode);
+    if (result === false || !publicBefore || !isPublicFlowSelection()) return result;
+    const displayed = String(document.documentElement.lang || '').split('-')[0].toLowerCase();
+    if (displayed === requestedCode && sessionStorage.getItem('fast_lang') === requestedCode)
+      sessionStorage.setItem('quickstroke_public_home_language', requestedCode);
+    return result;
+  }
+
   function makeOption(language, options) {
     const button = document.createElement('button');
     button.type = 'button';
@@ -87,7 +109,9 @@
     if (options.idPrefix) button.id = `${options.idPrefix}${language.code}`;
     button.setAttribute('aria-label', language.ariaLabel);
     button.setAttribute('aria-pressed', 'false');
-    button.setAttribute('onclick', `${options.handler}('${language.code}')`);
+    button.setAttribute('onclick', options.handler === 'setLang'
+      ? `${options.handler}('${language.code}')`
+      : `QuickStrokeLanguages.choose('${options.handler}','${language.code}')`);
 
     switch (options.variant) {
       case 'native':
@@ -149,7 +173,10 @@
     if (trigger) {
       const language = getLanguage(code);
       trigger.textContent = language.shortLabel;
-      trigger.setAttribute('aria-label', `${language.ariaLabel} · Change language`);
+      const actionLabel = isPublicFlowSelection()
+        ? (global.QuickStrokeI18n?.getMessages?.()?.index?.publicChangeLanguageLabel || language.ariaLabel)
+        : 'Change language';
+      trigger.setAttribute('aria-label', `${language.ariaLabel} · ${actionLabel}`);
     }
   }
 
@@ -260,6 +287,7 @@
     getLanguage,
     renderPicker,
     renderAll,
+    choose,
     setActive
   });
 })(window);
