@@ -2,6 +2,7 @@ name: Public Face UI regression
 on:
   pull_request:
     branches:
+      - fix/jssf-compact-emergency-20261027
       - diagnostics/public-face-black-band-ab-20261026
       - fix/public-face-fullscreen-countdown-20261026
       - fix/public-face-startup-ux-20261026
@@ -12,6 +13,11 @@ on:
       - main
     paths:
       - face-test.html
+      - js/face-cold-diagnostic.mjs
+      - api/face-cold-debug-gate.js
+      - tests/face-cold-diagnostic.mjs
+      - tests/face-cold-diagnostic-browser.cjs
+      - tests/emergency-boundaries.mjs
       - assets/public-face.css
       - assets/public-face-startup.css
       - assets/public-face-active.css
@@ -43,6 +49,7 @@ jobs:
           node-version: '22'
       - name: Frozen Face camera/geometry/lifecycle and existing contracts
         run: |
+          node tests/face-cold-diagnostic.mjs
           node tests/release-diagnostic-cleanup.mjs
           node tests/public-face-regression-bands.mjs
           node tests/public-face-ui.mjs
@@ -74,6 +81,7 @@ jobs:
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/face-ui-browser/node_modules/playwright
         run: |
+          node tests/face-cold-diagnostic-browser.cjs
           node tests/public-face-browser.cjs
           node tests/public-face-completion-panel.cjs
           node tests/public-face-startup.cjs

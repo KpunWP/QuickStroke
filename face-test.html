@@ -5519,6 +5519,40 @@ if (document.documentElement.dataset.facePublic === '1') {
 }
 /* END PUBLIC FACE STARTUP PRESENTATION */
 
+/* FACE COLD DIAGNOSTIC START — absent flag means no import, request or hooks. */
+if (new URLSearchParams(location.search).get('faceColdStartDebug') === '1' &&
+    document.documentElement.dataset.facePublic === '1' && !FACE_DEV_MODE) {
+  import('./js/face-cold-diagnostic.mjs').then(m => m.activate({
+    allowed: () => document.documentElement.dataset.facePublic === '1' && !FACE_DEV_MODE &&
+      (window.QuickStrokeAppMode?.resolveMode?.() || 'public') === 'public' &&
+      !['research','dev'].includes(window.QuickStrokeDataContract?.getSessionContext?.()?.appMode),
+    state: () => ({phase, countdown: __lastCountdownShown,
+      attempts: assessAttempts, invalid: lastInvalidReasonCode}),
+    models: () => [faceLandmarker, handLandmarker],
+    pixels: () => mouthCtx,
+    wrap: (name, decorate) => {
+      const slots = {
+        detectLoop: [() => detectLoop, v => { detectLoop = v; }],
+        startScreening: [() => startScreening, v => { startScreening = v; }],
+        startActionPhase: [() => startActionPhase, v => { startActionPhase = v; }],
+        getMouthVisibility: [() => getMouthVisibility, v => { getMouthVisibility = v; }],
+        onResults: [() => onResults, v => { onResults = v; }],
+        showSmilePrompt: [() => showSmilePrompt, v => { showSmilePrompt = v; }],
+        showStatusPanel: [() => showStatusPanel, v => { showStatusPanel = v; }],
+        showCenterCountdown: [() => showCenterCountdown, v => { showCenterCountdown = v; }],
+        speakFace: [() => speakFace, v => { speakFace = v; }],
+        reportFaceTts: [() => reportFaceTts, v => { reportFaceTts = v; }]
+      };
+      const slot = slots[name], original = slot[0]();
+      const wrapped = decorate(original); slot[1](wrapped);
+      return () => { if (slot[0]() === wrapped) slot[1](original); };
+    },
+    instructionKey: text => text === FL?.smilePrompt || text === FL?.smileVoice ? 'smile' :
+      text === FL?.restVoice || text === FL?.step1 ? 'still' : 'other'
+  })).catch(() => {});
+}
+/* FACE COLD DIAGNOSTIC END */
+
 bootstrapFaceTest();
 
 

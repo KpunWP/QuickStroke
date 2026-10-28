@@ -9,7 +9,7 @@ assert.doesNotMatch(html,/faceLayoutDebug|face-layout-debug|qs-face-layout-debug
 assert.equal(crypto.createHash('sha256').update(html).digest('hex'),'40f6e7db38f6e4a5058321badc32a3b44038110a11fbf76ffdbd561837a60324','Accepted Face HTML/engines/styles/handlers unchanged except loader removal and reviewed resource versions');
 for(const id of ['public-face-style','public-face-startup-style','public-face-active-style'])assert.ok(html.includes('id="'+id+'"'));
 assert.ok(html.includes('id="public-face-presentation"'));
-console.log('PASS: diagnostic runtime/API/experiments absent; exact accepted Face code except loader removal; Face engine/audio lifecycle/navigation unchanged; emergency resources tested separately');
+console.log('PASS: historical diagnostic runtime/API/experiments absent; separate cold diagnostic excluded and checked by its own exact-loader/privacy contracts; exact accepted Face code except loader removal; Face engine/audio lifecycle/navigation unchanged; emergency resources tested separately');
 
 // Release cleanup cannot silently alter other modules, emergency policy or data handling.
 const frozen={
