@@ -62,7 +62,11 @@ for (const event of [false,true]) for (const lang of ['th','en','ja']) {
  }
  await p.goto(base+'/result.html');await p.waitForSelector('[data-public-compact="1"]');assert.equal(await p.locator('[data-public-compact] a').getAttribute('href'),'tel:1669');
  await p.locator('[data-public-compact] summary').click();await p.locator('[data-public-compact] select').selectOption('JP');
- await p.goto(base+'/index.html');await p.waitForSelector('#emergency-card a[href="tel:119"]');
+ await p.goBack();await p.waitForSelector('#emergency-card a[href="tel:119"]');
+ // Simulated BFCache restore: another document selected TH after this page was cached.
+ await p.evaluate(()=>{sessionStorage.setItem('quickstroke_public_emergency_country','TH');window.dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}));});
+ assert.equal(await p.locator('#emergency-card a').getAttribute('href'),'tel:1669');
+ await p.reload();await p.waitForSelector('#emergency-card a[href="tel:1669"]');
 }
 await c.close();
 // New SW preloads the new filename even if old audio remains in a separate cache.

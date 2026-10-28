@@ -974,16 +974,21 @@ html[data-result-public="1"] .module-action{order:2}
   // Explicit Public selection only. Never derive a general-use country from locale.
   const publicGroups = new Set();
   let manualCountry = null;
+  let storageFailed = false;
+  let resumeListenerInstalled = false;
   const countryKey = 'quickstroke_public_emergency_country';
   function selectedCountry() {
-    if (manualCountry) return manualCountry;
     try {
-      const saved = global.sessionStorage?.getItem(countryKey);
+      const saved = storageFailed ? null : global.sessionStorage?.getItem(countryKey);
       if (saved === 'TH' || saved === 'JP') manualCountry = saved;
     } catch (_) { /* In-memory selection still works when storage is unavailable. */ }
     return manualCountry;
   }
   function renderPublic(parent, language, exhibition) {
+    if (!resumeListenerInstalled) {
+      global.addEventListener?.('pageshow', () => { for (const group of publicGroups) group.update(); });
+      resumeListenerInstalled = true;
+    }
     for (const group of publicGroups) if (!group.root.isConnected) publicGroups.delete(group);
     const lang = String(language).split('-')[0];
     const key = copy[lang] ? lang : 'en';
@@ -1022,7 +1027,7 @@ html[data-result-public="1"] .module-action{order:2}
     picker.addEventListener('change', () => {
       if (!['TH','JP'].includes(picker.value)) return;
       manualCountry=picker.value;
-      try { global.sessionStorage?.setItem(countryKey,manualCountry); } catch (_) {}
+      try { global.sessionStorage?.setItem(countryKey,manualCountry); } catch (_) { storageFailed = true; }
       for (const group of publicGroups) group.update();
     });
     details.appendChild(summary);details.appendChild(picker);

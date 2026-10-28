@@ -52,3 +52,5 @@ Face cold start/audio, Speech Retry/countdown audio and Arm illustration issues
 remain unresolved. No Preview/Production deployment or merge is authorized here.
 
 Local validation: 48 release contract suites pass; original emergency matrix 144 cases plus 48 country-control layouts at 320/360/390/430 and 100%/200% text. Explicit-choice precedence, reload, Result return and both Home/disclaimer instances tested. Keyboard focus targets, blocked/invalid storage, nonPublic helper behavior and old-v104 to v105 offline update covered. No calls or external submissions. GitHub CI and physical-device acceptance are reported separately in the Draft PR.
+
+Return-navigation refinement: the Public-only helper installs one pageshow listener to refresh country labels/targets from the tab choice after a cached-document restore. This does not change navigation handlers. Back and a simulated persisted pageshow are covered; the latter is not proof of physical Safari BFCache behavior. A failed storage write keeps the explicit selection in memory rather than restoring an older stored choice.
