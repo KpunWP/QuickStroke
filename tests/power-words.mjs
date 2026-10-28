@@ -1,3 +1,4 @@
+import {restoreCompactEmergency} from './compact-emergency-boundaries.mjs';
 import fs from 'node:fs';import crypto from 'node:crypto';import assert from 'node:assert/strict';import vm from 'node:vm';
 import {restorePowerWords,restorePowerLocale} from './power-words-boundaries.mjs';
 const read=f=>fs.readFileSync(f,'utf8'), hash=x=>crypto.createHash('sha256').update(x).digest('hex');
@@ -7,7 +8,7 @@ for(const [file,sha] of Object.entries(base)){
  const restored=file.startsWith('locales/')?JSON.stringify(restorePowerLocale(JSON.parse(raw),file.split('/')[1]),null,2)+'\n':restorePowerWords(raw,file);
  assert.equal(hash(restored),sha,file+' frozen except exact inventoried text/version changes');
 }
-for(const [file,ops] of Object.entries(plan.source))for(const op of ops){assert.ok(read(file).includes(op.after),file+' explicit new text present');}
+for(const [file,ops] of Object.entries(plan.source))for(const op of ops){assert.ok(restoreCompactEmergency(read(file),file).includes(op.after),file+' explicit new text present');}
 const packs=['th-TH','en-US','ja-JP'].map(l=>JSON.parse(read('locales/'+l+'/ui.json')));
 for(let i=0;i<packs.length;i++){
  const pack=packs[i],lang=['th-TH','en-US','ja-JP'][i];

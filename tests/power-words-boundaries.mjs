@@ -1,6 +1,8 @@
+import {restoreCompactEmergency} from './compact-emergency-boundaries.mjs';
 import fs from 'node:fs';
 const plan=JSON.parse(fs.readFileSync(new URL('../docs/jssf-power-words-plan.json',import.meta.url),'utf8'));
 export function restorePowerWords(text,file) {
+  text=restoreCompactEmergency(text,file);
   for(const op of [...(plan.source[file]||[])].reverse()) text=text.split(op.after).join(op.before);
   return text;
 }
