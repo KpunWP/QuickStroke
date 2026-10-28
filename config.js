@@ -24,7 +24,7 @@ window.QS_CONFIG = {
   supportedLangs: ["th", "en", "ja"],
 
   assetVersions: {
-    localePack: "20261027-emergency-v2",
+    localePack: "20261028-power-words-v1",
     languageRegistry: "20260720-language-registry-v1"
   },
 

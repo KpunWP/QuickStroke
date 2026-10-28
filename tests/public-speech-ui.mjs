@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {restorePowerWords} from './power-words-boundaries.mjs';
 import crypto from 'node:crypto';
 import vm from 'node:vm';
-const html=fs.readFileSync('speech-test.html','utf8'),css=fs.readFileSync('assets/public-speech.css','utf8');
+const html=restorePowerWords(fs.readFileSync('speech-test.html','utf8'),'speech-test.html'),css=fs.readFileSync('assets/public-speech.css','utf8');
 const original=html.replace(/<script id="public-speech-mode">[^]*?<\/script>\n/,'');
 const scripts=[...original.matchAll(/<script\b[^>]*>([^]*?)<\/script>/g)].map(m=>m[1]).join('\n');
 assert.equal(crypto.createHash('sha256').update(scripts).digest('hex'),'2c007c8e21f9b8b8daf6f9a9036ca608567c2057980a0e1d0a5c8edc7d5abe28','Every pre-existing Speech script remains byte-for-byte frozen');

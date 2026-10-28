@@ -3249,6 +3249,8 @@ html[data-result-public="1"] .module-action{order:2}
      completion.hidden = !publicResult || r.scope === 'individual' || r.valid.length !== 3;
      completion.textContent = publicResult ? T.completionShort.replace('{n}', r.valid.length) : '';
      if (!publicResult) return;
+     document.querySelector('header .lang-seg')?.setAttribute('aria-label', window.QuickStrokeI18n?.getMessages?.()?.index?.publicLanguageLabel || 'TH / EN / JA');
+     document.getElementById('module-grid')?.setAttribute('aria-label', MODULES.map(name => T[name]).join(' · '));
      document.getElementById('module-grid').dataset.resultComplex = MODULES.some(name =>
        r.data[name]?.historicalAbnormalRetained || r.data[name]?.historicalInvalidRetained
      ) ? '1' : '0';
@@ -3448,7 +3450,9 @@ html[data-result-public="1"] .module-action{order:2}
        })) throw new Error('Result language initialization failed')
    })().catch(e => {
      console.error(e);
-     document.getElementById('summary-title').textContent = 'Language unavailable'
+     document.getElementById('summary-title').textContent = isPublicResultSession()
+       ? ({th:'โหลดภาษาไม่ได้ · โหลดหน้าใหม่',en:'Language unavailable · Reload',ja:'言語を読み込めません · 再読み込み'}[savedLang()] || 'Language unavailable · Reload')
+       : 'Language unavailable'
    });
   </script>
   <script>

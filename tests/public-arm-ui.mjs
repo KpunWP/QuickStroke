@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {restorePowerWords} from './power-words-boundaries.mjs';
 import crypto from 'node:crypto';
 import vm from 'node:vm';
-const html=fs.readFileSync('arm-test.html','utf8'),css=fs.readFileSync('assets/public-arm.css','utf8');
+const html=restorePowerWords(fs.readFileSync('arm-test.html','utf8'),'arm-test.html'),css=fs.readFileSync('assets/public-arm.css','utf8');
 const normalize=s=>[...s.matchAll(/<script\b[^>]*>([^]*?)<\/script>/g)].map(m=>m[1]).join('\n');
 const withoutPublic=html.replace(/<script id="public-arm-(?:mode|assets)">[^]*?<\/script>\n/g,'');
 assert.equal(crypto.createHash('sha256').update(normalize(withoutPublic)).digest('hex'),'81b0b6c02ff9e7bf6264ff41f517a5c9ec00f5ce4743ccfe1277f40abfe87de5','Every pre-existing Arm script byte must remain frozen');

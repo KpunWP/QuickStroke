@@ -3516,6 +3516,10 @@ function applyFaceLang(){
   setText('no-face-banner',FL.noFace);
   setText('start-btn',FL.startBtn);
   setText('reset-btn','↺');
+  if (document.documentElement.dataset.facePublic === '1') {
+    document.getElementById('face-home-btn')?.setAttribute('aria-label', FL.navHome);
+    resetBtn?.setAttribute('aria-label', FL.retryBtn);
+  }
 
   const sm = statusMsg;
   if (phase==='BEFORE_START') sm.textContent = FL.pressStart;
@@ -5461,7 +5465,9 @@ async function bootstrapFaceTest() {
 
   if (!languageReady || !FL) {
     statusMsg.textContent =
-      "⚠️ ไม่สามารถโหลดไฟล์ภาษาได้ / Unable to load language resources.";
+      document.documentElement.dataset.facePublic === '1'
+        ? ({th:'โหลดภาษาไม่ได้ · โหลดหน้าใหม่',en:'Language unavailable · Reload',ja:'言語を読み込めません · 再読み込み'}[getPreferredFaceLang()] || 'Language unavailable · Reload')
+        : "⚠️ ไม่สามารถโหลดไฟล์ภาษาได้ / Unable to load language resources.";
     statusMsg.style.display = "block";
     startBtn.classList.add("hidden");
     return;

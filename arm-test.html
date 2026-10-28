@@ -4345,6 +4345,11 @@ function updateArmGuideInstructionCopy() {
       const title = $(`guide-title-${side}-${index + 1}`);
       if (el) el.textContent = text;
       if (title) title.textContent = copy.titles[index];
+      if (document.documentElement.dataset.armPublic === '1') {
+        const region = $(`pose-${side}`);
+        region?.setAttribute('aria-label', `${T.topLbl} · ${side === 'left' ? T.armLeft : T.armRight}`);
+        region?.querySelector(`img.step-${index + 1}`)?.setAttribute('alt', text);
+      }
     });
   });
 }
@@ -5175,8 +5180,10 @@ function showArmLocaleError() {
   const subInstr = $('sub-instr');
   const actionBtn = $('action-btn');
 
-  if (instr) instr.textContent = 'Unable to load language files';
-  if (subInstr) subInstr.textContent = 'Refresh the page and check the locale JSON files.';
+  const publicCopy = document.documentElement.dataset.armPublic === '1'
+    ? ({th:['โหลดภาษาไม่ได้','โหลดหน้าใหม่'],en:['Language unavailable','Reload'],ja:['言語を読み込めません','再読み込み']}[normaliseArmLang(sessionStorage.getItem('fast_lang') || document.documentElement.lang)] || ['Language unavailable','Reload']) : null;
+  if (instr) instr.textContent = publicCopy ? publicCopy[0] : 'Unable to load language files';
+  if (subInstr) subInstr.textContent = publicCopy ? publicCopy[1] : 'Refresh the page and check the locale JSON files.';
   if (actionBtn) actionBtn.disabled = true;
 }
 
@@ -5231,6 +5238,8 @@ function armNavText() {
 function refreshArmLanguageUI(){
   if (!T) return;
 
+  if (document.documentElement.dataset.armPublic === '1')
+    $('arm-home-btn')?.setAttribute('aria-label', T.navHome);
   // Header / meters
   if ($('top-lbl')) $('top-lbl').textContent = 'FAST · ' + T.topLbl;
   if ($('cd-unit')) $('cd-unit').textContent = T.cdUnit;

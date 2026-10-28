@@ -1263,7 +1263,7 @@ async function handlePrimaryAction() {
     await prepareScreeningSession('full');
     location.href = `${screeningState.nextModule}-test.html`;
   } catch (error) {
-    alert(error.message || 'Unable to start screening.');
+    alert(isOrdinaryPublicHome() ? tr('index.publicStartError', 'Couldn’t start · Try again') : (error.message || 'Unable to start screening.'));
   }
 }
 
@@ -1284,7 +1284,7 @@ async function goTest(moduleName) {
     await prepareScreeningSession('individual');
     location.href = `${moduleName}-test.html`;
   } catch (error) {
-    alert(error.message || 'Unable to start module.');
+    alert(isOrdinaryPublicHome() ? tr('index.publicStartError', 'Couldn’t start · Try again') : (error.message || 'Unable to start module.'));
   }
 }
 

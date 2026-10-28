@@ -173,7 +173,10 @@
     if (trigger) {
       const language = getLanguage(code);
       trigger.textContent = language.shortLabel;
-      trigger.setAttribute('aria-label', `${language.ariaLabel} · Change language`);
+      const actionLabel = isPublicFlowSelection()
+        ? (global.QuickStrokeI18n?.getMessages?.()?.index?.publicChangeLanguageLabel || language.ariaLabel)
+        : 'Change language';
+      trigger.setAttribute('aria-label', `${language.ariaLabel} · ${actionLabel}`);
     }
   }
 

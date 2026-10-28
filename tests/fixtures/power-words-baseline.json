@@ -1,0 +1,20 @@
+{
+  "face-test.html": "36d4c1ec58ee3829471b1a031fddc12c26b0a49aa039934b7c9bafca086e8d41",
+  "arm-test.html": "9b8548fb33938dae01a6f8bffb4627f6261d5d256790c183a1837adbdbe0ae6d",
+  "speech-test.html": "eee795c7e9a36c06af712c74e698c867b743aeb0b0382af1b2e4afe3e1aaca58",
+  "result.html": "eeb686e84402f221d5d06d648bf22879b54caaf335b19cadcaa0234cb09f26d7",
+  "fast-permissions.js": "5e8fce7f37fc74d0b546097404873082bbe6ea86f99190663cd2852ba1e015c8",
+  "config.js": "ca84bdd0c371cb45fe16732e87239295a3933edfeb0e558f9fe9af907b149867",
+  "service-worker.js": "de3614de27696a42b02bc5dc28a6050cb00b1df7a7e67c926d6888f6fa2476cf",
+  "js/thai-recorded-audio.js": "8adba7b022633090f0a8c76714b48546dbfc677ab0b4b39a3d31a939350b0f09",
+  "audio/th/manifest.json": "31c1ff7f1050175fb0a762faaae461242d2034d8824f79cc530d14a4732efd37",
+  "js/emergency-contacts.js": "a451bbc47456d9f7ece05eba0372862ba57ec964c667099557814cd667c1ccfa",
+  "index.html": "45bb534073b57f637feb1a93a61c5c6abe43fbccf9a6c7e416ea706b349a961a",
+  "jssf-consent.html": "059c629eae33769a48c72226cdb732d6c5f4b3b53d30f62611f3e3b3cdae14d5",
+  "jssf-withdraw.html": "8dbb1899da843955017270ab62f96733554b1365d09a8958c81b03eb7b900ed1",
+  "js/i18n.js": "8e9afb7f043d051d52a68ae07b67ac016ce9c9acef70783f86f853982cc467bc",
+  "locales/th-TH/ui.json": "e2f59329af1a8906be8003c8a87558f4de6dd24e160f89cd27368b83ec9eef10",
+  "locales/en-US/ui.json": "d28a897d4e65ba3bce23633bb26c99e7af87c050723d9a2907d7223b6c3ab835",
+  "locales/ja-JP/ui.json": "4fbdcf25f76ec6631bd83660fa2244c69e0a83da42f773cbca39936e8e80a92e",
+  "js/languages.js": "bdffbec734711748f837e65af1e87530c830514a32a84780818ed0198e1f1c5f"
+}

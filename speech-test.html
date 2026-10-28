@@ -1071,6 +1071,7 @@ if (publicSpeechPresentation) document.querySelector('meta[name="viewport"]').co
       <div class="rb-title" id="rb-title"></div>
       <div class="rb-score" id="rb-score" aria-hidden="true"></div>
       <div class="rb-sub" id="rb-sub"></div>
+      <p id="public-speech-safety" hidden></p>
       <div id="domain-summary" aria-label="Speech observations">
         <div class="domain-row" id="domain-phrase-row">
           <span class="domain-label" id="domain-phrase-label">Speech</span>
@@ -1536,6 +1537,13 @@ function speakSpeechNative(value) {
   });
 }
 
+// Public wording only. The engine locale object and Research/Dev text stay intact.
+function speechUiText(key) {
+  return document.documentElement.dataset.speechPublic === '1'
+    ? (T?.publicUi?.[key] ?? T?.[key] ?? '')
+    : (T?.[key] ?? '');
+}
+
 function resetSpeechCards(){
   if (!T) return;
   const L = T;
@@ -1551,11 +1559,17 @@ function updateSpeechLabels() {
   if ($('lbl-word-accuracy')) $('lbl-word-accuracy').textContent = L.wordAccuracy;
   if ($('lbl-speech-rate')) $('lbl-speech-rate').textContent = L.speechRate;
   if ($('lbl-volume-stability')) $('lbl-volume-stability').textContent = L.volumeStability;
-  if ($('domain-phrase-label')) $('domain-phrase-label').textContent = L.domainPhraseLabel;
+  if ($('domain-phrase-label')) $('domain-phrase-label').textContent = speechUiText('domainPhraseLabel');
   if ($('domain-rate-label')) $('domain-rate-label').textContent = L.domainRateLabel;
   if ($('domain-quality-label')) $('domain-quality-label').textContent = L.domainQualityLabel;
   if ($('result-details-toggle')) $('result-details-toggle').textContent = L.detailsShow;
-  if ($('result-details-note')) $('result-details-note').textContent = L.detailsResearchNote;
+  if ($('result-details-note')) $('result-details-note').textContent = speechUiText('detailsResearchNote');
+  if (document.documentElement.dataset.speechPublic === '1') {
+    $('speech-status-row')?.setAttribute('aria-label', speechUiText('statusLabel'));
+    $('domain-summary')?.setAttribute('aria-label', speechUiText('observationsLabel'));
+    const safety = $('public-speech-safety');
+    if (safety) { safety.textContent = speechUiText('safetyNote'); safety.hidden = false; }
+  }
 }
 
 function setSpeechResultDetailsExpanded(expanded) {
@@ -2818,7 +2832,7 @@ async function ensureMicDisclosureBeforeFirstUse() {
           errorBox.style.display = 'block';
           errorBox.textContent = error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
             ? S.blockedMic
-            : (error?.message || S.generic);
+            : (document.documentElement.dataset.speechPublic === '1' ? speechUiText('micAccessError') : (error?.message || S.generic));
         }
         reject(error);
       });
@@ -4401,7 +4415,9 @@ async function beginSpeechRecognition() {
         } else {
           if (isCurrentRun()) {
             queueSpeechTechnicalDiagnostic('ASR_START_RETRY_EXHAUSTED');
-            $('transcript-box').textContent = T.listening + ' (ASR retry failed; using voice detection)';
+            $('transcript-box').textContent = document.documentElement.dataset.speechPublic === '1'
+              ? speechUiText('recognitionRecovery')
+              : T.listening + ' (ASR retry failed; using voice detection)';
           }
         }
       }
@@ -4861,9 +4877,9 @@ function runLoop() {
   const durSec = timingPreview.start && timingPreview.end && timingPreview.end >= timingPreview.start
     ? (timingPreview.end - timingPreview.start) / 1000
     : 0;
-  if ($('val-rate')) $('val-rate').textContent = T.statusRateDevelopment || '—';
+  if ($('val-rate')) $('val-rate').textContent = speechUiText('statusRateDevelopment') || '—';
   if ($('bar-rate')) $('bar-rate').style.width = '0%';
-  if ($('score-rate')) $('score-rate').textContent = T.statusRateNotUsed || '';
+  if ($('score-rate')) $('score-rate').textContent = speechUiText('statusRateNotUsed') || '';
   if (vowelEnergyBuf.length > 10) {
     const s = calcStab(vowelEnergyBuf);
     setBar('stab', s, `${s}%`);
@@ -5467,18 +5483,18 @@ function invalidReasonMessage(reasonCode) {
     NO_VOICE: T.noVoice,
     VOICE_NOT_RECOGNIZED: T.voiceButNoText,
     USER_STOPPED_EARLY: T.manualStop,
-    SPEECH_RECOGNITION_UNAVAILABLE: T.speechApiUnavailable,
-    INSUFFICIENT_SPEECH_DURATION: T.insufficientData,
-    INSUFFICIENT_ENERGY_FRAMES: T.insufficientData,
-    MICROPHONE_PERMISSION_DENIED: T.micAccessError,
-    MICROPHONE_NOT_FOUND: T.micAccessError,
-    MICROPHONE_NOT_AVAILABLE: T.micAccessError,
-    MICROPHONE_IN_USE: T.micAccessError,
-    MICROPHONE_STREAM_FAILED: T.micAccessError,
-    INSECURE_CONTEXT: T.micAccessError,
-    I18N_LOAD_FAILED: T.micAccessError,
-    WEB_AUDIO_UNAVAILABLE: T.micAccessError,
-    MICROPHONE_START_FAILED: T.micAccessError,
+    SPEECH_RECOGNITION_UNAVAILABLE: speechUiText('speechApiUnavailable'),
+    INSUFFICIENT_SPEECH_DURATION: speechUiText('insufficientData'),
+    INSUFFICIENT_ENERGY_FRAMES: speechUiText('insufficientData'),
+    MICROPHONE_PERMISSION_DENIED: speechUiText('micAccessError'),
+    MICROPHONE_NOT_FOUND: speechUiText('micAccessError'),
+    MICROPHONE_NOT_AVAILABLE: speechUiText('micAccessError'),
+    MICROPHONE_IN_USE: speechUiText('micAccessError'),
+    MICROPHONE_STREAM_FAILED: speechUiText('micAccessError'),
+    INSECURE_CONTEXT: speechUiText('micAccessError'),
+    I18N_LOAD_FAILED: speechUiText('micAccessError'),
+    WEB_AUDIO_UNAVAILABLE: speechUiText('micAccessError'),
+    MICROPHONE_START_FAILED: speechUiText('micAccessError'),
     DEAD_MIC_RECOVERY_FAILED: T.deadMicFailed,
     PAGE_HIDDEN: T.subInvalid
   };
@@ -5632,14 +5648,14 @@ function finishSpeechInvalid(reasonCode, details = {}) {
     const scoreEl = $('score-' + key);
     if (scoreEl) scoreEl.textContent = '';
   });
-  setSpeechCard('word', 'warn', T.accuracy, T.resultInvalid, '⚠️');
-  setSpeechCard('rate', 'warn', T.rate, T.resultInvalid, '⚠️');
+  setSpeechCard('word', 'warn', T.accuracy, speechUiText('resultInvalid'), '⚠️');
+  setSpeechCard('rate', 'warn', T.rate, speechUiText('resultInvalid'), '⚠️');
 
   resetDomainSummary();
   const rb = $('result-banner');
   rb.className = 'result-banner warn';
   rb.style.display = 'flex';
-  $('rb-title').textContent = T.resultInvalid;
+  $('rb-title').textContent = speechUiText('resultInvalid');
   $('rb-title').style.color = 'var(--amber)';
   $('rb-score').textContent = '—';
   $('rb-score').style.color = 'var(--amber)';
@@ -5861,9 +5877,9 @@ function evaluateSpeech(text, confidence) {
     ? Math.round(wordScore * 0.40 + rateScore * 0.40 + stabScore * 0.20)
     : null;
   setBar('word', wordScore, wordLabel);
-  if ($('val-rate')) $('val-rate').textContent = T.statusRateDevelopment;
+  if ($('val-rate')) $('val-rate').textContent = speechUiText('statusRateDevelopment');
   if ($('bar-rate')) $('bar-rate').style.width = '0%';
-  if ($('score-rate')) $('score-rate').textContent = T.statusRateNotUsed;
+  if ($('score-rate')) $('score-rate').textContent = speechUiText('statusRateNotUsed');
   if (Number.isFinite(stabScore)) setBar('stab', stabScore, stabLabel);
   else {
     $('bar-stab').style.width = '0%';
@@ -5915,22 +5931,22 @@ function evaluateSpeech(text, confidence) {
     : phraseObservationStatus === 'attention' ? 'attention' : 'no_alert';
   const cls = displayStatus === 'no_alert' ? 'ok' : 'warn';
   const title = displayStatus === 'no_alert'
-    ? T.displayNoAlertTitle
-    : displayStatus === 'indeterminate' ? T.displayIndeterminateTitle : T.displayAttentionTitle;
+    ? speechUiText('displayNoAlertTitle')
+    : displayStatus === 'indeterminate' ? speechUiText('displayIndeterminateTitle') : speechUiText('displayAttentionTitle');
   const attentionCount = [
     phraseObservationStatus === 'attention'
   ].filter(Boolean).length;
   const sub = displayStatus === 'no_alert'
-    ? T.displayNoAlertSummary
+    ? speechUiText('displayNoAlertSummary')
     : displayStatus === 'indeterminate'
       ? T.displayAsrIncompleteSummary
-      : T.displayAttentionSummary.replace('{{count}}', String(attentionCount));
+      : speechUiText('displayAttentionSummary').replace('{{count}}', String(attentionCount));
 
   const phraseStatusText = phraseObservationStatus === 'no_alert'
-    ? `✓ ${T.statusPhraseExact}`
+    ? `✓ ${speechUiText('statusPhraseExact')}`
     : phraseObservationStatus === 'unavailable'
-      ? `! ${T.statusPhraseUnavailable}`
-      : `! ${T.statusPhraseAttention}`;
+      ? `! ${speechUiText('statusPhraseUnavailable')}`
+      : `! ${speechUiText('statusPhraseAttention')}`;
   const phraseStatusClass = phraseObservationStatus === 'no_alert'
     ? 'no-alert'
     : phraseObservationStatus === 'unavailable' ? 'unavailable' : 'attention';
@@ -5978,9 +5994,9 @@ function evaluateSpeech(text, confidence) {
   setSpeechResultDetailsExpanded(false);
 
   // Keep the top status cards short and consistent with the result banner.
-  setSpeechCard('word', phraseObservationStatus === 'no_alert' ? 'pass' : 'active', T.domainPhraseLabel,
-    phraseObservationStatus === 'no_alert' ? T.statusPhraseExact
-      : phraseObservationStatus === 'unavailable' ? T.statusPhraseUnavailable : T.statusPhraseAttention,
+  setSpeechCard('word', phraseObservationStatus === 'no_alert' ? 'pass' : 'active', speechUiText('domainPhraseLabel'),
+    phraseObservationStatus === 'no_alert' ? speechUiText('statusPhraseExact')
+      : phraseObservationStatus === 'unavailable' ? speechUiText('statusPhraseUnavailable') : speechUiText('statusPhraseAttention'),
     phraseObservationStatus === 'no_alert' ? '✅' : '⚠️');
   setSpeechCard('rate', '', T.domainRateLabel,
     T.statusRateDevelopment,
@@ -6269,8 +6285,8 @@ function handleFastFlow(riskLevel) {
   // the module-specific result page by design.
   if (mode === 'full' && !allDone && (riskLevel === 'warn' || riskLevel === 'bad')) {
     const resultSub = document.getElementById('rb-sub');
-    if (resultSub && !resultSub.textContent.includes(L.fastIncomplete)) {
-      resultSub.textContent += ` · ${L.fastIncomplete}`;
+    if (resultSub && !resultSub.textContent.includes(speechUiText('fastIncomplete'))) {
+      resultSub.textContent += ` · ${speechUiText('fastIncomplete')}`;
     }
   }
 }
@@ -6292,7 +6308,9 @@ function handleFastFlow(riskLevel) {
   const actionBtn = document.getElementById('action-btn');
   if (actionBtn) {
     actionBtn.disabled = true;
-    actionBtn.textContent = T?.languageUnavailable || 'Language unavailable';
+    actionBtn.textContent = T?.languageUnavailable || (document.documentElement.dataset.speechPublic === '1'
+      ? ({th:'โหลดภาษาไม่ได้',en:'Language unavailable',ja:'言語を読み込めません'}[sessionStorage.getItem('fast_lang')] || 'Language unavailable')
+      : 'Language unavailable');
   }
 });
 </script>

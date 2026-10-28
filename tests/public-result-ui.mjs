@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {restorePowerWords} from './power-words-boundaries.mjs';
 import {restoreResultEmergency} from './emergency-boundaries.mjs';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
-const html=fs.readFileSync(new URL('../result.html',import.meta.url),'utf8');
+const html=restorePowerWords(fs.readFileSync(new URL('../result.html',import.meta.url),'utf8'),'result.html');
 const css=fs.readFileSync(new URL('../assets/public-result.css',import.meta.url),'utf8');
 const bundled=html.match(/<style id="public-result-style">\n([^]*?)<\/style>/);
 assert.ok(bundled,'Public Result CSS must travel atomically with cached HTML');

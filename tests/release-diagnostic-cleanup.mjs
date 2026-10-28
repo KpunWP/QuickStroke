@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {restorePowerWords,restorePowerLocale} from './power-words-boundaries.mjs';
 import {restoreReferences} from './emergency-boundaries.mjs';
 import crypto from 'node:crypto';
 const html=restoreReferences(fs.readFileSync('face-test.html','utf8'),'face-test.html');
@@ -20,4 +21,4 @@ const frozen={
   "locales/en-US/ui.json": "d28a897d4e65ba3bce23633bb26c99e7af87c050723d9a2907d7223b6c3ab835",
   "locales/ja-JP/ui.json": "4fbdcf25f76ec6631bd83660fa2244c69e0a83da42f773cbca39936e8e80a92e"
 };
-for(const [file,expected] of Object.entries(frozen))assert.equal(crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex'),expected,file+' remains exact accepted source');
+for(const [file,expected] of Object.entries(frozen))assert.equal(crypto.createHash('sha256').update(file.startsWith('locales/')?JSON.stringify(restorePowerLocale(JSON.parse(fs.readFileSync(file,'utf8')),file.split('/')[1]),null,2)+'\n':restorePowerWords(fs.readFileSync(file,'utf8'),file)).digest('hex'),expected,file+' remains exact accepted source');

@@ -53,7 +53,9 @@
     "publicResetAction": "เริ่มใหม่",
     "publicResetTitle": "เริ่มใหม่?",
     "publicResetConfirm": "เริ่มใหม่",
-    "publicLanguageLabel": "ภาษา"
+    "publicLanguageLabel": "ภาษา",
+    "publicStartError": "เริ่มไม่ได้ · ลองใหม่",
+    "publicChangeLanguageLabel": "เปลี่ยนภาษา"
   },
   "disclaimer": {
     "eyebrow": "QuickStroke",
@@ -99,8 +101,8 @@
     "tiltRight": "↘️ ตั้งหน้าให้ตรง",
     "turnRight": "➡️ หันหน้าตรง",
     "turnLeft": "⬅️ หันหน้าตรง",
-    "lookUp": "⬇️ เงยหน้าขึ้นเล็กน้อย",
-    "lookDown": "⬆️ ก้มหน้าลงเล็กน้อย",
+    "lookUp": "⬆️ เงยหน้าขึ้นเล็กน้อย",
+    "lookDown": "⬇️ ก้มหน้าลงเล็กน้อย",
     "critical": "🚨 พบใบหน้าไม่สมมาตรชัดเจน\nหากสงสัยสโตรก ติดต่อบริการฉุกเฉินในพื้นที่ทันที",
     "faceDone": "ประเมินใบหน้าเสร็จแล้ว",
     "faceAbnormal": "⚠️ ใบหน้าอาจไม่สมมาตร",
@@ -375,7 +377,30 @@
     "detailsHide": "ซ่อนรายละเอียด",
     "detailsResearchNote": "ค่าด้านล่างเก็บไว้เพื่อการพัฒนาและวิเคราะห์ในระยะพรีไพลอต ไม่ใช่ผลวินิจฉัย",
     "statusRateDevelopment": "อยู่ระหว่างการพัฒนา",
-    "statusRateNotUsed": "ยังไม่นำมาใช้ในการประเมินผล"
+    "statusRateNotUsed": "ยังไม่นำมาใช้ในการประเมินผล",
+    "publicUi": {
+      "displayNoAlertTitle": "พูดตรงประโยค",
+      "displayAttentionTitle": "คำพูดไม่ตรง",
+      "displayIndeterminateTitle": "ตรวจเสียงไม่ได้",
+      "displayNoAlertSummary": "",
+      "displayAttentionSummary": "",
+      "statusPhraseExact": "พูดตรงประโยค",
+      "statusPhraseAttention": "คำพูดไม่ตรง",
+      "statusPhraseUnavailable": "ตรวจเสียงไม่ได้",
+      "domainPhraseLabel": "ประโยค",
+      "resultInvalid": "ตรวจเสียงไม่ได้",
+      "fastIncomplete": "สงสัยสโตรก? อย่ารอผล · ติดต่อฉุกเฉินทันที",
+      "micAccessError": "เปิดไมค์ไม่ได้ · ตรวจสิทธิ์แล้วลองใหม่",
+      "speechApiUnavailable": "ตรวจเสียงไม่ได้ · ใช้เบราว์เซอร์อื่น",
+      "insufficientData": "ตรวจเสียงไม่ได้ · ลองใหม่",
+      "recognitionRecovery": "ตรวจคำพูดไม่ได้ · รอผลแล้วลองใหม่",
+      "detailsResearchNote": "เปอร์เซ็นต์ความตรงของประโยคไม่ใช่ความเสี่ยงสโตรก",
+      "statusRateDevelopment": "ไม่ได้ประเมิน",
+      "statusRateNotUsed": "ไม่ใช้ตัดสินผล",
+      "safetyNote": "คัดกรองเบื้องต้นเท่านั้น · ไม่ใช่การวินิจฉัย · ผลนี้ไม่ยืนยันว่าไม่เป็นสโตรก",
+      "statusLabel": "การตรวจคำพูด",
+      "observationsLabel": "ผลเทียบประโยค"
+    }
   },
   "result": {
     "pageTitle": "QuickStroke · ผลการคัดกรอง",

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {restorePowerWords,restorePowerLocale} from './power-words-boundaries.mjs';
 import vm from 'node:vm';
 import crypto from 'node:crypto';
-const read=f=>fs.readFileSync(f,'utf8');
+const read=f=>restorePowerWords(fs.readFileSync(f,'utf8'),f);
 const neutral='อาจพบแขนตก หากสงสัยสโตรก ติดต่อบริการฉุกเฉินในพื้นที่ทันที';
 const old='อาจพบแขนตก หากสงสัยสโตรก โทร 1669 ทันที';
 const helper=read('js/emergency-contacts.js');
@@ -63,7 +64,7 @@ console.log('PASS: explicit TH/JP destinations in all languages; no inference/pe
 const protectedHashes=JSON.parse(read('tests/fixtures/emergency-protected-hashes.json'));
 const digest=s=>crypto.createHash('sha256').update(s).digest('hex');
 const configContext={window:{}};vm.runInNewContext(read('config.js'),configContext);assert.equal(configContext.window.QS_CONFIG.emergency,undefined);delete configContext.window.QS_CONFIG.assetVersions.localePack;assert.equal(digest(JSON.stringify(configContext.window.QS_CONFIG)),protectedHashes.config);
-const thai=JSON.parse(read('locales/th-TH/ui.json'));for(const path of protectedHashes.changed){const [g,k]=path.split('.');delete thai[g][k]}assert.equal(digest(JSON.stringify(thai)),protectedHashes.thai);
+const thai=restorePowerLocale(JSON.parse(read('locales/th-TH/ui.json')),'th-TH');for(const path of protectedHashes.changed){const [g,k]=path.split('.');delete thai[g][k]}assert.equal(digest(JSON.stringify(thai)),protectedHashes.thai);
 for(const [name,next] of [['use','fileFor'],['stop','unlock'],['unlock',null],['play','addAudioTestControl']]){const a=source.indexOf('  function '+name+'('),b=next?source.indexOf('  function '+next+'(',a):source.indexOf("  document.addEventListener('pointerdown'",a);assert.equal(digest(source.slice(a,b)),protectedHashes.player[name],name+' lifecycle exact');}
 const result=read('result.html'),renderHashes=JSON.parse(read('tests/fixtures/emergency-result-render-hashes.json'));
 for(const [name,next]of [['renderSummary','moduleStatus'],['renderReminder','appendTechnicalRow']]){const a=result.indexOf('   function '+name+'('),b=result.indexOf('   function '+next+'(',a);assert.equal(digest(result.slice(a,b)),renderHashes[name],name+' approved emergency-only delta frozen');}

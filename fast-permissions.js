@@ -245,7 +245,8 @@
           break;
         default:
           errorType = 'generic';
-          message = `${S.generic} (${err.name || 'UnknownError'})`;
+          message = global.QuickStrokeAppMode?.resolveMode?.() === 'public' && global.QuickStrokeDevMode?.isEnabled?.() !== true
+            ? S.generic : `${S.generic} (${err.name || 'UnknownError'})`;
       }
       return {
         ok: false,
@@ -262,6 +263,9 @@
     const oldOverlay = document.getElementById('fast-perm-overlay');
     if (oldOverlay) oldOverlay.remove();
 
+    const publicCopy = global.QuickStrokeAppMode?.resolveMode?.() === 'public' && global.QuickStrokeDevMode?.isEnabled?.() !== true
+      ? ({'th-TH':['โหลดภาษาไม่ได้ · โหลดหน้าใหม่','โหลดหน้าใหม่'],'en-US':['Language unavailable · Reload','Reload'],'ja-JP':['言語を読み込めません · 再読み込み','再読み込み']}[normalizeLocale()] || null) : null;
+    if (publicCopy) message = publicCopy[0];
     const overlay = document.createElement('div');
     overlay.id = 'fast-perm-overlay';
     overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#F8FAFC;display:flex;align-items:center;justify-content:center;padding:28px 22px;font-family:system-ui,sans-serif;color:#0F172A;text-align:center';
@@ -269,7 +273,7 @@
       <div style="width:100%;max-width:360px;background:#fff;border:1px solid #E5E7EB;border-radius:28px;padding:28px 22px;box-shadow:0 24px 60px rgba(15,23,42,.14)">
         <div style="font-size:36px;margin-bottom:12px">⚠️</div>
         <p style="font-size:15px;line-height:1.6;color:#475569;margin:0 0 18px">${message}</p>
-        <button type="button" style="width:100%;background:#2B7DE9;color:#fff;border:none;border-radius:16px;padding:13px;font-size:15px;font-weight:800;cursor:pointer">Reload</button>
+        <button type="button" style="width:100%;background:#2B7DE9;color:#fff;border:none;border-radius:16px;padding:13px;font-size:15px;font-weight:800;cursor:pointer">${publicCopy ? publicCopy[1] : 'Reload'}</button>
       </div>`;
     overlay.querySelector('button').onclick = () => location.reload();
     document.body.appendChild(overlay);

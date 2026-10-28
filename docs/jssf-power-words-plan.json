@@ -1,0 +1,811 @@
+{
+  "base": "28384b4b28eab2a4fb8292dfe47b60c0e1a99393",
+  "locale": [
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.displayNoAlertTitle",
+      "old": "ไม่พบสิ่งที่ควรเตือน",
+      "new": "พูดตรงประโยค",
+      "fallbackKey": "speech.displayNoAlertTitle"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.displayAttentionTitle",
+      "old": "ควรประเมินเพิ่มเติม",
+      "new": "คำพูดไม่ตรง",
+      "fallbackKey": "speech.displayAttentionTitle"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.displayIndeterminateTitle",
+      "old": "ประเมินไม่ได้",
+      "new": "ตรวจเสียงไม่ได้",
+      "fallbackKey": "speech.displayIndeterminateTitle"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.displayNoAlertSummary",
+      "old": "ไม่พบจุดที่ควรสังเกต",
+      "new": "",
+      "fallbackKey": "speech.displayNoAlertSummary"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.displayAttentionSummary",
+      "old": "พบ {{count}} จุดที่ควรสังเกต",
+      "new": "",
+      "fallbackKey": "speech.displayAttentionSummary"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.statusPhraseExact",
+      "old": "ตรงตามประโยค",
+      "new": "พูดตรงประโยค",
+      "fallbackKey": "speech.statusPhraseExact"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.statusPhraseAttention",
+      "old": "ควรสังเกต",
+      "new": "คำพูดไม่ตรง",
+      "fallbackKey": "speech.statusPhraseAttention"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.statusPhraseUnavailable",
+      "old": "ประเมินไม่ได้",
+      "new": "ตรวจเสียงไม่ได้",
+      "fallbackKey": "speech.statusPhraseUnavailable"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.domainPhraseLabel",
+      "old": "คำพูด",
+      "new": "ประโยค",
+      "fallbackKey": "speech.domainPhraseLabel"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.resultInvalid",
+      "old": "ประเมินไม่ได้",
+      "new": "ตรวจเสียงไม่ได้",
+      "fallbackKey": "speech.resultInvalid"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.fastIncomplete",
+      "old": "พบสัญญาณ · ทำให้ครบทั้ง 3 อย่าง",
+      "new": "สงสัยสโตรก? อย่ารอผล · ติดต่อฉุกเฉินทันที",
+      "fallbackKey": "speech.fastIncomplete"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.micAccessError",
+      "old": "⚠️ ไม่สามารถเข้าถึงไมค์: ",
+      "new": "เปิดไมค์ไม่ได้ · ตรวจสิทธิ์แล้วลองใหม่",
+      "fallbackKey": "speech.micAccessError"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.speechApiUnavailable",
+      "old": "[ไม่พบ Speech API]",
+      "new": "ตรวจเสียงไม่ได้ · ใช้เบราว์เซอร์อื่น",
+      "fallbackKey": "speech.speechApiUnavailable"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.insufficientData",
+      "old": "ข้อมูลน้อยเกินไป",
+      "new": "ตรวจเสียงไม่ได้ · ลองใหม่",
+      "fallbackKey": "speech.insufficientData"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.recognitionRecovery",
+      "old": "กำลังฟัง... (ASR retry failed; using voice detection)",
+      "new": "ตรวจคำพูดไม่ได้ · รอผลแล้วลองใหม่",
+      "fallbackKey": "speech.recognitionRecovery"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.detailsResearchNote",
+      "old": "ค่าด้านล่างเก็บไว้เพื่อการพัฒนาและวิเคราะห์ในระยะพรีไพลอต ไม่ใช่ผลวินิจฉัย",
+      "new": "เปอร์เซ็นต์ความตรงของประโยคไม่ใช่ความเสี่ยงสโตรก",
+      "fallbackKey": "speech.detailsResearchNote"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.statusRateDevelopment",
+      "old": "อยู่ระหว่างการพัฒนา",
+      "new": "ไม่ได้ประเมิน",
+      "fallbackKey": "speech.statusRateDevelopment"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.statusRateNotUsed",
+      "old": "ยังไม่นำมาใช้ในการประเมินผล",
+      "new": "ไม่ใช้ตัดสินผล",
+      "fallbackKey": "speech.statusRateNotUsed"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.safetyNote",
+      "old": null,
+      "new": "คัดกรองเบื้องต้นเท่านั้น · ไม่ใช่การวินิจฉัย · ผลนี้ไม่ยืนยันว่าไม่เป็นสโตรก",
+      "fallbackKey": "speech.safetyNote"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.statusLabel",
+      "old": "Speech test status",
+      "new": "การตรวจคำพูด",
+      "fallbackKey": "speech.statusLabel"
+    },
+    {
+      "locale": "th-TH",
+      "key": "speech.publicUi.observationsLabel",
+      "old": "Speech observations",
+      "new": "ผลเทียบประโยค",
+      "fallbackKey": "speech.observationsLabel"
+    },
+    {
+      "locale": "th-TH",
+      "key": "face.lookUp",
+      "old": "⬇️ เงยหน้าขึ้นเล็กน้อย",
+      "new": "⬆️ เงยหน้าขึ้นเล็กน้อย"
+    },
+    {
+      "locale": "th-TH",
+      "key": "face.lookDown",
+      "old": "⬆️ ก้มหน้าลงเล็กน้อย",
+      "new": "⬇️ ก้มหน้าลงเล็กน้อย"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.displayNoAlertTitle",
+      "old": "No item to flag",
+      "new": "Phrase Matched",
+      "fallbackKey": "speech.displayNoAlertTitle"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.displayAttentionTitle",
+      "old": "Further review suggested",
+      "new": "Phrase Mismatch",
+      "fallbackKey": "speech.displayAttentionTitle"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.displayIndeterminateTitle",
+      "old": "Unable to assess",
+      "new": "Speech Check Failed",
+      "fallbackKey": "speech.displayIndeterminateTitle"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.displayNoAlertSummary",
+      "old": "No item needs attention",
+      "new": "",
+      "fallbackKey": "speech.displayNoAlertSummary"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.displayAttentionSummary",
+      "old": "{{count}} item(s) need attention",
+      "new": "",
+      "fallbackKey": "speech.displayAttentionSummary"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.statusPhraseExact",
+      "old": "Matches the phrase",
+      "new": "Phrase Matched",
+      "fallbackKey": "speech.statusPhraseExact"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.statusPhraseAttention",
+      "old": "Needs attention",
+      "new": "Phrase Mismatch",
+      "fallbackKey": "speech.statusPhraseAttention"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.statusPhraseUnavailable",
+      "old": "Unable to assess",
+      "new": "Speech Check Failed",
+      "fallbackKey": "speech.statusPhraseUnavailable"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.domainPhraseLabel",
+      "old": "Speech",
+      "new": "Phrase",
+      "fallbackKey": "speech.domainPhraseLabel"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.resultInvalid",
+      "old": "Unable to assess",
+      "new": "Speech Check Failed",
+      "fallbackKey": "speech.resultInvalid"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.fastIncomplete",
+      "old": "Sign found · Complete all 3 checks",
+      "new": "Suspect stroke? Don’t wait · Call emergency services now",
+      "fallbackKey": "speech.fastIncomplete"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.micAccessError",
+      "old": "⚠️ Cannot access the microphone: ",
+      "new": "Microphone unavailable · Check permission and retry",
+      "fallbackKey": "speech.micAccessError"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.speechApiUnavailable",
+      "old": "[Speech API unavailable]",
+      "new": "Speech unavailable · Try another browser",
+      "fallbackKey": "speech.speechApiUnavailable"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.insufficientData",
+      "old": "Insufficient data",
+      "new": "Speech Check Failed · Try Again",
+      "fallbackKey": "speech.insufficientData"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.recognitionRecovery",
+      "old": "Listening... (ASR retry failed; using voice detection)",
+      "new": "Speech unavailable · Retry after result",
+      "fallbackKey": "speech.recognitionRecovery"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.detailsResearchNote",
+      "old": "The values below are retained for pre-pilot development and analysis. They are not a diagnosis.",
+      "new": "Match percentage is not stroke risk.",
+      "fallbackKey": "speech.detailsResearchNote"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.statusRateDevelopment",
+      "old": "Under development",
+      "new": "Not assessed",
+      "fallbackKey": "speech.statusRateDevelopment"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.statusRateNotUsed",
+      "old": "Not currently used in the screening result",
+      "new": "Not used for this result",
+      "fallbackKey": "speech.statusRateNotUsed"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.safetyNote",
+      "old": null,
+      "new": "Preliminary screening only · Not a diagnosis · This result does not rule out stroke",
+      "fallbackKey": "speech.safetyNote"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.statusLabel",
+      "old": "Speech test status",
+      "new": "Speech check",
+      "fallbackKey": "speech.statusLabel"
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.publicUi.observationsLabel",
+      "old": "Speech observations",
+      "new": "Phrase result",
+      "fallbackKey": "speech.observationsLabel"
+    },
+    {
+      "locale": "en-US",
+      "key": "face.lookUp",
+      "old": "⬇️ Lift your head slightly",
+      "new": "⬆️ Lift your head slightly"
+    },
+    {
+      "locale": "en-US",
+      "key": "face.lookDown",
+      "old": "⬆️ Lower your head slightly",
+      "new": "⬇️ Lower your head slightly"
+    },
+    {
+      "locale": "en-US",
+      "key": "arm.vFinalBad",
+      "old": "Drift detected. Please see a doctor soon.",
+      "new": "Possible arm drift. If stroke is suspected, call emergency services now."
+    },
+    {
+      "locale": "en-US",
+      "key": "speech.retryingIncomplete",
+      "old": null,
+      "new": "Phrase not fully recognized · Retrying…"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.displayNoAlertTitle",
+      "old": "注意項目はありません",
+      "new": "文が一致",
+      "fallbackKey": "speech.displayNoAlertTitle"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.displayAttentionTitle",
+      "old": "追加の確認を推奨",
+      "new": "文が不一致",
+      "fallbackKey": "speech.displayAttentionTitle"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.displayIndeterminateTitle",
+      "old": "評価できません",
+      "new": "発話を確認できません",
+      "fallbackKey": "speech.displayIndeterminateTitle"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.displayNoAlertSummary",
+      "old": "注意が必要な項目はありません",
+      "new": "",
+      "fallbackKey": "speech.displayNoAlertSummary"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.displayAttentionSummary",
+      "old": "確認したい項目が{{count}}件あります",
+      "new": "",
+      "fallbackKey": "speech.displayAttentionSummary"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.statusPhraseExact",
+      "old": "例文と一致",
+      "new": "文が一致",
+      "fallbackKey": "speech.statusPhraseExact"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.statusPhraseAttention",
+      "old": "確認が必要",
+      "new": "文が不一致",
+      "fallbackKey": "speech.statusPhraseAttention"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.statusPhraseUnavailable",
+      "old": "評価できません",
+      "new": "発話を確認できません",
+      "fallbackKey": "speech.statusPhraseUnavailable"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.domainPhraseLabel",
+      "old": "発話",
+      "new": "例文",
+      "fallbackKey": "speech.domainPhraseLabel"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.resultInvalid",
+      "old": "判定できません",
+      "new": "発話を確認できません",
+      "fallbackKey": "speech.resultInvalid"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.fastIncomplete",
+      "old": "サインあり · 3項目すべて実施",
+      "new": "脳卒中が疑われたら、結果を待たず救急通報",
+      "fallbackKey": "speech.fastIncomplete"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.micAccessError",
+      "old": "⚠️ マイクにアクセスできません：",
+      "new": "マイクを使えません · 許可を確認して再試行",
+      "fallbackKey": "speech.micAccessError"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.speechApiUnavailable",
+      "old": "[Speech APIを利用できません]",
+      "new": "発話を確認できません · 別のブラウザーをお試しください",
+      "fallbackKey": "speech.speechApiUnavailable"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.insufficientData",
+      "old": "データ不足",
+      "new": "発話を確認できません · 再試行",
+      "fallbackKey": "speech.insufficientData"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.recognitionRecovery",
+      "old": "聞いています... (ASR retry failed; using voice detection)",
+      "new": "言葉を確認できません · 結果の後に再試行",
+      "fallbackKey": "speech.recognitionRecovery"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.detailsResearchNote",
+      "old": "以下の値はプレパイロットの開発・解析用に保存されます。診断結果ではありません。",
+      "new": "一致率は脳卒中のリスクではありません。",
+      "fallbackKey": "speech.detailsResearchNote"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.statusRateDevelopment",
+      "old": "開発中",
+      "new": "判定対象外",
+      "fallbackKey": "speech.statusRateDevelopment"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.statusRateNotUsed",
+      "old": "現在は判定結果に使用していません",
+      "new": "この結果には使用しません",
+      "fallbackKey": "speech.statusRateNotUsed"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.safetyNote",
+      "old": null,
+      "new": "初期チェックのみ · 医療診断ではありません · 脳卒中は否定できません",
+      "fallbackKey": "speech.safetyNote"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.statusLabel",
+      "old": "Speech test status",
+      "new": "発話チェック",
+      "fallbackKey": "speech.statusLabel"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.publicUi.observationsLabel",
+      "old": "Speech observations",
+      "new": "例文の確認結果",
+      "fallbackKey": "speech.observationsLabel"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "face.lookUp",
+      "old": "⬇️ 少し顔を上げる",
+      "new": "⬆️ 少し顔を上げる"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "face.lookDown",
+      "old": "⬆️ 少し顔を下げる",
+      "new": "⬇️ 少し顔を下げる"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "arm.vFinalBad",
+      "old": "ずれが検出されました。早めに医師に相談してください。",
+      "new": "腕下垂の可能性があります。脳卒中が疑われる場合は直ちに救急通報してください。"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "speech.retryingIncomplete",
+      "old": null,
+      "new": "文を最後まで認識できません · 再試行中…"
+    },
+    {
+      "locale": "th-TH",
+      "key": "index.publicStartError",
+      "old": null,
+      "oldDisplayed": "{error.message} / Unable to start screening/module.",
+      "new": "เริ่มไม่ได้ · ลองใหม่"
+    },
+    {
+      "locale": "th-TH",
+      "key": "index.publicChangeLanguageLabel",
+      "old": null,
+      "oldDisplayed": "Change language",
+      "new": "เปลี่ยนภาษา"
+    },
+    {
+      "locale": "en-US",
+      "key": "index.publicStartError",
+      "old": null,
+      "oldDisplayed": "{error.message} / Unable to start screening/module.",
+      "new": "Couldn’t start · Try again"
+    },
+    {
+      "locale": "en-US",
+      "key": "index.publicChangeLanguageLabel",
+      "old": null,
+      "oldDisplayed": "Change language",
+      "new": "Change language"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "index.publicStartError",
+      "old": null,
+      "oldDisplayed": "{error.message} / Unable to start screening/module.",
+      "new": "開始できません · 再試行"
+    },
+    {
+      "locale": "ja-JP",
+      "key": "index.publicChangeLanguageLabel",
+      "old": null,
+      "oldDisplayed": "Change language",
+      "new": "言語を変更"
+    }
+  ],
+  "source": {
+    "speech-test.html": [
+      {
+        "before": "function resetSpeechCards(){",
+        "after": "// Public wording only. The engine locale object and Research/Dev text stay intact.\nfunction speechUiText(key) {\n  return document.documentElement.dataset.speechPublic === '1'\n    ? (T?.publicUi?.[key] ?? T?.[key] ?? '')\n    : (T?.[key] ?? '');\n}\n\nfunction resetSpeechCards(){",
+        "count": 1
+      },
+      {
+        "before": "T.displayNoAlertTitle",
+        "after": "speechUiText('displayNoAlertTitle')",
+        "count": 1
+      },
+      {
+        "before": "T.displayAttentionTitle",
+        "after": "speechUiText('displayAttentionTitle')",
+        "count": 1
+      },
+      {
+        "before": "T.displayIndeterminateTitle",
+        "after": "speechUiText('displayIndeterminateTitle')",
+        "count": 1
+      },
+      {
+        "before": "T.displayNoAlertSummary",
+        "after": "speechUiText('displayNoAlertSummary')",
+        "count": 1
+      },
+      {
+        "before": "T.displayAttentionSummary",
+        "after": "speechUiText('displayAttentionSummary')",
+        "count": 1
+      },
+      {
+        "before": "T.statusPhraseExact",
+        "after": "speechUiText('statusPhraseExact')",
+        "count": 2
+      },
+      {
+        "before": "T.statusPhraseAttention",
+        "after": "speechUiText('statusPhraseAttention')",
+        "count": 2
+      },
+      {
+        "before": "T.statusPhraseUnavailable",
+        "after": "speechUiText('statusPhraseUnavailable')",
+        "count": 2
+      },
+      {
+        "before": "T.domainPhraseLabel",
+        "after": "speechUiText('domainPhraseLabel')",
+        "count": 1
+      },
+      {
+        "before": "T.resultInvalid",
+        "after": "speechUiText('resultInvalid')",
+        "count": 3
+      },
+      {
+        "before": "T.micAccessError",
+        "after": "speechUiText('micAccessError')",
+        "count": 9
+      },
+      {
+        "before": "T.speechApiUnavailable",
+        "after": "speechUiText('speechApiUnavailable')",
+        "count": 1
+      },
+      {
+        "before": "T.insufficientData",
+        "after": "speechUiText('insufficientData')",
+        "count": 2
+      },
+      {
+        "before": "T.statusRateNotUsed",
+        "after": "speechUiText('statusRateNotUsed')",
+        "count": 2
+      },
+      {
+        "before": "if ($('domain-phrase-label')) $('domain-phrase-label').textContent = L.domainPhraseLabel;",
+        "after": "if ($('domain-phrase-label')) $('domain-phrase-label').textContent = speechUiText('domainPhraseLabel');",
+        "count": 1
+      },
+      {
+        "before": "if ($('result-details-note')) $('result-details-note').textContent = L.detailsResearchNote;",
+        "after": "if ($('result-details-note')) $('result-details-note').textContent = speechUiText('detailsResearchNote');\n  if (document.documentElement.dataset.speechPublic === '1') {\n    $('speech-status-row')?.setAttribute('aria-label', speechUiText('statusLabel'));\n    $('domain-summary')?.setAttribute('aria-label', speechUiText('observationsLabel'));\n    const safety = $('public-speech-safety');\n    if (safety) { safety.textContent = speechUiText('safetyNote'); safety.hidden = false; }\n  }",
+        "count": 1
+      },
+      {
+        "before": "      <div id=\"domain-summary\"",
+        "after": "      <p id=\"public-speech-safety\" hidden></p>\n      <div id=\"domain-summary\"",
+        "count": 1
+      },
+      {
+        "before": "? S.blockedMic\n            : (error?.message || S.generic);",
+        "after": "? S.blockedMic\n            : (document.documentElement.dataset.speechPublic === '1' ? speechUiText('micAccessError') : (error?.message || S.generic));",
+        "count": 1
+      },
+      {
+        "before": "$('transcript-box').textContent = T.listening + ' (ASR retry failed; using voice detection)';",
+        "after": "$('transcript-box').textContent = document.documentElement.dataset.speechPublic === '1'\n              ? speechUiText('recognitionRecovery')\n              : T.listening + ' (ASR retry failed; using voice detection)';",
+        "count": 1
+      },
+      {
+        "before": "actionBtn.textContent = T?.languageUnavailable || 'Language unavailable';",
+        "after": "actionBtn.textContent = T?.languageUnavailable || (document.documentElement.dataset.speechPublic === '1'\n      ? ({th:'โหลดภาษาไม่ได้',en:'Language unavailable',ja:'言語を読み込めません'}[sessionStorage.getItem('fast_lang')] || 'Language unavailable')\n      : 'Language unavailable');",
+        "count": 1
+      },
+      {
+        "before": "resultSub.textContent.includes(L.fastIncomplete)",
+        "after": "resultSub.textContent.includes(speechUiText('fastIncomplete'))",
+        "count": 1
+      },
+      {
+        "before": "resultSub.textContent += ` · ${L.fastIncomplete}`;",
+        "after": "resultSub.textContent += ` · ${speechUiText('fastIncomplete')}`;",
+        "count": 1
+      },
+      {
+        "before": "if ($('val-rate')) $('val-rate').textContent = T.statusRateDevelopment || '—';",
+        "after": "if ($('val-rate')) $('val-rate').textContent = speechUiText('statusRateDevelopment') || '—';",
+        "count": 1
+      },
+      {
+        "before": "if ($('val-rate')) $('val-rate').textContent = T.statusRateDevelopment;",
+        "after": "if ($('val-rate')) $('val-rate').textContent = speechUiText('statusRateDevelopment');",
+        "count": 1
+      }
+    ],
+    "face-test.html": [
+      {
+        "before": "  setText('reset-btn','↺');",
+        "after": "  setText('reset-btn','↺');\n  if (document.documentElement.dataset.facePublic === '1') {\n    document.getElementById('face-home-btn')?.setAttribute('aria-label', FL.navHome);\n    resetBtn?.setAttribute('aria-label', FL.retryBtn);\n  }",
+        "count": 1
+      },
+      {
+        "before": "\"⚠️ ไม่สามารถโหลดไฟล์ภาษาได้ / Unable to load language resources.\";",
+        "after": "document.documentElement.dataset.facePublic === '1'\n        ? ({th:'โหลดภาษาไม่ได้ · โหลดหน้าใหม่',en:'Language unavailable · Reload',ja:'言語を読み込めません · 再読み込み'}[getPreferredFaceLang()] || 'Language unavailable · Reload')\n        : \"⚠️ ไม่สามารถโหลดไฟล์ภาษาได้ / Unable to load language resources.\";",
+        "count": 1
+      }
+    ],
+    "arm-test.html": [
+      {
+        "before": "      if (title) title.textContent = copy.titles[index];",
+        "after": "      if (title) title.textContent = copy.titles[index];\n      if (document.documentElement.dataset.armPublic === '1') {\n        const region = $(`pose-${side}`);\n        region?.setAttribute('aria-label', `${T.topLbl} · ${side === 'left' ? T.armLeft : T.armRight}`);\n        region?.querySelector(`img.step-${index + 1}`)?.setAttribute('alt', text);\n      }",
+        "count": 1
+      },
+      {
+        "before": "  // Header / meters\n",
+        "after": "  if (document.documentElement.dataset.armPublic === '1')\n    $('arm-home-btn')?.setAttribute('aria-label', T.navHome);\n  // Header / meters\n",
+        "count": 1
+      },
+      {
+        "before": "  if (instr) instr.textContent = 'Unable to load language files';\n  if (subInstr) subInstr.textContent = 'Refresh the page and check the locale JSON files.';",
+        "after": "  const publicCopy = document.documentElement.dataset.armPublic === '1'\n    ? ({th:['โหลดภาษาไม่ได้','โหลดหน้าใหม่'],en:['Language unavailable','Reload'],ja:['言語を読み込めません','再読み込み']}[normaliseArmLang(sessionStorage.getItem('fast_lang') || document.documentElement.lang)] || ['Language unavailable','Reload']) : null;\n  if (instr) instr.textContent = publicCopy ? publicCopy[0] : 'Unable to load language files';\n  if (subInstr) subInstr.textContent = publicCopy ? publicCopy[1] : 'Refresh the page and check the locale JSON files.';",
+        "count": 1
+      }
+    ],
+    "result.html": [
+      {
+        "before": "     if (!publicResult) return;\n     document.getElementById('module-grid')",
+        "after": "     if (!publicResult) return;\n     document.querySelector('header .lang-seg')?.setAttribute('aria-label', window.QuickStrokeI18n?.getMessages?.()?.index?.publicLanguageLabel || 'TH / EN / JA');\n     document.getElementById('module-grid')?.setAttribute('aria-label', MODULES.map(name => T[name]).join(' · '));\n     document.getElementById('module-grid')",
+        "count": 1
+      },
+      {
+        "before": "document.getElementById('summary-title').textContent = 'Language unavailable'",
+        "after": "document.getElementById('summary-title').textContent = isPublicResultSession()\n       ? ({th:'โหลดภาษาไม่ได้ · โหลดหน้าใหม่',en:'Language unavailable · Reload',ja:'言語を読み込めません · 再読み込み'}[savedLang()] || 'Language unavailable · Reload')\n       : 'Language unavailable'",
+        "count": 1
+      }
+    ],
+    "fast-permissions.js": [
+      {
+        "before": "message = `${S.generic} (${err.name || 'UnknownError'})`;",
+        "after": "message = global.QuickStrokeAppMode?.resolveMode?.() === 'public' && global.QuickStrokeDevMode?.isEnabled?.() !== true\n            ? S.generic : `${S.generic} (${err.name || 'UnknownError'})`;",
+        "count": 1
+      },
+      {
+        "before": "const overlay = document.createElement('div');\n    overlay.id = 'fast-perm-overlay';\n    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#F8FAFC;display:flex;align-items:center;justify-content:center;padding:28px 22px;font-family:system-ui,sans-serif;color:#0F172A;text-align:center';",
+        "after": "const publicCopy = global.QuickStrokeAppMode?.resolveMode?.() === 'public' && global.QuickStrokeDevMode?.isEnabled?.() !== true\n      ? ({'th-TH':['โหลดภาษาไม่ได้ · โหลดหน้าใหม่','โหลดหน้าใหม่'],'en-US':['Language unavailable · Reload','Reload'],'ja-JP':['言語を読み込めません · 再読み込み','再読み込み']}[normalizeLocale()] || null) : null;\n    if (publicCopy) message = publicCopy[0];\n    const overlay = document.createElement('div');\n    overlay.id = 'fast-perm-overlay';\n    overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:#F8FAFC;display:flex;align-items:center;justify-content:center;padding:28px 22px;font-family:system-ui,sans-serif;color:#0F172A;text-align:center';",
+        "count": 1
+      },
+      {
+        "before": ">Reload</button>",
+        "after": ">${publicCopy ? publicCopy[1] : 'Reload'}</button>",
+        "count": 1
+      }
+    ],
+    "config.js": [
+      {
+        "before": "localePack: \"20261027-emergency-v2\"",
+        "after": "localePack: \"20261028-power-words-v1\"",
+        "count": 1
+      }
+    ],
+    "service-worker.js": [
+      {
+        "before": "quickstroke-pwa-v103",
+        "after": "quickstroke-pwa-v104",
+        "count": 1
+      }
+    ],
+    "index.html": [
+      {
+        "before": "alert(error.message || 'Unable to start screening.');",
+        "after": "alert(isOrdinaryPublicHome() ? tr('index.publicStartError', 'Couldn’t start · Try again') : (error.message || 'Unable to start screening.'));",
+        "count": 1
+      },
+      {
+        "before": "alert(error.message || 'Unable to start module.');",
+        "after": "alert(isOrdinaryPublicHome() ? tr('index.publicStartError', 'Couldn’t start · Try again') : (error.message || 'Unable to start module.'));",
+        "count": 1
+      }
+    ],
+    "js/languages.js": [
+      {
+        "before": "trigger.setAttribute('aria-label', `${language.ariaLabel} · Change language`);",
+        "after": "const actionLabel = isPublicFlowSelection()\n        ? (global.QuickStrokeI18n?.getMessages?.()?.index?.publicChangeLanguageLabel || language.ariaLabel)\n        : 'Change language';\n      trigger.setAttribute('aria-label', `${language.ariaLabel} · ${actionLabel}`);",
+        "count": 1
+      }
+    ]
+  },
+  "skipped": [
+    "Incomplete speech TH/JA literal direction not applied to recognition-incomplete states: missing ASR transcript is not evidence the person failed to finish speaking. Existing displayAsrIncompleteSummary is retained; missing EN/JA retryingIncomplete translates recognition failure and automatic retry.",
+    "No Arm posture copy, images, Thai voice transcript or recordings changed. Baked-in Thai 10-second labels need a separate asset revision.",
+    "No broad Normal/reassurance rewrite, technical Research/Dev field rewrite, protected Research recovery-message rewrite or Speech Retry fix."
+  ],
+  "sourcePlan": {
+    "speech-test.html": [
+      "Public-only display lookup; no mutation of engine locale object or phrase keys",
+      "Use publicUi for result/error text, details note and accessibility labels",
+      "One visible Public non-diagnostic safety paragraph inside result banner",
+      "Retain ASR-retry legacy text in Research/Dev; Public displays recognitionRecovery",
+      "Public microphone disclosure does not echo raw exception.message"
+    ],
+    "face-test.html": [
+      "Public Home/Retry aria labels from existing face.navHome/retryBtn",
+      "Translate Public startup locale-failure fallback using existing selected language"
+    ],
+    "arm-test.html": [
+      "Public Home aria from existing arm.navHome",
+      "Public image alt uses existing localized guide steps; region labels reuse existing Arm + side",
+      "Replace Public locale-load JSON instruction with brief localized reload guidance"
+    ],
+    "result.html": [
+      "Public picker/module-region labels reuse existing module names and selected-language label",
+      "Localize Public locale-load failure fallback"
+    ],
+    "fast-permissions.js": [
+      "Suppress raw exception names in Public displayed messages only; retain Research/Dev messages",
+      "Localize Public last-resort locale-failure message and Reload button"
+    ],
+    "config.js": [
+      "Version locale pack only"
+    ],
+    "service-worker.js": [
+      "Increment shell cache for returning PWA"
+    ],
+    "index.html": [
+      "Version i18n resource reference only; preserve Home copy and event routing"
+    ],
+    "js/i18n.js": [
+      "No implementation changes planned; updated version references on consumers only"
+    ]
+  }
+}
