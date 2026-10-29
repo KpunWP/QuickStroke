@@ -23,7 +23,7 @@ assert.match(helper,/quickstroke_public_emergency_country/);
 assert.match(helper,/selectedCountry\(\) \|\| \(key === 'th' \? 'TH' : 'JP'\)/);
 for(const f of ['index.html','result.html'])assert.equal(fs.readFileSync(f,'utf8').match(/<script id="emergency-contacts">\n([^]*?)<\/script>/)[1],helper);
 assert.match(fs.readFileSync('service-worker.js','utf8'),/quickstroke-pwa-v107/);
-console.log('PASS: exact four-file runtime whitelist; Public-only explicit country choice; unchanged engines, audio, locales, Research/Dev; atomic inline helpers; v105 cache.');
+console.log('PASS: exact four-file runtime whitelist; Public-only explicit country choice; unchanged engines, audio, locales, Research/Dev; atomic inline helpers; v107 cache.');
 
 // Real helper behavior under denied or invalid tab storage, without browser/media APIs.
 const {default:vm}=await import('node:vm');
@@ -39,6 +39,12 @@ for(const blocked of [false,true]) {
  const storage={getItem(){if(blocked)throw Error('denied');return 'INVALID';},setItem(){if(blocked)throw Error('denied');}};
  const ctx={window:{sessionStorage:storage},document:{createElement:t=>new Element(t)}};vm.runInNewContext(helper,ctx);
  const render=(lang,jssf=false)=>{const p=new Element('div');return ctx.window.QuickStrokeEmergency.render(p,lang,{publicCompact:true,jssfExhibition:jssf});};
+ for(const event of [false,true])for(const language of ['th','en','ja']){
+  const group=render(language,event);const expected=language==='th'?'tel:1669':'tel:119';
+  assert.equal(group.children[0].href,expected,'approved defaults with/without JSSF');
+  assert.equal(group.children[0].dataset.emergencyCountry,language==='th'?'TH':'JP');
+  assert.ok(group.children[0].textContent.includes(expected.slice(4)));assert.ok(group.children[2].textContent.length>0,'other-country guidance retained');
+ }
  const en=render('en');assert.equal(en.children[0].href,'tel:119','English default uses Japan emergency number');
  const th=render('th');assert.equal(th.children[0].href,'tel:1669','Thai default uses Thailand emergency number');
  const ja=render('ja',true);assert.equal(ja.children[0].href,'tel:119','JSSF default preserved');
