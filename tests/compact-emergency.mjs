@@ -39,7 +39,8 @@ for(const blocked of [false,true]) {
  const storage={getItem(){if(blocked)throw Error('denied');return 'INVALID';},setItem(){if(blocked)throw Error('denied');}};
  const ctx={window:{sessionStorage:storage},document:{createElement:t=>new Element(t)}};vm.runInNewContext(helper,ctx);
  const render=(lang,jssf=false)=>{const p=new Element('div');return ctx.window.QuickStrokeEmergency.render(p,lang,{publicCompact:true,jssfExhibition:jssf});};
- const en=render('en');assert.equal(en.children[0].href,'tel:1669','ordinary default independent of language');
+ const en=render('en');assert.equal(en.children[0].href,'tel:119','English default uses Japan emergency number');
+ const th=render('th');assert.equal(th.children[0].href,'tel:1669','Thai default uses Thailand emergency number');
  const ja=render('ja',true);assert.equal(ja.children[0].href,'tel:119','JSSF default preserved');
  const picker=en.children[1].children[1];picker.value='JP';picker.events.change();assert.equal(en.children[0].href,'tel:119');
  picker.value='TH';picker.events.change();assert.equal(ja.children[0].href,'tel:1669','all mounted groups sync');assert.equal(render('ja',true).children[0].href,'tel:1669','manual choice survives language/exhibition changes');
