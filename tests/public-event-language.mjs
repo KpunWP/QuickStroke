@@ -22,8 +22,8 @@ function fixture({ search = '', mode = 'public', staff = false, stored = {} } = 
   return { ctx, data, initial:() => vm.runInContext('homeInitialLanguage()',ctx), set:(lang,initializing=false) => vm.runInContext(`setLang('${lang}', { initializing:${initializing} })`,ctx) };
 }
 const event = '?event=jssf2026';
-assert.equal(fixture().initial(),'th','General visitor default unchanged');
-assert.equal(fixture({stored:{fast_lang:'ja'}}).initial(),'ja');
+assert.equal(fixture().initial(),'en','Ordinary Public Home defaults to English');
+assert.equal(fixture({stored:{fast_lang:'ja'}}).initial(),'en','Shared language must not override new Public default');
 assert.equal(fixture({search:event}).initial(),'en');
 for (const inherited of ['th','ja','en']) {
   const f=fixture({search:event,stored:{fast_lang:inherited}});
@@ -50,7 +50,7 @@ for (const mode of ['research','dev']) {
 const protectedRecovery=fixture({search:event,mode:'research',stored:{fast_lang:'th'}});
 assert.equal(protectedRecovery.initial(),'th');
 assert.equal(protectedRecovery.data.has('quickstroke_public_event'),false);
-assert.equal(fixture({search:'?event=other',stored:{fast_lang:'ja'}}).initial(),'ja');
+assert.equal(fixture({search:'?event=other',stored:{fast_lang:'ja'}}).initial(),'en');
 assert.equal(fixture({search:event,stored:{quickstroke_public_home_language:'invalid'}}).initial(),'en');
 assert.match(html,/const initialLang = homeInitialLanguage\(\)/);
 assert.match(html,/setLang\(initialLang, \{ initializing:true \}\)/);
