@@ -20,7 +20,7 @@ for(const f of ['face-test.html','arm-test.html','speech-test.html','config.js',
 const helper=fs.readFileSync('js/emergency-contacts.js','utf8');
 assert.doesNotMatch(helper,/navigator|geolocation|fetch\(|localStorage|setTimeout|setInterval/);
 assert.match(helper,/quickstroke_public_emergency_country/);
-assert.match(helper,/selectedCountry\(\) \|\| \(exhibition && key !== 'th' \? 'JP' : 'TH'\)/);
+assert.match(helper,/selectedCountry\(\) \|\| \(key === 'th' \? 'TH' : 'JP'\)/);
 for(const f of ['index.html','result.html'])assert.equal(fs.readFileSync(f,'utf8').match(/<script id="emergency-contacts">\n([^]*?)<\/script>/)[1],helper);
 assert.match(fs.readFileSync('service-worker.js','utf8'),/quickstroke-pwa-v107/);
 console.log('PASS: exact four-file runtime whitelist; Public-only explicit country choice; unchanged engines, audio, locales, Research/Dev; atomic inline helpers; v105 cache.');
