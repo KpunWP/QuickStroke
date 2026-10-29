@@ -8,7 +8,7 @@ for(const f of Object.keys(changes)) {
  const actual=fs.readFileSync(f,'utf8');
  const priorLanguage = "  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}";
  const newLanguage = "  if (isOrdinaryPublicHome()) {\n    const selected = sessionStorage.getItem('quickstroke_public_home_language');\n    return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';\n  }\n  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}";
- const normalized = f === 'index.html' ? actual.replace(newLanguage,priorLanguage) : actual;
+ const normalized = f === 'index.html' ? actual.replace(newLanguage,priorLanguage) : f === 'service-worker.js' ? actual.replace('quickstroke-pwa-v106','quickstroke-pwa-v105') : actual;
  assert.equal(restoreCompactEmergency(normalized,f),cp.execFileSync('git',['show',base+':'+f],{encoding:'utf8'}),f+' exact baseline outside inventoried presentation substitutions');
  for(const op of changes[f])assert.ok(actual.includes(op.after),f+' intended replacement present');
 }
