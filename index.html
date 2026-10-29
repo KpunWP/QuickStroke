@@ -1231,6 +1231,10 @@ function homeInitialLanguage() {
       return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';
     }
   }
+  if (isOrdinaryPublicHome()) {
+    const selected = sessionStorage.getItem('quickstroke_public_home_language');
+    return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';
+  }
   return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';
 }
 
