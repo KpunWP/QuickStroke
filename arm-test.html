@@ -1714,6 +1714,7 @@ html[data-arm-public="1"] #arm-intro .arm-intro-panel h1{color:#2563EB!important
     'width=device-width, initial-scale=1.0, viewport-fit=cover';
 })();
 </script>
+<script src="./js/technical-demo.js?v=20261029-demo-v1"></script>
 </head>
 <body>
 
@@ -5453,6 +5454,15 @@ window.addEventListener('unhandledrejection', event => {
   updateArmDevHUD();
 });
 
+/* TECH DEMO ARM ADAPTER — reads the original measurement; never starts it */
+window.QuickStrokeTechnicalDemo?.register('arm', () => ({
+  phase, side:arm, current:phase === 'MEASURE' && gravityReady ? currentDrift : null,
+  maximum:phase === 'MEASURE' && gravityReady ? driftMax : null,
+  elapsed:mElapsed, sampleAt:lastSensorSampleAt, freshMs:ARM_READINESS_CFG.sampleFreshMs,
+  ready:sensorOk && gravityReady, reason:readinessInvalidReason,
+  attempt:attemptNoByArm[arm]
+}));
+/* END TECH DEMO ARM ADAPTER */
 // ── No language landing page: start directly and keep TH/EN/JA at top-right ──
 console.log('[Arm build]', ARM_BUILD_ID);
 (async function initArmLanguage() {

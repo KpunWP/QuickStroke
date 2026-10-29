@@ -1804,6 +1804,7 @@ document.documentElement.dataset.facePublic = publicFacePresentation ? '1' : '0'
 if (publicFacePresentation) document.querySelector('meta[name="viewport"]').content =
   'width=device-width, initial-scale=1.0, viewport-fit=cover';
 </script>
+<script src="./js/technical-demo.js?v=20261029-demo-v1"></script>
 </head>
 <body>
 
@@ -2036,6 +2037,7 @@ function drawFaceMesh(lm){
 if (DEV_MESH){
   window.addEventListener('DOMContentLoaded', ()=>{
     const b = document.createElement('button');
+    b.id = 'face-mesh-toggle'; // Technical Demo presentation hook only
     b.textContent = 'Mesh: ON';
     b.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;padding:8px 12px;'
       + 'background:#1FA98F;color:#fff;border:none;border-radius:8px;font-weight:700;'
@@ -4390,6 +4392,9 @@ function onResults(results, handResults=null){
   if (!lmArr || lmArr.length === 0){
     if (typeof drawFaceMesh==='function') drawFaceMesh(null);  // เคลียร์ mesh
     noFaceCount++;
+    /* TECH DEMO FACE LOST */
+    window.QuickStrokeTechnicalDemo?.faceLost();
+    /* END TECH DEMO FACE LOST */
     recordResearchFrame({faceDetected:false, poseValid:false, mouthAssessable:false, handMouthOverlap:false});
     poseGoodFrames = 0;   // หน้าหาย = ยังไม่นิ่ง → เริ่มนับ debounce ใหม่ตอนหน้ากลับมา
     const __testing = ['RESTING_PHASE','ACTION_PHASE','ACTION_WAIT_SMILE'].includes(phase);
@@ -4549,6 +4554,11 @@ function onResults(results, handResults=null){
     mouthAssessable:inActionPhase ? isMouthAssessable(mouthVis) : null,
     handMouthOverlap:lastHandMouthOverlap
   });
+
+  /* TECH DEMO FACE SIGNAL — scalar projection only */
+  window.QuickStrokeTechnicalDemo?.faceSignal({yaw:yawDeg, pitch:pitchDeg, roll:rollDeg,
+    asymmetry:smileTotal > 0.05 ? smileAsym : null, aligned:sampledPoseValid});
+  /* END TECH DEMO FACE SIGNAL */
 
   // debug — เขียน DOM เฉพาะตอนเปิด panel เท่านั้น (เดิมยิง getElementById ~16 ครั้ง/เฟรมตลอดเวลา)
   if (debugVisible){
@@ -5528,6 +5538,12 @@ if (document.documentElement.dataset.facePublic === '1') {
 }
 /* END PUBLIC FACE STARTUP PRESENTATION */
 
+/* TECH DEMO FACE ADAPTER */
+window.QuickStrokeTechnicalDemo?.register('face', () => ({
+  phase, camera:isCameraRunning, model:modelReady,
+  paused:countdownPaused, framePresent:noFaceCount === 0
+}));
+/* END TECH DEMO FACE ADAPTER */
 bootstrapFaceTest();
 
 
