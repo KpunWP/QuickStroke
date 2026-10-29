@@ -71,3 +71,5 @@ Known Face cold start/audio, Speech Retry/countdown audio and Arm illustration
 issues remain unresolved. Do not infer a fix from these screenshots or tests.
 
 Local results: 35 source/contract suites pass; 120 paired layouts pass with identical geometry, typography, button styling and clinical text colors; state/mode isolation and exact accent assertions pass. Emergency browser 192 cases pass, including v104→v108 offline update, unchanged Thai MP3 hash and Japan119 for fresh English. Inline-script syntax and diff checks pass. CI results are reported in the PR.
+
+CI review note: the first Face active test run rejected the deliberately changed preparation-spinner pixels against its historical white-spinner screenshot. The comparison now first asserts the actual approved teal border, then normalizes only that border to white during screenshot capture. Whole-screen pixel equality remains enforced for all remaining startup pixels and every completion/error/urgent state. No production CSS was changed in response.
