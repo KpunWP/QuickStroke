@@ -85,7 +85,7 @@
       if(asrAttempt!==s.attempt)asrState='';
       put(values.mic,s.phase==='RECORDING'&&asrState==='Capturing audio'?'Browser audio active':s.mic);
       put(values.recognition,s.recognition==='Unavailable'||s.recognition.startsWith('Error:')?s.recognition:s.phase==='RECORDING'?asrState||s.recognition:s.recognition);
-      put(values.match,s.phase==='DONE'&&transcript?s.match||'Unavailable':'Pending');
+      put(values.match,s.phase==='DONE'?(transcript?s.match||'Unavailable':'Unavailable'):'Pending');
     }
   }
   // Face stays over an unused edge strip. Never resize/reparent the camera.
