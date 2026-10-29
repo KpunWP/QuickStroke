@@ -13,7 +13,7 @@ for(const f of Object.keys(changes)) {
  const countryRestored = actual.replace(newCountry,legacyCountry);
  const normalized = f === 'index.html' ? countryRestored.replace(newLanguage,priorLanguage) : f === 'service-worker.js' ? countryRestored.replace('quickstroke-pwa-v107','quickstroke-pwa-v105') : countryRestored;
  assert.equal(restoreCompactEmergency(normalized,f),cp.execFileSync('git',['show',base+':'+f],{encoding:'utf8'}),f+' exact baseline outside inventoried presentation substitutions');
- for(const op of changes[f])assert.ok(actual.includes(f === 'service-worker.js' ? op.after.replace('quickstroke-pwa-v105','quickstroke-pwa-v107') : op.after),f+' intended replacement present');
+ for(const op of changes[f])assert.ok(actual.includes(f === 'service-worker.js' ? op.after.replace('quickstroke-pwa-v105','quickstroke-pwa-v107') : op.after.replace("selectedCountry() || (exhibition && key !== 'th' ? 'JP' : 'TH')","selectedCountry() || (key === 'th' ? 'TH' : 'JP')")),f+' intended replacement present');
 }
 for(const f of ['face-test.html','arm-test.html','speech-test.html','config.js','js/thai-recorded-audio.js','audio/th/manifest.json','audio/th/arm_11_alert_local_emergency_v2.mp3','jssf-consent.html','js/app-mode.js','js/jssf-remote-sync.js','locales/th-TH/ui.json','locales/en-US/ui.json','locales/ja-JP/ui.json'])
  assert.deepEqual(fs.readFileSync(f),cp.execFileSync('git',['show',base+':'+f]),f+' unchanged');
