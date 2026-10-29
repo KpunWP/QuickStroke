@@ -39,6 +39,16 @@
     cell.append(name,value);fields.append(cell);return value;
   }
   let values = {}, graph, graphLine, graphLabel;
+  const movedControls=[];
+  function disposeIfIneligible(){
+    if(eligible())return;
+    stop();
+    for(const {button,parent,next} of movedControls)parent.insertBefore(button,next?.parentNode===parent?next:null);
+    movedControls.length=0;
+    root?.remove();document.getElementById('qs-technical-demo-style')?.remove();
+    delete document.documentElement.dataset.technicalDemo;
+    face=null;transcript='';asrState='';points=[];
+  }
   function drawGraph() {
     if (!graphLine) return;
     const ceiling=Math.max(5,...points.map(p=>p.value));
@@ -48,7 +58,7 @@
   }
   function stop() { clearInterval(timer);timer=null; }
   function tick() {
-    if (!eligible()) { stop(); root?.remove(); face=null;transcript='';points=[];return; }
+    if (!eligible()) { disposeIfIneligible();return; }
     if (document.hidden) return;
     let s;try { s=read(); } catch (_) { return; } // Presentation cannot interrupt a measurement.
     if (module==='face') {
@@ -155,11 +165,13 @@
     if(name!=='face') {
       const secondary=document.createElement('details'),caption=document.createElement('summary');
       secondary.className='qs-tech-secondary';caption.textContent='Developer tools';secondary.append(caption);root.append(secondary);
-      const collect=()=>{for(const id of ['arm-dev-toggle','mobile-dbg-toggle','quickstroke-audio-test']){const button=document.getElementById(id);if(button)secondary.append(button);}};
+      const collect=()=>{for(const id of ['arm-dev-toggle','mobile-dbg-toggle','quickstroke-audio-test']){const button=document.getElementById(id);if(button){movedControls.push({button,parent:button.parentNode,next:button.nextSibling});secondary.append(button);}}};
       if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',collect,{once:true});else collect();
     }
     toggle.addEventListener('click',()=>{fields.hidden=!fields.hidden;toggle.setAttribute('aria-expanded',String(!fields.hidden));put(toggle,fields.hidden?'Show Technical Data':'Hide Technical Data');stop();if(!fields.hidden){tick();if(!timer)timer=setInterval(tick,200);}else if(name==='face')timer=setInterval(tick,200);});
     tick();if(!timer)timer=setInterval(tick,200);
+    global.addEventListener('quickstroke:dev-mode-change',disposeIfIneligible);
+    global.addEventListener('quickstroke:app-mode-change',disposeIfIneligible);
     global.addEventListener('pagehide',()=>{stop();transcript='';face=null;points=[];}, {once:true});
     global.addEventListener('pageshow',()=>{if(eligible()&&!timer&&!fields.hidden){tick();if(!timer)timer=setInterval(tick,200);}});
   }

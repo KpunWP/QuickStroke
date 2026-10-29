@@ -23,6 +23,8 @@ await load('speech');assert.equal(await metric('transcript').textContent(),'—'
 await p.evaluate(()=>{window.SpeechRecognition=undefined;window.webkitSpeechRecognition=undefined;});await p.waitForTimeout(230);assert.equal(await metric('recognition').textContent(),'Unavailable');
 // Hide/show does not invoke any module control or change phase.
 await p.locator('#qs-technical-demo > button').click();assert.equal(await p.evaluate(()=>phase),'CALIBRATING');assert.equal(await p.locator('#qs-tech-fields').isVisible(),false);await p.locator('#qs-technical-demo > button').click();assert.equal(await p.locator('#qs-tech-fields').isVisible(),true);
+// Disabling Dev while data is hidden must remove its styles and restore legacy controls.
+await p.locator('#qs-technical-demo > button').click();await p.evaluate(()=>QuickStrokeDevMode.disable({source:'synthetic isolation test'}));assert.equal(await p.locator('#qs-technical-demo,#qs-technical-demo-style').count(),0);assert.equal(await p.locator('html').getAttribute('data-technical-demo'),null);assert.equal(await p.locator('body > #quickstroke-audio-test').count(),1);
 let cases=0;
 for(const lang of ['en','th','ja'])for(const name of ['face','arm','speech'])for(const width of [320,360,390,430])for(const scale of [1,2]){
  await p.setViewportSize({width,height:width===320?568:844});await load(name,'dev',lang);await p.evaluate(scale=>document.documentElement.style.fontSize=scale===2?'200%':'100%',scale);

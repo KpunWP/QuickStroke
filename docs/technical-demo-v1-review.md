@@ -72,3 +72,5 @@ Known Public issues remain unresolved: intermittent Face cold start/voice, iPhon
 - GitHub CI: see the Draft PR check runs for the final commit. Physical-device tests have not been performed by this agent.
 
 CI integration follow-up: optional display projections use `globalThis` so isolated Node callback replays remain no-ops without a browser. The browser fixture forwards PLAYWRIGHT_MODULE from the CI environment; no dependency is added to the application. These correct initial CI failures, not pre-existing baseline failures.
+
+Dynamic isolation: disabling Dev even while data is hidden disposes the panel/styles and restores original legacy control parents. Re-enable in a fresh document, consistent with existing module-level Dev initialization.
