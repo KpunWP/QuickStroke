@@ -997,6 +997,9 @@ html[data-speech-public="1"] #test-screen.done:has(#domain-summary[style*="displ
 html[data-speech-public="1"] #top-bar{z-index:auto!important}
 /* Retire the legacy one-line ellipsis so enlarged module titles stay complete. */
 html[data-speech-public="1"] .top-label{white-space:normal!important;overflow:visible!important;text-overflow:clip!important;word-break:normal;overflow-wrap:normal}
+
+/* Public module identity accent; no clinical or layout changes. */
+html[data-speech-public="1"] #test-screen:not(.done) #top-bar .top-label{color:#7C3AED!important}
 </style>
 <script src="config.js?v=20261007-audio-fallback-v20"></script>
 <script src="./js/thai-recorded-audio.js?v=20261027-local-emergency-v2"></script>

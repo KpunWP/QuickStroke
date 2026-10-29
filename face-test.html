@@ -1785,6 +1785,9 @@ html[data-face-public="1"] body[data-public-face-startup="ready"] #dashboard{pos
 html[data-face-public="1"] body[data-public-face-startup="ready"] #btn-row{position:static!important;inset:auto!important;width:100%!important}
 html[data-face-public="1"] body[data-public-face-startup="preparing"]:not(.screening-active):not(.result-visible) #public-face-presentation{position:absolute;inset:0;pointer-events:none;display:grid!important;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(100px,1fr) auto auto}
 html[data-face-public="1"] body[data-public-face-startup="preparing"] #public-face-startup{position:relative;grid-row:2;grid-column:1;inset:auto;width:calc(100% - 24px);margin:0 auto calc(16px + env(safe-area-inset-bottom))}
+
+/* Public module identity accent; no clinical or layout changes. */
+html[data-face-public="1"] body[data-public-face-startup="preparing"]:not(.screening-active):not(.result-visible) #public-face-startup-spinner{border-top-color:#0D9488}
 </style>
 <style id="public-face-active-style">
 /* Public active view only. Leave startup, urgent warnings and results unchanged.

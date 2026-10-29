@@ -17,6 +17,7 @@ jobs:
           node-version: '22'
       - name: Emergency, privacy, engines and navigation contracts
         run: |
+          node tests/public-module-accents.mjs
           node tests/compact-emergency.mjs
           node tests/power-words.mjs
           for suite in emergency-guidance release-diagnostic-cleanup public-face-regression-bands public-face-ui public-face-active public-face-startup public-face-completion-panel face-capture-contract run-tests public-home-redesign public-result-ui public-arm-ui public-speech-ui public-language-continuity public-event-language tts-pronunciation tts-readiness-contract voice-cue-flow public-flow-audio-audit arm-sensor-replay arm-dynamics-duration arm-device-browser-hardening arm-research-e2e-audit arm-guide-persistence speech-asr-replay speech-timing-rate-replay speech-mic-timeout speech-device-browser-hardening speech-research-e2e-audit jssf-remote-client jssf-consent-v2-contract jssf-result-completion-ux; do
@@ -47,6 +48,7 @@ jobs:
           TEST_GROUP: ${{ matrix.group }}
         run: |
           if [ "$TEST_GROUP" = emergency ]; then
+            node tests/public-module-accents-browser.cjs
             node tests/power-words-browser.cjs
             node tests/emergency-browser.cjs
             node tests/public-result-grid.cjs

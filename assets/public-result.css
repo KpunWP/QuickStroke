@@ -67,3 +67,8 @@ html[data-result-public="1"] .module-name,html[data-result-public="1"] .module-s
 html[data-result-public="1"] .module-action{max-width:100%;margin-top:auto;padding-top:4px}
 html[data-result-public="1"] .public-module-validity{order:1}
 html[data-result-public="1"] .module-action{order:2}
+
+/* Public module identity accent; no clinical or layout changes. */
+html[data-result-public="1"] body:has(#summary-card.ok) #module-grid .module-tile.ok:nth-child(1) .module-icon{color:#0D9488!important;background-color:#F0FDFA!important}
+html[data-result-public="1"] body:has(#summary-card.ok) #module-grid .module-tile.ok:nth-child(2) .module-icon{color:#2563EB!important;background-color:#EFF6FF!important}
+html[data-result-public="1"] body:has(#summary-card.ok) #module-grid .module-tile.ok:nth-child(3) .module-icon{color:#7C3AED!important;background-color:#F5F3FF!important}

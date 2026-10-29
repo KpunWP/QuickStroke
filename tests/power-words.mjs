@@ -1,7 +1,8 @@
+import {restoreModuleAccents} from './public-module-accent-boundaries.mjs';
 import {restoreCompactEmergency} from './compact-emergency-boundaries.mjs';
 import fs from 'node:fs';import crypto from 'node:crypto';import assert from 'node:assert/strict';import vm from 'node:vm';
 import {restorePowerWords,restorePowerLocale} from './power-words-boundaries.mjs';
-const read=f=>fs.readFileSync(f,'utf8'), hash=x=>crypto.createHash('sha256').update(x).digest('hex');
+const read=f=>restoreModuleAccents(fs.readFileSync(f,'utf8'),f), hash=x=>crypto.createHash('sha256').update(x).digest('hex');
 const plan=JSON.parse(read('docs/jssf-power-words-plan.json')),base=JSON.parse(read('tests/fixtures/power-words-baseline.json'));
 for(const [file,sha] of Object.entries(base)){
  let raw=read(file);
