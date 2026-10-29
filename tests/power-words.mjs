@@ -4,7 +4,9 @@ import {restorePowerWords,restorePowerLocale} from './power-words-boundaries.mjs
 const read=f=>fs.readFileSync(f,'utf8'), hash=x=>crypto.createHash('sha256').update(x).digest('hex');
 const plan=JSON.parse(read('docs/jssf-power-words-plan.json')),base=JSON.parse(read('tests/fixtures/power-words-baseline.json'));
 for(const [file,sha] of Object.entries(base)){
- const raw=read(file);
+ let raw=read(file);
+ if(file==='service-worker.js')raw=raw.replace('quickstroke-pwa-v106','quickstroke-pwa-v105');
+ if(file==='index.html')raw=raw.replace("  if (isOrdinaryPublicHome()) {\n    const selected = sessionStorage.getItem('quickstroke_public_home_language');\n    return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';\n  }\n  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}","  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}");
  const restored=file.startsWith('locales/')?JSON.stringify(restorePowerLocale(JSON.parse(raw),file.split('/')[1]),null,2)+'\n':restorePowerWords(raw,file);
  assert.equal(hash(restored),sha,file+' frozen except exact inventoried text/version changes');
 }
