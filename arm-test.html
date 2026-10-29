@@ -5455,7 +5455,7 @@ window.addEventListener('unhandledrejection', event => {
 });
 
 /* TECH DEMO ARM ADAPTER — reads the original measurement; never starts it */
-window.QuickStrokeTechnicalDemo?.register('arm', () => ({
+globalThis.QuickStrokeTechnicalDemo?.register('arm', () => ({
   phase, side:arm, current:phase === 'MEASURE' && gravityReady ? currentDrift : null,
   maximum:phase === 'MEASURE' && gravityReady ? driftMax : null,
   elapsed:mElapsed, sampleAt:lastSensorSampleAt, freshMs:ARM_READINESS_CFG.sampleFreshMs,

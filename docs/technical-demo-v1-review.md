@@ -65,8 +65,10 @@ Known Public issues remain unresolved: intermittent Face cold start/voice, iPhon
 
 ## Local result ledger
 
-- 48 existing source/core suites collected from the relevant workflows: passed (including 23/23 core cases).
+- 49 source/core suites (including the new technical source suite) collected from the relevant workflows: passed (including 23/23 core cases).
 - New technical source/privacy gate and 72 TH/EN/JA responsive synthetic cases + 12 Public/Research comparison pairs: passed.
 - Existing Face browser (432 layouts), completion, startup, active/camera transitions; Arm browser/offline and completion; Speech browser; Result grid and final/offline; emergency browser: passed.
 - Initial Face startup/active failures were stale **Dev pixel-identical** assertions. Those two assertions now retain Research pixel identity and all-mode camera geometry, and require the new Dev panel. Public pixel contracts, engine boundary hashes, privacy checks and navigation checks remain intact. The new Demo browser suite covers the intentionally changed Dev layer.
 - GitHub CI: see the Draft PR check runs for the final commit. Physical-device tests have not been performed by this agent.
+
+CI integration follow-up: optional display projections use `globalThis` so isolated Node callback replays remain no-ops without a browser. The browser fixture forwards PLAYWRIGHT_MODULE from the CI environment; no dependency is added to the application. These correct initial CI failures, not pre-existing baseline failures.

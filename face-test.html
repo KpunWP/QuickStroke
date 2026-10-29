@@ -4393,7 +4393,7 @@ function onResults(results, handResults=null){
     if (typeof drawFaceMesh==='function') drawFaceMesh(null);  // เคลียร์ mesh
     noFaceCount++;
     /* TECH DEMO FACE LOST */
-    window.QuickStrokeTechnicalDemo?.faceLost();
+    globalThis.QuickStrokeTechnicalDemo?.faceLost();
     /* END TECH DEMO FACE LOST */
     recordResearchFrame({faceDetected:false, poseValid:false, mouthAssessable:false, handMouthOverlap:false});
     poseGoodFrames = 0;   // หน้าหาย = ยังไม่นิ่ง → เริ่มนับ debounce ใหม่ตอนหน้ากลับมา
@@ -4556,7 +4556,7 @@ function onResults(results, handResults=null){
   });
 
   /* TECH DEMO FACE SIGNAL — scalar projection only */
-  window.QuickStrokeTechnicalDemo?.faceSignal({yaw:yawDeg, pitch:pitchDeg, roll:rollDeg,
+  globalThis.QuickStrokeTechnicalDemo?.faceSignal({yaw:yawDeg, pitch:pitchDeg, roll:rollDeg,
     asymmetry:smileTotal > 0.05 ? smileAsym : null, aligned:sampledPoseValid});
   /* END TECH DEMO FACE SIGNAL */
 
@@ -5539,7 +5539,7 @@ if (document.documentElement.dataset.facePublic === '1') {
 /* END PUBLIC FACE STARTUP PRESENTATION */
 
 /* TECH DEMO FACE ADAPTER */
-window.QuickStrokeTechnicalDemo?.register('face', () => ({
+globalThis.QuickStrokeTechnicalDemo?.register('face', () => ({
   phase, camera:isCameraRunning, model:modelReady,
   paused:countdownPaused, framePresent:noFaceCount === 0
 }));

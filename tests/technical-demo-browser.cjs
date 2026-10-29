@@ -2,7 +2,7 @@
 const http=require('node:http'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),assert=require('node:assert/strict');
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const root=path.resolve(__dirname,'..'),out=process.env.TECH_DEMO_SCREENSHOTS;
-const fixtureContext={require,__dirname,process:{env:{}},console,__filename:__filename};
+const fixtureContext={require,__dirname,process:{env:process.env},console,__filename:__filename};
 vm.createContext(fixtureContext);vm.runInContext(fs.readFileSync(path.join(__dirname,'public-face-browser.cjs'),'utf8').split('const server=')[0]+'\nthis.fixture=fixtureCode;this.portrait=portrait;',fixtureContext);
 let baseline=false;
 const cp=require('node:child_process'),base='82cf095eaf47581283cdf28b789d80a48fc90268';
