@@ -1018,7 +1018,7 @@ html[data-result-public="1"] .module-action{order:2}
     other.style.cssText='flex-basis:100%;font-size:.875em;line-height:1.6;overflow-wrap:break-word';
     const record = {root, update() {
       // Thailand is a fixed, visibly labelled ordinary-entry preset, not detected location.
-      const country = selectedCountry() || (exhibition && key !== 'th' ? 'JP' : 'TH');
+      const country = selectedCountry() || (key === 'th' ? 'TH' : 'JP');
       const i = country === 'TH' ? 0 : 1, target=destinations[i];
       link.href='tel:'+target.number;link.textContent=labels[i]+' · '+target.number;
       link.dataset.emergencyCountry=country;link.setAttribute('aria-label',copy[key][i+1]+' · '+target.number);

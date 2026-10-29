@@ -5,12 +5,13 @@ const read=f=>fs.readFileSync(f,'utf8'), hash=x=>crypto.createHash('sha256').upd
 const plan=JSON.parse(read('docs/jssf-power-words-plan.json')),base=JSON.parse(read('tests/fixtures/power-words-baseline.json'));
 for(const [file,sha] of Object.entries(base)){
  let raw=read(file);
- if(file==='service-worker.js')raw=raw.replace('quickstroke-pwa-v106','quickstroke-pwa-v105');
+ if(file==='service-worker.js')raw=raw.replace('quickstroke-pwa-v107','quickstroke-pwa-v105');
+ raw=raw.replace("selectedCountry() || (key === 'th' ? 'TH' : 'JP')","selectedCountry() || (exhibition && key !== 'th' ? 'JP' : 'TH')");
  if(file==='index.html')raw=raw.replace("  if (isOrdinaryPublicHome()) {\n    const selected = sessionStorage.getItem('quickstroke_public_home_language');\n    return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';\n  }\n  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}","  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}");
  const restored=file.startsWith('locales/')?JSON.stringify(restorePowerLocale(JSON.parse(raw),file.split('/')[1]),null,2)+'\n':restorePowerWords(raw,file);
  assert.equal(hash(restored),sha,file+' frozen except exact inventoried text/version changes');
 }
-for(const [file,ops] of Object.entries(plan.source))for(const op of ops){assert.ok(restoreCompactEmergency(file==='service-worker.js'?read(file).replace('quickstroke-pwa-v106','quickstroke-pwa-v105'):read(file),file).includes(op.after),file+' explicit new text present');}
+for(const [file,ops] of Object.entries(plan.source))for(const op of ops){assert.ok(restoreCompactEmergency((file==='service-worker.js'?read(file).replace('quickstroke-pwa-v107','quickstroke-pwa-v105'):read(file)).replace("selectedCountry() || (key === 'th' ? 'TH' : 'JP')","selectedCountry() || (exhibition && key !== 'th' ? 'JP' : 'TH')"),file).includes(op.after),file+' explicit new text present');}
 const packs=['th-TH','en-US','ja-JP'].map(l=>JSON.parse(read('locales/'+l+'/ui.json')));
 for(let i=0;i<packs.length;i++){
  const pack=packs[i],lang=['th-TH','en-US','ja-JP'][i];

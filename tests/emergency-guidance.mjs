@@ -55,7 +55,7 @@ for(const ua of ['iPhone','Android Chrome','Android SamsungBrowser/'])for(const 
  if(ua==='iPhone')assert.equal(player.use('th-TH'),false);else if(mode==='research'||ua.includes('Samsung'))assert.equal(player.use('th-TH'),true);
 }
 assert.ok(requested.every(u=>u.endsWith('/audio/th/arm_11_alert_local_emergency_v2.mp3')));
-const sw=read('service-worker.js');assert.match(sw,/quickstroke-pwa-v106/);assert.match(sw,/REQUIRED_OFFLINE_ASSETS[^]*?arm_11_alert_local_emergency_v2.mp3/);assert.match(source,/quickstroke-jssf-th-audio-v4/);
+const sw=read('service-worker.js');assert.match(sw,/quickstroke-pwa-v107/);assert.match(sw,/REQUIRED_OFFLINE_ASSETS[^]*?arm_11_alert_local_emergency_v2.mp3/);assert.match(source,/quickstroke-jssf-th-audio-v4/);
 const hash=f=>crypto.createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 assert.equal(hash('audio/th/arm_11_alert_local_emergency_v2.mp3'),'b99907a9d1c0b7d78302a145131c7ab2672d2a16ec9b15e4e965bb23567a4f7d');
 assert.equal(hash('audio/th/arm_11_alert.mp3'),'7c88dca14c14cc161c6b600739c7e734777915ca0f41671b867aeb6dc3c3b9af','Never overwrite original recording');
