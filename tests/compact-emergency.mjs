@@ -10,7 +10,7 @@ for(const f of Object.keys(changes)) {
  const newLanguage = "  if (isOrdinaryPublicHome()) {\n    const selected = sessionStorage.getItem('quickstroke_public_home_language');\n    return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';\n  }\n  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}";
  const normalized = f === 'index.html' ? actual.replace(newLanguage,priorLanguage) : f === 'service-worker.js' ? actual.replace('quickstroke-pwa-v106','quickstroke-pwa-v105') : actual;
  assert.equal(restoreCompactEmergency(normalized,f),cp.execFileSync('git',['show',base+':'+f],{encoding:'utf8'}),f+' exact baseline outside inventoried presentation substitutions');
- for(const op of changes[f])assert.ok(actual.includes(op.after),f+' intended replacement present');
+ for(const op of changes[f])assert.ok(actual.includes(f === 'service-worker.js' ? op.after.replace('quickstroke-pwa-v105','quickstroke-pwa-v106') : op.after),f+' intended replacement present');
 }
 for(const f of ['face-test.html','arm-test.html','speech-test.html','config.js','js/thai-recorded-audio.js','audio/th/manifest.json','audio/th/arm_11_alert_local_emergency_v2.mp3','jssf-consent.html','js/app-mode.js','js/jssf-remote-sync.js','locales/th-TH/ui.json','locales/en-US/ui.json','locales/ja-JP/ui.json'])
  assert.deepEqual(fs.readFileSync(f),cp.execFileSync('git',['show',base+':'+f]),f+' unchanged');
