@@ -42,7 +42,7 @@
     },
     {
       "before": "// ── No language landing page: start directly and keep TH/EN/JA at top-right ──",
-      "after": "/* TECH DEMO SPEECH ADAPTER */\nglobalThis.QuickStrokeTechnicalDemo?.register('speech', () => ({\n  phase, target:T?.target || '', attempt:speechAttemptNo,\n  mic:hasLiveAudioTrack(streamRef) ? 'Active local track' : 'No local track',\n  recognition:!(window.SpeechRecognition || window.webkitSpeechRecognition) ? 'Unavailable' :\n    lastAsrErrorCode ? 'Error: ' + lastAsrErrorCode : recognitionStarted ? 'Requested' : 'Not active',\n  match:document.getElementById('domain-phrase-status')?.textContent || ''\n}));\n/* END TECH DEMO SPEECH ADAPTER */\n// ── No language landing page: start directly and keep TH/EN/JA at top-right ──"
+      "after": "/* TECH DEMO SPEECH ADAPTER */\nglobalThis.QuickStrokeTechnicalDemo?.register('speech', () => ({\n  phase, target:T?.target || '', run:speechModuleStartedAtMs, attempt:speechAttemptNo,\n  mic:hasLiveAudioTrack(streamRef) ? 'Active local track' : 'No local track',\n  recognition:!(window.SpeechRecognition || window.webkitSpeechRecognition) ? 'Unavailable' :\n    lastAsrErrorCode ? 'Error: ' + lastAsrErrorCode : recognitionStarted ? 'Requested' : 'Not active',\n  match:document.getElementById('domain-phrase-status')?.textContent || ''\n}));\n/* END TECH DEMO SPEECH ADAPTER */\n// ── No language landing page: start directly and keep TH/EN/JA at top-right ──"
     },
     {
       "before": "    recognition.onstart = () => {\n",

@@ -74,3 +74,29 @@ Known Public issues remain unresolved: intermittent Face cold start/voice, iPhon
 CI integration follow-up: optional display projections use `globalThis` so isolated Node callback replays remain no-ops without a browser. The browser fixture forwards PLAYWRIGHT_MODULE from the CI environment; no dependency is added to the application. These correct initial CI failures, not pre-existing baseline failures.
 
 Dynamic isolation: disabling Dev even while data is hidden disposes the panel/styles and restores original legacy control parents. Re-enable in a fresh document, consistent with existing module-level Dev initialization.
+
+## Speech recognition-status correction
+
+Physical iPhone report: the Dev Recognition field stayed Not active despite usable browser transcripts. Two confirmed binding defects exist in the reviewed source:
+
+1. The field uses callback evidence only in RECORDING. DONE falls back to recognitionStarted, which original cleanup resets to false. A successful result is therefore overwritten with Not active; a lifecycle completed between display ticks can be missed entirely. speechResult did not advance the recognition display.
+2. Manual Retry calls beginSpeechModuleRun and resets speechAttemptNo to zero. A subsequent attempt is 1 again. An attempt-number-only display cache cannot reliably distinguish these runs if it misses the short reset phase.
+
+The exact physical Safari event chronology is not available; this patch corrects the demonstrated presentation defects without claiming to fix Safari ASR/Retry behaviour.
+
+Only js/technical-demo.js presentation logic and one read-only adapter property change at runtime: run:speechModuleStartedAtMs. Existing ASR callback bodies, acquisition, scoring, timers, audio, Retry dispatch and accepted phrases are byte-for-byte unchanged from 87a2211e97a0c17e561f22852eb1c83fd422ed6a. The existing run timestamp is used in memory only, never displayed, stored or uploaded. Original run/attempt values remain unchanged.
+
+| Display | Required existing evidence |
+|---|---|
+| — | No supported ASR event yet; preparation/reset or ended without output |
+| Ready | Actual engine onstart; not permission for the participant to speak |
+| Listening | Actual onaudiostart, before a transcript is emitted |
+| Recognizing | Current-run onresult supplied nonempty browser output |
+| Complete | Terminal module state plus current-run browser transcript; not a phrase-match or medical conclusion |
+| Unavailable | Unsupported API, current ASR error, or terminal state without browser output |
+
+Run + attempt changes and existing preparation/retry phases clear only the display cache. Complete is retained after original shutdown clears recognitionStarted. Transcripts and existing phrase-match labels remain separate and unchanged.
+
+Focused test: tests/technical-demo-speech-status.cjs invokes the ORIGINAL beginSpeechRecognition callbacks and ORIGINAL Start/Retry UI dispatch with synthetic acquisition/evaluation boundaries. It covers a first attempt plus three manual retries under both desktop and iPhone user agents, accepted variant/mismatch, rapid event sequences between UI ticks, permission/network/capture errors, no API, zero media requests and Public/Research isolation. Chromium with an iPhone user agent is not real Safari. Existing Speech/core/Dev regression suites remain required. The test freezes the entire Speech file against the prior head except the one adapter property.
+
+Physical acceptance: on a separately authorized immutable protected Preview, choose Dev in a fresh engineering context. Run the first Speech attempt and three manual retries. Observe event-supported Ready/Listening/Recognizing where emitted, Complete after actual output, and correct transcript/match. Fast events may skip visible intermediate labels. Deny permission in a fresh context and verify Unavailable with no stale transcript; verify normal Public/Research have no new panel. Never submit Research data. The existing physical Speech Retry acquisition issue remains unresolved. No deployment is part of this correction.

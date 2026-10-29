@@ -11,7 +11,7 @@
       !['public','research'].includes(global.QuickStrokeDataContract?.getSessionContext?.()?.appMode);
   }
   if (!eligible()) return;
-  let face = null, faceAt = 0, transcript = '', speechAttempt = null, asrState = '', asrAttempt = null;
+  let face = null, faceAt = 0, transcript = '', speechAttempt = null, speechRun = null, asrState = '';
   let root, fields, toggle, read, module, timer, points = [], measureKey = '', origin = 0;
   const finite = value => typeof value === 'number' && Number.isFinite(value);
   const angle = value => finite(value) ? value.toFixed(1) + '°' : '—';
@@ -23,15 +23,33 @@
     faceAt = performance.now();
   }
   function faceLost() { face = null; }
+  // Cache a projection of actual callbacks, never drive the recognition engine.
+  function syncSpeechProjection(state) {
+    if (speechRun !== state.run || speechAttempt !== state.attempt ||
+        ['IDLE','CALIBRATING','READY_CUE','RETRYING'].includes(state.phase)) {
+      transcript='';asrState='';
+    }
+    speechRun=state.run;speechAttempt=state.attempt;
+  }
   function speechResult(value) {
     if (!eligible() || !read || module !== 'speech') return;
-    const state = read();
-    if (speechAttempt !== state.attempt) { transcript = ''; speechAttempt = state.attempt; }
+    syncSpeechProjection(read());
     transcript = typeof value === 'string' ? value : '';
   }
   function speechState(value) {
     if (!eligible() || !read || module !== 'speech') return;
-    asrAttempt=read().attempt;asrState=value;
+    syncSpeechProjection(read());asrState=value;
+  }
+  function recognitionLabel(state) {
+    if (state.recognition === 'Unavailable') return 'Unavailable';
+    // Complete means browser output + terminal module state, not a medical result.
+    if (state.phase === 'DONE') return transcript ? 'Complete' : 'Unavailable';
+    if (state.phase !== 'RECORDING') return '—';
+    if (state.recognition.startsWith('Error:')) return 'Unavailable';
+    if (transcript) return 'Recognizing'; // Existing current-run onresult supplied text.
+    if (asrState === 'Capturing audio') return 'Listening'; // Actual onaudiostart.
+    if (asrState === 'Started') return 'Ready'; // Engine onstart, not permission to speak.
+    return '—'; // Requested/ended alone does not prove listening or recognition.
   }
   function field(label, key) {
     const cell=document.createElement('div'), name=document.createElement('span'), value=document.createElement('strong');
@@ -80,11 +98,10 @@
       }
       // No new points outside MEASURE. Last side trace remains visible, clearly sampled.
     } else {
-      if (speechAttempt!==s.attempt || ['IDLE','CALIBRATING','READY_CUE','RETRYING'].includes(s.phase)) {transcript='';speechAttempt=s.attempt;}
+      syncSpeechProjection(s);
       put(values.target,s.target||'—');put(values.transcript,transcript||'—');
-      if(asrAttempt!==s.attempt)asrState='';
       put(values.mic,s.phase==='RECORDING'&&asrState==='Capturing audio'?'Browser audio active':s.mic);
-      put(values.recognition,s.recognition==='Unavailable'||s.recognition.startsWith('Error:')?s.recognition:s.phase==='RECORDING'?asrState||s.recognition:s.recognition);
+      put(values.recognition,recognitionLabel(s));
       put(values.match,s.phase==='DONE'?(transcript?s.match||'Unavailable':'Unavailable'):'Pending');
     }
   }

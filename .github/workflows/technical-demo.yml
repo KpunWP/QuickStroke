@@ -35,4 +35,6 @@ jobs:
       - name: Synthetic live bindings, mobile layouts, modes and offline-after-use
         env:
           PLAYWRIGHT_MODULE: ${{ runner.temp }}/demo-browser/node_modules/playwright
-        run: node tests/technical-demo-browser.cjs
+        run: |
+          node tests/technical-demo-browser.cjs
+          node tests/technical-demo-speech-status.cjs

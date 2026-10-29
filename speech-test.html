@@ -6313,7 +6313,7 @@ function handleFastFlow(riskLevel) {
 
 /* TECH DEMO SPEECH ADAPTER */
 globalThis.QuickStrokeTechnicalDemo?.register('speech', () => ({
-  phase, target:T?.target || '', attempt:speechAttemptNo,
+  phase, target:T?.target || '', run:speechModuleStartedAtMs, attempt:speechAttemptNo,
   mic:hasLiveAudioTrack(streamRef) ? 'Active local track' : 'No local track',
   recognition:!(window.SpeechRecognition || window.webkitSpeechRecognition) ? 'Unavailable' :
     lastAsrErrorCode ? 'Error: ' + lastAsrErrorCode : recognitionStarted ? 'Requested' : 'Not active',
