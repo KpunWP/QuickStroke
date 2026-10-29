@@ -8,9 +8,12 @@ for(const f of Object.keys(changes)) {
  const actual=fs.readFileSync(f,'utf8');
  const priorLanguage = "  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}";
  const newLanguage = "  if (isOrdinaryPublicHome()) {\n    const selected = sessionStorage.getItem('quickstroke_public_home_language');\n    return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';\n  }\n  return sessionStorage.getItem('fast_lang') || window.QS_CONFIG?.defaultLang || 'th';\n}";
- const normalized = f === 'index.html' ? actual.replace(newLanguage,priorLanguage) : f === 'service-worker.js' ? actual.replace('quickstroke-pwa-v106','quickstroke-pwa-v105') : actual;
+ const legacyCountry = "selectedCountry() || (exhibition && key !== 'th' ? 'JP' : 'TH')";
+ const newCountry = "selectedCountry() || (key === 'th' ? 'TH' : 'JP')";
+ const countryRestored = actual.replace(newCountry,legacyCountry);
+ const normalized = f === 'index.html' ? countryRestored.replace(newLanguage,priorLanguage) : f === 'service-worker.js' ? countryRestored.replace('quickstroke-pwa-v107','quickstroke-pwa-v105') : countryRestored;
  assert.equal(restoreCompactEmergency(normalized,f),cp.execFileSync('git',['show',base+':'+f],{encoding:'utf8'}),f+' exact baseline outside inventoried presentation substitutions');
- for(const op of changes[f])assert.ok(actual.includes(f === 'service-worker.js' ? op.after.replace('quickstroke-pwa-v105','quickstroke-pwa-v106') : op.after),f+' intended replacement present');
+ for(const op of changes[f])assert.ok(actual.includes(f === 'service-worker.js' ? op.after.replace('quickstroke-pwa-v105','quickstroke-pwa-v107') : op.after),f+' intended replacement present');
 }
 for(const f of ['face-test.html','arm-test.html','speech-test.html','config.js','js/thai-recorded-audio.js','audio/th/manifest.json','audio/th/arm_11_alert_local_emergency_v2.mp3','jssf-consent.html','js/app-mode.js','js/jssf-remote-sync.js','locales/th-TH/ui.json','locales/en-US/ui.json','locales/ja-JP/ui.json'])
  assert.deepEqual(fs.readFileSync(f),cp.execFileSync('git',['show',base+':'+f]),f+' unchanged');
@@ -19,7 +22,7 @@ assert.doesNotMatch(helper,/navigator|geolocation|fetch\(|localStorage|setTimeou
 assert.match(helper,/quickstroke_public_emergency_country/);
 assert.match(helper,/selectedCountry\(\) \|\| \(exhibition && key !== 'th' \? 'JP' : 'TH'\)/);
 for(const f of ['index.html','result.html'])assert.equal(fs.readFileSync(f,'utf8').match(/<script id="emergency-contacts">\n([^]*?)<\/script>/)[1],helper);
-assert.match(fs.readFileSync('service-worker.js','utf8'),/quickstroke-pwa-v106/);
+assert.match(fs.readFileSync('service-worker.js','utf8'),/quickstroke-pwa-v107/);
 console.log('PASS: exact four-file runtime whitelist; Public-only explicit country choice; unchanged engines, audio, locales, Research/Dev; atomic inline helpers; v105 cache.');
 
 // Real helper behavior under denied or invalid tab storage, without browser/media APIs.
