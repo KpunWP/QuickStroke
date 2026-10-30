@@ -7,7 +7,7 @@ const base='82cf095eaf47581283cdf28b789d80a48fc90268';
 const plan=JSON.parse(fs.readFileSync('tests/fixtures/technical-demo-patch.json','utf8'));
 for(const[file,ops]of Object.entries(plan)){
  const text=fs.readFileSync(file,'utf8');
- let remaining=text;for(const op of [...ops].reverse()){assert.equal(remaining.split(op.after).length,2,'One exact allowlisted block: '+file);remaining=remaining.replace(op.after,op.before);}
+ for(const op of ops)assert.equal(text.split(op.after).length,2,'One exact allowlisted block: '+file);
  assert.equal(restoreTechnicalDemo(text,file),cp.execFileSync('git',['show',base+':'+file],{encoding:'utf8'}),'All original engine/UI/audio/research bytes retained: '+file);
 }
 for(const file of ['index.html','result.html','service-worker.js','config.js','js/dev-mode.js','js/app-mode.js','js/data-contract.js','js/research-store.js','js/jssf-remote-sync.js','js/thai-recorded-audio.js','locales/th-TH/ui.json','locales/en-US/ui.json','locales/ja-JP/ui.json','audio/th/arm_11_alert_local_emergency_v2.mp3'])assert.ok(fs.readFileSync(file).equals(cp.execFileSync('git',['show',base+':'+file])),file+' unchanged');
