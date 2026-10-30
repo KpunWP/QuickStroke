@@ -169,7 +169,7 @@
       fields.tabIndex=0;fields.setAttribute('role','region');fields.setAttribute('aria-label','Face technical values');
       for(const key of ['yaw','pitch','roll'])values[key]=field(key[0].toUpperCase()+key.slice(1)+' · 2D',key);
       values.asymmetry=field('Smile asymmetry¹','asymmetry');values.quality=field('Tracking · technical only','quality');values.quality.parentElement.className+=' qs-tech-wide';
-      values.asymmetry.parentElement.firstChild.textContent='Smile ratio';
+      values.asymmetry.parentElement.firstChild.textContent='Smile Asymmetry';
       values.asymmetry.title='Existing blendshape asymmetry ratio, not a diagnosis. Unavailable without smile evidence.';
       document.body.append(root);
     } else {
