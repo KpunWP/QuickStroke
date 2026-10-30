@@ -1022,6 +1022,7 @@ if (publicSpeechPresentation) document.querySelector('meta[name="viewport"]').co
   'width=device-width, initial-scale=1.0, viewport-fit=cover';
 </script>
 <script src="./js/technical-demo.js?v=20261029-demo-v1"></script>
+<script src="./js/speech-retry-diagnostic.js?v=20261030-stage-v1"></script>
 </head>
 <body>
 
@@ -1749,7 +1750,22 @@ function asrTechnicalCode(errorCode) {
   return "ASR_OTHER_ERROR";
 }
 
+/* SPEECH RETRY DIAGNOSTIC — optional, bounded, Preview/engineering-only observer. */
+function traceSpeechRetryStage(code, detail = '') {
+  try {
+    const diagnostic = globalThis.QuickStrokeSpeechRetryDiagnostic;
+    if (!diagnostic?.active()) return;
+    diagnostic.record(code, {
+      phase, context:audioCtx?.state || 'none',
+      track:streamRef?.getAudioTracks?.()[0]?.readyState || 'none',
+      muted:streamRef?.getAudioTracks?.()[0]?.muted === true,
+      recognition:!!recognition, requested:recognitionStarted, detail
+    });
+  } catch (_) {} // Diagnostics must never interrupt measurement or cleanup.
+}
+/* END SPEECH RETRY DIAGNOSTIC */
 function queueSpeechTechnicalDiagnostic(code) {
+  globalThis.traceSpeechRetryStage?.(code);
   const remote=window.QuickStrokeJssfRemote;
   if (!remote?.queueTechnicalEvent || remote.canSync?.() !== true) return;
   const runId=speechModuleRunRecord?.moduleRunId || null;
@@ -3000,6 +3016,7 @@ async function handleAction() {
   if (retryStarting) return;
 
   if (phase === 'IDLE') {
+    globalThis.traceSpeechRetryStage?.('USER_START');
     if (!SPEECH_SILENT_START_TRIAL && !IOS_ASR_ONLY_TRIAL && !ANDROID_JSSF_SPEECH_CUES) primeSpeechCue();
     retryStarting = true;
     const actionBtn = $('action-btn');
@@ -3044,6 +3061,7 @@ async function handleAction() {
   }
   else if (phase === 'DONE') {
     if (IS_IOS && iosResultMicReleasePending) return;
+    globalThis.traceSpeechRetryStage?.('USER_RETRY');
     // User-requested module retry creates a new test_attempt in the same
     // screening_session. The previous payload remains in research history.
     retryStarting = true;
@@ -3209,6 +3227,7 @@ function scheduleResultMicRelease() {
 // Bound browser promises that may never settle on an interrupted iOS audio session.
 // A late microphone stream must be stopped, never attached to a newer attempt.
 function waitForSpeechMicStep(promise, stage, timeoutMs = 12000, token = audioStartToken) {
+  globalThis.traceSpeechRetryStage?.('STEP_BEGIN', stage);
   return new Promise((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => {
@@ -3216,6 +3235,7 @@ function waitForSpeechMicStep(promise, stage, timeoutMs = 12000, token = audioSt
       const error = new Error('Microphone preparation timed out: ' + stage);
       error.name = 'SpeechMicTimeoutError';
       error.micStage = stage;
+      globalThis.traceSpeechRetryStage?.('STEP_TIMEOUT', stage);
       reject(error);
     }, timeoutMs);
     Promise.resolve(promise).then(value => {
@@ -3232,11 +3252,13 @@ function waitForSpeechMicStep(promise, stage, timeoutMs = 12000, token = audioSt
       }
       settled = true;
       clearTimeout(timer);
+      globalThis.traceSpeechRetryStage?.('STEP_OK', stage);
       resolve(value);
     }, error => {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      globalThis.traceSpeechRetryStage?.('STEP_ERROR', stage + ':' + (error?.name || 'unknown'));
       reject(error);
     });
   });
@@ -3852,6 +3874,7 @@ async function startRecording(forceDirectMic = false, preauthorizedStream = null
     calibStartMs = performance.now();
     runLoop();
   } catch (err) {
+    globalThis.traceSpeechRetryStage?.('START_ERROR', (err?.micStage || 'capture') + ':' + (err?.name || 'unknown'));
     DBG('❌ START ERROR', err.name, err.message);
     if (startToken !== audioStartToken) return;
     try { preauthorizedStream?.getTracks?.().forEach(track => track.stop()); } catch (error) {}
@@ -4333,6 +4356,7 @@ async function beginSpeechRecognition() {
       }
 
       /* TECH DEMO SPEECH RESULT — actual browser output only */
+      if (isCurrentRun()) globalThis.traceSpeechRetryStage?.('ASR_RESULT');
       if (isCurrentRun()) globalThis.QuickStrokeTechnicalDemo?.speechResult(bestTranscript);
       /* END TECH DEMO SPEECH RESULT */
       const hasFinal = ordered.some(item => item.isFinal);
@@ -4377,6 +4401,7 @@ async function beginSpeechRecognition() {
 
     recognition.onend = () => {
       /* TECH DEMO ASR EVENT */
+      if (runId === recognitionRunId) globalThis.traceSpeechRetryStage?.('ASR_ENDED');
       if (runId === recognitionRunId) globalThis.QuickStrokeTechnicalDemo?.speechState('Ended');
       /* END TECH DEMO ASR EVENT */
       appendAsrObservation('end', { transcript: bestTranscript || '' });
@@ -4474,6 +4499,7 @@ async function releaseCurrentAudioResources(fullRelease = !KEEP_MIC_ALIVE) {
   const hadResources = !!(
     recognition || recognitionStarted || source || streamRef || audioCtx || analyser || animationFrameId
   );
+  globalThis.traceSpeechRetryStage?.(fullRelease ? 'RELEASE_FULL' : 'RELEASE_KEEP');
   DBG('CLEANUP begin', `full=${fullRelease} hadResources=${hadResources} audioCtx=${audioCtx?.state || 'null'}`);
 
   if (animationFrameId) {
@@ -4488,6 +4514,7 @@ async function releaseCurrentAudioResources(fullRelease = !KEEP_MIC_ALIVE) {
   if (!fullRelease) {
     await recognitionClose;
     await sleep(150); // เว้นจังหวะสั้น ๆ ให้ speech service ปล่อย session
+    globalThis.traceSpeechRetryStage?.('RELEASED_KEEP');
     DBG('CLEANUP done (keep-alive)', `mic ยังเปิดค้างไว้ audioCtx=${audioCtx?.state || 'null'}`);
     return;
   }
@@ -4525,6 +4552,7 @@ async function releaseCurrentAudioResources(fullRelease = !KEEP_MIC_ALIVE) {
 
   // FIX: เพิ่มจาก 350 → 1000ms ให้ OS สลับ audio session เสร็จจริงก่อนรอบใหม่
   if (hadResources) await sleep(1000);
+  globalThis.traceSpeechRetryStage?.('RELEASED_FULL');
 }
 
 function releaseMicAfterSpeechResult(fullRelease) {
@@ -5634,6 +5662,7 @@ function scheduleAutomaticValidityRetry(reasonCode, details = {}) {
 }
 
 function finishSpeechInvalid(reasonCode, details = {}) {
+  globalThis.traceSpeechRetryStage?.(reasonCode);
   if (reasonCode === 'VOICE_NOT_RECOGNIZED') {
     queueSpeechTechnicalDiagnostic('ASR_NO_TRANSCRIPT');
   }

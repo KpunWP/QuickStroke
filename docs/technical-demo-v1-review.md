@@ -100,3 +100,75 @@ Run + attempt changes and existing preparation/retry phases clear only the displ
 Focused test: tests/technical-demo-speech-status.cjs invokes the ORIGINAL beginSpeechRecognition callbacks and ORIGINAL Start/Retry UI dispatch with synthetic acquisition/evaluation boundaries. It covers a first attempt plus three manual retries under both desktop and iPhone user agents, accepted variant/mismatch, rapid event sequences between UI ticks, permission/network/capture errors, no API, zero media requests and Public/Research isolation. Chromium with an iPhone user agent is not real Safari. Existing Speech/core/Dev regression suites remain required. The test freezes the entire Speech file against the prior head except the one adapter property.
 
 Physical acceptance: on a separately authorized immutable protected Preview, choose Dev in a fresh engineering context. Run the first Speech attempt and three manual retries. Observe event-supported Ready/Listening/Recognizing where emitted, Complete after actual output, and correct transcript/match. Fast events may skip visible intermediate labels. Deny permission in a fresh context and verify Unavailable with no stale transcript; verify normal Public/Research have no new panel. Never submit Research data. The existing physical Speech Retry acquisition issue remains unresolved. No deployment is part of this correction.
+
+## Dev iPhone Retry: Phase A failure-stage diagnostic (2026-10-30)
+
+Owner evidence: first Dev attempt passed; three manual Retries failed with No local
+track / Unavailable. Public Retry previously passed physical testing. No exception,
+mic operation stage, context resume result or ASR error was supplied. This does not
+establish whether recovery, acquisition, context resume or recognition failed.
+A capture-policy correction is therefore deferred pending physical stage evidence.
+
+The new temporary observer is disabled unless all of the following hold:
+explicit `speechRetryDebug=1`, iPhone/iPad/iPod UA, current engineering-only Dev
+session, and successful empty same-origin POST to
+`/api/speech-retry-debug-gate?speechRetryDebug=1`. Server requires Preview,
+immutable request Host equal to VERCEL_URL, and a valid deployed SHA. Platform
+Vercel Authentication must remain enabled; the flag and Dev mode are not security
+credentials. Production cannot authorize this helper. Research/Public never make
+the authorization request. No preview deployment is part of this change.
+
+Once authorized, a collapsed diagnostic disclosure appears inside Technical Data.
+It retains at most 160 allowlisted stage events in memory, with relative time,
+phase, local track live/ended/none and muted boolean, AudioContext state, recognition
+instance/request booleans, and allowlisted operation/error names. Unknown strings
+are discarded. Dropped-event count is explicit. No scores, samples, recordings,
+transcripts, device/session/participant IDs or raw URLs are collected. The empty
+metadata authorization request is the only diagnostic network operation; reports
+are never uploaded/persisted. Explicit Copy stage summary uses clipboard, with
+selectable textarea fallback. Mode exit/pagehide clears memory and removes UI.
+
+Additive hooks observe existing stage-code calls, existing bounded mic promise
+outcomes, actual current-run ASR result/end, user Start/Retry and cleanup boundaries.
+Original capture, context, recognition callbacks, delays, scoring, result handling,
+audio, countdown and navigation remain unchanged after exact removal of the
+inventoried observer blocks. No new sampling interval/timer or microphone request.
+Synchronous scalar reads and bounded array work add small unquantified overhead;
+this is not zero-overhead instrumentation and Safari performance must be checked.
+
+Physical protocol (protected immutable Preview only after authorization):
+1. Fresh engineering Dev Home, then Speech URL with `dev=1&speechRetryDebug=1`.
+   Wait for “Speech Retry diagnostics · ready” BEFORE Start. If absent, stop;
+   do not weaken the gate or switch to Public/Research for diagnostics.
+2. Keep panel collapsed. First attempt, immediate manual Retry, second Retry,
+   third Retry. Speak only when existing instructions permit. After each failure
+   copy the stage summary, without sharing recognized text or legacy debug logs.
+3. Reload a new Speech document and repeat with delayed Retry (e.g. 30 seconds).
+4. Separately test microphone denial and reopening after browser permission repair.
+5. Verify unchanged Public and Research paths independently. No research submission.
+
+Interpretation: reuse probe rejection precedes rebuild; STEP_ERROR/TIMEOUT names
+acquire_microphone/get_user_media vs audio_context_resume; START_ERROR records a
+sanitized stage/name before cleanup; ASR_ENGINE_STARTED/AUDIO_STARTED/RESULT/ENDED
+show actual callback boundaries. No ASR callback plus a startup failure is not an
+unsupported ASR API. DONE/no transcript in the existing overlay is deliberately
+coarse and is not a browser-error diagnosis. Healthy stage flow with a contradictory
+overlay suggests a projection defect. A live track alone does not prove useful PCM.
+
+No behavioral correction is included. After physical stage evidence, review a
+coherent Dev-only full-release + gesture-bound retry policy and countdown handoff.
+Do not call the Public helper without its full-release prerequisites. Public,
+Research, Face/Arm, SW v108, locale resources and recordings are unchanged. Diagnostic
+assets are online-only temporary tools; no offline availability claim. Existing
+application offline-after-use behavior is separately regression-tested.
+
+Local Phase A validation: 49 relevant source/core suites passed (23/23 core),
+36 server authorization cases, 24 client isolation cases, exact observer-removal
+source equality against 83e99b3, actual-document synthetic stage failures and
+clipboard success/fallback, and first + three Retry callback replays per two
+Chromium UA profiles. These are not physical microphone or Safari tests.
+The broader optional `jssf-remote-sync-flow.mjs` fails its canSync assertion at
+line 140; the identical baseline test and unchanged remote client reproduce it.
+It is outside the required PR workflows and was not weakened. The optional live
+HTTP smoke test failed DNS on its first health GET; no enrollment request was
+reached. Live service tests are excluded from subsequent runs.

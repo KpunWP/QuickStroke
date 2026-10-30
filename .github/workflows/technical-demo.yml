@@ -7,6 +7,8 @@ on:
       - 'arm-test.html'
       - 'speech-test.html'
       - 'js/technical-demo.js'
+      - 'js/speech-retry-diagnostic.js'
+      - 'api/speech-retry-debug-gate.js'
       - 'tests/technical-demo*'
       - 'tests/fixtures/technical-demo-patch.json'
       - '.github/workflows/technical-demo.yml'
@@ -26,6 +28,7 @@ jobs:
       - name: Original-source boundaries and privacy
         run: |
           node tests/technical-demo.mjs
+          node tests/technical-demo-speech-diagnostic.cjs
           node tests/run-tests.mjs
           python3 tests/check-inline-scripts.py
       - name: Isolated browser dependency
@@ -38,3 +41,4 @@ jobs:
         run: |
           node tests/technical-demo-browser.cjs
           node tests/technical-demo-speech-status.cjs
+          node tests/technical-demo-speech-diagnostic-browser.cjs
