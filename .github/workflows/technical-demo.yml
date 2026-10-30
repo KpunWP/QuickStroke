@@ -38,3 +38,4 @@ jobs:
         run: |
           node tests/technical-demo-browser.cjs
           node tests/technical-demo-speech-status.cjs
+          node tests/technical-demo-face-values.cjs

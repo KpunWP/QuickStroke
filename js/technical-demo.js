@@ -106,7 +106,7 @@
     }
   }
   // Face stays over an unused edge strip. Never resize/reparent the camera.
-  // If instructions/controls/subject leave no space, collapse data rather than cover them.
+  // Values scroll within a clear slot; if none exists, hide only the dock temporarily.
   function placeFace() {
     if (!root || root.hidden) return;
     const protectedIds=['top-bar','face-status-row','progress-dots','dashboard','score-box','start-btn','reset-btn','no-face-banner','pose-warn-msg','smile-prompt','center-countdown','status-msg','btn-row'];
@@ -118,13 +118,14 @@
     boxes.push({top:height*.28,bottom:height*.74});
     const intervals=boxes.map(b=>[Math.max(8,b.top-8),Math.min(height-8,b.bottom+8)]).sort((a,b)=>a[0]-b[0]);
     let cursor=8,slots=[];for(const [a,b] of intervals){if(a>cursor)slots.push([cursor,a]);cursor=Math.max(cursor,b);}if(cursor<height-8)slots.push([cursor,height-8]);
-    const need=root.getBoundingClientRect().height,slot=slots.find(([a,b])=>b-a>=need);
-    if(slot){root.style.top=slot[0]+'px';root.style.visibility='visible';return;}
-    // Automatic compact fallback; owner can reopen when the current instruction clears.
-    if(!fields.hidden){fields.hidden=true;toggle.setAttribute('aria-expanded','false');put(toggle,'Show Technical Data');stop();}
-    const small=slots.find(([a,b])=>b-a>=48);
-    root.style.visibility=small?'visible':'hidden';if(small)root.style.top=small[0]+'px';
-    if(!timer)timer=setInterval(tick,200); // only Dev; monitors safe availability, no engine interaction
+    // Fit the values inside a clear edge slot; never change the owner's Show/Hide choice.
+    // Face padding (6px each side) + borders (1px each side) = 14px.
+    const chrome=14, control=Math.max(48,toggle.getBoundingClientRect().height);
+    const need=Math.max(control,fields.hidden?0:fields.scrollHeight)+chrome;
+    const slot=slots.find(([a,b])=>b-a>=need) ||
+      slots.filter(([a,b])=>b-a>=control+chrome).sort((a,b)=>(b[1]-b[0])-(a[1]-a[0]))[0];
+    root.style.visibility=slot?'visible':'hidden';
+    if(slot){root.style.top=slot[0]+'px';root.style.maxHeight=(slot[1]-slot[0])+'px';fields.style.maxHeight=(slot[1]-slot[0]-chrome)+'px';}
   }
   function register(name, getter) {
     if (!eligible() || root || !['face','arm','speech'].includes(name)) return;
@@ -150,8 +151,12 @@
       #qs-technical-demo .qs-tech-secondary button{position:static!important;inset:auto!important;width:100%!important;margin:6px 0!important;max-width:100%!important}
       #qs-technical-demo svg{display:block;width:100%;height:88px}#qs-technical-demo small{font-size:.75rem;display:block;color:#d3e5f1}
       #qs-technical-demo[data-module=arm]{--tech:#2563EB}#qs-technical-demo[data-module=speech]{--tech:#7C3AED}
-      #qs-technical-demo[data-module=face]{position:fixed;left:8px;right:8px;width:calc(100% - 16px);margin:0 auto;padding:6px}
-      #qs-technical-demo[data-module=face] .qs-tech-fields{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+      #qs-technical-demo[data-module=face]{position:fixed;left:8px;right:8px;width:calc(100% - 16px);margin:0 auto;padding:6px;display:grid;grid-template-columns:minmax(0,1fr) 48px;gap:6px;align-items:start}
+      #qs-technical-demo[data-module=face] .qs-tech-fields{grid-column:1;grid-row:1;grid-template-columns:repeat(auto-fit,minmax(min(100%,3.4rem),1fr));gap:5px;margin:0;overflow-y:auto;overscroll-behavior:contain}
+      #qs-technical-demo[data-module=face] > button{grid-column:2;grid-row:1;width:48px;padding:0;font-size:0;text-align:center}
+      #qs-technical-demo[data-module=face] > button::after{content:'−';display:block;font-size:1.25rem;line-height:1}
+      #qs-technical-demo[data-module=face] > button[aria-expanded=false]::after{content:'+'}
+      #qs-technical-demo[data-module=face] .qs-tech-fields:focus-visible{outline:2px solid #fff;outline-offset:-2px}
       #qs-technical-demo[data-module=face] strong{font-size:1.125rem}#qs-technical-demo[data-module=face] .qs-tech-wide{grid-column:1/-1}
       #qs-technical-demo[data-module=face] .qs-tech-wide strong{font-size:.75rem}
       @media(prefers-reduced-motion:reduce){#qs-technical-demo *{transition:none!important;animation:none!important}}
@@ -161,6 +166,7 @@
     fields=document.createElement('div');fields.id='qs-tech-fields';fields.className='qs-tech-fields';
     root.append(toggle,fields);
     if(name==='face') {
+      fields.tabIndex=0;fields.setAttribute('role','region');fields.setAttribute('aria-label','Face technical values');
       for(const key of ['yaw','pitch','roll'])values[key]=field(key[0].toUpperCase()+key.slice(1)+' · 2D',key);
       values.asymmetry=field('Smile asymmetry¹','asymmetry');values.quality=field('Tracking · technical only','quality');values.quality.parentElement.className+=' qs-tech-wide';
       values.asymmetry.parentElement.firstChild.textContent='Smile ratio';

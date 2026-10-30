@@ -32,7 +32,7 @@ For owner device testing, request a separately authorized immutable **Vercel Aut
 
 Existing test screens only. Dark readable teal/blue/purple compact panels; one Show/Hide control per module; no continuous animation. Existing developer logs stay secondary. Arm/Speech legacy log and recorded-audio test buttons are moved with their original handlers into a collapsed Developer tools disclosure; no audio code is changed. Face Mesh toggle is moved away from the language picker. Arm/Speech panels sit in the existing test content with a Dev-only scroll-safe content region. During Arm measurement the redundant legacy side-result row and numeric gauge are hidden in Demo, since the panel displays the real side/current/max; the original countdown becomes an in-flow sibling so it cannot cover the graph, and the old result-row padding reservation is removed only during Dev measurement. Illustration dimensions are untouched; Arm countdown/graph content may require scrolling on short screens, and simultaneous visibility of every original guide and metric is not promised; original instructions/countdowns/actions remain. No changes to Public layout or Face surfaces/ancestors.
 
-Face uses an unused edge strip and hides redundant old technical/status/progress rows in the gated Demo only. The central 28–74% subject region and visible instructions/countdowns/actions are exclusion zones. If the panel cannot fit, its data collapses; if even the 48px toggle cannot safely fit, it is temporarily hidden. This intentionally prioritizes the participant and instructions over showing all technical data. At enlarged text/small viewports, use a taller device or Hide Technical Data during a crowded phase. Actual face position and Safari toolbar behaviour still require device acceptance.
+Face uses an unused edge strip and hides redundant old technical/status/progress rows in the gated Demo only. The central 28–74% subject region and visible instructions/countdowns/actions are exclusion zones. The values scroll within a clear edge slot when needed, and Show/Hide follows the owner's choice. If no slot can safely fit the control, the dock is temporarily hidden without losing that choice. This prioritizes the participant and instructions while keeping each technical metric reachable at enlarged text/small viewports. Actual face position and Safari toolbar behaviour still require device acceptance.
 
 ## Offline
 
@@ -100,3 +100,64 @@ Run + attempt changes and existing preparation/retry phases clear only the displ
 Focused test: tests/technical-demo-speech-status.cjs invokes the ORIGINAL beginSpeechRecognition callbacks and ORIGINAL Start/Retry UI dispatch with synthetic acquisition/evaluation boundaries. It covers a first attempt plus three manual retries under both desktop and iPhone user agents, accepted variant/mismatch, rapid event sequences between UI ticks, permission/network/capture errors, no API, zero media requests and Public/Research isolation. Chromium with an iPhone user agent is not real Safari. Existing Speech/core/Dev regression suites remain required. The test freezes the entire Speech file against the prior head except the one adapter property.
 
 Physical acceptance: on a separately authorized immutable protected Preview, choose Dev in a fresh engineering context. Run the first Speech attempt and three manual retries. Observe event-supported Ready/Listening/Recognizing where emitted, Complete after actual output, and correct transcript/match. Fast events may skip visible intermediate labels. Deny permission in a fresh context and verify Unavailable with no stale transcript; verify normal Public/Research have no new panel. Never submit Research data. The existing physical Speech Retry acquisition issue remains unresolved. No deployment is part of this correction.
+
+## Face technical scalar visibility correction (2026-10-30)
+
+Physical owner UAT: Face measurement/mesh passed, but technical numbers were not
+visible. Arm and Speech Demo were accepted. The reproducible presentation defect
+is `placeFace()` in `js/technical-demo.js`: the baseline full-width 48px toggle plus
+expanded fields did not fit the protected edge slot. Its fallback set
+`fields.hidden=true` and changed the button to Show Technical Data. The fit check
+could repeat on reopening, and it never automatically restored the owner's prior
+expanded preference. Existing tests asserted textContent, allowing hidden values
+to pass. A visible mesh alone does not establish scalar availability.
+
+Signal trace, unchanged: `face-test.html` computes eye-frame yaw/pitch/roll in
+`computePose()` (2D estimates), computes existing blendshape smile asymmetry in
+`onResults()`, then calls `faceSignal()` before the early return for BEFORE_START,
+FACE_DONE and RETRYING. The existing adapter supplies camera/model, phase, paused
+and frame-presence state. The helper retains only the original scalar allowlist;
+existing freshness/loss rules still replace unavailable values with em dashes.
+Smile ratio remains unavailable without the existing smile-evidence criterion.
+No threshold or metric definition changes.
+
+Small Face-only correction: compact the existing Show/Hide button to a 48px +/-
+control beside the values; retain its full accessible name and expanded state.
+Fit the existing values into the available protected edge slot with keyboard-
+focusable vertical scrolling as necessary. Normal text uses compact columns;
+enlarged text wraps to fewer columns without shrinking glyphs. Placement never
+changes fields.hidden; only the explicit Show/Hide action does. If all safe space
+is temporarily occupied, hide the dock, preserve user preference and restore it
+when space returns. No camera/video/canvas/ancestor geometry changes. Arm/Speech
+rendering, signal projection and controls are source-frozen against 4f846bcd.
+
+Evidence: [synthetic before/after comparison](ui-reviews/technical-demo-face-values/comparison.png).
+At 390x696 and 320x568/200%, the original `onResults()` supplies computed yaw -2.5°,
+pitch 1.1°, roll 1.7° and smile ratio 0.20 from synthetic model outputs. The baseline
+DOM contains those values but fields.hidden is true; the corrected build has
+fields.hidden false and every metric is reachable. These are synthetic test
+outputs, not participant measurements or physical Safari evidence.
+
+Focused test `tests/technical-demo-face-values.cjs` runs the actual computePose,
+onResults, scalar bridge and mesh renderer. It substitutes only synthetic model
+outputs and the pixel-readback boundary. It covers 144 TH/EN/JA x 320/360/390/430 x
+100/200% x startup/still-countdown/smile/completion/Retry cases; tracking loss,
+reacquisition, expiry, valid/absent smile evidence, Show/Hide, fully occupied safe
+space/recovery, viewport/geometry/overlay constraints and Public/Research gating.
+The original Service Worker is unchanged: an old cached helper refreshes online;
+the corrected helper then renders Face values offline after reload. The first
+cached response may still be old until background refresh finishes. A new
+immutable Preview hostname starts with a separate origin cache.
+
+Real-device retest still required: authenticated clean Preview on iPhone portrait,
+ready -> still/countdown -> smile -> completion -> Retry. Gently change pose and
+verify values refresh; remove/reacquire the face, check unavailable values, try
+Show/Hide and 200% text/scrolling. Confirm instructions, countdown, mesh and
+completion actions remain clear. No live camera/model verification was performed
+by the synthetic Chromium suite. No new Preview deployment in this change.
+
+Local correction validation: 49 source/core suites (23/23 core), 144 focused Face
+cases, 72 existing Demo layout cases / 12 isolation comparisons, and eight Speech
+first/Retry callback attempts passed. The new focused suite also verifies online
+helper-cache refresh followed by corrected offline rendering. All are synthetic
+Chromium checks; physical iPhone acceptance remains pending for this correction.
