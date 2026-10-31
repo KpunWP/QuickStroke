@@ -127,6 +127,10 @@
     {
       "before": "// Public wording only. The engine locale object and Research/Dev text stay intact.",
       "after": "// Display wording only. Public and engineering Demo share copy; engine locale and Research stay intact."
+    },
+    {
+      "before": "technical-demo.js?v=20261031-demo-v2",
+      "after": "technical-demo.js?v=20261031-demo-v3"
     }
   ],
   "index.html": [
@@ -141,6 +145,18 @@
     {
       "before": "  if (screeningState.validCompleted === MODULES.length) {\n    primaryLabel.textContent = tr('index.publicPrimaryRestart'",
       "after": "  if (screeningState.validCompleted === MODULES.length &&\n      (APP_MODE?.resolveMode?.() || 'public') === 'public') {\n    primaryLabel.textContent = tr('index.publicPrimaryRestart'"
+    },
+    {
+      "before": "function homeInitialLanguage() {",
+      "after": "function homeInitialLanguage() {\n  if (globalThis.QuickStrokeDemoPresentation?.enabled?.() === true) {\n    const selected = sessionStorage.getItem('fast_lang');\n    return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';\n  }"
+    },
+    {
+      "before": "QuickStrokeEmergency.render(card, lang, { publicCompact: isOrdinaryPublicHome(),",
+      "after": "QuickStrokeEmergency.render(card, lang, { publicCompact: isOrdinaryPublicHome() || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true,"
+    },
+    {
+      "before": "QuickStrokeEmergency.render(disclaimer.parentElement, lang, { publicCompact: isOrdinaryPublicHome(),",
+      "after": "QuickStrokeEmergency.render(disclaimer.parentElement, lang, { publicCompact: isOrdinaryPublicHome() || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true,"
     }
   ],
   "result.html": [

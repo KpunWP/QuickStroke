@@ -1,5 +1,7 @@
 # Technical Demo: approved Public presentation, Dev execution
 
+Later owner-authorized correction: [Home compact/default presentation and Speech corner control](technical-demo-home-speech-correction.md). It supersedes the earlier Home emergency/language and initially expanded Speech presentation boundaries below; engine/session policies remain unchanged.
+
 Baseline: `bde5ead8904a8a9fe385a5b45b842d89a0ff3a29`, Draft PR #131.
 This is a presentation revision, not a mode conversion or deployment authorization.
 
