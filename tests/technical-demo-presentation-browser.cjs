@@ -75,11 +75,14 @@ for(const lang of (process.env.DEMO_PARITY_FLOW_ONLY?[]:['th','en','ja']))for(co
  else{assert.equal(await p.locator('html').getAttribute('data-result-public'),'0');assert.equal(await p.locator('.module-tile .module-icon svg').count(),3);assert.equal(await p.locator('#public-result-completion').count(),1);if(scale===1)assert.equal(await p.locator('#module-grid').evaluate(e=>getComputedStyle(e).gridTemplateColumns.split(' ').length),3);}
  homeResultCases++;
 }
+// A completed Dev Home still opens Result. Never label that existing action
+// as Public's Test Again without changing the real Dev session policy.
+await homeResult('home','dev','en','fresh');await p.evaluate(()=>{for(const name of ['face','arm','speech'])sessionStorage.setItem('fast_'+name,JSON.stringify({riskLevel:'ok'}));updateProgress();});assert.equal(await p.locator('#primary-label').textContent(),await p.evaluate(()=>QuickStrokeI18n.getMessages().index.primaryComplete));if(await p.locator('#disc-accept-btn').isVisible())await p.locator('#disc-accept-btn').click();await p.locator('#primary-action').click();await p.waitForURL('**/result.html');assert.equal(await p.evaluate(()=>QuickStrokeAppMode.resolveMode()),'dev');
 // Visual evidence: same synthetic fixtures, old accepted Dev vs new Public + data.
 if(out)for(const name of ['home','face','arm','speech','result'])for(const old of [true,false]){
  baseline=old;await p.setViewportSize({width:390,height:844});
  if(['home','result'].includes(name))await homeResult(name,'dev','en',name==='home'?'fresh':'ok');else{await load(name);if(name==='face'){await p.evaluate(()=>{__faceFixture.set('countdown');__demoFace.signal({yaw:3,pitch:-2,roll:1,asymmetry:.2,aligned:true});__faceFixture.mesh();});}if(name==='arm'){await armFixture();for(const n of [1,2,3,4,3]){await p.evaluate(n=>{currentDrift=n;driftMax=4;lastSensorSampleAt=performance.now();},n);await p.waitForTimeout(210);}}if(name==='speech')await speechFixture();}
- await p.waitForTimeout(250);await p.screenshot({path:path.join(out,name+'-'+(old?'before':'after')+'-390-synthetic.png'),fullPage:false});
+ await p.waitForTimeout(250);if(name==='home'&&await p.locator('#disc-accept-btn').isVisible()){await p.screenshot({path:path.join(out,'disclaimer-'+(old?'before':'after')+'-390-synthetic.png'),fullPage:false});await p.locator('#disc-accept-btn').click();}await p.screenshot({path:path.join(out,name+'-'+(old?'before':'after')+'-390-synthetic.png'),fullPage:false});
  if(!old&&['arm','speech'].includes(name)){await p.locator(name==='arm'?'#qs-technical-demo svg':'[data-metric=transcript]').scrollIntoViewIfNeeded();await p.screenshot({path:path.join(out,name+'-after-data-scroll-390-synthetic.png'),fullPage:false});}
 }
 baseline=false;assert.deepEqual(errors,[]);console.log(JSON.stringify({pass:true,modulePublicParityCases:cases,homeResultCases,originalFaceStartRetryAndFullIndividualNavigation:true,originalArmRetryAndFullIndividualNavigation:true,syntheticOnly:true,errors},null,2));await c.close();await b.close();server.close();})().catch(e=>{console.error(e);server.close();process.exitCode=1});

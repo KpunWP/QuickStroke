@@ -1518,7 +1518,8 @@ function updatePublicHomePresentation() {
   });
   const primaryLabel = document.getElementById('primary-label');
   const primaryMeta = document.getElementById('primary-meta');
-  if (screeningState.validCompleted === MODULES.length) {
+  if (screeningState.validCompleted === MODULES.length &&
+      (APP_MODE?.resolveMode?.() || 'public') === 'public') {
     primaryLabel.textContent = tr('index.publicPrimaryRestart', tr('index.primaryRestart', 'ทดสอบอีกครั้ง'));
     primaryMeta.textContent = tr('index.publicRestartSupport', tr('index.fullName', 'เริ่มครบ 3 อย่างใหม่'));
   } else if (screeningState.attemptedCount === 0) {

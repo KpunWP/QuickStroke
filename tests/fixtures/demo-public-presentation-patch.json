@@ -81,6 +81,10 @@
     {
       "before": "  const ordinaryPublic = document.documentElement.dataset.qsStaffEntry === '0' &&\n    (APP_MODE?.resolveMode?.() || 'public') === 'public';",
       "after": "  const ordinaryPublic = (document.documentElement.dataset.qsStaffEntry === '0' &&\n    (APP_MODE?.resolveMode?.() || 'public') === 'public') ||\n    globalThis.QuickStrokeDemoPresentation?.apply?.() === true;"
+    },
+    {
+      "before": "  if (screeningState.validCompleted === MODULES.length) {\n    primaryLabel.textContent = tr('index.publicPrimaryRestart'",
+      "after": "  if (screeningState.validCompleted === MODULES.length &&\n      (APP_MODE?.resolveMode?.() || 'public') === 'public') {\n    primaryLabel.textContent = tr('index.publicPrimaryRestart'"
     }
   ],
   "result.html": [
