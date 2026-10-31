@@ -1804,7 +1804,8 @@ document.documentElement.dataset.facePublic = publicFacePresentation ? '1' : '0'
 if (publicFacePresentation) document.querySelector('meta[name="viewport"]').content =
   'width=device-width, initial-scale=1.0, viewport-fit=cover';
 </script>
-<script src="./js/technical-demo.js?v=20261029-demo-v1"></script>
+<script src="./js/demo-public-presentation.js?v=20261031-v1"></script>
+<script src="./js/technical-demo.js?v=20261031-demo-v2"></script>
 </head>
 <body>
 
@@ -3521,7 +3522,7 @@ function applyFaceLang(){
   setText('no-face-banner',FL.noFace);
   setText('start-btn',FL.startBtn);
   setText('reset-btn','↺');
-  if (document.documentElement.dataset.facePublic === '1') {
+  if ((document.documentElement.dataset.facePublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {
     document.getElementById('face-home-btn')?.setAttribute('aria-label', FL.navHome);
     resetBtn?.setAttribute('aria-label', FL.retryBtn);
   }
@@ -5478,7 +5479,7 @@ async function bootstrapFaceTest() {
 
   if (!languageReady || !FL) {
     statusMsg.textContent =
-      document.documentElement.dataset.facePublic === '1'
+      (document.documentElement.dataset.facePublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)
         ? ({th:'โหลดภาษาไม่ได้ · โหลดหน้าใหม่',en:'Language unavailable · Reload',ja:'言語を読み込めません · 再読み込み'}[getPreferredFaceLang()] || 'Language unavailable · Reload')
         : "⚠️ ไม่สามารถโหลดไฟล์ภาษาได้ / Unable to load language resources.";
     statusMsg.style.display = "block";
@@ -5501,13 +5502,14 @@ async function bootstrapFaceTest() {
 }
 
 /* PUBLIC FACE STARTUP PRESENTATION — read-only projection; no acquisition or readiness transitions. */
-if (document.documentElement.dataset.facePublic === '1') {
+if ((document.documentElement.dataset.facePublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {
   const startupPanel = document.getElementById('public-face-startup');
   const startupTitle = document.getElementById('public-face-startup-title');
   const startupDetail = document.getElementById('public-face-startup-detail');
   const putText = (el, text) => { if (el.textContent !== text) el.textContent = text; };
   const syncPublicStartupPresentation = () => {
-    const eligible = phase === 'BEFORE_START' && !document.body.classList.contains('result-visible') &&
+    const eligible = (document.documentElement.dataset.facePublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true) &&
+      phase === 'BEFORE_START' && !document.body.classList.contains('result-visible') &&
       !runtimeQualityFlags.has('MODEL_LOAD_FAILED') &&
       !(ENFORCE_HAND_MODEL && runtimeQualityFlags.has('HAND_MODEL_UNAVAILABLE')) &&
       !( !FL && statusMsg.textContent.trim() );

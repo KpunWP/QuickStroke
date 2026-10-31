@@ -109,11 +109,25 @@
   // Values scroll within a clear slot; if none exists, hide only the dock temporarily.
   function placeFace() {
     if (!root || root.hidden) return;
+    // The legacy mesh button can arrive after adapter registration. Move it once;
+    // keep its original handler and restore its parent when leaving Dev.
+    const meshButton=document.getElementById('face-mesh-toggle');
+    if(global.QuickStrokeDemoPresentation?.enabled?.()&&meshButton&&!root.contains(meshButton)){
+      movedControls.push({button:meshButton,parent:meshButton.parentNode,next:meshButton.nextSibling});root.append(meshButton);
+    }
     const protectedIds=['top-bar','face-status-row','progress-dots','dashboard','score-box','start-btn','reset-btn','no-face-banner','pose-warn-msg','smile-prompt','center-countdown','status-msg','btn-row'];
     const viewport=global.visualViewport, height=viewport?.height||innerHeight;
     const boxes=[...protectedIds.map(id=>document.getElementById(id)),...document.querySelectorAll('button')].filter(e=>e&&!root.contains(e)).filter(e=>{
       const c=getComputedStyle(e);return c.display!=='none'&&c.visibility!=='hidden'&&Number(c.opacity)!==0;
-    }).map(e=>e.getBoundingClientRect()).filter(b=>b.width&&b.height);
+    }).map(e=>{
+      const r=e.getBoundingClientRect();let top=r.top,bottom=r.bottom;
+      // Public instruction panels can scroll: protect their painted portion,
+      // rather than treating clipped, off-panel text as a full-screen obstacle.
+      for(let parent=e.parentElement;parent&&parent!==document.body;parent=parent.parentElement){
+        if(/auto|scroll|hidden|clip/.test(getComputedStyle(parent).overflowY)){const clip=parent.getBoundingClientRect();top=Math.max(top,clip.top);bottom=Math.min(bottom,clip.bottom);}
+      }
+      return {top,bottom,width:r.width,height:Math.max(0,bottom-top)};
+    }).filter(b=>b.width&&b.height);
     // Keep the central face region clear even when alignment guides are hidden.
     boxes.push({top:height*.28,bottom:height*.74});
     const intervals=boxes.map(b=>[Math.max(8,b.top-8),Math.min(height-8,b.bottom+8)]).sort((a,b)=>a[0]-b[0]);
@@ -134,10 +148,10 @@
       #qs-technical-demo{--tech:#0D9488;box-sizing:border-box;width:100%;max-width:27rem;margin:8px auto;padding:10px;border:1px solid var(--tech);border-radius:16px;background:#102639;color:#fff;font:500 1rem/1.4 'Manrope','IBM Plex Sans Thai',sans-serif;flex:none;text-align:left;overflow-wrap:anywhere;z-index:90}
       html[data-technical-demo=face] #face-mesh-toggle{top:auto!important;right:auto!important;left:12px!important;bottom:calc(60px + env(safe-area-inset-bottom))!important;min-height:48px}
       html[data-technical-demo=face] #face-status-row,html[data-technical-demo=face] #progress-dots,html[data-technical-demo=face] #pose-hud{display:none!important}
-      html[data-technical-demo=arm] #test-screen #mid,html[data-technical-demo=speech] #test-screen #mid{overflow-y:auto!important;justify-content:flex-start!important;min-height:0!important;padding-bottom:160px!important}
-      html[data-technical-demo=arm] #test-screen.arm-guide-measuring #result-row,html[data-technical-demo=arm] #drift-wrap{display:none!important}
-      html[data-technical-demo=arm] #test-screen.arm-guide-measuring #mid{padding-top:84px!important}
-      html[data-technical-demo=arm] #test-screen #cd-wrap{position:static!important;inset:auto!important;transform:none!important;flex:none!important;margin:6px auto!important}
+      html[data-technical-demo=arm]:not([data-demo-presentation]) #test-screen #mid,html[data-technical-demo=speech]:not([data-demo-presentation]) #test-screen #mid{overflow-y:auto!important;justify-content:flex-start!important;min-height:0!important;padding-bottom:160px!important}
+      html[data-technical-demo=arm]:not([data-demo-presentation]) #test-screen.arm-guide-measuring #result-row,html[data-technical-demo=arm] #drift-wrap{display:none!important}
+      html[data-technical-demo=arm]:not([data-demo-presentation]) #test-screen.arm-guide-measuring #mid{padding-top:84px!important}
+      html[data-technical-demo=arm]:not([data-demo-presentation]) #test-screen #cd-wrap{position:static!important;inset:auto!important;transform:none!important;flex:none!important;margin:6px auto!important}
       #qs-technical-demo[data-module=arm] .qs-tech-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
       #qs-technical-demo[data-module=arm] svg{height:64px}
       #qs-technical-demo *{box-sizing:border-box}#qs-technical-demo [hidden]{display:none!important}
@@ -159,6 +173,10 @@
       #qs-technical-demo[data-module=face] .qs-tech-fields:focus-visible{outline:2px solid #fff;outline-offset:-2px}
       #qs-technical-demo[data-module=face] strong{font-size:1.125rem}#qs-technical-demo[data-module=face] .qs-tech-wide{grid-column:1/-1}
       #qs-technical-demo[data-module=face] .qs-tech-wide strong{font-size:.75rem}
+      html[data-demo-presentation=face] #qs-technical-demo:has(#face-mesh-toggle){grid-template-columns:minmax(0,1fr) 48px 48px}
+      html[data-demo-presentation=face] #qs-technical-demo #face-mesh-toggle{position:static!important;inset:auto!important;grid-column:3;grid-row:1;width:48px;min-width:48px;max-width:48px;height:48px!important;padding:0!important;font-size:0!important;text-align:center;box-shadow:none}
+      html[data-demo-presentation=face] #qs-technical-demo .qs-tech-fields{grid-template-columns:repeat(auto-fit,minmax(min(100%,4.5rem),1fr))}
+      html[data-demo-presentation=face] #qs-technical-demo #face-mesh-toggle::after{content:'◇';font-size:1.5rem;line-height:1}
       @media(prefers-reduced-motion:reduce){#qs-technical-demo *{transition:none!important;animation:none!important}}
     `;document.head.append(style);
     root=document.createElement('section');root.id='qs-technical-demo';root.dataset.module=name;root.lang='en';root.setAttribute('aria-label','Technical demonstration · not a diagnosis');

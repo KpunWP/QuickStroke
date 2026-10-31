@@ -502,6 +502,7 @@ html[data-qs-staff-entry="0"] #overview-speech:not([class*="state-"]) .public-mo
 <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
 <script src="./js/jssf-remote-sync.js?v=20261007-audio-fallback-v2"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
+<script src="./js/demo-public-presentation.js?v=20261031-v1"></script>
 <script src="./js/languages.js?v=20260717-lang-v1"></script>
 <script>
   // Entry-point presentation only. Research/Dev engines remain untouched.
@@ -1459,8 +1460,9 @@ function updateProgress() {
 
 
 function updatePublicHomePresentation() {
-  const ordinaryPublic = document.documentElement.dataset.qsStaffEntry === '0' &&
-    (APP_MODE?.resolveMode?.() || 'public') === 'public';
+  const ordinaryPublic = (document.documentElement.dataset.qsStaffEntry === '0' &&
+    (APP_MODE?.resolveMode?.() || 'public') === 'public') ||
+    globalThis.QuickStrokeDemoPresentation?.apply?.() === true;
   const overview = document.getElementById('public-module-overview');
   if (overview) overview.hidden = !ordinaryPublic || indOpen;
   const more = document.getElementById('public-more-options');

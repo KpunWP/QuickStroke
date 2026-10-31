@@ -1,5 +1,7 @@
 # Technical Demo V1 — review, not release approval
 
+Current presentation revision: [Public UI parity audit and validation](technical-demo-public-parity.md). The chronological records below describe earlier revisions; statements that Home/Result were unchanged refer to those historical revisions.
+
 Base: `82cf095eaf47581283cdf28b789d80a48fc90268` (verified main before branch creation).
 Branch: `feat/technical-demo-v1-20261029`. No merge, deployment or release tag.
 

@@ -960,6 +960,7 @@ html[data-result-public="1"] body:has(#summary-card.ok) #module-grid .module-til
   <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
 <script src="./js/jssf-remote-sync.js?v=20261007-audio-fallback-v2"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
+<script src="./js/demo-public-presentation.js?v=20261031-v1"></script>
   <script src="./js/languages.js?v=20260717-lang-v1"></script>
   <script src="./js/i18n.js">
   </script>
@@ -3310,8 +3311,9 @@ html[data-result-public="1"] body:has(#summary-card.ok) #module-grid .module-til
 
    // Presentation only: use the already recovered session, never query mode.
    function updatePublicResultPresentation(r) {
-     const publicResult = isPublicResultSession();
-     document.documentElement.dataset.resultPublic = publicResult ? '1' : '0';
+     const demoPresentation = globalThis.QuickStrokeDemoPresentation?.apply?.() === true;
+     const publicResult = isPublicResultSession() || demoPresentation;
+     document.documentElement.dataset.resultPublic = isPublicResultSession() ? '1' : '0';
      document.querySelector('meta[name="viewport"]').content = publicResult
        ? 'width=device-width, initial-scale=1.0, viewport-fit=cover'
        : 'width=device-width, initial-scale=1.0, user-scalable=no';

@@ -19,6 +19,26 @@
     {
       "before": "    b.textContent = 'Mesh: ON';",
       "after": "    b.id = 'face-mesh-toggle'; // Technical Demo presentation hook only\n    b.textContent = 'Mesh: ON';"
+    },
+    {
+      "before": "<script src=\"./js/technical-demo.js?v=20261029-demo-v1\"></script>",
+      "after": "<script src=\"./js/demo-public-presentation.js?v=20261031-v1\"></script>\n<script src=\"./js/technical-demo.js?v=20261031-demo-v2\"></script>"
+    },
+    {
+      "before": "\n  if (document.documentElement.dataset.facePublic === '1') {\n",
+      "after": "\n  if ((document.documentElement.dataset.facePublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {\n"
+    },
+    {
+      "before": "\n      document.documentElement.dataset.facePublic === '1'\n",
+      "after": "\n      (document.documentElement.dataset.facePublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)\n"
+    },
+    {
+      "before": "\nif (document.documentElement.dataset.facePublic === '1') {\n",
+      "after": "\nif ((document.documentElement.dataset.facePublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {\n"
+    },
+    {
+      "before": "    const eligible = phase === 'BEFORE_START' && !document.body.classList.contains('result-visible') &&",
+      "after": "    const eligible = (document.documentElement.dataset.facePublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true) &&\n      phase === 'BEFORE_START' && !document.body.classList.contains('result-visible') &&"
     }
   ],
   "arm-test.html": [
@@ -29,6 +49,26 @@
     {
       "before": "// ── No language landing page: start directly and keep TH/EN/JA at top-right ──",
       "after": "/* TECH DEMO ARM ADAPTER — reads the original measurement; never starts it */\nglobalThis.QuickStrokeTechnicalDemo?.register('arm', () => ({\n  phase, side:arm, current:phase === 'MEASURE' && gravityReady ? currentDrift : null,\n  maximum:phase === 'MEASURE' && gravityReady ? driftMax : null,\n  elapsed:mElapsed, sampleAt:lastSensorSampleAt, freshMs:ARM_READINESS_CFG.sampleFreshMs,\n  ready:sensorOk && gravityReady, reason:readinessInvalidReason,\n  attempt:attemptNoByArm[arm]\n}));\n/* END TECH DEMO ARM ADAPTER */\n// ── No language landing page: start directly and keep TH/EN/JA at top-right ──"
+    },
+    {
+      "before": "<script src=\"./js/technical-demo.js?v=20261029-demo-v1\"></script>",
+      "after": "<script src=\"./js/demo-public-presentation.js?v=20261031-v1\"></script>\n<script src=\"./js/technical-demo.js?v=20261031-demo-v2\"></script>"
+    },
+    {
+      "before": "\nif (document.documentElement.dataset.armPublic === '1') {\n",
+      "after": "\nif ((document.documentElement.dataset.armPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {\n"
+    },
+    {
+      "before": "\n      if (document.documentElement.dataset.armPublic === '1') {\n",
+      "after": "\n      if ((document.documentElement.dataset.armPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {\n"
+    },
+    {
+      "before": "\n  const publicCopy = document.documentElement.dataset.armPublic === '1'\n",
+      "after": "\n  const publicCopy = (document.documentElement.dataset.armPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)\n"
+    },
+    {
+      "before": "\n  if (document.documentElement.dataset.armPublic === '1')\n",
+      "after": "\n  if ((document.documentElement.dataset.armPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true))\n"
     }
   ],
   "speech-test.html": [
@@ -59,6 +99,54 @@
     {
       "before": "    recognition.onend = () => {\n",
       "after": "    recognition.onend = () => {\n      /* TECH DEMO ASR EVENT */\n      if (runId === recognitionRunId) globalThis.QuickStrokeTechnicalDemo?.speechState('Ended');\n      /* END TECH DEMO ASR EVENT */\n"
+    },
+    {
+      "before": "<script src=\"./js/technical-demo.js?v=20261029-demo-v1\"></script>",
+      "after": "<script src=\"./js/demo-public-presentation.js?v=20261031-v1\"></script>\n<script src=\"./js/technical-demo.js?v=20261031-demo-v2\"></script>"
+    },
+    {
+      "before": "\n  return document.documentElement.dataset.speechPublic === '1'\n",
+      "after": "\n  return (document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)\n"
+    },
+    {
+      "before": "\n  if (document.documentElement.dataset.speechPublic === '1') {\n",
+      "after": "\n  if ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {\n"
+    },
+    {
+      "before": "\n            : (document.documentElement.dataset.speechPublic === '1' ? speechUiText('micAccessError') : (error?.message || S.generic));\n",
+      "after": "\n            : ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true) ? speechUiText('micAccessError') : (error?.message || S.generic));\n"
+    },
+    {
+      "before": "\n            $('transcript-box').textContent = document.documentElement.dataset.speechPublic === '1'\n",
+      "after": "\n            $('transcript-box').textContent = (document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)\n"
+    },
+    {
+      "before": "\n    actionBtn.textContent = T?.languageUnavailable || (document.documentElement.dataset.speechPublic === '1'\n",
+      "after": "\n    actionBtn.textContent = T?.languageUnavailable || ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)\n"
+    },
+    {
+      "before": "// Public wording only. The engine locale object and Research/Dev text stay intact.",
+      "after": "// Display wording only. Public and engineering Demo share copy; engine locale and Research stay intact."
+    }
+  ],
+  "index.html": [
+    {
+      "before": "<script src=\"./js/dev-mode.js?v=20260801-dev-mode-v1\"></script>",
+      "after": "<script src=\"./js/dev-mode.js?v=20260801-dev-mode-v1\"></script>\n<script src=\"./js/demo-public-presentation.js?v=20261031-v1\"></script>"
+    },
+    {
+      "before": "  const ordinaryPublic = document.documentElement.dataset.qsStaffEntry === '0' &&\n    (APP_MODE?.resolveMode?.() || 'public') === 'public';",
+      "after": "  const ordinaryPublic = (document.documentElement.dataset.qsStaffEntry === '0' &&\n    (APP_MODE?.resolveMode?.() || 'public') === 'public') ||\n    globalThis.QuickStrokeDemoPresentation?.apply?.() === true;"
+    }
+  ],
+  "result.html": [
+    {
+      "before": "<script src=\"./js/dev-mode.js?v=20260801-dev-mode-v1\"></script>",
+      "after": "<script src=\"./js/dev-mode.js?v=20260801-dev-mode-v1\"></script>\n<script src=\"./js/demo-public-presentation.js?v=20261031-v1\"></script>"
+    },
+    {
+      "before": "     const publicResult = isPublicResultSession();\n     document.documentElement.dataset.resultPublic = publicResult ? '1' : '0';",
+      "after": "     const demoPresentation = globalThis.QuickStrokeDemoPresentation?.apply?.() === true;\n     const publicResult = isPublicResultSession() || demoPresentation;\n     document.documentElement.dataset.resultPublic = isPublicResultSession() ? '1' : '0';"
     }
   ]
 }

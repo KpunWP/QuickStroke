@@ -1021,7 +1021,8 @@ document.documentElement.dataset.speechPublic = publicSpeechPresentation ? '1' :
 if (publicSpeechPresentation) document.querySelector('meta[name="viewport"]').content =
   'width=device-width, initial-scale=1.0, viewport-fit=cover';
 </script>
-<script src="./js/technical-demo.js?v=20261029-demo-v1"></script>
+<script src="./js/demo-public-presentation.js?v=20261031-v1"></script>
+<script src="./js/technical-demo.js?v=20261031-demo-v2"></script>
 </head>
 <body>
 
@@ -1541,9 +1542,9 @@ function speakSpeechNative(value) {
   });
 }
 
-// Public wording only. The engine locale object and Research/Dev text stay intact.
+// Display wording only. Public and engineering Demo share copy; engine locale and Research stay intact.
 function speechUiText(key) {
-  return document.documentElement.dataset.speechPublic === '1'
+  return (document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)
     ? (T?.publicUi?.[key] ?? T?.[key] ?? '')
     : (T?.[key] ?? '');
 }
@@ -1568,7 +1569,7 @@ function updateSpeechLabels() {
   if ($('domain-quality-label')) $('domain-quality-label').textContent = L.domainQualityLabel;
   if ($('result-details-toggle')) $('result-details-toggle').textContent = L.detailsShow;
   if ($('result-details-note')) $('result-details-note').textContent = speechUiText('detailsResearchNote');
-  if (document.documentElement.dataset.speechPublic === '1') {
+  if ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {
     $('speech-status-row')?.setAttribute('aria-label', speechUiText('statusLabel'));
     $('domain-summary')?.setAttribute('aria-label', speechUiText('observationsLabel'));
     const safety = $('public-speech-safety');
@@ -2836,7 +2837,7 @@ async function ensureMicDisclosureBeforeFirstUse() {
           errorBox.style.display = 'block';
           errorBox.textContent = error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
             ? S.blockedMic
-            : (document.documentElement.dataset.speechPublic === '1' ? speechUiText('micAccessError') : (error?.message || S.generic));
+            : ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true) ? speechUiText('micAccessError') : (error?.message || S.generic));
         }
         reject(error);
       });
@@ -4434,7 +4435,7 @@ async function beginSpeechRecognition() {
         } else {
           if (isCurrentRun()) {
             queueSpeechTechnicalDiagnostic('ASR_START_RETRY_EXHAUSTED');
-            $('transcript-box').textContent = document.documentElement.dataset.speechPublic === '1'
+            $('transcript-box').textContent = (document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)
               ? speechUiText('recognitionRecovery')
               : T.listening + ' (ASR retry failed; using voice detection)';
           }
@@ -6336,7 +6337,7 @@ globalThis.QuickStrokeTechnicalDemo?.register('speech', () => ({
   const actionBtn = document.getElementById('action-btn');
   if (actionBtn) {
     actionBtn.disabled = true;
-    actionBtn.textContent = T?.languageUnavailable || (document.documentElement.dataset.speechPublic === '1'
+    actionBtn.textContent = T?.languageUnavailable || ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)
       ? ({th:'โหลดภาษาไม่ได้',en:'Language unavailable',ja:'言語を読み込めません'}[sessionStorage.getItem('fast_lang')] || 'Language unavailable')
       : 'Language unavailable');
   }
