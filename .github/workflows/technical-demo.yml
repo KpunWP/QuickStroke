@@ -1,0 +1,51 @@
+name: Technical Demo isolation and live bindings
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'result.html'
+      - 'js/demo-public-presentation.js'
+      - 'tests/fixtures/demo-public-presentation-patch.json'
+      - 'tests/fixtures/demo-home-speech-correction.json'
+      - 'tests/fixtures/demo-speech-controls-correction.json'
+      - 'face-test.html'
+      - 'arm-test.html'
+      - 'speech-test.html'
+      - 'js/technical-demo.js'
+      - 'tests/technical-demo*'
+      - 'tests/fixtures/technical-demo-patch.json'
+      - '.github/workflows/technical-demo.yml'
+permissions:
+  contents: read
+jobs:
+  technical-demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Original-source boundaries and privacy
+        run: |
+          node tests/technical-demo.mjs
+          node tests/technical-demo-presentation.mjs
+          node tests/technical-demo-home-speech.mjs
+          node tests/run-tests.mjs
+          python3 tests/check-inline-scripts.py
+      - name: Isolated browser dependency
+        run: |
+          npm install --prefix "$RUNNER_TEMP/demo-browser" --no-package-lock --ignore-scripts playwright@1.62.1
+          node "$RUNNER_TEMP/demo-browser/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Synthetic live bindings, mobile layouts, modes and offline-after-use
+        env:
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/demo-browser/node_modules/playwright
+        run: |
+          node tests/technical-demo-browser.cjs
+          node tests/technical-demo-presentation-browser.cjs
+          node tests/technical-demo-speech-status.cjs
+          node tests/technical-demo-face-values.cjs
+          node tests/technical-demo-home-speech.cjs

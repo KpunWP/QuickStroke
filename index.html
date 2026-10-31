@@ -502,6 +502,7 @@ html[data-qs-staff-entry="0"] #overview-speech:not([class*="state-"]) .public-mo
 <script src="./js/research-store.js?v=20260801-clinic-store-v1"></script>
 <script src="./js/jssf-remote-sync.js?v=20261007-audio-fallback-v2"></script>
 <script src="./js/dev-mode.js?v=20260801-dev-mode-v1"></script>
+<script src="./js/demo-public-presentation.js?v=20261031-v1"></script>
 <script src="./js/languages.js?v=20260717-lang-v1"></script>
 <script>
   // Entry-point presentation only. Research/Dev engines remain untouched.
@@ -1228,6 +1229,10 @@ function isOrdinaryPublicHome() {
 }
 
 function homeInitialLanguage() {
+  if (globalThis.QuickStrokeDemoPresentation?.enabled?.() === true) {
+    const selected = sessionStorage.getItem('fast_lang');
+    return ['th', 'en', 'ja'].includes(selected) ? selected : 'en';
+  }
   if (isOrdinaryPublicHome()) {
     if (new URLSearchParams(location.search).get('event') === 'jssf2026')
       sessionStorage.setItem('quickstroke_public_event', 'jssf2026');
@@ -1293,10 +1298,10 @@ function updateEmergencyAction() {
   if (card) {
     card.classList.remove('is-callable');
     card.removeAttribute('role'); card.removeAttribute('tabindex'); card.removeAttribute('aria-label');
-    QuickStrokeEmergency.render(card, lang, { publicCompact: isOrdinaryPublicHome(), jssfExhibition: isOrdinaryPublicHome() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });
+    QuickStrokeEmergency.render(card, lang, { publicCompact: isOrdinaryPublicHome() || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true, jssfExhibition: isOrdinaryPublicHome() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });
   }
   const disclaimer = document.querySelector('.disc-emergency-text');
-  if (disclaimer) QuickStrokeEmergency.render(disclaimer.parentElement, lang, { publicCompact: isOrdinaryPublicHome(), jssfExhibition: isOrdinaryPublicHome() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });
+  if (disclaimer) QuickStrokeEmergency.render(disclaimer.parentElement, lang, { publicCompact: isOrdinaryPublicHome() || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true, jssfExhibition: isOrdinaryPublicHome() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });
 }
 
 function activateEmergencyCard(event) {
@@ -1459,8 +1464,9 @@ function updateProgress() {
 
 
 function updatePublicHomePresentation() {
-  const ordinaryPublic = document.documentElement.dataset.qsStaffEntry === '0' &&
-    (APP_MODE?.resolveMode?.() || 'public') === 'public';
+  const ordinaryPublic = (document.documentElement.dataset.qsStaffEntry === '0' &&
+    (APP_MODE?.resolveMode?.() || 'public') === 'public') ||
+    globalThis.QuickStrokeDemoPresentation?.apply?.() === true;
   const overview = document.getElementById('public-module-overview');
   if (overview) overview.hidden = !ordinaryPublic || indOpen;
   const more = document.getElementById('public-more-options');
@@ -1516,7 +1522,8 @@ function updatePublicHomePresentation() {
   });
   const primaryLabel = document.getElementById('primary-label');
   const primaryMeta = document.getElementById('primary-meta');
-  if (screeningState.validCompleted === MODULES.length) {
+  if (screeningState.validCompleted === MODULES.length &&
+      (APP_MODE?.resolveMode?.() || 'public') === 'public') {
     primaryLabel.textContent = tr('index.publicPrimaryRestart', tr('index.primaryRestart', 'ทดสอบอีกครั้ง'));
     primaryMeta.textContent = tr('index.publicRestartSupport', tr('index.fullName', 'เริ่มครบ 3 อย่างใหม่'));
   } else if (screeningState.attemptedCount === 0) {
