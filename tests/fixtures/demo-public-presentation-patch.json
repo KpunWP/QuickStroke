@@ -75,6 +75,10 @@
     {
       "before": "technical-demo.js?v=20261031-demo-v2",
       "after": "technical-demo.js?v=20261031-demo-v3"
+    },
+    {
+      "before": "js/technical-demo.js?v=20261031-demo-v3",
+      "after": "js/technical-demo.js?v=20261031-demo-v4"
     }
   ],
   "index.html": [

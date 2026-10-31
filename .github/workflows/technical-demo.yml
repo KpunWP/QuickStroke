@@ -8,6 +8,7 @@ on:
       - 'js/demo-public-presentation.js'
       - 'tests/fixtures/demo-public-presentation-patch.json'
       - 'tests/fixtures/demo-home-speech-correction.json'
+      - 'tests/fixtures/demo-speech-controls-correction.json'
       - 'face-test.html'
       - 'arm-test.html'
       - 'speech-test.html'

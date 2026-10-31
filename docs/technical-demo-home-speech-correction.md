@@ -1,5 +1,7 @@
 # Demo Home and Speech control correction
 
+Historical record: Speech default-collapse/top-right placement below is superseded by [the owner-corrected Speech control placement](technical-demo-speech-controls-correction.md). Home changes remain accepted.
+
 Baseline: PR #131, `429b3509c20aa36a8cbe698263b53421dfacba9d`.
 Verified current Public main: `82cf095eaf47581283cdf28b789d80a48fc90268`.
 This is a Dev-only presentation correction, not a release or deployment.

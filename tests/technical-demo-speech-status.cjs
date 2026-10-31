@@ -16,7 +16,7 @@ for(const iphone of [false,true]){
  await c.addInitScript(()=>{window.__unexpectedMic=0;speechSynthesis.speak=()=>{};speechSynthesis.cancel=()=>{};navigator.mediaDevices.getUserMedia=()=>{window.__unexpectedMic++;return Promise.reject(Error('Media forbidden in synthetic test'))};});p.on('pageerror',e=>errors.push(e.message));
  async function load(mode='dev'){
   await p.goto(origin+'/seed');await p.evaluate(mode=>{sessionStorage.clear();sessionStorage.setItem('fast_lang','en');sessionStorage.setItem('quickstroke_dev_mode','1');sessionStorage.setItem('fast_session_app_mode',mode);sessionStorage.setItem('fast_session_analysis_role',mode==='dev'?'engineering_only':mode==='research'?'research_candidate':'public_ephemeral');},mode);
-  await p.goto(origin+'/speech-test.html');await p.waitForFunction(()=>!!T);if(mode==='dev'){await p.waitForSelector('#qs-technical-demo > button[aria-controls]');await p.locator('#qs-technical-demo > button[aria-controls]').click();}
+  await p.goto(origin+'/speech-test.html');await p.waitForFunction(()=>!!T);if(mode==='dev'){await p.waitForSelector('#qs-technical-demo > button[aria-controls]');assert.equal(await p.locator('#qs-technical-demo > button[aria-controls]').getAttribute('aria-expanded'),'true');}
  }
  const status=()=>p.locator('[data-metric=recognition]');const tx=()=>p.locator('[data-metric=transcript]');
  async function setup(){await load();await p.evaluate(()=>{

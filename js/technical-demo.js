@@ -177,23 +177,23 @@
       html[data-demo-presentation=face] #qs-technical-demo #face-mesh-toggle{position:static!important;inset:auto!important;grid-column:3;grid-row:1;width:48px;min-width:48px;max-width:48px;height:48px!important;padding:0!important;font-size:0!important;text-align:center;box-shadow:none}
       html[data-demo-presentation=face] #qs-technical-demo .qs-tech-fields{grid-template-columns:repeat(auto-fit,minmax(min(100%,4.5rem),1fr))}
       html[data-demo-presentation=face] #qs-technical-demo #face-mesh-toggle::after{content:'◇';font-size:1.5rem;line-height:1}
-      /* Page-anchored corner trigger scrolls away with the header: it cannot
-         cover later instructions/actions. Expanded data stays in document flow. */
-      html[data-demo-presentation=speech] #top-bar{padding-right:60px!important}
-      #qs-technical-demo[data-module=speech]{position:static}
-      #qs-technical-demo[data-module=speech]:has(>button[aria-expanded=false]){display:contents;margin:0;padding:0;border:0;background:none}
-      #qs-technical-demo[data-module=speech]>button{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:48px;height:48px;padding:0;font-size:0;text-align:center;z-index:95}
-      #qs-technical-demo[data-module=speech]>button:focus-visible{outline:3px solid var(--tech)!important;outline-offset:3px}
-      #qs-technical-demo[data-module=speech]>button::after{content:'+';font-size:1.5rem;line-height:1}
-      #qs-technical-demo[data-module=speech]>button[aria-expanded=true]::after{content:'−'}
-      #qs-technical-demo[data-module=speech] #mobile-dbg-panel{position:static!important;inset:auto!important;max-height:40svh!important;max-width:100%;box-sizing:border-box;overflow:auto}
+      /* Existing Speech controls stay at the bottom-right of the data panel,
+         in document flow: no fixed layer can cover testing or keyboard UI. */
+      #qs-technical-demo[data-module=speech] .qs-speech-controls{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:start;gap:8px;margin-top:8px;padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}
+      #qs-technical-demo[data-module=speech] .qs-speech-controls #debug-toggle,
+      #qs-technical-demo[data-module=speech] .qs-speech-controls #dev-log-tools{position:static!important;inset:auto!important;transform:none!important;margin:0!important;width:auto!important;max-width:100%!important;flex:0 1 auto}
+      #qs-technical-demo[data-module=speech] .qs-speech-controls #debug-toggle,
+      #qs-technical-demo[data-module=speech] .qs-speech-controls #dev-copy-log{min-width:48px;min-height:48px!important;width:auto!important;max-width:100%;padding:10px!important;font-size:.875rem!important;white-space:normal;overflow-wrap:anywhere}
+      #test-screen.done #qs-technical-demo[data-module=speech] #debug-toggle{display:block!important}
+      #qs-technical-demo[data-module=speech] #debug-box[style*="display: block"]{display:block!important}
+      #qs-technical-demo[data-module=speech] #debug-box,
+      #qs-technical-demo[data-module=speech] #mobile-dbg-panel{position:static!important;inset:auto!important;width:100%!important;margin:8px 0 0!important;max-height:40svh!important;max-width:100%;box-sizing:border-box;overflow:auto;overflow-wrap:anywhere}
       @media(prefers-reduced-motion:reduce){#qs-technical-demo *{transition:none!important;animation:none!important}}
     `;document.head.append(style);
     root=document.createElement('section');root.id='qs-technical-demo';root.dataset.module=name;root.lang='en';root.setAttribute('aria-label','Technical demonstration · not a diagnosis');
     toggle=document.createElement('button');toggle.type='button';toggle.setAttribute('aria-expanded','true');toggle.setAttribute('aria-controls','qs-tech-fields');toggle.textContent='Hide Technical Data';
     fields=document.createElement('div');fields.id='qs-tech-fields';fields.className='qs-tech-fields';
     root.append(toggle,fields);
-    if(name==='speech'){fields.hidden=true;toggle.setAttribute('aria-expanded','false');toggle.textContent='Show Technical Data';}
     if(name==='face') {
       fields.tabIndex=0;fields.setAttribute('role','region');fields.setAttribute('aria-label','Face technical values');
       for(const key of ['yaw','pitch','roll'])values[key]=field(key[0].toUpperCase()+key.slice(1)+' · 2D',key);
@@ -219,8 +219,12 @@
       secondary.className='qs-tech-secondary';caption.textContent='Developer tools';secondary.append(caption);root.append(secondary);
       const collect=()=>{for(const id of ['arm-dev-toggle','mobile-dbg-toggle','quickstroke-audio-test']){const button=document.getElementById(id);if(button){movedControls.push({button,parent:button.parentNode,next:button.nextSibling});secondary.append(button);}}};
       if(name==='speech'){
-        secondary.hidden=true;
+        const controls=document.createElement('div');controls.className='qs-speech-controls';root.append(controls);
         const collectSpeech=()=>{
+          for(const id of ['debug-toggle','dev-log-tools','debug-box']){
+            const element=document.getElementById(id),parent=id==='debug-box'?root:controls;
+            if(element&&!parent.contains(element)){movedControls.push({button:element,parent:element.parentNode,next:element.nextSibling});parent.append(element);}
+          }
           for(const id of ['mobile-dbg-toggle','quickstroke-audio-test','mobile-dbg-panel']){
             const button=document.getElementById(id);
             if(button&&!secondary.contains(button)){movedControls.push({button,parent:button.parentNode,next:button.nextSibling});secondary.append(button);}
@@ -231,7 +235,7 @@
         global.addEventListener('load',collectSpeech,{once:true});
       }else if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',collect,{once:true});else collect();
     }
-    toggle.addEventListener('click',()=>{fields.hidden=!fields.hidden;if(name==='speech')root.querySelector('.qs-tech-secondary').hidden=fields.hidden;toggle.setAttribute('aria-expanded',String(!fields.hidden));put(toggle,fields.hidden?'Show Technical Data':'Hide Technical Data');stop();if(!fields.hidden){tick();if(!timer)timer=setInterval(tick,200);}else if(name==='face')timer=setInterval(tick,200);});
+    toggle.addEventListener('click',()=>{fields.hidden=!fields.hidden;toggle.setAttribute('aria-expanded',String(!fields.hidden));put(toggle,fields.hidden?'Show Technical Data':'Hide Technical Data');stop();if(!fields.hidden){tick();if(!timer)timer=setInterval(tick,200);}else if(name==='face')timer=setInterval(tick,200);});
     tick();if(!timer)timer=setInterval(tick,200);
     global.addEventListener('quickstroke:dev-mode-change',disposeIfIneligible);
     global.addEventListener('quickstroke:app-mode-change',disposeIfIneligible);
