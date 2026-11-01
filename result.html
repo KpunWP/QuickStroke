@@ -2241,7 +2241,7 @@ html[data-result-public="1"] body:has(#summary-card.ok) #module-grid .module-til
      emergency.innerHTML = '';
      emergency.hidden = r.state !== 'urgent';
 
-     if (r.state === 'urgent') QuickStrokeEmergency.render(emergency, LANG, { publicCompact: isPublicResultSession(), jssfExhibition: isPublicResultSession() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });
+     if (r.state === 'urgent') QuickStrokeEmergency.render(emergency, LANG, { publicCompact: isPublicResultSession() || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true, jssfExhibition: isPublicResultSession() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });
    }
 
 
@@ -2351,7 +2351,7 @@ html[data-result-public="1"] body:has(#summary-card.ok) #module-grid .module-til
      const span = document.createElement('span');
      span.textContent = T.emergencyReminderLocal;
      el.appendChild(span);
-     QuickStrokeEmergency.render(el, LANG, { publicCompact: isPublicResultSession(), jssfExhibition: isPublicResultSession() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });
+     QuickStrokeEmergency.render(el, LANG, { publicCompact: isPublicResultSession() || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true, jssfExhibition: isPublicResultSession() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });
    }
 
    function appendTechnicalRow(grid, label, value) {

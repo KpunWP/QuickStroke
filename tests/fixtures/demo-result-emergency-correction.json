@@ -1,0 +1,12 @@
+{
+  "result.html": [
+    {
+      "before": "     if (r.state === 'urgent') QuickStrokeEmergency.render(emergency, LANG, { publicCompact: isPublicResultSession(), jssfExhibition: isPublicResultSession() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });\n",
+      "after": "     if (r.state === 'urgent') QuickStrokeEmergency.render(emergency, LANG, { publicCompact: isPublicResultSession() || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true, jssfExhibition: isPublicResultSession() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });\n"
+    },
+    {
+      "before": "     QuickStrokeEmergency.render(el, LANG, { publicCompact: isPublicResultSession(), jssfExhibition: isPublicResultSession() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });\n",
+      "after": "     QuickStrokeEmergency.render(el, LANG, { publicCompact: isPublicResultSession() || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true, jssfExhibition: isPublicResultSession() && sessionStorage.getItem('quickstroke_public_event') === 'jssf2026' });\n"
+    }
+  ]
+}
