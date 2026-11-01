@@ -17,6 +17,7 @@ on:
       - 'tests/technical-demo*'
       - 'tests/dev-speech-audio*'
       - 'tests/fixtures/dev-speech-audio-patch.json'
+      - 'tests/fixtures/dev-speech-audio-safari-revision.json'
       - 'tests/fixtures/technical-demo-patch.json'
       - '.github/workflows/technical-demo.yml'
 permissions:

@@ -1,5 +1,7 @@
 # Technical Demo Speech audio hotfix — NEEDS PHYSICAL UAT
 
+**Director rejected physical iPhone UAT of b114d8446e458f3909aea162c94fe2fcc49fb408: no audible guidance. This historical candidate is NOT APPROVED. See [the Safari revision and diagnostic protocol](dev-speech-audio-safari-revision.md).**
+
 Base: latest verified main and Production `e0e1280f142e022f1b5b17688242d35a31ccc753`.
 Branch: `fix/dev-speech-audio-guidance-20261101`. No Production deployment/merge is authorized.
 

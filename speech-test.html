@@ -1391,6 +1391,118 @@ function reportSpeechTts(code, stage, status, lang, errorCode, onceKey, delivery
   )?.catch?.(()=>{});
 }
 
+// Explicit engineering-only, in-memory audio evidence. No participant payloads.
+const DEMO_AUDIO_DEBUG_REQUESTED = new URLSearchParams(location.search).get('speechAudioDebug')==='1';
+const demoAudioEvents=[];
+const demoAudioEpoch=performance.now();
+let demoAudioDropped=0, demoVoiceProbeUtterance=null, demoAudioPanel=null, demoVoiceProbeActive=false;
+function demoAudioDebugEnabled(){return DEMO_AUDIO_DEBUG_REQUESTED && globalThis.QuickStrokeDemoPresentation?.enabled?.()===true;}
+function demoVoiceLanguages(){
+  try{return [...new Set((window.speechSynthesis?.getVoices?.()||[]).map(v=>String(v.lang||'').replace('_','-')).filter(v=>/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(v)))].sort().slice(0,24);}catch(_){return [];}
+}
+function demoAudioState(){
+  let route='unavailable';try{route=String(navigator.audioSession?.type||'unavailable');}catch(_){}
+  return {sessionMode:iosJssfContext.appMode,mode:window.QuickStrokeAppMode?.resolveMode?.(),role:window.QuickStrokeAppMode?.getAnalysisRole?.(),eligible:globalThis.QuickStrokeDemoPresentation?.enabled?.()===true,policy:DEMO_SPEECH_AUDIO,lang:T?.langCode||'pending',voices:demoVoiceLanguages(),phase,route,sessionState:String(navigator.audioSession?.state||'unavailable'),ttsSpeaking:window.speechSynthesis?.speaking===true,ttsPending:window.speechSynthesis?.pending===true,context:audioCtx?.state||'none',activation:typeof navigator.userActivation?.isActive==='boolean'?navigator.userActivation.isActive:'unavailable',stickyActivation:typeof navigator.userActivation?.hasBeenActive==='boolean'?navigator.userActivation.hasBeenActive:'unavailable',mic:hasLiveAudioTrack(streamRef),asr:recognitionStarted};
+}
+function demoAudioNote(event,result=''){
+  if(!demoAudioDebugEnabled())return;
+  if(!['engine','native_plan','native_end','native_start','native_error','countdown_end','countdown_start','prepare_recorded','count_recorded','mic_restore','probe','probe_native','probe_recorded','probe_native_error','diagnostic','voice_ready','voice_wait','voices_changed'].includes(event))return;
+  const allowed=['','ready','immediate','started','after_wait','unavailable','blocked_capture_active','tap_again_after_voice_wait','selected_voice_unavailable','voice_api_error','recording_language_unavailable','requested_in_tap','end_callback','ended','error','timeout','exception','cancelled','not_started','unsupported','visual_only','no_matching_voice','matching_voice','requested','no_start','other','canceled','interrupted','audio-busy','audio-hardware','network','synthesis-unavailable','synthesis-failed','language-unavailable','voice-unavailable','text-too-long','invalid-argument','not-allowed','ASR_ENGINE_STARTED','ASR_AUDIO_CAPTURE','ASR_AUDIO_STARTED','ASR_NO_TRANSCRIPT','ASR_START_RETRY_EXHAUSTED','ASR_UNAVAILABLE','ASR_NO_SPEECH','ASR_PERMISSION_OR_SERVICE_DENIED','ASR_NETWORK','ASR_LANGUAGE_OR_GRAMMAR','ASR_ABORTED','ASR_OTHER_ERROR','PUBLIC_SPEAKER_FIRST_MIC_RELEASED','PUBLIC_SPEAKER_FIRST_MIC_REOPENED','PUBLIC_SPEAKER_FIRST_MIC_REOPEN_FAILED','PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_TIMEOUT','PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_ERROR','MIC_PREPARATION_TIMEOUT','MIC_PREPARATION_FAILED'];
+  result=allowed.includes(result)?result:'other';
+  const s=demoAudioState();
+  demoAudioEvents.push({ms:Math.round(performance.now()-demoAudioEpoch),event,result,phase:s.phase,route:s.route,sessionState:s.sessionState,ttsSpeaking:s.ttsSpeaking,ttsPending:s.ttsPending,context:s.context,activation:s.activation,mic:s.mic,asr:s.asr});
+  if(demoAudioEvents.length>60){demoAudioEvents.shift();demoAudioDropped++;}
+  updateDemoAudioPanel();
+}
+function demoAudioProbeSafe(){return demoAudioDebugEnabled() && ['IDLE','DONE'].includes(phase) && !retryStarting && !recognition && !recognitionStarted && !hasLiveAudioTrack(streamRef) && (!audioCtx||audioCtx.state==='closed') && !iosResultMicReleasePending;}
+function updateDemoAudioPanel(){
+  if(!demoAudioPanel)return;
+  if(!demoAudioDebugEnabled()){if(demoVoiceProbeActive){try{window.speechSynthesis?.cancel?.();}catch(_){}window.QuickStrokeThaiRecorded?.stop?.();}demoAudioPanel.remove();demoAudioPanel=null;demoAudioEvents.length=0;demoAudioDropped=0;return;}
+  demoAudioPanel.querySelector('[data-voice-test]').disabled=!demoAudioProbeSafe();
+  const s=demoAudioState();
+  demoAudioPanel.querySelector('output').textContent=JSON.stringify(s)+'\n'+(demoAudioEvents.at(-1)?.event||'ready')+' · '+(demoAudioEvents.at(-1)?.result||'');
+}
+function demoAudioSummary(){if(!demoAudioDebugEnabled())return JSON.stringify({version:'safari-audio-v2',disabled:true});return JSON.stringify({version:'safari-audio-v2',state:demoAudioState(),dropped:demoAudioDropped+Math.max(0,demoAudioEvents.length-24),events:demoAudioEvents.slice(-24)});}
+async function waitForDemoSpeechVoice(timeoutMs=1500){
+  if(globalThis.QuickStrokeDemoPresentation?.enabled?.()!==true)return false;
+  const requested=String(T?.langCode||'').toLowerCase().split('-')[0];
+  const available=()=>{try{return (window.speechSynthesis?.getVoices?.()||[]).some(v=>String(v.lang||'').toLowerCase().replace('_','-').split('-')[0]===requested);}catch(_){return false;}};
+  if(available()){demoAudioNote('voice_ready','immediate');return true;}
+  demoAudioNote('voice_wait','started');
+  await new Promise(resolve=>{
+    const synth=window.speechSynthesis;let timer;
+    const finish=()=>{clearTimeout(timer);synth?.removeEventListener?.('voiceschanged',changed);resolve();};
+    const changed=()=>{if(available())finish();};
+    timer=setTimeout(finish,timeoutMs);
+    synth?.addEventListener?.('voiceschanged',changed);
+    try{synth?.resume?.();}catch(_){}
+    changed();
+  });
+  const ready=available();demoAudioNote('voice_ready',ready?'after_wait':'unavailable');return ready;
+}
+async function testDemoVoiceFromTap(){
+  if(!demoAudioProbeSafe()){demoAudioNote('probe','blocked_capture_active');return;}
+  const token=audioStartToken,action=$('action-btn'),disabled=action?.disabled;
+  const route=demoAudioPanel.querySelector('select').value;
+  let plan={voice:null};try{plan=speechCuePlan(speechCueText(),T?.langCode);}catch(_){demoAudioNote('probe','voice_api_error');}
+  if(route==='native'&&!plan.voice){
+    const ready=await waitForDemoSpeechVoice();
+    demoAudioNote('probe',ready?'tap_again_after_voice_wait':'selected_voice_unavailable');return;
+  }
+  const languageButtons=[...document.querySelectorAll('#lang-sw-fixed button')].map(button=>({button,disabled:button.disabled}));
+  demoVoiceProbeActive=true;retryStarting=true;if(action)action.disabled=true;for(const item of languageButtons)item.button.disabled=true;updateDemoAudioPanel();
+  try{
+    try{if(navigator.audioSession && 'type' in navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}
+    // No await before this playback request: it belongs to the actual tap.
+    if(route==='recorded'){
+      if(!String(T?.langCode||'').startsWith('th')){demoAudioNote('probe','recording_language_unavailable');return;}
+      const result=await window.QuickStrokeThaiRecorded?.play?.('เตรียมพูด',{timeoutMs:4000});
+      demoAudioNote('probe_recorded',result||'unavailable');
+    }else{
+      const result=await new Promise(resolve=>{
+        const synth=window.speechSynthesis;let settled=false,timer;
+        const finish=status=>{if(settled)return;settled=true;clearTimeout(timer);resolve(status);};
+        try{
+          const u=new SpeechSynthesisUtterance(speechCueText()+' '+[3,2,1].map(publicCountdownSpeechWord).join(', '));
+          demoVoiceProbeUtterance=u;u.lang=T.langCode;u.voice=plan.voice;u.rate=.92;u.volume=1;
+          u.onstart=()=>demoAudioNote('probe_native','started');u.onend=()=>{demoAudioNote('probe_native','end_callback');finish('ended');};u.onerror=event=>{demoAudioNote('probe_native_error',event?.error);finish('error');};
+          synth.cancel();synth.resume?.();demoAudioNote('probe_native','requested_in_tap');synth.speak(u);
+          timer=setTimeout(()=>{finish('timeout');try{synth.cancel();}catch(_){}},10000);
+        }catch(_){finish('exception');}
+      });
+      demoAudioNote('probe_native',result);
+    }
+  }catch(_){demoAudioNote('probe','exception');}
+  finally{
+    demoVoiceProbeActive=false;demoVoiceProbeUtterance=null;
+    try{window.speechSynthesis?.cancel?.();}catch(_){}window.QuickStrokeThaiRecorded?.stop?.();
+    retryStarting=false;if(action && token===audioStartToken)action.disabled=disabled;
+    if(token===audioStartToken)for(const item of languageButtons)item.button.disabled=item.disabled;
+    updateDemoAudioPanel();
+  }
+}
+function installDemoAudioPanel(){
+  if(!demoAudioDebugEnabled()||demoAudioPanel)return;
+  const panel=document.createElement('details');panel.id='demo-audio-evidence';panel.lang='en';panel.style.cssText='width:100%;max-width:27rem;margin:8px auto;padding:12px;box-sizing:border-box;overflow-wrap:anywhere';
+  const summary=document.createElement('summary');summary.textContent='Dev audio evidence';summary.style.minHeight='48px';panel.append(summary);
+  const note=document.createElement('p');note.textContent='Test before Start with capture inactive. Events do not prove sound was heard. Report whether you heard it.';panel.append(note);
+  const select=document.createElement('select');select.setAttribute('aria-label','Voice test route');for(const [value,label]of [['native','Selected-language native voice'],['recorded','Thai recording only']]){const o=document.createElement('option');o.value=value;o.textContent=label;select.append(o);}panel.append(select);
+  const button=document.createElement('button');button.type='button';button.dataset.voiceTest='1';button.textContent='Test Voice';button.addEventListener('click',()=>{void testDemoVoiceFromTap();});panel.append(button);
+  const copy=document.createElement('button');copy.type='button';copy.textContent='Copy audio summary';panel.append(copy);
+  const output=document.createElement('output');output.style.cssText='display:block;white-space:pre-wrap;font-size:.75rem';panel.append(output);
+  for(const e of [select,button,copy])e.style.cssText='min-width:48px;min-height:48px;max-width:100%;margin:4px;padding:8px;font:inherit';
+  copy.addEventListener('click',async()=>{const text=demoAudioSummary();try{await navigator.clipboard.writeText(text);}catch(_){let area=panel.querySelector('textarea');if(!area){area=document.createElement('textarea');area.readOnly=true;area.setAttribute('aria-label','Audio summary to copy');area.style.cssText='width:100%;min-height:120px;box-sizing:border-box';panel.append(area);}area.value=text;area.focus();area.select();}updateDemoAudioPanel();});
+  $('mid').append(panel);demoAudioPanel=panel;demoAudioNote('diagnostic','ready');
+  document.addEventListener('click',event=>{if(event.target.closest('#action-btn'))queueMicrotask(updateDemoAudioPanel);},true);
+  window.addEventListener('focus',updateDemoAudioPanel);
+  window.addEventListener('quickstroke:dev-mode-change',updateDemoAudioPanel);
+  window.addEventListener('quickstroke:app-mode-change',updateDemoAudioPanel);
+  const voicesChanged=()=>demoAudioNote('voices_changed',demoVoiceLanguages().some(lang=>lang.toLowerCase().split('-')[0]===String(T?.langCode||'').toLowerCase().split('-')[0])?'matching_voice':'no_matching_voice');
+  window.speechSynthesis?.addEventListener?.('voiceschanged',voicesChanged);
+  window.addEventListener('pagehide',()=>window.speechSynthesis?.removeEventListener?.('voiceschanged',voicesChanged),{once:true});
+  void waitForDemoSpeechVoice();
+}
+
 function speechCuePlan(value, requestedLang) {
   const voices = window.speechSynthesis?.getVoices?.() || [];
   const requested = String(requestedLang || 'th-TH');
@@ -1487,6 +1599,7 @@ function speakSpeechNative(value) {
       if (DEMO_SPEECH_AUDIO && demoCueToken === audioStartToken && status !== 'ended') {
         try { synth.cancel(); } catch (_) {}
       }
+      if(DEMO_SPEECH_AUDIO)demoAudioNote('native_end',status);
       resolve(status);
     };
     const launch = () => {
@@ -1498,6 +1611,7 @@ function speakSpeechNative(value) {
       const token = ++activeToken;
       let started = false;
       const plan = speechCuePlan(value, lang);
+      if(DEMO_SPEECH_AUDIO)demoAudioNote('native_plan',plan.voice?'matching_voice':'no_matching_voice');
       if (plan.deliveryMode === 'visual_only') {
         reportSpeechTts('TTS_UNAVAILABLE','ready','unsupported',lang,'no_fallback_voice','speech-ready-visual-only','visual_only',lang);
         done('visual_only');
@@ -1511,11 +1625,13 @@ function speakSpeechNative(value) {
       utterance.onstart = () => {
         if (token !== activeToken) return;
         started = true;
+        if(DEMO_SPEECH_AUDIO)demoAudioNote('native_start','started');
         reportSpeechTts('TTS_PLAYBACK_STARTED','ready','started',lang,undefined,'speech-ready-started-'+plan.deliveryMode,plan.deliveryMode,plan.lang);
       };
       utterance.onend = () => { if (token === activeToken) done('ended'); };
       utterance.onerror = event => {
         if (token !== activeToken) return;
+        if(DEMO_SPEECH_AUDIO)demoAudioNote('native_error',event?.error);
         const err=String(event?.error || 'unknown').replace(/[^A-Za-z0-9_.:-]/g,'_').slice(0,64);
         if (attempt < 2) setTimeout(launch, 220);
         else {
@@ -1763,6 +1879,7 @@ function asrTechnicalCode(errorCode) {
 }
 
 function queueSpeechTechnicalDiagnostic(code) {
+  if(typeof demoAudioNote==='function' && /^(ASR_|PUBLIC_SPEAKER_FIRST_|MIC_)/.test(code))demoAudioNote('engine',code);
   const remote=window.QuickStrokeJssfRemote;
   if (!remote?.queueTechnicalEvent || remote.canSync?.() !== true) return;
   const runId=speechModuleRunRecord?.moduleRunId || null;
@@ -3536,6 +3653,7 @@ async function playPublicIosUnifiedCountdown(token) {
       if(settled)return;
       settled=true;
       clearTimeout(timeLimit);
+      if(DEMO_SPEECH_AUDIO)demoAudioNote('countdown_end',result);
       resolve(result);
     };
     try {
@@ -3546,8 +3664,9 @@ async function playPublicIosUnifiedCountdown(token) {
       const short=String(u.lang).toLowerCase().split('-')[0];
       const voices=synth.getVoices?.()||[];
       u.voice=voices.find(v=>String(v?.lang||'').toLowerCase().replace('_','-').startsWith(short))||null;
-      if(DEMO_SPEECH_AUDIO && !u.voice){resolve('visual_only');return;}
+      if(DEMO_SPEECH_AUDIO && !u.voice){demoAudioNote('countdown_end','no_matching_voice');resolve('visual_only');return;}
       u.onstart=()=>{
+        if(DEMO_SPEECH_AUDIO)demoAudioNote('countdown_start','started');
         started=true;
         // Timer fallback for Safari builds that omit word onboundary events.
         setTimeout(()=>show(2),850);
@@ -3560,7 +3679,7 @@ async function playPublicIosUnifiedCountdown(token) {
         else if(n>=offsets[1])show(2);
       };
       u.onend=()=>finish('ended');
-      u.onerror=()=>finish('error');
+      u.onerror=event=>{if(DEMO_SPEECH_AUDIO)demoAudioNote('countdown_end',event?.error);finish('error');};
       // Reset only once at the beginning of the COMPLETE phrase.
       try {synth.cancel();}catch(_){}
       synth.resume?.();
@@ -3634,12 +3753,15 @@ async function playDemoSpeechReadyCues(token) {
   try {
     const recorded=window.QuickStrokeThaiRecorded;
     const thai=String(T?.langCode||'').toLowerCase().startsWith('th');
+    await waitForDemoSpeechVoice();
+    if(!live())return failed();
     const message=speechCueText();
     const recordedMessage='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้';
     const plan=speechCuePlan(message,T?.langCode);
     try {
       if(thai && plan.deliveryMode==='visual_only' && recorded?.fileFor?.(recordedMessage)) {
-        await recorded.play(recordedMessage,{timeoutMs:11000});
+        const result=await recorded.play(recordedMessage,{timeoutMs:11000});
+        demoAudioNote('prepare_recorded',result);
       } else {
         await speakSpeechCue(message);
       }
@@ -3653,7 +3775,7 @@ async function playDemoSpeechReadyCues(token) {
         if(!live()) return failed();
         $('mic-icon').textContent=String(count);
         const digitBegan=performance.now();
-        try { await recorded.play(String(count),{timeoutMs:2000}); } catch (_) {}
+        try { const result=await recorded.play(String(count),{timeoutMs:2000});demoAudioNote('count_recorded',result); } catch (_) {demoAudioNote('count_recorded','exception');}
         await sleep(Math.max(0,1000-(performance.now()-digitBegan)));
       }
     } else {
@@ -3683,9 +3805,11 @@ async function playDemoSpeechReadyCues(token) {
   // iOS/PCM routes reuse the proven post-speaker live-track/resume validation.
   if(!EXCLUSIVE_ASR_CAPTURE) {
     // Retain the existing Public speaker-first echo/route handoff margin.
+    demoAudioNote('mic_restore','requested');
     await sleep(240);
     if(!live() || !await restorePublicSpeakerFirstMic(token)) return failed();
   }
+  demoAudioNote('mic_restore',live()?'ready':'cancelled');
   return live();
 }
 
@@ -6428,6 +6552,7 @@ globalThis.QuickStrokeTechnicalDemo?.register('speech', () => ({
   const code = SPEECH_LOCALE_MAP[savedLang] ? savedLang : 'th';
 
   const ready = await selectLang(code);
+  if(typeof installDemoAudioPanel==='function')installDemoAudioPanel();
 
   if (!ready) {
     throw new Error('Speech language initialization failed');

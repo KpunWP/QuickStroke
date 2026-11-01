@@ -143,6 +143,102 @@
     {
       "before": "  if(visible && live())visible.textContent='3';\n  const status=await new Promise(resolve=>{",
       "after": "  if(visible && live())visible.textContent='3';\n  // Dev visuals must progress even when synthesis never fires onstart.\n  if(DEMO_SPEECH_AUDIO) {\n    setTimeout(()=>show(2),1000);\n    setTimeout(()=>show(1),2000);\n  }\n  const status=await new Promise(resolve=>{"
+    },
+    {
+      "before": "function speechCuePlan(value, requestedLang) {",
+      "after": "// Explicit engineering-only, in-memory audio evidence. No participant payloads.\nconst DEMO_AUDIO_DEBUG_REQUESTED = new URLSearchParams(location.search).get('speechAudioDebug')==='1';\nconst demoAudioEvents=[];\nconst demoAudioEpoch=performance.now();\nlet demoAudioDropped=0, demoVoiceProbeUtterance=null, demoAudioPanel=null, demoVoiceProbeActive=false;\nfunction demoAudioDebugEnabled(){return DEMO_AUDIO_DEBUG_REQUESTED && globalThis.QuickStrokeDemoPresentation?.enabled?.()===true;}\nfunction demoVoiceLanguages(){\n  try{return [...new Set((window.speechSynthesis?.getVoices?.()||[]).map(v=>String(v.lang||'').replace('_','-')).filter(v=>/^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(v)))].sort().slice(0,24);}catch(_){return [];}\n}\nfunction demoAudioState(){\n  let route='unavailable';try{route=String(navigator.audioSession?.type||'unavailable');}catch(_){}\n  return {sessionMode:iosJssfContext.appMode,mode:window.QuickStrokeAppMode?.resolveMode?.(),role:window.QuickStrokeAppMode?.getAnalysisRole?.(),eligible:globalThis.QuickStrokeDemoPresentation?.enabled?.()===true,policy:DEMO_SPEECH_AUDIO,lang:T?.langCode||'pending',voices:demoVoiceLanguages(),phase,route,sessionState:String(navigator.audioSession?.state||'unavailable'),ttsSpeaking:window.speechSynthesis?.speaking===true,ttsPending:window.speechSynthesis?.pending===true,context:audioCtx?.state||'none',mic:hasLiveAudioTrack(streamRef),asr:recognitionStarted};\n}\nfunction demoAudioNote(event,result=''){\n  if(!demoAudioDebugEnabled())return;\n  const s=demoAudioState();\n  demoAudioEvents.push({ms:Math.round(performance.now()-demoAudioEpoch),event,result,phase:s.phase,route:s.route,context:s.context,mic:s.mic,asr:s.asr});\n  if(demoAudioEvents.length>60){demoAudioEvents.shift();demoAudioDropped++;}\n  updateDemoAudioPanel();\n}\nfunction demoAudioProbeSafe(){return demoAudioDebugEnabled() && ['IDLE','DONE'].includes(phase) && !retryStarting && !recognition && !recognitionStarted && !hasLiveAudioTrack(streamRef) && (!audioCtx||audioCtx.state==='closed') && !iosResultMicReleasePending;}\nfunction updateDemoAudioPanel(){\n  if(!demoAudioPanel)return;\n  if(!demoAudioDebugEnabled()){if(demoVoiceProbeActive){try{window.speechSynthesis?.cancel?.();}catch(_){}window.QuickStrokeThaiRecorded?.stop?.();}demoAudioPanel.remove();demoAudioPanel=null;demoAudioEvents.length=0;demoAudioDropped=0;return;}\n  demoAudioPanel.querySelector('[data-voice-test]').disabled=!demoAudioProbeSafe();\n  const s=demoAudioState();\n  demoAudioPanel.querySelector('output').textContent=JSON.stringify(s)+'\\n'+(demoAudioEvents.at(-1)?.event||'ready')+' · '+(demoAudioEvents.at(-1)?.result||'');\n}\nfunction demoAudioSummary(){if(!demoAudioDebugEnabled())return JSON.stringify({version:'safari-audio-v2',disabled:true});return JSON.stringify({version:'safari-audio-v2',state:demoAudioState(),dropped:demoAudioDropped+Math.max(0,demoAudioEvents.length-24),events:demoAudioEvents.slice(-24)});}\nasync function waitForDemoSpeechVoice(timeoutMs=1500){\n  if(globalThis.QuickStrokeDemoPresentation?.enabled?.()!==true)return false;\n  const requested=String(T?.langCode||'').toLowerCase().split('-')[0];\n  const available=()=>{try{return (window.speechSynthesis?.getVoices?.()||[]).some(v=>String(v.lang||'').toLowerCase().replace('_','-').split('-')[0]===requested);}catch(_){return false;}};\n  if(available()){demoAudioNote('voice_ready','immediate');return true;}\n  demoAudioNote('voice_wait','started');\n  await new Promise(resolve=>{\n    const synth=window.speechSynthesis;let timer;\n    const finish=()=>{clearTimeout(timer);synth?.removeEventListener?.('voiceschanged',changed);resolve();};\n    const changed=()=>{if(available())finish();};\n    timer=setTimeout(finish,timeoutMs);\n    synth?.addEventListener?.('voiceschanged',changed);\n    try{synth?.resume?.();}catch(_){}\n    changed();\n  });\n  const ready=available();demoAudioNote('voice_ready',ready?'after_wait':'unavailable');return ready;\n}\nasync function testDemoVoiceFromTap(){\n  if(!demoAudioProbeSafe()){demoAudioNote('probe','blocked_capture_active');return;}\n  const token=audioStartToken,action=$('action-btn'),disabled=action?.disabled;\n  const route=demoAudioPanel.querySelector('select').value;\n  let plan={voice:null};try{plan=speechCuePlan(speechCueText(),T?.langCode);}catch(_){demoAudioNote('probe','voice_api_error');}\n  if(route==='native'&&!plan.voice){\n    const ready=await waitForDemoSpeechVoice();\n    demoAudioNote('probe',ready?'tap_again_after_voice_wait':'selected_voice_unavailable');return;\n  }\n  const languageButtons=[...document.querySelectorAll('#lang-sw-fixed button')].map(button=>({button,disabled:button.disabled}));\n  demoVoiceProbeActive=true;retryStarting=true;if(action)action.disabled=true;for(const item of languageButtons)item.button.disabled=true;updateDemoAudioPanel();\n  try{\n    try{if(navigator.audioSession && 'type' in navigator.audioSession)navigator.audioSession.type='playback';}catch(_){}\n    // No await before this playback request: it belongs to the actual tap.\n    if(route==='recorded'){\n      if(!String(T?.langCode||'').startsWith('th')){demoAudioNote('probe','recording_language_unavailable');return;}\n      const result=await window.QuickStrokeThaiRecorded?.play?.('เตรียมพูด',{timeoutMs:4000});\n      demoAudioNote('probe_recorded',result||'unavailable');\n    }else{\n      const result=await new Promise(resolve=>{\n        const synth=window.speechSynthesis;let settled=false,timer;\n        const finish=status=>{if(settled)return;settled=true;clearTimeout(timer);resolve(status);};\n        try{\n          const u=new SpeechSynthesisUtterance(speechCueText()+' '+[3,2,1].map(publicCountdownSpeechWord).join(', '));\n          demoVoiceProbeUtterance=u;u.lang=T.langCode;u.voice=plan.voice;u.rate=.92;u.volume=1;\n          u.onstart=()=>demoAudioNote('probe_native','started');u.onend=()=>finish('ended');u.onerror=()=>finish('error');\n          synth.cancel();synth.resume?.();demoAudioNote('probe_native','requested_in_tap');synth.speak(u);\n          timer=setTimeout(()=>{finish('timeout');try{synth.cancel();}catch(_){}},10000);\n        }catch(_){finish('exception');}\n      });\n      demoAudioNote('probe_native',result);\n    }\n  }catch(_){demoAudioNote('probe','exception');}\n  finally{\n    demoVoiceProbeActive=false;demoVoiceProbeUtterance=null;\n    try{window.speechSynthesis?.cancel?.();}catch(_){}window.QuickStrokeThaiRecorded?.stop?.();\n    retryStarting=false;if(action && token===audioStartToken)action.disabled=disabled;\n    if(token===audioStartToken)for(const item of languageButtons)item.button.disabled=item.disabled;\n    updateDemoAudioPanel();\n  }\n}\nfunction installDemoAudioPanel(){\n  if(!demoAudioDebugEnabled()||demoAudioPanel)return;\n  const panel=document.createElement('details');panel.id='demo-audio-evidence';panel.lang='en';panel.style.cssText='width:100%;max-width:27rem;margin:8px auto;padding:12px;box-sizing:border-box;overflow-wrap:anywhere';\n  const summary=document.createElement('summary');summary.textContent='Dev audio evidence';summary.style.minHeight='48px';panel.append(summary);\n  const note=document.createElement('p');note.textContent='Test before Start with capture inactive. Events do not prove sound was heard. Report whether you heard it.';panel.append(note);\n  const select=document.createElement('select');select.setAttribute('aria-label','Voice test route');for(const [value,label]of [['native','Selected-language native voice'],['recorded','Thai recording only']]){const o=document.createElement('option');o.value=value;o.textContent=label;select.append(o);}panel.append(select);\n  const button=document.createElement('button');button.type='button';button.dataset.voiceTest='1';button.textContent='Test Voice';button.addEventListener('click',()=>{void testDemoVoiceFromTap();});panel.append(button);\n  const copy=document.createElement('button');copy.type='button';copy.textContent='Copy audio summary';panel.append(copy);\n  const output=document.createElement('output');output.style.cssText='display:block;white-space:pre-wrap;font-size:.75rem';panel.append(output);\n  for(const e of [select,button,copy])e.style.cssText='min-width:48px;min-height:48px;max-width:100%;margin:4px;padding:8px;font:inherit';\n  copy.addEventListener('click',async()=>{const text=demoAudioSummary();try{await navigator.clipboard.writeText(text);}catch(_){let area=panel.querySelector('textarea');if(!area){area=document.createElement('textarea');area.readOnly=true;area.setAttribute('aria-label','Audio summary to copy');area.style.cssText='width:100%;min-height:120px;box-sizing:border-box';panel.append(area);}area.value=text;area.focus();area.select();}updateDemoAudioPanel();});\n  $('mid').append(panel);demoAudioPanel=panel;demoAudioNote('diagnostic','ready');\n  document.addEventListener('click',event=>{if(event.target.closest('#action-btn'))queueMicrotask(updateDemoAudioPanel);},true);\n  window.addEventListener('focus',updateDemoAudioPanel);\n  window.addEventListener('quickstroke:dev-mode-change',updateDemoAudioPanel);\n  window.addEventListener('quickstroke:app-mode-change',updateDemoAudioPanel);\n  const voicesChanged=()=>demoAudioNote('voices_changed',demoVoiceLanguages().some(lang=>lang.toLowerCase().split('-')[0]===String(T?.langCode||'').toLowerCase().split('-')[0])?'matching_voice':'no_matching_voice');\n  window.speechSynthesis?.addEventListener?.('voiceschanged',voicesChanged);\n  window.addEventListener('pagehide',()=>window.speechSynthesis?.removeEventListener?.('voiceschanged',voicesChanged),{once:true});\n  void waitForDemoSpeechVoice();\n}\n\nfunction speechCuePlan(value, requestedLang) {"
+    },
+    {
+      "before": "function queueSpeechTechnicalDiagnostic(code) {\n  const remote",
+      "after": "function queueSpeechTechnicalDiagnostic(code) {\n  if(typeof demoAudioNote==='function' && /^(ASR_|PUBLIC_SPEAKER_FIRST_|MIC_)/.test(code))demoAudioNote('engine',code);\n  const remote"
+    },
+    {
+      "before": "      const plan = speechCuePlan(value, lang);",
+      "after": "      const plan = speechCuePlan(value, lang);\n      if(DEMO_SPEECH_AUDIO)demoAudioNote('native_plan',plan.voice?'matching_voice':'no_matching_voice');"
+    },
+    {
+      "before": "      resolve(status);\n    };\n    const launch = () => {",
+      "after": "      if(DEMO_SPEECH_AUDIO)demoAudioNote('native_end',status);\n      resolve(status);\n    };\n    const launch = () => {"
+    },
+    {
+      "before": "        started = true;\n        reportSpeechTts(",
+      "after": "        started = true;\n        if(DEMO_SPEECH_AUDIO)demoAudioNote('native_start','started');\n        reportSpeechTts("
+    },
+    {
+      "before": "        const err=String(event?.error || 'unknown')",
+      "after": "        if(DEMO_SPEECH_AUDIO)demoAudioNote('native_error','error');\n        const err=String(event?.error || 'unknown')"
+    },
+    {
+      "before": "      clearTimeout(timeLimit);\n      resolve(result);",
+      "after": "      clearTimeout(timeLimit);\n      if(DEMO_SPEECH_AUDIO)demoAudioNote('countdown_end',result);\n      resolve(result);"
+    },
+    {
+      "before": "if(DEMO_SPEECH_AUDIO && !u.voice){resolve('visual_only');return;}",
+      "after": "if(DEMO_SPEECH_AUDIO && !u.voice){demoAudioNote('countdown_end','no_matching_voice');resolve('visual_only');return;}"
+    },
+    {
+      "before": "      u.onstart=()=>{\n        started=true;",
+      "after": "      u.onstart=()=>{\n        if(DEMO_SPEECH_AUDIO)demoAudioNote('countdown_start','started');\n        started=true;"
+    },
+    {
+      "before": "    const recorded=window.QuickStrokeThaiRecorded;\n    const thai=String(T?.langCode||'').toLowerCase().startsWith('th');\n    const message=speechCueText();",
+      "after": "    const recorded=window.QuickStrokeThaiRecorded;\n    const thai=String(T?.langCode||'').toLowerCase().startsWith('th');\n    await waitForDemoSpeechVoice();\n    if(!live())return failed();\n    const message=speechCueText();"
+    },
+    {
+      "before": "        await recorded.play(recordedMessage,{timeoutMs:11000});",
+      "after": "        const result=await recorded.play(recordedMessage,{timeoutMs:11000});\n        demoAudioNote('prepare_recorded',result);"
+    },
+    {
+      "before": "try { await recorded.play(String(count),{timeoutMs:2000}); } catch (_) {}",
+      "after": "try { const result=await recorded.play(String(count),{timeoutMs:2000});demoAudioNote('count_recorded',result); } catch (_) {demoAudioNote('count_recorded','exception');}"
+    },
+    {
+      "before": "    // Retain the existing Public speaker-first echo/route handoff margin.\n    await sleep(240);",
+      "after": "    // Retain the existing Public speaker-first echo/route handoff margin.\n    demoAudioNote('mic_restore','requested');\n    await sleep(240);"
+    },
+    {
+      "before": "  return live();\n}\n\nasync function startRecording",
+      "after": "  demoAudioNote('mic_restore',live()?'ready':'cancelled');\n  return live();\n}\n\nasync function startRecording"
+    },
+    {
+      "before": "  const ready = await selectLang(code);\n\n  if (!ready)",
+      "after": "  const ready = await selectLang(code);\n  if(typeof installDemoAudioPanel==='function')installDemoAudioPanel();\n\n  if (!ready)"
+    },
+    {
+      "before": "  const s=demoAudioState();\n  demoAudioEvents.push({ms:Math.round(performance.now()-demoAudioEpoch),event,result,",
+      "after": "  if(!['engine','native_plan','native_end','native_start','native_error','countdown_end','countdown_start','prepare_recorded','count_recorded','mic_restore','probe','probe_native','probe_recorded','probe_native_error','diagnostic','voice_ready','voice_wait','voices_changed'].includes(event))return;\n  const allowed=['','ready','immediate','started','after_wait','unavailable','blocked_capture_active','tap_again_after_voice_wait','selected_voice_unavailable','voice_api_error','recording_language_unavailable','requested_in_tap','ended','error','timeout','exception','cancelled','not_started','unsupported','visual_only','no_matching_voice','matching_voice','requested','no_start','other','canceled','interrupted','audio-busy','audio-hardware','network','synthesis-unavailable','synthesis-failed','language-unavailable','voice-unavailable','text-too-long','invalid-argument','not-allowed','ASR_ENGINE_STARTED','ASR_AUDIO_CAPTURE','ASR_AUDIO_STARTED','ASR_NO_TRANSCRIPT','ASR_START_RETRY_EXHAUSTED','ASR_UNAVAILABLE','ASR_NO_SPEECH','ASR_PERMISSION_OR_SERVICE_DENIED','ASR_NETWORK','ASR_LANGUAGE_OR_GRAMMAR','ASR_ABORTED','ASR_OTHER_ERROR','PUBLIC_SPEAKER_FIRST_MIC_RELEASED','PUBLIC_SPEAKER_FIRST_MIC_REOPENED','PUBLIC_SPEAKER_FIRST_MIC_REOPEN_FAILED','PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_TIMEOUT','PUBLIC_SPEAKER_FIRST_AUDIO_CLOSE_ERROR','MIC_PREPARATION_TIMEOUT','MIC_PREPARATION_FAILED'];\n  result=allowed.includes(result)?result:'other';\n  const s=demoAudioState();\n  demoAudioEvents.push({ms:Math.round(performance.now()-demoAudioEpoch),event,result,"
+    },
+    {
+      "before": "if(DEMO_SPEECH_AUDIO)demoAudioNote('native_error','error');",
+      "after": "if(DEMO_SPEECH_AUDIO)demoAudioNote('native_error',event?.error);"
+    },
+    {
+      "before": "u.onstart=()=>demoAudioNote('probe_native','started');u.onend=()=>finish('ended');u.onerror=()=>finish('error');",
+      "after": "u.onstart=()=>demoAudioNote('probe_native','started');u.onend=()=>finish('ended');u.onerror=event=>{demoAudioNote('probe_native_error',event?.error);finish('error');};"
+    },
+    {
+      "before": "      u.onend=()=>finish('ended');\n      u.onerror=()=>finish('error');\n      // Reset only once",
+      "after": "      u.onend=()=>finish('ended');\n      u.onerror=event=>{if(DEMO_SPEECH_AUDIO)demoAudioNote('countdown_end',event?.error);finish('error');};\n      // Reset only once"
+    },
+    {
+      "before": "'requested_in_tap','ended','error'",
+      "after": "'requested_in_tap','end_callback','ended','error'"
+    },
+    {
+      "before": "event,result,phase:s.phase,route:s.route,context:s.context,mic:s.mic,asr:s.asr",
+      "after": "event,result,phase:s.phase,route:s.route,sessionState:s.sessionState,ttsSpeaking:s.ttsSpeaking,ttsPending:s.ttsPending,context:s.context,mic:s.mic,asr:s.asr"
+    },
+    {
+      "before": "u.onstart=()=>demoAudioNote('probe_native','started');u.onend=()=>finish('ended');",
+      "after": "u.onstart=()=>demoAudioNote('probe_native','started');u.onend=()=>{demoAudioNote('probe_native','end_callback');finish('ended');};"
+    },
+    {
+      "before": "context:audioCtx?.state||'none',mic:hasLiveAudioTrack(streamRef)",
+      "after": "context:audioCtx?.state||'none',activation:typeof navigator.userActivation?.isActive==='boolean'?navigator.userActivation.isActive:'unavailable',stickyActivation:typeof navigator.userActivation?.hasBeenActive==='boolean'?navigator.userActivation.hasBeenActive:'unavailable',mic:hasLiveAudioTrack(streamRef)"
+    },
+    {
+      "before": "context:s.context,mic:s.mic,asr:s.asr",
+      "after": "context:s.context,activation:s.activation,mic:s.mic,asr:s.asr"
     }
   ],
   "index.html": [
