@@ -25,3 +25,5 @@ console.log('PASS: b114 runtime boundary, explicit strict-Dev diagnostic gate, b
 
 for(const block of source.matchAll(/<script\b[^>]*>([^]*?)<\/script>/g))if(block[1].trim())new vm.Script(block[1]);
 console.log('PASS: all inline Speech scripts parse.');
+
+const voiceContext={window:{speechSynthesis:{getVoices:()=>[...Array.from({length:40},(_,i)=>({lang:'en-X'+String(i).padStart(2,'0')})),{lang:'th-TH'}]}}};vm.createContext(voiceContext);vm.runInContext(section(source,'function demoVoiceLanguages()', 'function demoAudioState()')+'this.languages=demoVoiceLanguages();',voiceContext);assert.ok(voiceContext.languages.includes('th-TH'),'Selected-language evidence cannot disappear behind a voice-list cap');

@@ -95,6 +95,14 @@
     {
       "before": "context:s.context,mic:s.mic,asr:s.asr",
       "after": "context:s.context,activation:s.activation,mic:s.mic,asr:s.asr"
+    },
+    {
+      "before": ".sort().slice(0,24);}catch(_){return [];}",
+      "after": ".sort();}catch(_){return [];}"
+    },
+    {
+      "before": "'ended','error','timeout','exception','cancelled'",
+      "after": "'ended','error','blocked','missing','timeout','exception','cancelled'"
     }
   ]
 }
