@@ -64,7 +64,7 @@ function harness({enabled=true,muted=false}={}){
   close(){closed++;this.state='closed';return Promise.resolve();}
  }
  const ctx={
-  PUBLIC_IOS_SPEAKER_FIRST:enabled,phase:'READY_CUE',audioStartToken:9,
+  DEMO_SPEECH_AUDIO:false,PUBLIC_IOS_SPEAKER_FIRST:enabled,phase:'READY_CUE',audioStartToken:9,
   source:{disconnect:()=>{}},streamRef:oldStream,analyser:{},audioCtx:new FakeCtx(),
   navigator:{audioSession:{type:'play-and-record'},mediaDevices:{getUserMedia:async()=>{
    acquired++;return newStream;
@@ -134,7 +134,7 @@ const capturedStream={
  getTracks:()=>[{stop:()=>{}}]
 };
 const retryContext={
- PUBLIC_IOS_SPEAKER_FIRST:true,audioStartToken:12,phase:'IDLE',audioCtx:null,
+ DEMO_SPEECH_AUDIO:false,PUBLIC_IOS_SPEAKER_FIRST:true,audioStartToken:12,phase:'IDLE',audioCtx:null,
  window:{AudioContext:class FakeAudioContext{constructor(){this.state='running';createdContext=true;}},
   QuickStrokeThaiRecorded:{stop:()=>{}},speechSynthesis:{cancel:()=>{}}},
  navigator:{mediaDevices:{getUserMedia:()=>{requestedDuringTap=true;return new Promise(resolve=>{allowResolve=resolve;});}}},

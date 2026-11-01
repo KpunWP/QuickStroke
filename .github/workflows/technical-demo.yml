@@ -15,6 +15,9 @@ on:
       - 'speech-test.html'
       - 'js/technical-demo.js'
       - 'tests/technical-demo*'
+      - 'tests/dev-speech-audio*'
+      - 'tests/fixtures/dev-speech-audio-patch.json'
+      - 'tests/fixtures/dev-speech-audio-safari-revision.json'
       - 'tests/fixtures/technical-demo-patch.json'
       - '.github/workflows/technical-demo.yml'
 permissions:
@@ -36,6 +39,7 @@ jobs:
           node tests/technical-demo-presentation.mjs
           node tests/technical-demo-home-speech.mjs
           node tests/technical-demo-result-emergency.mjs
+          node tests/dev-speech-audio.mjs
           node tests/run-tests.mjs
           python3 tests/check-inline-scripts.py
       - name: Isolated browser dependency
@@ -52,3 +56,4 @@ jobs:
           node tests/technical-demo-face-values.cjs
           node tests/technical-demo-home-speech.cjs
           node tests/technical-demo-result-emergency.cjs
+          node tests/dev-speech-audio.cjs
