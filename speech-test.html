@@ -3681,7 +3681,11 @@ async function playDemoSpeechReadyCues(token) {
   if(!live()) return failed();
   // Android's existing exclusive-ASR path acquires capture in beginSpeechRecognition.
   // iOS/PCM routes reuse the proven post-speaker live-track/resume validation.
-  if(!EXCLUSIVE_ASR_CAPTURE && !await restorePublicSpeakerFirstMic(token)) return failed();
+  if(!EXCLUSIVE_ASR_CAPTURE) {
+    // Retain the existing Public speaker-first echo/route handoff margin.
+    await sleep(240);
+    if(!live() || !await restorePublicSpeakerFirstMic(token)) return failed();
+  }
   return live();
 }
 

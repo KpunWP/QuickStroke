@@ -13,11 +13,11 @@ try{for(const platform of ['iphone','android']){
  }
  async function setup(audio='ok',matching=true){await p.evaluate(({audio,matching})=>{
   window.__audioEvents=[];window.__tracks=[];window.__asrs=[];window.__overlap=[];window.__playing=false;window.__audioMode=audio;window.__matching=matching;window.__denyMic=false;window.__digits=[];
-  const log=(type,data)=>__audioEvents.push({type,data});
+  const log=(type,data)=>__audioEvents.push({type,data,at:performance.now()});
   window.__track=()=>{const t={readyState:'live',enabled:true,muted:false,kind:'audio',label:'Synthetic',stop(){this.readyState='ended';log('track-stopped')},getSettings(){return{sampleRate:48000,channelCount:1}},addEventListener(){},removeEventListener(){}};__tracks.push(t);return {getTracks:()=>[t],getAudioTracks:()=>[t]}};
   class Context{constructor(){this.state='running';this.sampleRate=48000}async close(){this.state='closed';log('context-closed')}async resume(){this.state='running';log('context-resumed')}createAnalyser(){return{fftSize:1024,frequencyBinCount:512,getByteFrequencyData(a){a.fill(2)},getByteTimeDomainData(a){a.fill(129)},smoothingTimeConstant:.2}}createMediaStreamSource(){return{connect(){},disconnect(){log('source-disconnected')}}}}
   window.AudioContext=window.webkitAudioContext=Context;
-  navigator.mediaDevices.getUserMedia=async()=>{if(__playing)__overlap.push('mic-during-output');log('getUserMedia');if(__denyMic)throw Object.assign(Error('Synthetic denial'),{name:'NotAllowedError'});return __track()};
+  navigator.mediaDevices.getUserMedia=async()=>{if(__playing)__overlap.push('mic-during-output');const quiet=__audioEvents.filter(e=>e.type==='cancel').at(-1);if(IS_IOS&&quiet&&performance.now()-quiet.at<230)__overlap.push('insufficient-speaker-handoff');log('getUserMedia');if(__denyMic)throw Object.assign(Error('Synthetic denial'),{name:'NotAllowedError'});return __track()};
   const voices=()=>__matching?[{lang:T.langCode,name:'Synthetic '+T.langCode,default:true},{lang:'zz-ZZ',name:'Wrong language'}]:[{lang:'zz-ZZ',name:'Wrong language'}];
   let active=null,timer=null;window.SpeechSynthesisUtterance=class{constructor(text){this.text=text}};
   speechSynthesis.getVoices=voices;speechSynthesis.resume=()=>{};speechSynthesis.cancel=()=>{clearTimeout(timer);const old=active;active=null;__playing=false;if(old)old.onerror?.({error:'interrupted'});log('cancel')};

@@ -17,7 +17,7 @@ Every Demo attempt follows the actual calibration-ready boundary:
 2. Existing calibration-mic close helper; no ASR active, stream or WebAudio capture survives into output.
 3. Existing localized `speechCueText()` through existing cue delivery. TH may use approved recorded preparation when native Thai is unavailable. No voice from another selected language is substituted.
 4. Existing single-utterance countdown with matching selected-language voice, avoiding three separate iOS utterances. Android without native Thai can reuse approved Thai recorded digits (bounded 2s each, existing 1s cadence). No new recordings.
-5. Native/recorded output stopped before capture. iOS/PCM uses the existing bounded post-speaker getUserMedia/live-track/unmute/AudioContext-resume helper. Android retains its existing exclusive Web Speech acquisition path.
+5. Native/recorded output stopped before capture. iOS/PCM retains the existing Public 240ms pre-capture speaker handoff margin and uses the existing bounded post-speaker getUserMedia/live-track/unmute/AudioContext-resume helper. Android retains its existing exclusive Web Speech acquisition path.
 6. Original RECORDING transition, ASR callbacks, cue-to-speak readiness and measurement logic.
 
 Dev visual timers also advance 3→2→1 if synthesis never fires onstart; the ordinary Dev minimum three-second visual window remains. The wait is bounded if synthesis hangs. Error/time-out output is cancelled; token guards prevent an older attempt cancelling a later cue. Existing stopAll also cancels Dev output on reset/exit. When a post-cue microphone failure produces an existing invalid result, Dev removes its stale countdown presentation class so the original Retry/result controls remain reachable.
