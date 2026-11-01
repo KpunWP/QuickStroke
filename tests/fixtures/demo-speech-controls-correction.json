@@ -1,0 +1,26 @@
+{
+  "js/technical-demo.js": [
+    {
+      "before": "      /* Page-anchored corner trigger scrolls away with the header: it cannot\n         cover later instructions/actions. Expanded data stays in document flow. */\n      html[data-demo-presentation=speech] #top-bar{padding-right:60px!important}\n      #qs-technical-demo[data-module=speech]{position:static}\n      #qs-technical-demo[data-module=speech]:has(>button[aria-expanded=false]){display:contents;margin:0;padding:0;border:0;background:none}\n      #qs-technical-demo[data-module=speech]>button{position:absolute;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:48px;height:48px;padding:0;font-size:0;text-align:center;z-index:95}\n      #qs-technical-demo[data-module=speech]>button:focus-visible{outline:3px solid var(--tech)!important;outline-offset:3px}\n      #qs-technical-demo[data-module=speech]>button::after{content:'+';font-size:1.5rem;line-height:1}\n      #qs-technical-demo[data-module=speech]>button[aria-expanded=true]::after{content:'−'}\n      #qs-technical-demo[data-module=speech] #mobile-dbg-panel{position:static!important;inset:auto!important;max-height:40svh!important;max-width:100%;box-sizing:border-box;overflow:auto}\n",
+      "after": "      /* Existing Speech controls stay at the bottom-right of the data panel,\n         in document flow: no fixed layer can cover testing or keyboard UI. */\n      #qs-technical-demo[data-module=speech] .qs-speech-controls{display:flex;flex-wrap:wrap;justify-content:flex-end;align-items:start;gap:8px;margin-top:8px;padding-right:env(safe-area-inset-right);padding-bottom:env(safe-area-inset-bottom)}\n      #qs-technical-demo[data-module=speech] .qs-speech-controls #debug-toggle,\n      #qs-technical-demo[data-module=speech] .qs-speech-controls #dev-log-tools{position:static!important;inset:auto!important;transform:none!important;margin:0!important;width:auto!important;max-width:100%!important;flex:0 1 auto}\n      #qs-technical-demo[data-module=speech] .qs-speech-controls #debug-toggle,\n      #qs-technical-demo[data-module=speech] .qs-speech-controls #dev-copy-log{min-width:48px;min-height:48px!important;width:auto!important;max-width:100%;padding:10px!important;font-size:.875rem!important;white-space:normal;overflow-wrap:anywhere}\n      #test-screen.done #qs-technical-demo[data-module=speech] #debug-toggle{display:block!important}\n      #qs-technical-demo[data-module=speech] #debug-box[style*=\"display: block\"]{display:block!important}\n      #qs-technical-demo[data-module=speech] #debug-box,\n      #qs-technical-demo[data-module=speech] #mobile-dbg-panel{position:static!important;inset:auto!important;width:100%!important;margin:8px 0 0!important;max-height:40svh!important;max-width:100%;box-sizing:border-box;overflow:auto;overflow-wrap:anywhere}\n"
+    },
+    {
+      "before": "    if(name==='speech'){fields.hidden=true;toggle.setAttribute('aria-expanded','false');toggle.textContent='Show Technical Data';}\n    if(name==='face') {\n",
+      "after": "    if(name==='face') {\n"
+    },
+    {
+      "before": "        secondary.hidden=true;\n        const collectSpeech=()=>{",
+      "after": "        const controls=document.createElement('div');controls.className='qs-speech-controls';root.append(controls);\n        const collectSpeech=()=>{\n          for(const id of ['debug-toggle','dev-log-tools','debug-box']){\n            const element=document.getElementById(id),parent=id==='debug-box'?root:controls;\n            if(element&&!parent.contains(element)){movedControls.push({button:element,parent:element.parentNode,next:element.nextSibling});parent.append(element);}\n          }"
+    },
+    {
+      "before": "fields.hidden=!fields.hidden;if(name==='speech')root.querySelector('.qs-tech-secondary').hidden=fields.hidden;",
+      "after": "fields.hidden=!fields.hidden;"
+    }
+  ],
+  "speech-test.html": [
+    {
+      "before": "js/technical-demo.js?v=20261031-demo-v3",
+      "after": "js/technical-demo.js?v=20261031-demo-v4"
+    }
+  ]
+}

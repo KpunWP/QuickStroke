@@ -1021,6 +1021,8 @@ document.documentElement.dataset.speechPublic = publicSpeechPresentation ? '1' :
 if (publicSpeechPresentation) document.querySelector('meta[name="viewport"]').content =
   'width=device-width, initial-scale=1.0, viewport-fit=cover';
 </script>
+<script src="./js/demo-public-presentation.js?v=20261031-v1"></script>
+<script src="./js/technical-demo.js?v=20261031-demo-v4"></script>
 </head>
 <body>
 
@@ -1540,9 +1542,9 @@ function speakSpeechNative(value) {
   });
 }
 
-// Public wording only. The engine locale object and Research/Dev text stay intact.
+// Display wording only. Public and engineering Demo share copy; engine locale and Research stay intact.
 function speechUiText(key) {
-  return document.documentElement.dataset.speechPublic === '1'
+  return (document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)
     ? (T?.publicUi?.[key] ?? T?.[key] ?? '')
     : (T?.[key] ?? '');
 }
@@ -1567,7 +1569,7 @@ function updateSpeechLabels() {
   if ($('domain-quality-label')) $('domain-quality-label').textContent = L.domainQualityLabel;
   if ($('result-details-toggle')) $('result-details-toggle').textContent = L.detailsShow;
   if ($('result-details-note')) $('result-details-note').textContent = speechUiText('detailsResearchNote');
-  if (document.documentElement.dataset.speechPublic === '1') {
+  if ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)) {
     $('speech-status-row')?.setAttribute('aria-label', speechUiText('statusLabel'));
     $('domain-summary')?.setAttribute('aria-label', speechUiText('observationsLabel'));
     const safety = $('public-speech-safety');
@@ -2835,7 +2837,7 @@ async function ensureMicDisclosureBeforeFirstUse() {
           errorBox.style.display = 'block';
           errorBox.textContent = error?.name === 'NotAllowedError' || error?.name === 'SecurityError'
             ? S.blockedMic
-            : (document.documentElement.dataset.speechPublic === '1' ? speechUiText('micAccessError') : (error?.message || S.generic));
+            : ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true) ? speechUiText('micAccessError') : (error?.message || S.generic));
         }
         reject(error);
       });
@@ -4152,6 +4154,9 @@ async function beginSpeechRecognition() {
 
     // ═══ DEBUG: event ที่บอกว่า ASR "ได้ยิน" อะไรบ้าง ═══
     recognition.onstart = () => {
+      /* TECH DEMO ASR EVENT */
+      if (runId === recognitionRunId) globalThis.QuickStrokeTechnicalDemo?.speechState('Started');
+      /* END TECH DEMO ASR EVENT */
       queueSpeechTechnicalDiagnostic('ASR_ENGINE_STARTED');
       DBG('ASR onstart', 'engine เริ่มทำงานแล้ว');
       appendAsrObservation('start');
@@ -4169,12 +4174,18 @@ async function beginSpeechRecognition() {
       }, (ANDROID_JSSF_SPEECH_CUES || PUBLIC_IOS_SPEAKER_FIRST) ? 4500 : 900);
     };
     recognition.onaudiostart = () => {
+      /* TECH DEMO ASR EVENT */
+      if (runId === recognitionRunId) globalThis.QuickStrokeTechnicalDemo?.speechState('Capturing audio');
+      /* END TECH DEMO ASR EVENT */
       queueSpeechTechnicalDiagnostic('ASR_AUDIO_STARTED');
       DBG('ASR onaudiostart', '🎤 engine เริ่มรับ audio แล้ว');
       appendAsrObservation('audio_start');
       markSpeechRecognitionReady('audio_start');
     };
     recognition.onaudioend = () => {
+      /* TECH DEMO ASR EVENT */
+      if (runId === recognitionRunId) globalThis.QuickStrokeTechnicalDemo?.speechState('Audio ended');
+      /* END TECH DEMO ASR EVENT */
       DBG('ASR onaudioend', 'engine หยุดรับ audio');
       appendAsrObservation('audio_end');
     };
@@ -4322,6 +4333,9 @@ async function beginSpeechRecognition() {
         $('transcript-box').textContent = `"${bestTranscript}"`;
       }
 
+      /* TECH DEMO SPEECH RESULT — actual browser output only */
+      if (isCurrentRun()) globalThis.QuickStrokeTechnicalDemo?.speechResult(bestTranscript);
+      /* END TECH DEMO SPEECH RESULT */
       const hasFinal = ordered.some(item => item.isFinal);
       if (hasFinal) asrFinalReceived = true;
       appendAsrObservation('result', {
@@ -4363,6 +4377,9 @@ async function beginSpeechRecognition() {
     };
 
     recognition.onend = () => {
+      /* TECH DEMO ASR EVENT */
+      if (runId === recognitionRunId) globalThis.QuickStrokeTechnicalDemo?.speechState('Ended');
+      /* END TECH DEMO ASR EVENT */
       appendAsrObservation('end', { transcript: bestTranscript || '' });
       DBG('ASR onend', `bestTranscript="${bestTranscript}" isCurrentRun=${isCurrentRun()}`);
       if (!isCurrentRun()) return;
@@ -4418,7 +4435,7 @@ async function beginSpeechRecognition() {
         } else {
           if (isCurrentRun()) {
             queueSpeechTechnicalDiagnostic('ASR_START_RETRY_EXHAUSTED');
-            $('transcript-box').textContent = document.documentElement.dataset.speechPublic === '1'
+            $('transcript-box').textContent = (document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)
               ? speechUiText('recognitionRecovery')
               : T.listening + ' (ASR retry failed; using voice detection)';
           }
@@ -6295,6 +6312,15 @@ function handleFastFlow(riskLevel) {
 }
 
 
+/* TECH DEMO SPEECH ADAPTER */
+globalThis.QuickStrokeTechnicalDemo?.register('speech', () => ({
+  phase, target:T?.target || '', run:speechModuleStartedAtMs, attempt:speechAttemptNo,
+  mic:hasLiveAudioTrack(streamRef) ? 'Active local track' : 'No local track',
+  recognition:!(window.SpeechRecognition || window.webkitSpeechRecognition) ? 'Unavailable' :
+    lastAsrErrorCode ? 'Error: ' + lastAsrErrorCode : recognitionStarted ? 'Requested' : 'Not active',
+  match:document.getElementById('domain-phrase-status')?.textContent || ''
+}));
+/* END TECH DEMO SPEECH ADAPTER */
 // ── No language landing page: start directly and keep TH/EN/JA at top-right ──
 (async function initSpeechLanguage() {
   const savedLang = sessionStorage.getItem('fast_lang') || 'th';
@@ -6311,7 +6337,7 @@ function handleFastFlow(riskLevel) {
   const actionBtn = document.getElementById('action-btn');
   if (actionBtn) {
     actionBtn.disabled = true;
-    actionBtn.textContent = T?.languageUnavailable || (document.documentElement.dataset.speechPublic === '1'
+    actionBtn.textContent = T?.languageUnavailable || ((document.documentElement.dataset.speechPublic === '1' || globalThis.QuickStrokeDemoPresentation?.enabled?.() === true)
       ? ({th:'โหลดภาษาไม่ได้',en:'Language unavailable',ja:'言語を読み込めません'}[sessionStorage.getItem('fast_lang')] || 'Language unavailable')
       : 'Language unavailable');
   }
