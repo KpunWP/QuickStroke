@@ -4,9 +4,10 @@ import assert from 'node:assert/strict';
 function beforeResultCorrection(text,file){
  for(const op of [...(JSON.parse(fs.readFileSync('tests/fixtures/demo-result-emergency-correction.json','utf8'))[file]||[])].reverse()){assert.equal(text.split(op.after).length,2);text=text.replace(op.after,op.before);}return text;
 }
+function beforeDevAudio(text,file){for(const op of [...(JSON.parse(fs.readFileSync('tests/fixtures/dev-speech-audio-patch.json','utf8'))[file]||[])].reverse()){assert.equal(text.split(op.after).length,2);text=text.replace(op.after,op.before);}return text;}
 const plan=JSON.parse(fs.readFileSync('tests/fixtures/demo-home-speech-correction.json','utf8'));
 for(const [file,ops]of Object.entries(plan)){
- let source=fs.readFileSync(file,'utf8');
+ let source=beforeDevAudio(fs.readFileSync(file,'utf8'),file);
  for(const op of [...(JSON.parse(fs.readFileSync('tests/fixtures/demo-speech-controls-correction.json','utf8'))[file]||[])].reverse()){assert.equal(source.split(op.after).length,2);source=source.replace(op.after,op.before);}
  for(const op of [...ops].reverse()){assert.equal(source.split(op.after).length,2,file+' exact correction');source=source.replace(op.after,op.before);}
  assert.equal(source,cp.execFileSync('git',['show','429b3509c20aa36a8cbe698263b53421dfacba9d:'+file],{encoding:'utf8'}),file+' every other engine/audio/value/navigation byte unchanged');
@@ -16,7 +17,7 @@ console.log('PASS: Home display initialization/emergency and Speech presentation
 const controls=JSON.parse(fs.readFileSync('tests/fixtures/demo-speech-controls-correction.json','utf8'));
 assert.deepEqual(Object.keys(controls).sort(),['js/technical-demo.js','speech-test.html']);
 for(const [file,ops] of Object.entries(controls)){
- let source=fs.readFileSync(file,'utf8');
+ let source=beforeDevAudio(fs.readFileSync(file,'utf8'),file);
  for(const op of [...ops].reverse()){assert.equal(source.split(op.after).length,2,file+' exact control-only correction');source=source.replace(op.after,op.before);}
  assert.equal(source,cp.execFileSync('git',['show','1e83ea333ac8b0776e5664dea8c0c36ca1c3feec:'+file],{encoding:'utf8'}),file+' scalar/ASR/audio/Retry functions unchanged');
 }

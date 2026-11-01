@@ -1,0 +1,53 @@
+// Real Speech ready-cue orchestration, calibration loop, ASR callbacks and UI dispatch.
+// Synthetic media/voices only. External requests blocked; never opens hardware.
+const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright'),root=path.resolve(__dirname,'..');
+const server=http.createServer((q,s)=>{try{let n=new URL(q.url,'http://localhost').pathname;if(n==='/seed'){s.setHeader('Content-Type','text/html');return s.end('<!doctype html>')}s.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.json':'application/json','.css':'text/css'})[path.extname(n)]||'application/octet-stream');s.end(fs.readFileSync(path.join(root,n)))}catch{s.statusCode=404;s.end()}});
+(async()=>{await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port,b=await chromium.launch({executablePath:process.env.CHROMIUM_PATH,args:['--no-sandbox']});let attempts=0,fallbacks=0;const errors=[];
+try{for(const platform of ['iphone','android']){
+ const c=await b.newContext({serviceWorkers:'block',userAgent:platform==='iphone'?'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1':'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36'}),p=await c.newPage();p.setDefaultTimeout(20000);
+ await c.route('**/*',r=>new URL(r.request().url()).origin===origin?r.continue():r.abort());p.on('pageerror',e=>errors.push(e.message));
+ await c.addInitScript(()=>{navigator.mediaDevices.getUserMedia=async()=>{throw Error('Unexpected real acquisition boundary')};speechSynthesis.speak=()=>{};speechSynthesis.cancel=()=>{};});
+ async function load(lang,flow='full',mode='dev'){
+  await p.goto(origin+'/seed');await p.evaluate(({lang,flow,mode})=>{sessionStorage.clear();localStorage.clear();sessionStorage.setItem('fast_lang',lang);sessionStorage.setItem('fast_mode',flow);sessionStorage.setItem('fast_session_app_mode',mode);sessionStorage.setItem('fast_session_analysis_role',mode==='dev'?'engineering_only':mode==='research'?'research_candidate':'public_ephemeral');sessionStorage.setItem('quickstroke_dev_mode','1')},{lang,flow,mode});await p.goto(origin+'/speech-test.html');await p.waitForFunction(()=>!!T);
+ }
+ async function setup(audio='ok',matching=true){await p.evaluate(({audio,matching})=>{
+  window.__audioEvents=[];window.__tracks=[];window.__asrs=[];window.__overlap=[];window.__playing=false;window.__audioMode=audio;window.__matching=matching;window.__denyMic=false;window.__digits=[];
+  const log=(type,data)=>__audioEvents.push({type,data});
+  window.__track=()=>{const t={readyState:'live',enabled:true,muted:false,kind:'audio',label:'Synthetic',stop(){this.readyState='ended';log('track-stopped')},getSettings(){return{sampleRate:48000,channelCount:1}},addEventListener(){},removeEventListener(){}};__tracks.push(t);return {getTracks:()=>[t],getAudioTracks:()=>[t]}};
+  class Context{constructor(){this.state='running';this.sampleRate=48000}async close(){this.state='closed';log('context-closed')}async resume(){this.state='running';log('context-resumed')}createAnalyser(){return{fftSize:1024,frequencyBinCount:512,getByteFrequencyData(a){a.fill(2)},getByteTimeDomainData(a){a.fill(129)},smoothingTimeConstant:.2}}createMediaStreamSource(){return{connect(){},disconnect(){log('source-disconnected')}}}}
+  window.AudioContext=window.webkitAudioContext=Context;
+  navigator.mediaDevices.getUserMedia=async()=>{if(__playing)__overlap.push('mic-during-output');log('getUserMedia');if(__denyMic)throw Object.assign(Error('Synthetic denial'),{name:'NotAllowedError'});return __track()};
+  const voices=()=>__matching?[{lang:T.langCode,name:'Synthetic '+T.langCode,default:true},{lang:'zz-ZZ',name:'Wrong language'}]:[{lang:'zz-ZZ',name:'Wrong language'}];
+  let active=null,timer=null;window.SpeechSynthesisUtterance=class{constructor(text){this.text=text}};
+  speechSynthesis.getVoices=voices;speechSynthesis.resume=()=>{};speechSynthesis.cancel=()=>{clearTimeout(timer);const old=active;active=null;__playing=false;if(old)old.onerror?.({error:'interrupted'});log('cancel')};
+  speechSynthesis.speak=u=>{if(recognitionStarted||__tracks.some(t=>t.readyState==='live'))__overlap.push('output-during-capture');assertVoice(u);active=u;__playing=true;log('speak',{text:u.text,lang:u.lang,voice:u.voice?.lang});if(__audioMode==='timeout')return;if(__audioMode==='error'){timer=setTimeout(()=>{__playing=false;active=null;u.onerror?.({error:'synthesis-failed'})},10);return;}queueMicrotask(()=>u.onstart?.());timer=setTimeout(()=>{__playing=false;active=null;u.onend?.()},40)};
+  function assertVoice(u){if(!u.voice||u.voice.lang.split('-')[0]!==T.langCode.split('-')[0])__overlap.push('wrong-language')}
+  window.QuickStrokeThaiRecorded={isConsentedJssf:()=>false,use:()=>IS_ANDROID&&!__matching,fileFor:text=>text==='เตรียมพูดตามข้อความบนหน้าจอ รอจนขึ้นว่าเริ่มพูดได้'?'speech_01_instr.mp3':/^[123]$/.test(text)?'common_'+text+'.mp3':null,stop(){__playing=false;log('record-stop')},async play(text){if(recognitionStarted||__tracks.some(t=>t.readyState==='live'))__overlap.push('recorded-during-capture');log('recorded',text);__playing=true;await new Promise(r=>setTimeout(r,40));__playing=false;return __audioMode==='error'?'error':'ended'}};
+  window.SpeechRecognition=window.webkitSpeechRecognition=class{constructor(){__asrs.push(this)}start(){if(__playing)__overlap.push('asr-during-output');log('asr-start');queueMicrotask(()=>{this.onstart?.();this.onaudiostart?.()})}stop(){this.onend?.()}abort(){this.onend?.()}};
+  primeSpeechCue=()=>{throw Error('Demo must not prime audio over capture')};ensureMicDisclosureBeforeFirstUse=async()=>null;
+  // Substitute only the capture/permission boundary. Actual runLoop calibration,
+  // speaker close/reopen helpers, countdown and beginSpeechRecognition are exercised.
+  startRecording=async()=>{await stopAll(IS_IOS?false:true);__digits=[];audioStartToken++;speechAttemptNo++;recognitionStarted=false;if(!streamRef?.getAudioTracks().some(t=>t.readyState==='live'))streamRef=__track();if(!audioCtx||audioCtx.state==='closed')audioCtx=new Context();analyser=analyser||audioCtx.createAnalyser();source=source||audioCtx.createMediaStreamSource(streamRef);phase='CALIBRATING';pipelineReadyMs=performance.now()-2000;sawRealSignal=true;calibStartMs=performance.now()-CALIBRATION_MS-1;noiseFrames=Array(25).fill(.001);micSignalNoiseFrames=Array(25).fill(.01);calibrationWarmupFrameCount=0;recordingStartedMs=null;drawWave=()=>{};runLoop()};
+  new MutationObserver(()=>__digits.push(document.getElementById('mic-icon').textContent)).observe(document.getElementById('mic-icon'),{childList:true,subtree:true,characterData:true});
+  document.getElementById('test-screen').style.display='flex';phase='IDLE';document.getElementById('action-btn').disabled=false;
+ },{audio,matching});}
+ async function attempt(){await p.locator('#action-btn').click();await p.waitForFunction(()=>phase==='RECORDING'&&recognitionStarted);await p.evaluate(()=>{if(__playing)__overlap.push('capture-after-unfinished-audio')});assert.deepEqual(await p.evaluate(()=>__overlap),[]);for(const digit of ['3','2','1'])assert.ok(await p.evaluate(d=>__digits.includes(d),digit),'Visual '+digit);assert.equal(await p.evaluate(()=>QuickStrokeAppMode.resolveMode()),'dev');await p.evaluate(async()=>{phase='DONE';await stopAll(false);document.getElementById('action-btn').disabled=false});}
+ for(const lang of ['th','en','ja']){
+  await load(lang,lang==='th'?'individual':'full');await setup();assert.equal(await p.evaluate(()=>DEMO_SPEECH_AUDIO),true);
+  for(let n=0;n<4;n++){await attempt();attempts++;}
+  const utterances=await p.evaluate(()=>__audioEvents.filter(e=>e.type==='speak').map(e=>e.data));assert.equal(utterances.length,8);assert.equal(utterances.filter(u=>u.text.includes(', ')).length,4);assert.equal(await p.evaluate(()=>__asrs.length),4);
+ }
+ for(const lang of ['th','en','ja'])for(const audio of ['ok','error']){
+  await load(lang,'individual');await setup(audio,audio==='error');await attempt();fallbacks++;if(audio==='ok')assert.equal(await p.evaluate(()=>__audioEvents.filter(e=>e.type==='speak').length),0);if(lang==='th'&&audio==='ok')assert.ok(await p.evaluate(()=>__audioEvents.some(e=>e.type==='recorded')));
+ }
+ await load('en');await setup('timeout');await attempt();fallbacks++;
+ await load('ja');await setup();await p.evaluate(()=>speechSynthesis.getVoices=()=>{throw Error('Synthetic voice API unavailable')});await attempt();fallbacks++;
+ if(platform==='iphone'){
+  await load('en');await setup();await p.evaluate(()=>__denyMic=true);await p.locator('#action-btn').click();await p.waitForFunction(()=>phase==='DONE');assert.equal(await p.evaluate(()=>__asrs.length),0);assert.deepEqual(await p.evaluate(()=>__overlap),[]);await p.waitForFunction(()=>!iosResultMicReleasePending);await p.evaluate(()=>{__denyMic=false;document.getElementById('action-btn').disabled=false});await attempt();fallbacks++;
+ }
+ for(const mode of ['public','research']){await load('en','full',mode);assert.equal(await p.evaluate(()=>DEMO_SPEECH_AUDIO),false)}
+ await c.close();
+}
+assert.deepEqual(errors,[]);console.log(JSON.stringify({pass:true,initialPlusThreeRetries:attempts,fallbackAndRecovery:fallbacks,TH_EN_JA:true,noPlaybackCaptureOverlap:true,noWrongLanguage:true,realCalibrationAndReadyBranch:true,syntheticChromiumOnly:true,errors},null,2));
+}finally{await b.close();server.close()}})().catch(e=>{console.error(e);server.close();process.exitCode=1});
